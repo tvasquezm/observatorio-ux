@@ -1,36 +1,29 @@
 name: Observatorio UX - CI Gate
 
-# Se ejecuta automáticamente en cada Pull Request apuntando a la rama main
 on:
   pull_request:
     branches: [ main ]
 
 jobs:
-  auditoria-técnica:
-    name: Validación de Código y Contratos Zod
+  auditoria-tecnica:
+    name: Validacion de Codigo y Contratos Zod
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Descargar el código del repositorio
-      - name: Checkout del código
+      - name: Checkout del codigo
         uses: actions/checkout@v4
 
-      # 2. Preparar Node.js 20 con caché de dependencias para que corra en segundos
       - name: Configurar Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
 
-      # 3. Instalación limpia de dependencias (respetando los Workspaces)
-      - name: Instalar dependencias (npm ci)
+      - name: Instalar dependencias
         run: npm ci
 
-      # 4. PASO CRÍTICO: Compilar primero los contratos compartidos (shared-types)
-      # Si esto falla, significa que alguien rompió un esquema de Zod
-      - name: Compilar contratos compartidos
+      - name: Compilar contratos compartidos (shared-types)
         run: npm run build --workspace=packages/shared-types
 
-      # 5. Verificar validación de tipos en todo el monorepo (Frontend y Backend)
-      - name: Verificación de tipos (Type-checking)
+      - name: Verificacion de tipos en todo el monorepo
         run: npm run build --workspaces
