@@ -1,0 +1,8 @@
+{
+  "name": "observatorrio-ux-monorepo",
+  "private": false, 
+  "workspaces" [
+    "apps/*",
+    "packages/*"
+  ]
+}
