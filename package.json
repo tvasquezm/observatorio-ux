@@ -1,8 +1,17 @@
 {
-  "name": "observatorrio-ux-monorepo",
-  "private": false, 
-  "workspaces" [
+  "name": "observatorio-ux-monorepo",
+  "private": false,
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "workspaces": [
     "apps/*",
     "packages/*"
-  ]
+  ],
+  "scripts": {
+    "dev:frontend": "npm run dev --workspace=apps/frontend",
+    "dev:backend": "npm run start:dev --workspace=apps/backend",
+    "build:shared": "npm run build --workspace=packages/shared-types",
+    "build:all": "npm run build --workspaces"
+  }
 }
