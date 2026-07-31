@@ -1,6 +1,6 @@
 {
   "name": "observatorio-ux-monorepo",
-  "private": false,
+  "private": true,
   "engines": {
     "node": ">=20.0.0"
   },

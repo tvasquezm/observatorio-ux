@@ -1,0 +1,155 @@
+// ============================================================
+// OBSERVATORIO UX — schema.prisma (Kit de Arranque)
+// Refleja el ADR Master: modelo dual, bloqueo pesimista, consentimiento.
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Rol {
+  ESTUDIANTE
+  DOCENTE
+  ADMIN
+}
+
+enum TipoSesion {
+  CARD_SORTING
+  EVALUACION_HEURISTICA
+}
+
+enum EstadoSesion {
+  INVITADO
+  EN_PROGRESO
+  COMPLETADO
+  ABANDONADO
+}
+
+enum ActorSesion {
+  PARTICIPANTE
+  EVALUADOR
+}
+
+enum TipoArtefacto {
+  PERSONA
+  JOURNEY_MAP
+  MOMENTOS_CRITICOS
+}
+
+// ------------------------------------------------------------
+// NÚCLEO
+// ------------------------------------------------------------
+
+model Proyecto {
+  id          String   @id @default(uuid())
+  nombre      String
+  descripcion String?
+  creadoPor   Usuario  @relation("ProyectosCreados", fields: [creadoPorId], references: [id])
+  creadoPorId String
+  createdAt   DateTime @default(now())
+
+  sesiones   ResearchSession[]
+  artefactos UxArtifact[]
+
+  @@map("proyectos")
+}
+
+model Usuario {
+  id        String   @id @default(uuid())
+  nombre    String
+  email     String   @unique
+  rol       Rol
+  createdAt DateTime @default(now())
+
+  proyectosCreados  Proyecto[]        @relation("ProyectosCreados")
+  sesionesEvaluador ResearchSession[] @relation("SesionesComoEvaluador")
+  artefactosAutor   UxArtifact[]      @relation("ArtefactosComoAutor")
+
+  @@map("usuarios")
+}
+
+model Participante {
+  id        String   @id @default(uuid())
+  metadata  Json? // datos demográficos opcionales, anonimizables sin perder sesiones
+  createdAt DateTime @default(now())
+
+  consentimientos Consentimiento[]
+  sesiones        ResearchSession[] @relation("SesionesComoParticipante")
+
+  @@map("participantes")
+}
+
+// Consentimiento informado — registro explícito, requisito ético y de
+// trazabilidad. ipRegistro NUNCA se exporta (ver ADR sección 6).
+model Consentimiento {
+  id             String       @id @default(uuid())
+  participante   Participante @relation(fields: [participanteId], references: [id])
+  participanteId String
+  proyectoId     String
+  aceptado       Boolean
+  version        String
+  ipRegistro     String?
+  createdAt      DateTime     @default(now())
+
+  @@map("consentimientos")
+}
+
+// ------------------------------------------------------------
+// GRUPO A — ResearchSession (transaccional)
+// ------------------------------------------------------------
+
+model ResearchSession {
+  id         String       @id @default(uuid())
+  proyecto   Proyecto     @relation(fields: [proyectoId], references: [id])
+  proyectoId String
+  tipo       TipoSesion
+  estado     EstadoSesion @default(INVITADO)
+
+  // Actor mutuamente excluyente — reforzado con CHECK constraint SQL
+  // en una migración aparte (ver migration.sql en el ADR Master).
+  actor          ActorSesion
+  participante   Participante? @relation("SesionesComoParticipante", fields: [participanteId], references: [id])
+  participanteId String?
+  evaluador      Usuario?      @relation("SesionesComoEvaluador", fields: [evaluadorId], references: [id])
+  evaluadorId    String?
+
+  resultado Json? // wrapper Zod completo, validado en la capa de aplicación
+
+  createdAt    DateTime  @default(now())
+  completadoAt DateTime?
+
+  @@index([proyectoId, tipo])
+  @@map("research_sessions")
+}
+
+// ------------------------------------------------------------
+// GRUPO B — UxArtifact (versionado append-only + bloqueo pesimista)
+// ------------------------------------------------------------
+
+model UxArtifact {
+  id                String        @id @default(uuid())
+  proyecto          Proyecto      @relation(fields: [proyectoId], references: [id])
+  proyectoId        String
+  tipo              TipoArtefacto
+  artefactoLogicoId String // agrupa todas las versiones del "mismo" documento
+  version           Int           @default(1)
+  contenido         Json
+
+  autor   Usuario @relation("ArtefactosComoAutor", fields: [autorId], references: [id])
+  autorId String
+
+  createdAt DateTime @default(now())
+
+  // Bloqueo pesimista con TTL — sin Redis, sin tabla adicional.
+  // Un lockedUntil vencido se trata como bloqueo libre (ver ADR sección 5).
+  lockedById  String?
+  lockedUntil DateTime?
+
+  @@index([artefactoLogicoId, version])
+  @@map("ux_artifacts")
+}
