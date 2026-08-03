@@ -4,7 +4,7 @@ import { Module } from '@nestjs/common';
 import { EvaluacionHeuristicaController } from './evaluacion-heuristica/evaluacion-heuristica.controller';
 import { EvaluacionHeuristicaService } from './evaluacion-heuristica/evaluacion-heuristica.service';
 import { CardSortingModule } from './card-sorting/card-sorting.module';
-
+import { DatabaseModule } from '../../core/database/database.module';
 @Module({
   imports: [CardSortingModule],
   controllers: [EvaluacionHeuristicaController],

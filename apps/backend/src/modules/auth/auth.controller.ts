@@ -9,11 +9,10 @@ export class AuthController {
   @Get('test-token')
   getTestToken() {
     const payload = { 
-      // ¡Ahora usamos tu ID real de la base de datos!
-      sub: '62848df5-2560-4a28-a303-43b0af2b65a2', 
-      email: 'tester@observatorioux.com', 
-      rol: 'PARTICIPANTE' 
-    };
+  sub: 'c702fdcf-ff14-4e49-bcdf-620f1738bb04', 
+  email: 'evaluador@observatorioux.com', 
+  rol: 'DOCENTE' 
+};
     
     return {
       access_token: this.jwtService.sign(payload),

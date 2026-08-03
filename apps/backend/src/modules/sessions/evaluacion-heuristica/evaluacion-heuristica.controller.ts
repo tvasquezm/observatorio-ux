@@ -1,4 +1,4 @@
-// Ubicación: src/modules/evaluacion-heuristica/evaluacion-heuristica.controller.ts
+// Ubicación: src/modules/sessions/evaluacion-heuristica/evaluacion-heuristica.controller.ts
 
 import {
   Body,
@@ -8,75 +8,63 @@ import {
   Patch,
   Post,
   UseGuards,
+  BadRequestException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-
 import { JwtAuthGuard } from '../../../core/guards/jwt-auth.guard';
-// import { RolesGuard } from '../../../core/guards/roles.guard';
-// import { Roles } from '../../../core/decorators/roles.decorator';
-// import { CurrentUser } from '../../../core/decorators/current-user.decorator';
-// import { Rol } from '@prisma/client';
-
+import { CurrentUser } from '../../../core/decorators/current-user.decorator'; // <-- Importamos el decorador
 import { EvaluacionHeuristicaService } from './evaluacion-heuristica.service';
+import { HeuristicaDto } from './dto/heuristica.dto';
 
 @ApiTags('evaluacion-heuristica')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
-// @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('proyectos/:proyectoId/evaluacion-heuristica/sesiones')
 export class EvaluacionHeuristicaController {
   constructor(private readonly heuristicaService: EvaluacionHeuristicaService) {}
 
   @Post()
-  // @Roles(Rol.ESTUDIANTE, Rol.DOCENTE, Rol.ADMIN)
   @ApiOperation({ summary: 'Abre una nueva sesión de evaluación heurística' })
-  crear(@Param('proyectoId') proyectoId: string) {
-    return this.heuristicaService.crearSesion(
-      proyectoId,
-      'usuario-temporal', // TODO: Reemplazar con @CurrentUser()
-    );
+  crear(
+    @Param('proyectoId') proyectoId: string,
+    @CurrentUser() usuario: any, 
+  ) {
+    // Imprimimos en consola qué nos está entregando el decorador
+    console.log('Objeto usuario detectado:', usuario); 
+    
+    // El ? evita que explote. Si no hay ID, mandamos un error claro en vez de un 500
+    if (!usuario?.id) {
+      throw new BadRequestException('No se pudo extraer el ID del usuario desde el token.');
+    }
+
+    return this.heuristicaService.crearSesion(proyectoId, usuario.id);
   }
 
   @Patch(':sesionId/hallazgos')
-  // @Roles(Rol.ESTUDIANTE, Rol.DOCENTE, Rol.ADMIN)
   @ApiOperation({ summary: 'Registra o actualiza un problema de usabilidad' })
   actualizarParcial(
     @Param('sesionId') sesionId: string,
-    @Body() body: any, // TODO: Crear y usar un DTO (ej: RegistrarHallazgoDto)
+    @Body() body: HeuristicaDto,
+    @CurrentUser() usuario: any,
   ) {
-    return this.heuristicaService.registrarHallazgo(
-      sesionId,
-      body,
-      {
-        id: 'usuario-temporal',
-        rol: 'ESTUDIANTE',
-      },
-    );
+    return this.heuristicaService.registrarHallazgo(sesionId, body, usuario);
   }
 
   @Post(':sesionId/finalizar')
-  // @Roles(Rol.ESTUDIANTE, Rol.DOCENTE, Rol.ADMIN)
   @ApiOperation({ summary: 'Finaliza la sesión de evaluación' })
-  finalizar(@Param('sesionId') sesionId: string) {
-    return this.heuristicaService.finalizarSesion(
-      sesionId,
-      {
-        id: 'usuario-temporal',
-        rol: 'ESTUDIANTE',
-      },
-    );
+  finalizar(
+    @Param('sesionId') sesionId: string,
+    @CurrentUser() usuario: any,
+  ) {
+    return this.heuristicaService.finalizarSesion(sesionId, usuario);
   }
 
   @Get(':sesionId')
-  // @Roles(Rol.ESTUDIANTE, Rol.DOCENTE, Rol.ADMIN)
   @ApiOperation({ summary: 'Obtiene el detalle y hallazgos de una sesión' })
-  obtener(@Param('sesionId') sesionId: string) {
-    return this.heuristicaService.obtenerSesion(
-      sesionId,
-      {
-        id: 'usuario-temporal',
-        rol: 'ESTUDIANTE',
-      },
-    );
+  obtener(
+    @Param('sesionId') sesionId: string,
+    @CurrentUser() usuario: any,
+  ) {
+    return this.heuristicaService.obtenerSesion(sesionId, usuario);
   }
 }

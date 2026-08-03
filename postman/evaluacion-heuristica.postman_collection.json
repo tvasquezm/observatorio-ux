@@ -1,0 +1,204 @@
+{
+	"info": {
+		"_postman_id": "c1a2b3c4-d5e6-7f8g-9h0i-j1k2l3m4n5o6",
+		"name": "Tesis - Evaluación Heurística",
+		"description": "Colección completa para probar el flujo de Evaluación Heurística en el Observatorio UX.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Crear Sesión de Evaluación",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"var jsonData = pm.response.json();",
+							"if (jsonData && jsonData.id) {",
+							"    pm.collectionVariables.set(\"sesionId\", jsonData.id);",
+							"    console.log(\"ID de sesión guardado: \" + jsonData.id);",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/proyectos/{{proyectoId}}/evaluacion-heuristica/sesiones",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"proyectos",
+						"{{proyectoId}}",
+						"evaluacion-heuristica",
+						"sesiones"
+					]
+				},
+				"description": "Inicia una nueva sesión de evaluación. El ID generado se guarda automáticamente en las variables."
+			},
+			"response": []
+		},
+		{
+			"name": "2. Registrar Hallazgo (Válido)",
+			"request": {
+				"method": "PATCH",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"heuristicaId\": \"H4\",\n  \"severidad\": 3,\n  \"descripcion\": \"El usuario no encuentra el botón de retroceso en el flujo de pago, lo que rompe el estándar de control y libertad.\",\n  \"evidencia\": \"https://link-a-tu-captura.com/error-pago.png\",\n  \"recomendacion\": \"Agregar un botón secundario visible en la esquina superior izquierda.\"\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/proyectos/{{proyectoId}}/evaluacion-heuristica/sesiones/{{sesionId}}/hallazgos",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"proyectos",
+						"{{proyectoId}}",
+						"evaluacion-heuristica",
+						"sesiones",
+						"{{sesionId}}",
+						"hallazgos"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "3. Registrar Hallazgo (Error 400 - Para probar DTO)",
+			"request": {
+				"method": "PATCH",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"severidad\": 5,\n  \"descripcion\": \"\"\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/proyectos/{{proyectoId}}/evaluacion-heuristica/sesiones/{{sesionId}}/hallazgos",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"proyectos",
+						"{{proyectoId}}",
+						"evaluacion-heuristica",
+						"sesiones",
+						"{{sesionId}}",
+						"hallazgos"
+					]
+				},
+				"description": "Falla intencionalmente: Severidad mayor a 4, sin heurística y descripción vacía para disparar las alertas de class-validator."
+			},
+			"response": []
+		},
+		{
+			"name": "4. Obtener Sesión",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/proyectos/{{proyectoId}}/evaluacion-heuristica/sesiones/{{sesionId}}",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"proyectos",
+						"{{proyectoId}}",
+						"evaluacion-heuristica",
+						"sesiones",
+						"{{sesionId}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "5. Finalizar Sesión",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/proyectos/{{proyectoId}}/evaluacion-heuristica/sesiones/{{sesionId}}/finalizar",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"proyectos",
+						"{{proyectoId}}",
+						"evaluacion-heuristica",
+						"sesiones",
+						"{{sesionId}}",
+						"finalizar"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{token}}",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:3000/api",
+			"type": "string"
+		},
+		{
+			"key": "token",
+			"value": "tu_token_jwt_aqui",
+			"type": "string"
+		},
+		{
+			"key": "proyectoId",
+			"value": "uuid_de_tu_proyecto_aqui",
+			"type": "string"
+		},
+		{
+			"key": "sesionId",
+			"value": "",
+			"type": "string"
+		}
+	]
+}
