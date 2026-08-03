@@ -1,5 +1,5 @@
 // ============================================================
-// OBSERVATORIO UX — schema.prisma (Kit de Arranque)
+// OBSERVATORIO UX — schema.prisma (Kit de Arranque + 3FN Card Sorting)
 // Refleja el ADR Master: modelo dual, bloqueo pesimista, consentimiento.
 // ============================================================
 
@@ -41,6 +41,11 @@ enum TipoArtefacto {
   MOMENTOS_CRITICOS
 }
 
+enum TipoCardSorting {
+  ABIERTO
+  CERRADO
+}
+
 // ------------------------------------------------------------
 // NÚCLEO
 // ------------------------------------------------------------
@@ -80,12 +85,12 @@ model Participante {
 
   consentimientos Consentimiento[]
   sesiones        ResearchSession[] @relation("SesionesComoParticipante")
+  categoriasCreadas Category[]
 
   @@map("participantes")
 }
 
-// Consentimiento informado — registro explícito, requisito ético y de
-// trazabilidad. ipRegistro NUNCA se exporta (ver ADR sección 6).
+// Consentimiento informado
 model Consentimiento {
   id             String       @id @default(uuid())
   participante   Participante @relation(fields: [participanteId], references: [id])
@@ -110,21 +115,86 @@ model ResearchSession {
   tipo       TipoSesion
   estado     EstadoSesion @default(INVITADO)
 
-  // Actor mutuamente excluyente — reforzado con CHECK constraint SQL
-  // en una migración aparte (ver migration.sql en el ADR Master).
   actor          ActorSesion
   participante   Participante? @relation("SesionesComoParticipante", fields: [participanteId], references: [id])
   participanteId String?
   evaluador      Usuario?      @relation("SesionesComoEvaluador", fields: [evaluadorId], references: [id])
   evaluadorId    String?
 
-  resultado Json? // wrapper Zod completo, validado en la capa de aplicación
+  resultado Json? 
+
+  // --- NUEVO: 3FN CARD SORTING ---
+  tipoCardSorting TipoCardSorting?
+
+  // Auto-relación Evaluador -> Participante
+  estudio   ResearchSession?  @relation("EstudioParticipantes", fields: [estudioId], references: [id])
+  estudioId String?
+  participantesDeEsteEstudio ResearchSession[] @relation("EstudioParticipantes")
+
+  cardsDefinidas       Card[]         @relation("SessionCards")
+  categoriasDefinidas  Category[]     @relation("SessionCategories")
+  agrupaciones         CardGrouping[] @relation("ParticipantGroupings")
 
   createdAt    DateTime  @default(now())
   completadoAt DateTime?
 
   @@index([proyectoId, tipo])
+  @@index([estudioId])
   @@map("research_sessions")
+}
+
+// ------------------------------------------------------------
+// MODELOS CARD SORTING (3FN)
+// ------------------------------------------------------------
+
+model Card {
+  id        String          @id @default(uuid())
+  session   ResearchSession @relation("SessionCards", fields: [sessionId], references: [id])
+  sessionId String
+  etiqueta  String
+  createdAt DateTime        @default(now())
+
+  agrupaciones CardGrouping[]
+
+  @@index([sessionId])
+  @@map("cards")
+}
+
+model Category {
+  id        String          @id @default(uuid())
+  session   ResearchSession @relation("SessionCategories", fields: [sessionId], references: [id])
+  sessionId String
+  nombre    String
+
+  esPredefinida Boolean @default(true)
+
+  creadaPorParticipante   Participante? @relation(fields: [creadaPorParticipanteId], references: [id])
+  creadaPorParticipanteId String?
+
+  createdAt DateTime @default(now())
+
+  agrupaciones CardGrouping[]
+
+  @@index([sessionId])
+  @@map("categories")
+}
+
+model CardGrouping {
+  id                   String          @id @default(uuid())
+  participanteSesion   ResearchSession @relation("ParticipantGroupings", fields: [participanteSesionId], references: [id])
+  participanteSesionId String
+
+  card   Card   @relation(fields: [cardId], references: [id])
+  cardId String
+
+  category   Category @relation(fields: [categoryId], references: [id])
+  categoryId String
+
+  createdAt DateTime @default(now())
+
+  @@unique([participanteSesionId, cardId])
+  @@index([categoryId, participanteSesionId])
+  @@map("card_groupings")
 }
 
 // ------------------------------------------------------------
@@ -136,7 +206,7 @@ model UxArtifact {
   proyecto          Proyecto      @relation(fields: [proyectoId], references: [id])
   proyectoId        String
   tipo              TipoArtefacto
-  artefactoLogicoId String // agrupa todas las versiones del "mismo" documento
+  artefactoLogicoId String 
   version           Int           @default(1)
   contenido         Json
 
@@ -145,16 +215,9 @@ model UxArtifact {
 
   createdAt DateTime @default(now())
 
-  // Bloqueo pesimista con TTL — sin Redis, sin tabla adicional.
-  // Un lockedUntil vencido se trata como bloqueo libre (ver ADR sección 5).
   lockedById  String?
   lockedUntil DateTime?
 
-  // Garantía física: nunca pueden coexistir dos filas con el mismo
-  // (artefactoLogicoId, version). Cierra a nivel de DB cualquier
-  // condición de carrera o bug de aplicación que intente duplicar
-  // una versión, independientemente de si pasó o no por el lock
-  // pesimista de ArtifactsService.
   @@unique([artefactoLogicoId, version])
   @@map("ux_artifacts")
 }
