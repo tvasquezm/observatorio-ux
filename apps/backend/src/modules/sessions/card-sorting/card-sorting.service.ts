@@ -10,7 +10,7 @@ import {
   ActorSesion,
   TipoCardSorting,
 } from '@prisma/client';
-import { PrismaService } from '../../core/database/prisma.service';
+import { PrismaService } from '../../../core/database/prisma.service';
 
 export type Grupo = {
   categoriaId?: string;

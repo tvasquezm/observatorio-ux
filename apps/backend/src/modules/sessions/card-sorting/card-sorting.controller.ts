@@ -6,9 +6,9 @@ import {
 } from './dto/card-sorting.dto';
 
 // Importaciones corregidas apuntando a src/auth/
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { AuthenticatedUser } from '../auth/types/authenticated-user.interface';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { AuthenticatedUser } from '../../auth/types/authenticated-user.interface';
 @Controller('card-sorting/sessions')
 export class CardSortingController {
   constructor(private readonly cardSortingService: CardSortingService) {}

@@ -8,7 +8,6 @@ import jwtConfig from './core/config/jwt.config';
 import { envValidationSchema } from './core/config/env.validation';
 
 import { SessionsModule } from './modules/sessions/sessions.module';
-import { CardSortingModule } from './modules/card-sorting/card-sorting.module';
 // 1. Importa el módulo de autenticación
 import { AuthModule } from './modules/auth/auth.module';
 
@@ -22,7 +21,6 @@ import { AuthModule } from './modules/auth/auth.module';
 
     DatabaseModule,
     SessionsModule,
-    CardSortingModule,
     
     // 2. Regístralo aquí para que proteja toda tu app
     AuthModule,
