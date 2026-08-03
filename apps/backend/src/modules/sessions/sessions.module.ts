@@ -1,11 +1,13 @@
+// src/modules/sessions/sessions.module.ts
+
 import { Module } from '@nestjs/common';
-import { SessionsController } from './evaluacion-heuristica/sessions.controller';
-import { SessionsService } from './evaluacion-heuristica/sessions.service';
+import { EvaluacionHeuristicaController } from './evaluacion-heuristica/evaluacion-heuristica.controller';
+import { EvaluacionHeuristicaService } from './evaluacion-heuristica/evaluacion-heuristica.service';
 import { CardSortingModule } from './card-sorting/card-sorting.module';
 
 @Module({
   imports: [CardSortingModule],
-  controllers: [SessionsController],
-  providers: [SessionsService],
+  controllers: [EvaluacionHeuristicaController],
+  providers: [EvaluacionHeuristicaService],
 })
 export class SessionsModule {}

@@ -1,3 +1,5 @@
+// Ubicación: src/modules/evaluacion-heuristica/evaluacion-heuristica.controller.ts
+
 import {
   Body,
   Controller,
@@ -11,44 +13,38 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { JwtAuthGuard } from '../../../core/guards/jwt-auth.guard';
 // import { RolesGuard } from '../../../core/guards/roles.guard';
-
 // import { Roles } from '../../../core/decorators/roles.decorator';
 // import { CurrentUser } from '../../../core/decorators/current-user.decorator';
+// import { Rol } from '@prisma/client';
 
-//import { Rol } from '@prisma/client';
-
-import { SessionsService } from './sessions.service';
+import { EvaluacionHeuristicaService } from './evaluacion-heuristica.service';
 
 @ApiTags('evaluacion-heuristica')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 // @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('proyectos/:proyectoId/evaluacion-heuristica/sesiones')
-export class SessionsController {
-  constructor(private readonly service: SessionsService) {}
+export class EvaluacionHeuristicaController {
+  constructor(private readonly heuristicaService: EvaluacionHeuristicaService) {}
 
   @Post()
   // @Roles(Rol.ESTUDIANTE, Rol.DOCENTE, Rol.ADMIN)
-  @ApiOperation({
-    summary: 'Abre una nueva sesión de evaluación heurística',
-  })
+  @ApiOperation({ summary: 'Abre una nueva sesión de evaluación heurística' })
   crear(@Param('proyectoId') proyectoId: string) {
-    return this.service.crearSesion(
+    return this.heuristicaService.crearSesion(
       proyectoId,
-      'usuario-temporal',
+      'usuario-temporal', // TODO: Reemplazar con @CurrentUser()
     );
   }
 
-  @Patch(':sesionId')
+  @Patch(':sesionId/hallazgos')
   // @Roles(Rol.ESTUDIANTE, Rol.DOCENTE, Rol.ADMIN)
-  @ApiOperation({
-    summary: 'Autoguardado parcial',
-  })
+  @ApiOperation({ summary: 'Registra o actualiza un problema de usabilidad' })
   actualizarParcial(
     @Param('sesionId') sesionId: string,
-    @Body() body: unknown,
+    @Body() body: any, // TODO: Crear y usar un DTO (ej: RegistrarHallazgoDto)
   ) {
-    return this.service.actualizarParcial(
+    return this.heuristicaService.registrarHallazgo(
       sesionId,
       body,
       {
@@ -60,13 +56,9 @@ export class SessionsController {
 
   @Post(':sesionId/finalizar')
   // @Roles(Rol.ESTUDIANTE, Rol.DOCENTE, Rol.ADMIN)
-  @ApiOperation({
-    summary: 'Finaliza una sesión',
-  })
-  finalizar(
-    @Param('sesionId') sesionId: string,
-  ) {
-    return this.service.finalizar(
+  @ApiOperation({ summary: 'Finaliza la sesión de evaluación' })
+  finalizar(@Param('sesionId') sesionId: string) {
+    return this.heuristicaService.finalizarSesion(
       sesionId,
       {
         id: 'usuario-temporal',
@@ -77,13 +69,9 @@ export class SessionsController {
 
   @Get(':sesionId')
   // @Roles(Rol.ESTUDIANTE, Rol.DOCENTE, Rol.ADMIN)
-  @ApiOperation({
-    summary: 'Obtiene una sesión',
-  })
-  obtener(
-    @Param('sesionId') sesionId: string,
-  ) {
-    return this.service.obtenerSesion(
+  @ApiOperation({ summary: 'Obtiene el detalle y hallazgos de una sesión' })
+  obtener(@Param('sesionId') sesionId: string) {
+    return this.heuristicaService.obtenerSesion(
       sesionId,
       {
         id: 'usuario-temporal',
