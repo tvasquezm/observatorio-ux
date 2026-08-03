@@ -1,25 +1,60 @@
-import { createZodDto } from 'nestjs-zod';
-import { z } from 'zod';
+import { 
+  IsString, 
+  IsUUID, 
+  IsOptional, 
+  IsArray, 
+  ValidateNested, 
+  IsEnum 
+} from 'class-validator';
+import { Type } from 'class-transformer';
 
-const createSessionSchema = z.object({
-  proyectoId: z.string().uuid(),
-  tipo: z.enum(['ABIERTO', 'CERRADO']).optional(),
-  tarjetas: z.array(z.object({ etiqueta: z.string() })),
-  categorias: z.array(z.object({ nombre: z.string() })).optional().default([]),
-});
+class TarjetaDto {
+  @IsString()
+  etiqueta!: string;
+}
 
-const joinSessionSchema = z.object({
-  participanteId: z.string().uuid(),
-});
+class CategoriaDto {
+  @IsString()
+  nombre!: string;
+}
 
-const submitResultSchema = z.object({
-  grupos: z.array(
-    z.object({
-      categoriaNombre: z.string(),
-      cardIds: z.array(z.string().uuid()),
-    })
-  ),
-});
-export class CreateCardSortingSessionDto extends createZodDto(createSessionSchema) {}
-export class JoinCardSortingSessionDto extends createZodDto(joinSessionSchema) {}
-export class SubmitCardSortingResultDto extends createZodDto(submitResultSchema) {}
+export class CreateCardSortingSessionDto {
+  @IsUUID()
+  proyectoId!: string;
+
+  @IsOptional()
+  @IsEnum(['ABIERTO', 'CERRADO'])
+  tipo?: 'ABIERTO' | 'CERRADO';
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => TarjetaDto)
+  tarjetas!: TarjetaDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CategoriaDto)
+  categorias?: CategoriaDto[] = [];
+}
+
+export class JoinCardSortingSessionDto {
+  @IsUUID()
+  participanteId!: string;
+}
+
+class GrupoDto {
+  @IsString()
+  categoriaNombre!: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  cardIds!: string[];
+}
+
+export class SubmitCardSortingResultDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => GrupoDto)
+  grupos!: GrupoDto[];
+}
