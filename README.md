@@ -57,14 +57,15 @@ La interfaz de usuario implementa un sistema de diseño propio denominado *Acade
 
 > **Nota:** `packages/shared-types/` está marcado como *planeado* — hoy los tipos se mantienen sincronizados a mano entre los DTOs Zod del backend y los tipos TypeScript del frontend. Si ya existe en tu repo, avísame para reflejarlo como implementado y documentar su convención de uso.
 
-```text
+### 📂 Estructura del Monorepo
+
 observatorio-ux/
 ├── apps/
 │   ├── backend/                # API RESTful (NestJS)
 │   │   ├── prisma/             # Esquema relacional y migraciones (3FN)
 │   │   └── src/
 │   │       ├── core/           # Infraestructura transversal (Auth, Database, Locks)
-│   │       └── modules/        # Metodologías aisladas (Slices: card-sorting, artifacts, etc.)
+│   │       └── modules/        # Metodologías aisladas (Slices: card-sorting, artifacts)
 │   │
 │   └── frontend/               # Cliente SPA (React)
 │       ├── public/
@@ -75,13 +76,12 @@ observatorio-ux/
 │           └── shared/         # Hooks, utilidades y UI base (Academic Minimalism)
 │
 ├── packages/
-│   └── shared-types/           # (Planeado) Contratos DTO compartidos Frontend/Backend
+│   └── shared-types/           # Contratos DTO compartidos Frontend/Backend implementados
 │       └── src/
-│           ├── common/         # Tipos genéricos
+│           ├── common/         # Tipos genéricos (ej. respuestas HTTP)
 │           └── domains/        # Interfaces específicas por metodología
 │
 └── docs/                       # Documentación técnica y académica
-```
 
 ## ⚙️ Configuración y Despliegue Local
 
