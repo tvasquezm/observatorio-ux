@@ -8,6 +8,8 @@ import jwtConfig from './core/config/jwt.config';
 import { envValidationSchema } from './core/config/env.validation';
 
 import { SessionsModule } from './modules/sessions/sessions.module';
+// 1. Importa tu nuevo módulo de Card Sorting
+import { CardSortingModule } from './modules/card-sorting/card-sorting.module';
 
 @Module({
   imports: [
@@ -18,8 +20,10 @@ import { SessionsModule } from './modules/sessions/sessions.module';
     }),
 
     DatabaseModule,
-
     SessionsModule,
+    
+    // 2. Regístralo aquí
+    CardSortingModule,
   ],
 })
 export class AppModule {}

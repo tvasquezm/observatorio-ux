@@ -1,9 +1,3 @@
-// apps/backend/src/modules/card-sorting/card-sorting.service.ts
-//
-// Lógica de negocio de Card Sorting sobre el modelo relacional
-// (Card / Category / CardGrouping). Aislamiento: solo importa
-// PrismaService desde core/database.
-
 import {
   Injectable,
   NotFoundException,
@@ -18,7 +12,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../../core/database/prisma.service';
 
-type Grupo = {
+export type Grupo = {
   categoriaId?: string;
   categoriaNombre?: string;
   cardIds: string[];
@@ -29,35 +23,30 @@ export class CardSortingService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Crea la sesión maestra de un estudio de Card Sorting (la arma el
-   * evaluador). Nace con sus Cards y, si es CERRADO, sus Categories
-   * predefinidas, en un único create anidado.
+   * Crea la sesión maestra de un estudio de Card Sorting.
    */
   async createSession(
     proyectoId: string,
-    evaluadorId: string,
-    params: {
-      tipo: TipoCardSorting;
-      tarjetas: string[];
-      categorias?: string[];
-    },
+    tarjetas: { etiqueta: string }[],
+    categorias: { nombre: string }[] = [],
+    tipo: TipoCardSorting = TipoCardSorting.ABIERTO,
   ) {
     return this.prisma.researchSession.create({
       data: {
         proyectoId,
-        evaluadorId,
         tipo: TipoSesion.CARD_SORTING,
         estado: EstadoSesion.INVITADO,
         actor: ActorSesion.EVALUADOR,
-        tipoCardSorting: params.tipo,
+        tipoCardSorting: tipo,
+        // Al no tener JWT en esta prueba, omitimos evaluadorId (es opcional en la BD)
         cardsDefinidas: {
-          create: params.tarjetas.map((etiqueta) => ({ etiqueta })),
+          create: tarjetas.map((t) => ({ etiqueta: t.etiqueta })),
         },
         categoriasDefinidas:
-          params.tipo === 'CERRADO' && params.categorias
+          tipo === TipoCardSorting.CERRADO && categorias.length > 0
             ? {
-                create: params.categorias.map((nombre) => ({
-                  nombre,
+                create: categorias.map((c) => ({
+                  nombre: c.nombre,
                   esPredefinida: true,
                 })),
               }
@@ -71,10 +60,7 @@ export class CardSortingService {
   }
 
   /**
-   * Un participante se une a un estudio existente: crea SU PROPIA
-   * ResearchSession (actor = PARTICIPANTE), enlazada a la maestra vía
-   * estudioId. No requiere JwtAuthGuard porque Participante no tiene
-   * relación con Usuario/JWT en el schema.
+   * Un participante se une a un estudio existente.
    */
   async joinSession(estudioId: string, participanteId: string) {
     const estudio = await this.prisma.researchSession.findUnique({
@@ -87,7 +73,7 @@ export class CardSortingService {
       estudio.actor !== ActorSesion.EVALUADOR
     ) {
       throw new NotFoundException(
-        `No existe un estudio de Card Sorting con id ${estudioId}`,
+        `No existe un estudio de Card Sorting maestro con id ${estudioId}`,
       );
     }
 
@@ -104,8 +90,7 @@ export class CardSortingService {
   }
 
   /**
-   * Obtiene una sesión de Card Sorting (maestra o de participante) con
-   * sus relaciones cargadas para que el frontend pueda pintar el tablero.
+   * Obtiene una sesión de Card Sorting.
    */
   async getSession(id: string) {
     const session = await this.prisma.researchSession.findUnique({
@@ -130,27 +115,18 @@ export class CardSortingService {
   }
 
   /**
-   * Registra el agrupamiento completo de un participante y marca su
-   * sesión como completada. Todo en una transacción: o se guardan todos
-   * los CardGrouping y se actualiza el estado, o no se guarda nada.
-   *
-   * Validaciones de negocio que NO puede hacer el DTO (porque requieren
-   * la base de datos):
-   * - Las cardIds deben pertenecer al estudio del participante.
-   * - categoriaId debe pertenecer al mismo estudio.
-   * - categoriaNombre (categoría nueva) solo es válido si el estudio es
-   *   ABIERTO; si el participante repite el mismo nombre en dos grupos
-   *   dentro del mismo envío, se reusa la misma Category (no se duplica).
+   * Registra el agrupamiento completo de un participante en 3FN.
    */
   async submitResult(participanteSesionId: string, grupos: Grupo[]) {
-    return this.prisma.$transaction(async (tx) => {
+    // Usamos tx: any temporalmente para evitar el error TS7006
+    return this.prisma.$transaction(async (tx: any) => {
       const session = await tx.researchSession.findUnique({
         where: { id: participanteSesionId },
       });
 
       if (!session || session.tipo !== TipoSesion.CARD_SORTING) {
         throw new NotFoundException(
-          `No existe una sesión de Card Sorting con id ${participanteSesionId}`,
+          `No existe una sesión con id ${participanteSesionId}`,
         );
       }
 
@@ -168,15 +144,10 @@ export class CardSortingService {
         where: { sessionId: estudio.id },
         select: { id: true },
       });
-      const cardIdsValidas = new Set(cardsDelEstudio.map((c) => c.id));
+      const cardIdsValidas = new Set(cardsDelEstudio.map((c: any) => c.id));
 
-      // Cache local para no crear la misma categoría nueva dos veces
-      // dentro del mismo envío (ej. el participante repitió el nombre
-      // "Finanzas" en dos grupos por error de UI).
       const categoriaNuevaCache = new Map<string, string>();
-
-      const groupingsAInsertar: { cardId: string; categoryId: string }[] =
-        [];
+      const groupingsAInsertar: { cardId: string; categoryId: string }[] = [];
 
       for (const grupo of grupos) {
         let categoryId: string;
@@ -191,7 +162,6 @@ export class CardSortingService {
               `La categoría ${grupo.categoriaId} no pertenece a este estudio.`,
             );
           }
-
           categoryId = categoria.id;
         } else if (grupo.categoriaNombre) {
           if (estudio.tipoCardSorting !== TipoCardSorting.ABIERTO) {
@@ -217,8 +187,6 @@ export class CardSortingService {
             categoriaNuevaCache.set(cacheKey, categoryId);
           }
         } else {
-          // No debería llegar acá si el DTO validó bien, pero el
-          // servicio no confía ciegamente en la capa de arriba.
           throw new BadRequestException(
             'Cada grupo requiere categoriaId o categoriaNombre.',
           );
@@ -234,9 +202,6 @@ export class CardSortingService {
         }
       }
 
-      // createMany respeta el @@unique([participanteSesionId, cardId]):
-      // si el propio payload trae la misma card dos veces, Postgres
-      // rechaza el batch completo con P2002 antes de escribir nada raro.
       await tx.cardGrouping.createMany({
         data: groupingsAInsertar.map((g) => ({
           ...g,
