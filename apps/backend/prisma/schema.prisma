@@ -150,6 +150,11 @@ model UxArtifact {
   lockedById  String?
   lockedUntil DateTime?
 
-  @@index([artefactoLogicoId, version])
+  // Garantía física: nunca pueden coexistir dos filas con el mismo
+  // (artefactoLogicoId, version). Cierra a nivel de DB cualquier
+  // condición de carrera o bug de aplicación que intente duplicar
+  // una versión, independientemente de si pasó o no por el lock
+  // pesimista de ArtifactsService.
+  @@unique([artefactoLogicoId, version])
   @@map("ux_artifacts")
 }

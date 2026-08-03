@@ -1,65 +1,14 @@
-# docker-compose.yml — plano base (ADR Master, sección 8)
-# Frontend NO incluido a propósito (se despliega estático en Vercel/
-# Cloudflare Pages para producción). Para desarrollo local con frontend
-# + hot-reload, usar un docker-compose.override.yml separado.
-# Nginx pospuesto hasta confirmar escenario de servidor con TI-UTEM.
-
 services:
-  postgres:
+  db:
     image: postgres:16-alpine
-    restart: unless-stopped
     ports:
-    - "5432:5432"
+      - "5434:5432"
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-observatorio}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB:-observatorio_ux}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: observatorio_ux
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    networks:
-      - observatorio-net
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-observatorio}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 512M
-
-  backend:
-    build:
-      context: .
-      dockerfile: apps/backend/Dockerfile
-      target: production
-    restart: unless-stopped
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-observatorio}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-observatorio_ux}
-      JWT_SECRET: ${JWT_SECRET}
-      JWT_PARTICIPANTE_SECRET: ${JWT_PARTICIPANTE_SECRET}
-      NODE_ENV: production
-      PORT: 3000
-    ports:
-      - "${BACKEND_PORT:-3000}:3000"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - observatorio-net
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 512M
-
-networks:
-  # Prefijado — evita colisión con otros proyectos en el servidor
-  # compartido de la UTEM.
-  observatorio-net:
-    name: observatorio-ux-net
 
 volumes:
   postgres_data:
-    name: observatorio-ux-postgres-data
