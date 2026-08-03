@@ -8,8 +8,9 @@ import jwtConfig from './core/config/jwt.config';
 import { envValidationSchema } from './core/config/env.validation';
 
 import { SessionsModule } from './modules/sessions/sessions.module';
-// 1. Importa tu nuevo módulo de Card Sorting
 import { CardSortingModule } from './modules/card-sorting/card-sorting.module';
+// 1. Importa el módulo de autenticación
+import { AuthModule } from './modules/auth/auth.module';
 
 @Module({
   imports: [
@@ -21,9 +22,10 @@ import { CardSortingModule } from './modules/card-sorting/card-sorting.module';
 
     DatabaseModule,
     SessionsModule,
-    
-    // 2. Regístralo aquí
     CardSortingModule,
+    
+    // 2. Regístralo aquí para que proteja toda tu app
+    AuthModule,
   ],
 })
 export class AppModule {}

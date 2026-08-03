@@ -1,10 +1,10 @@
-import { 
-  IsString, 
-  IsUUID, 
-  IsOptional, 
-  IsArray, 
-  ValidateNested, 
-  IsEnum 
+import {
+  IsString,
+  IsUUID,
+  IsOptional,
+  IsArray,
+  ValidateNested,
+  IsEnum,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -38,10 +38,8 @@ export class CreateCardSortingSessionDto {
   categorias?: CategoriaDto[] = [];
 }
 
-export class JoinCardSortingSessionDto {
-  @IsUUID()
-  participanteId!: string;
-}
+// JoinCardSortingSessionDto fue eliminado: el participanteId ya NO viaja
+// en el Body. Ahora /join no requiere Body — el id sale del JWT.
 
 class GrupoDto {
   @IsString()

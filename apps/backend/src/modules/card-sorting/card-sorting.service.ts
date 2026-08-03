@@ -61,6 +61,7 @@ export class CardSortingService {
 
   /**
    * Un participante se une a un estudio existente.
+   * `participanteId` ahora proviene del JWT, no del Body.
    */
   async joinSession(estudioId: string, participanteId: string) {
     const estudio = await this.prisma.researchSession.findUnique({
@@ -116,9 +117,18 @@ export class CardSortingService {
 
   /**
    * Registra el agrupamiento completo de un participante en 3FN.
+   *
+   * `currentUserId` viene del JWT (inyectado por el controller vía
+   * @CurrentUser()) y se usa para verificar que quien envía el resultado
+   * es efectivamente el dueño de la sesión de participante. Antes de este
+   * cambio, cualquier usuario autenticado que conociera el id de una
+   * sesión ajena podía sobrescribir sus resultados (IDOR).
    */
-  async submitResult(participanteSesionId: string, grupos: Grupo[]) {
-    // Usamos tx: any temporalmente para evitar el error TS7006
+  async submitResult(
+    participanteSesionId: string,
+    grupos: Grupo[],
+    currentUserId: string,
+  ) {
     return this.prisma.$transaction(async (tx: any) => {
       const session = await tx.researchSession.findUnique({
         where: { id: participanteSesionId },
@@ -133,6 +143,12 @@ export class CardSortingService {
       if (session.actor !== ActorSesion.PARTICIPANTE || !session.estudioId) {
         throw new ForbiddenException(
           'Solo una sesión de participante asociada a un estudio puede enviar resultados.',
+        );
+      }
+
+      if (session.participanteId !== currentUserId) {
+        throw new ForbiddenException(
+          'No tienes permiso para enviar resultados en esta sesión.',
         );
       }
 

@@ -1,0 +1,18 @@
+1. Para encender el Backend (NestJS)
+Abre tu primera pestaña de terminal y ejecuta:
+
+Bash
+pnpm --filter backend start:dev
+Este comando levantará tu API en el puerto 3000 y se quedará observando los cambios en tus archivos.
+
+2. Para encender la Base de Datos (Prisma Studio)
+Abre una nueva pestaña en la terminal (usando el botón + o Ctrl + Shift + \ en VS Code) y ejecuta:
+
+Bash
+pnpm --filter backend exec prisma studio
+Este comando levantará el visor visual de tu base de datos en el puerto 5555 (http://localhost:5555).
+
+Tip rápido para evitar errores de puerto ocupado: Si al levantar el backend te aparece el error EADDRINUSE :::3000, recuerda que puedes liberar el puerto rápidamente ejecutando npx kill-port 3000 antes de volver a correr el comando de inicio.
+
+
+docker compose up -d
