@@ -1,0 +1,179 @@
+// =============================================================================
+// apps/backend/prisma/schema.additions.prisma
+//
+// ⚠️ ESTE ARCHIVO NO ES STANDALONE. Es un set de adiciones/cambios para
+// mergear a mano en tu apps/backend/prisma/schema.prisma real, que no vino
+// incluido en el zip que subiste (junto con app.module.ts, prisma.service.ts,
+// el módulo de auth y los modelos Proyecto/Usuario). No pude verificar contra
+// código real si `UxArtifact` ya existe — lo defino desde cero abajo. Si ya
+// existe en tu schema, NO lo dupliques: compara campo por campo y aplica solo
+// el diff (probablemente falta `proyectoId` si tu versión no lo tenía).
+//
+// Asunciones sobre modelos que NO vinieron en el zip (ResearchSession, Card,
+// Category, CardGrouping, Proyecto, Usuario): reconstruidos a partir de los
+// schemas Zod reales en packages/shared-types (fuente de verdad declarada
+// en esos mismos archivos). Cotéjalos contra tu schema.prisma real antes
+// de aplicar la migración — en particular los nombres de FK a Proyecto/Usuario.
+// =============================================================================
+
+// -----------------------------------------------------------------------
+// 1) ResearchSession — SOLO para las 2 metodologías interactivas
+//    (Evaluación Heurística, Card Sorting). NO se agregan Persona/
+//    JourneyMap/MomentosCriticos aquí — ver sección 3 (UxArtifact) y el
+//    comentario de "Por qué" al final de este archivo.
+// -----------------------------------------------------------------------
+
+enum TipoSesion {
+  EVALUACION_HEURISTICA
+  CARD_SORTING
+}
+
+enum EstadoSesion {
+  INVITADO
+  EN_PROGRESO
+  COMPLETADO
+  ABANDONADO
+}
+
+enum ActorSesion {
+  PARTICIPANTE
+  EVALUADOR
+}
+
+model ResearchSession {
+  id             String        @id @default(uuid())
+  proyectoId     String
+  proyecto       Proyecto      @relation(fields: [proyectoId], references: [id])
+
+  tipo           TipoSesion
+  estado         EstadoSesion  @default(INVITADO)
+  actor          ActorSesion
+
+  evaluadorId    String?
+  evaluador      Usuario?      @relation("SesionesComoEvaluador", fields: [evaluadorId], references: [id])
+  participanteId String?
+  participante   Usuario?      @relation("SesionesComoParticipante", fields: [participanteId], references: [id])
+  estudioId      String?
+
+  // Usado solo por Evaluación Heurística (array de hallazgos). Card Sorting
+  // NO escribe acá — persiste en Card/Category/CardGrouping (ver sección 2).
+  resultado      Json?
+
+  createdAt      DateTime      @default(now())
+  completadoAt   DateTime?
+
+  cards          Card[]
+  categorias     Category[]
+
+  @@index([proyectoId, tipo])
+}
+
+// -----------------------------------------------------------------------
+// 2) Card Sorting — normalizado (ya existente, sin cambios de forma).
+//    Único cambio real: TipoCardSorting gana HIBRIDO.
+// -----------------------------------------------------------------------
+
+enum TipoCardSorting {
+  ABIERTO
+  CERRADO
+  HIBRIDO // NUEVO: permite categorías predefinidas + creación libre por el participante
+}
+
+model Card {
+  id        String          @id @default(uuid())
+  sessionId String
+  session   ResearchSession @relation(fields: [sessionId], references: [id])
+  etiqueta  String
+  createdAt DateTime        @default(now())
+
+  agrupaciones CardGrouping[]
+
+  @@index([sessionId])
+}
+
+model Category {
+  id                      String          @id @default(uuid())
+  sessionId               String
+  session                 ResearchSession @relation(fields: [sessionId], references: [id])
+  nombre                  String
+  esPredefinida           Boolean         @default(true)
+  creadaPorParticipanteId String?
+  createdAt               DateTime        @default(now())
+
+  agrupaciones CardGrouping[]
+
+  @@index([sessionId])
+}
+
+model CardGrouping {
+  id                    String   @id @default(uuid())
+  // id de la ResearchSession del participante (instancia de /join), NO de
+  // la sesión maestra — un participante solo puede agrupar cada tarjeta 1 vez.
+  participanteSesionId  String
+  cardId                String
+  card                  Card     @relation(fields: [cardId], references: [id])
+  categoryId            String
+  category              Category @relation(fields: [categoryId], references: [id])
+  createdAt             DateTime @default(now())
+
+  @@unique([participanteSesionId, cardId])
+  @@index([categoryId])
+}
+
+// -----------------------------------------------------------------------
+// 3) UxArtifact — Persona / Journey Map / Momentos Críticos.
+//    Documento versionado (append-only) con lock pesimista con TTL.
+//    UN SOLO modelo para las 3 metodologías nuevas: `tipo` + `contenido`
+//    (validado por el schema Zod correspondiente en shared-types, NUNCA
+//    a nivel de Prisma) determinan cuál de las 3 es.
+// -----------------------------------------------------------------------
+
+enum TipoArtefacto {
+  PERSONA
+  JOURNEY_MAP
+  MOMENTOS_CRITICOS
+}
+
+model UxArtifact {
+  id                String        @id @default(uuid())
+  proyectoId        String
+  proyecto          Proyecto      @relation(fields: [proyectoId], references: [id])
+
+  tipo              TipoArtefacto
+
+  // Identificador lógico estable del documento (p. ej. "la Persona X del
+  // proyecto"). Cada nueva versión inserta una FILA NUEVA con el mismo
+  // artefactoLogicoId y version + 1 — nunca se hace UPDATE del contenido.
+  artefactoLogicoId String
+  version           Int           @default(1)
+  contenido         Json
+
+  autorId           String
+  autor             Usuario       @relation(fields: [autorId], references: [id])
+
+  // Lock pesimista con TTL: mientras lockedUntil > now(), solo lockedById
+  // puede escribir una nueva versión. Ver UxArtifactService.adquirirLock().
+  lockedById        String?
+  lockedUntil       DateTime?
+
+  createdAt         DateTime      @default(now())
+
+  @@unique([artefactoLogicoId, version])
+  @@index([proyectoId, tipo])
+}
+
+// -----------------------------------------------------------------------
+// Por qué UxArtifact y no extender TipoSesion a las 5 (aunque tu pedido
+// original dice "actualiza el Enum de tipos" de ResearchSession):
+//
+//   ResearchSession modela INVITADO→EN_PROGRESO→COMPLETADO entre un
+//   participante y un evaluador. Persona/JourneyMap/MomentosCriticos no
+//   tienen participante ni invitación: son análisis que un investigador
+//   autor escribe y reedita con el tiempo. Meterlos en ResearchSession
+//   obligaría a: (a) perder versionado append-only real (tendrías que
+//   simular versiones dentro del propio Json), (b) perder lock de edición
+//   concurrente, y (c) forzar `actor: PARTICIPANTE|EVALUADOR` y `estado:
+//   INVITADO...` en un modelo que no tiene ninguno de los dos conceptos.
+//   Las 5 metodologías quedan igual de soportadas end-to-end; solo cambia
+//   CUÁL de los dos modelos las persiste.
+// -----------------------------------------------------------------------

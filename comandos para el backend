@@ -16,3 +16,6 @@ Tip rápido para evitar errores de puerto ocupado: Si al levantar el backend te 
 
 
 docker compose up -d
+
+//comando para que imprima toda al estructura
+find . -not -path "*/node_modules/*" -not -path "*/.git/*" -not -path "*/dist/*" -not -path "*/.next/*" | sort > estructura.txt
