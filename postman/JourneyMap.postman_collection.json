@@ -1,0 +1,438 @@
+{
+    "info": {
+        "_postman_id": "observatorio-ux-journey-map-0001-0001-000000000001",
+        "name": "Observatorio UX - UxArtifact - Journey Map",
+        "description": "Colección de pruebas end-to-end para el artefacto 'Journey Map' (dominio UxArtifact: versionado append-only + lock pesimista con TTL). Sigue la misma línea de producción que evaluacion-heuristica.postman_collection.json y card-sorting.coleccion-postman.json: baseUrl con prefijo /api, autenticación Bearer a nivel de colección, captura automática de IDs vía scripts 'test', y un caso negativo para validar el DTO de nestjs-zod. ",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "auth": {
+        "type": "bearer",
+        "bearer": [
+            {
+                "key": "token",
+                "value": "{{token}}",
+                "type": "string"
+            }
+        ]
+    },
+    "event": [
+        {
+            "listen": "prerequest",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                    ""
+                ]
+            }
+        },
+        {
+            "listen": "test",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                    ""
+                ]
+            }
+        }
+    ],
+    "item": [
+        {
+            "name": "0. Generar Token de Prueba (Evaluador)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "var jsonData = pm.response.json();",
+                            "if (jsonData && jsonData.access_token) {",
+                            "    pm.collectionVariables.set(\"token\", jsonData.access_token);",
+                            "    console.log(\"Token de evaluador guardado exitosamente.\");",
+                            "}",
+                            "pm.test(\"Status code es 200\", function () {",
+                            "    pm.response.to.have.status(200);",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "{{baseUrl}}/auth/test-token?tipo=evaluador",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "auth",
+                        "test-token"
+                    ],
+                    "query": [
+                        {
+                            "key": "tipo",
+                            "value": "evaluador"
+                        }
+                    ]
+                },
+                "description": "Genera un JWT de Usuario (evaluador) con el UUID determinístico sembrado por prisma/seed.ts, requerido para pasar la validación de FK (autorId) al crear un artefacto."
+            },
+            "response": []
+        },
+        {
+            "name": "1. Crear Versión Inicial (Journey Map)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "var jsonData = pm.response.json();",
+                            "if (jsonData && jsonData.artefactoLogicoId) {",
+                            "    pm.collectionVariables.set(\"artefactoLogicoId\", jsonData.artefactoLogicoId);",
+                            "    console.log(\"artefactoLogicoId guardado: \" + jsonData.artefactoLogicoId);",
+                            "}",
+                            "pm.test(\"Status code es 201\", function () {",
+                            "    pm.response.to.have.status(201);",
+                            "});",
+                            "pm.test(\"La versión creada es 1\", function () {",
+                            "    pm.expect(jsonData.version).to.eql(1);",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"proyectoId\": \"{{proyectoId}}\",\n    \"contenido\": {\n        \"escenario\": \"Camila completa una evaluación heurística guiada desde su celular\",\n        \"etapas\": [\n            {\n                \"nombre\": \"Ingreso a la plataforma\",\n                \"orden\": 0,\n                \"acciones\": [\n                    \"Abre el enlace recibido por correo\",\n                    \"Inicia sesión\"\n                ],\n                \"emociones\": {\n                    \"valor\": 0,\n                    \"descripcion\": \"Neutral, algo apurada\"\n                },\n                \"touchpoints\": [\n                    \"Email\",\n                    \"Formulario de login\"\n                ],\n                \"oportunidades\": [\n                    \"Permitir login con un solo clic\"\n                ]\n            },\n            {\n                \"nombre\": \"Registro de hallazgos\",\n                \"orden\": 1,\n                \"acciones\": [\n                    \"Revisa cada heurística\",\n                    \"Sube capturas de pantalla\"\n                ],\n                \"emociones\": {\n                    \"valor\": -1,\n                    \"descripcion\": \"Frustrada por la lentitud de subida\"\n                },\n                \"touchpoints\": [\n                    \"Formulario de hallazgos\"\n                ],\n                \"oportunidades\": [\n                    \"Comprimir imágenes automáticamente\"\n                ]\n            }\n        ]\n    }\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/artefactos/journey-map",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "artefactos",
+                        "journey-map"
+                    ]
+                },
+                "description": "Crea la versión 1 (version=1) del artefacto lógico. Requiere Bearer token de evaluador."
+            },
+            "response": []
+        },
+        {
+            "name": "2. Crear Versión Inicial (Error 400 - Validación Zod)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test(\"Status code es 400 por payload inválido\", function () {",
+                            "    pm.response.to.have.status(400);",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"proyectoId\": \"{{proyectoId}}\",\n    \"contenido\": {\n        \"escenario\": \"\",\n        \"etapas\": [\n            {\n                \"nombre\": \"\",\n                \"orden\": -1,\n                \"acciones\": [],\n                \"emociones\": {\n                    \"valor\": 9\n                },\n                \"touchpoints\": []\n            }\n        ]\n    }\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/artefactos/journey-map",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "artefactos",
+                        "journey-map"
+                    ]
+                },
+                "description": "Falla intencionalmente contra el ZodValidationPipe (nestjs-zod) del DTO de creación, para verificar que la validación esté realmente conectada."
+            },
+            "response": []
+        },
+        {
+            "name": "3. Obtener Última Versión",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test(\"Status code es 200\", function () {",
+                            "    pm.response.to.have.status(200);",
+                            "});",
+                            "pm.test(\"La versión devuelta es la más reciente\", function () {",
+                            "    var jsonData = pm.response.json();",
+                            "    pm.expect(jsonData.artefactoLogicoId).to.eql(pm.collectionVariables.get(\"artefactoLogicoId\"));",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "{{baseUrl}}/artefactos/journey-map/{{artefactoLogicoId}}",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "artefactos",
+                        "journey-map",
+                        "{{artefactoLogicoId}}"
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "4. Adquirir Lock Pesimista",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test(\"Status code es 200 (lock adquirido)\", function () {",
+                            "    pm.response.to.have.status(200);",
+                            "});",
+                            "pm.test(\"lockedUntil está seteado en el futuro\", function () {",
+                            "    var jsonData = pm.response.json();",
+                            "    pm.expect(new Date(jsonData.lockedUntil).getTime()).to.be.above(Date.now());",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                    "raw": "{{baseUrl}}/artefactos/journey-map/{{artefactoLogicoId}}/lock",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "artefactos",
+                        "journey-map",
+                        "{{artefactoLogicoId}}",
+                        "lock"
+                    ]
+                },
+                "description": "Adquiere el lock pesimista (TTL de 5 minutos, UX_ARTIFACT_LOCK_TTL_MS) sobre la última versión del artefacto lógico."
+            },
+            "response": []
+        },
+        {
+            "name": "5. Guardar Nueva Versión (requiere lock vigente)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test(\"Status code es 201\", function () {",
+                            "    pm.response.to.have.status(201);",
+                            "});",
+                            "pm.test(\"La versión incrementó a 2\", function () {",
+                            "    var jsonData = pm.response.json();",
+                            "    pm.expect(jsonData.version).to.eql(2);",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"contenido\": {\n        \"escenario\": \"Camila completa una evaluación heurística guiada desde su celular\",\n        \"etapas\": [\n            {\n                \"nombre\": \"Ingreso a la plataforma\",\n                \"orden\": 0,\n                \"acciones\": [\n                    \"Abre el enlace recibido por correo\",\n                    \"Inicia sesión\"\n                ],\n                \"emociones\": {\n                    \"valor\": 0,\n                    \"descripcion\": \"Neutral, algo apurada\"\n                },\n                \"touchpoints\": [\n                    \"Email\",\n                    \"Formulario de login\"\n                ],\n                \"oportunidades\": [\n                    \"Permitir login con un solo clic\"\n                ]\n            },\n            {\n                \"nombre\": \"Registro de hallazgos\",\n                \"orden\": 1,\n                \"acciones\": [\n                    \"Revisa cada heurística\",\n                    \"Sube capturas de pantalla\"\n                ],\n                \"emociones\": {\n                    \"valor\": -1,\n                    \"descripcion\": \"Frustrada por la lentitud de subida\"\n                },\n                \"touchpoints\": [\n                    \"Formulario de hallazgos\"\n                ],\n                \"oportunidades\": [\n                    \"Comprimir imágenes automáticamente\"\n                ]\n            }\n        ]\n    }\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/artefactos/journey-map/{{artefactoLogicoId}}/version",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "artefactos",
+                        "journey-map",
+                        "{{artefactoLogicoId}}",
+                        "version"
+                    ]
+                },
+                "description": "Inserta version=2 (append-only, nunca UPDATE). Debe ejecutarse DESPUÉS del paso 4; si el lock expiró o pertenece a otro usuario, el backend responde 409."
+            },
+            "response": []
+        },
+        {
+            "name": "6. Intentar Guardar Versión SIN Lock (Error 409)",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test(\"Status code es 409 por lock no vigente\", function () {",
+                            "    pm.response.to.have.status(409);",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"contenido\": {\n        \"escenario\": \"Camila completa una evaluación heurística guiada desde su celular\",\n        \"etapas\": [\n            {\n                \"nombre\": \"Ingreso a la plataforma\",\n                \"orden\": 0,\n                \"acciones\": [\n                    \"Abre el enlace recibido por correo\",\n                    \"Inicia sesión\"\n                ],\n                \"emociones\": {\n                    \"valor\": 0,\n                    \"descripcion\": \"Neutral, algo apurada\"\n                },\n                \"touchpoints\": [\n                    \"Email\",\n                    \"Formulario de login\"\n                ],\n                \"oportunidades\": [\n                    \"Permitir login con un solo clic\"\n                ]\n            },\n            {\n                \"nombre\": \"Registro de hallazgos\",\n                \"orden\": 1,\n                \"acciones\": [\n                    \"Revisa cada heurística\",\n                    \"Sube capturas de pantalla\"\n                ],\n                \"emociones\": {\n                    \"valor\": -1,\n                    \"descripcion\": \"Frustrada por la lentitud de subida\"\n                },\n                \"touchpoints\": [\n                    \"Formulario de hallazgos\"\n                ],\n                \"oportunidades\": [\n                    \"Comprimir imágenes automáticamente\"\n                ]\n            }\n        ]\n    }\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/artefactos/journey-map/{{artefactoLogicoId}}/version",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "artefactos",
+                        "journey-map",
+                        "{{artefactoLogicoId}}",
+                        "version"
+                    ]
+                },
+                "description": "Ejecutar este request DESPUÉS del paso 7 (liberar lock) o en un nuevo run sin haber adquirido el lock: debe fallar con 409 ConflictException."
+            },
+            "response": []
+        },
+        {
+            "name": "7. Liberar Lock Pesimista",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test(\"Status code es 200 (lock liberado)\", function () {",
+                            "    pm.response.to.have.status(200);",
+                            "});",
+                            "pm.test(\"lockedById quedó en null\", function () {",
+                            "    var jsonData = pm.response.json();",
+                            "    pm.expect(jsonData.lockedById).to.eql(null);",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                    "raw": "{{baseUrl}}/artefactos/journey-map/{{artefactoLogicoId}}/unlock",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "artefactos",
+                        "journey-map",
+                        "{{artefactoLogicoId}}",
+                        "unlock"
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "8. Obtener Historial Completo",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "pm.test(\"Status code es 200\", function () {",
+                            "    pm.response.to.have.status(200);",
+                            "});",
+                            "pm.test(\"El historial tiene al menos 2 versiones\", function () {",
+                            "    var jsonData = pm.response.json();",
+                            "    pm.expect(jsonData.length).to.be.at.least(2);",
+                            "});",
+                            "pm.test(\"El historial viene ordenado de más reciente a más antiguo\", function () {",
+                            "    var jsonData = pm.response.json();",
+                            "    pm.expect(jsonData[0].version).to.be.above(jsonData[jsonData.length - 1].version);",
+                            "});"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "{{baseUrl}}/artefactos/journey-map/{{artefactoLogicoId}}/historial",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "artefactos",
+                        "journey-map",
+                        "{{artefactoLogicoId}}",
+                        "historial"
+                    ]
+                },
+                "description": "Devuelve TODAS las filas (append-only) del artefacto lógico, más reciente primero."
+            },
+            "response": []
+        }
+    ],
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "http://localhost:3000/api",
+            "type": "string"
+        },
+        {
+            "key": "token",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "proyectoId",
+            "value": "uuid_de_tu_proyecto_aqui",
+            "type": "string"
+        },
+        {
+            "key": "artefactoLogicoId",
+            "value": "",
+            "type": "string"
+        }
+    ]
+}
