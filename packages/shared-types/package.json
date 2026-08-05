@@ -1,5 +1,16 @@
 {
   "name": "@observatorio-ux/shared-types",
   "version": "1.0.0",
-  "main": "index.ts"
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2"
+  }
 }

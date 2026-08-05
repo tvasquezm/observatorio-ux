@@ -51,10 +51,24 @@ export const EvaluacionHeuristicaSchema = createBasePayloadSchema(
   EvaluacionHeuristicaPayloadSchema,
 );
 
+// --- Autoguardado ---
+
+/** Versión de HallazgoInput con todos los campos opcionales, para autosave. */
+export const HallazgoInputPartialSchema = HallazgoInputSchema.partial();
+
+/** Payload parcial: el array puede venir vacío/ausente, y cada hallazgo
+ *  dentro del array puede estar incompleto mientras el usuario escribe. */
+export const EvaluacionHeuristicaPayloadPartialSchema = z.object({
+  hallazgos: z.array(HallazgoInputPartialSchema).optional(),
+});
+
 // 2. Esquema parcial (autoguardado / respuestas incompletas en el cliente)
-export const EvaluacionHeuristicaPartialSchema =
-  EvaluacionHeuristicaSchema.deepPartial();
+export const EvaluacionHeuristicaPartialSchema = createBasePayloadSchema(
+  EvaluacionHeuristicaPayloadPartialSchema,
+).partial();
 
 export type HallazgoInput = z.infer<typeof HallazgoInputSchema>;
+export type HallazgoInputPartial = z.infer<typeof HallazgoInputPartialSchema>;
 export type Hallazgo = z.infer<typeof HallazgoSchema>;
 export type EvaluacionHeuristica = z.infer<typeof EvaluacionHeuristicaSchema>;
+export type EvaluacionHeuristicaPartial = z.infer<typeof EvaluacionHeuristicaPartialSchema>;

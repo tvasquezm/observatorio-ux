@@ -1,3 +1,11 @@
+// .vscode/settings.json
 {
-  "github.copilot.chat.localeOverride": "es"
+  "github.copilot.chat.localeOverride": "es",
+  "github.copilot.chat.commitMessageGeneration.instructions": [
+    { "text": "Genera siempre el mensaje de commit en español." },
+    { "text": "Usa el formato Conventional Commits: tipo(alcance): descripción." },
+    { "text": "Tipos válidos: feat, fix, refactor, docs, style, test, chore, perf, ci." },
+    { "text": "Usa modo imperativo en español (ej. 'agrega', 'corrige', 'refactoriza'), no pasado." },
+    { "text": "La primera línea no debe superar 72 caracteres." }
+  ]
 }

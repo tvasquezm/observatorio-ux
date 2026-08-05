@@ -16,7 +16,14 @@
     "skipLibCheck": true,
     "outDir": "./dist",
     "rootDir": "./src",
-    "incremental": true
+    "incremental": true,
+    "baseUrl": ".",
+    "paths": {
+      "@observatorio-ux/shared-types": ["../../packages/shared-types/src/index.ts"],
+      "@observatorio-ux/shared-types/*": ["../../packages/shared-types/src/*"]
+    }
   },
-  "include": ["src/**/*.ts"]
+  "include": [
+    "src/**/*.ts"
+  ]
 }
