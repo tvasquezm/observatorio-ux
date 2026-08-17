@@ -68,6 +68,7 @@ model Usuario {
   id        String   @id @default(uuid())
   nombre    String
   email     String   @unique
+  passwordHash String?
   rol       Rol
   createdAt DateTime @default(now())
 

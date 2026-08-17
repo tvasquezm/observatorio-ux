@@ -1,0 +1,101 @@
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { Prisma, TipoArtefacto } from '@prisma/client';
+import { randomUUID } from 'crypto';
+import { PrismaService } from '../../core/database/prisma.service';
+import { AuthenticatedUser } from '../auth/types/authenticated-user.interface';
+import { CreateArtifactDto, CreateArtifactVersionDto } from './artifacts.dto';
+
+@Injectable()
+export class ArtifactsService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async create(
+    proyectoId: string,
+    dto: CreateArtifactDto,
+    user: AuthenticatedUser,
+  ) {
+    await this.assertProjectAccess(proyectoId, user);
+
+    return this.prisma.uxArtifact.create({
+      data: {
+        proyectoId,
+        tipo: dto.tipo,
+        artefactoLogicoId: dto.artefactoLogicoId?.trim() || randomUUID(),
+        version: 1,
+        contenido: dto.contenido as Prisma.InputJsonValue,
+        autorId: user.id,
+      },
+    });
+  }
+
+  async findAll(
+    proyectoId: string,
+    tipo: TipoArtefacto | undefined,
+    user: AuthenticatedUser,
+  ) {
+    await this.assertProjectAccess(proyectoId, user);
+
+    return this.prisma.uxArtifact.findMany({
+      where: { proyectoId, ...(tipo ? { tipo } : {}) },
+      orderBy: [{ artefactoLogicoId: 'asc' }, { version: 'desc' }],
+    });
+  }
+
+  async findOne(artefactoId: string, user: AuthenticatedUser) {
+    const artifact = await this.prisma.uxArtifact.findUnique({
+      where: { id: artefactoId },
+    });
+
+    if (!artifact) throw new NotFoundException('El artefacto no existe.');
+    await this.assertProjectAccess(artifact.proyectoId, user);
+    return artifact;
+  }
+
+  async createVersion(
+    artefactoId: string,
+    dto: CreateArtifactVersionDto,
+    user: AuthenticatedUser,
+  ) {
+    const artifact = await this.findOne(artefactoId, user);
+
+    if (artifact.lockedById && artifact.lockedById !== user.id) {
+      const lockActive = artifact.lockedUntil && artifact.lockedUntil > new Date();
+      if (lockActive) {
+        throw new ConflictException('El artefacto está bloqueado por otro usuario.');
+      }
+    }
+
+    const latest = await this.prisma.uxArtifact.findFirst({
+      where: { artefactoLogicoId: artifact.artefactoLogicoId },
+      orderBy: { version: 'desc' },
+    });
+
+    return this.prisma.uxArtifact.create({
+      data: {
+        proyectoId: artifact.proyectoId,
+        tipo: artifact.tipo,
+        artefactoLogicoId: artifact.artefactoLogicoId,
+        version: (latest?.version ?? artifact.version) + 1,
+        contenido: dto.contenido as Prisma.InputJsonValue,
+        autorId: user.id,
+      },
+    });
+  }
+
+  private async assertProjectAccess(proyectoId: string, user: AuthenticatedUser) {
+    const project = await this.prisma.proyecto.findUnique({
+      where: { id: proyectoId },
+      select: { creadoPorId: true },
+    });
+
+    if (!project) throw new NotFoundException('El proyecto no existe.');
+    if (project.creadoPorId !== user.id && user.rol !== 'ADMIN') {
+      throw new ForbiddenException('No tienes acceso a este proyecto.');
+    }
+  }
+}

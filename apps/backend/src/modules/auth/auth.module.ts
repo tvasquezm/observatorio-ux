@@ -1,17 +1,26 @@
 import { Module } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { JwtModule, JwtSignOptions } from '@nestjs/jwt';
+import { AuthController } from './auth.controller';
+import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
-import { AuthController } from './auth.controller'; // <-- 1. TIENE que estar importado aquí arriba
+import { ParticipanteTokenService } from './participante-token.service';
 
 @Module({
   imports: [
-    JwtModule.register({
-      secret: 'secreto_super_seguro_de_tu_tesis',
-      signOptions: { expiresIn: '1d' },
+    ConfigModule,
+    JwtModule.registerAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        secret: config.getOrThrow<string>('jwt.secret'),
+        signOptions: {
+          expiresIn: config.get<string>('jwt.expiresIn', '1h') as JwtSignOptions['expiresIn'],
+        },
+      }),
     }),
   ],
-  controllers: [AuthController], // <-- 2. TIENE que estar dentro de este arreglo
-  providers: [JwtStrategy],
-  exports: [JwtModule],
+  controllers: [AuthController],
+  providers: [AuthService, JwtStrategy, ParticipanteTokenService],
+  exports: [AuthService, JwtModule],
 })
 export class AuthModule {}

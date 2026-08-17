@@ -1,41 +1,40 @@
-import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const config = app.get(ConfigService);
 
-  // 1. Prefijo global para las rutas
   app.setGlobalPrefix('api');
-
-  // 2. Seguridad Estricta (La aportación de tu compañero)
+  app.enableCors({
+    origin: config.getOrThrow<string>('app.corsOrigin'),
+    credentials: true,
+  });
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true, // Elimina campos no definidos en el DTO/Zod
-      transform: true, // Transforma strings a números automáticamente si el DTO lo pide
-      forbidNonWhitelisted: true, // Lanza error 400 si alguien envía campos extra
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
     }),
   );
 
-  // 3. Documentación Autogenerada (Swagger)
-  const config = new DocumentBuilder()
+  const swaggerConfig = new DocumentBuilder()
     .setTitle('API Observatorio UX')
-    .setDescription('Documentación interactiva de los endpoints para la UTEM')
-    .setVersion('1.0')
-    .addBearerAuth() // Habilita el botón verde "Authorize" para probar con JWT
+    .setDescription('API para estudios de investigación UX')
+    .setVersion('1.0.0')
+    .addBearerAuth()
     .build();
-  
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
 
-  // 4. Configuración de Puerto Dinámico
-  const port = process.env.PORT || 3000;
-  await app.listen(port);
+  SwaggerModule.setup(
+    'api/docs',
+    app,
+    SwaggerModule.createDocument(app, swaggerConfig),
+  );
 
-  console.log(`🚀 Observatorio UX Backend iniciado en puerto ${port}`);
-  console.log(`📑 Postman Interactivo (Swagger) en: http://localhost:${port}/api/docs`);
+  await app.listen(config.getOrThrow<number>('PORT'));
 }
 
-bootstrap();
+void bootstrap();

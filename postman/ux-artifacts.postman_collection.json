@@ -1,0 +1,87 @@
+{
+  "info": {
+    "name": "Observatorio UX - Artefactos UX",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "0. Token evaluador",
+      "event": [{
+        "listen": "test",
+        "script": {"type": "text/javascript", "exec": ["pm.collectionVariables.set('evaluatorToken', pm.response.json().access_token);"]}
+      }],
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/auth/test-token"
+      }
+    },
+    {
+      "name": "1. Crear Perfil de Persona",
+      "event": [{
+        "listen": "test",
+        "script": {"type": "text/javascript", "exec": ["pm.collectionVariables.set('personaId', pm.response.json().id);"]}
+      }],
+      "request": {
+        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{evaluatorToken}}", "type": "string"}]},
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {"mode": "raw", "raw": "{\n  \"tipo\": \"PERSONA\",\n  \"contenido\": {\n    \"nombre\": \"Ana, usuaria frecuente\",\n    \"objetivos\": [\"Completar sus tareas rápidamente\"],\n    \"necesidades\": [\"Información clara\"],\n    \"frustraciones\": [\"Formularios extensos\"],\n    \"contextoUso\": \"Utiliza el sistema desde su teléfono\"\n  }\n}"},
+        "url": "{{baseUrl}}/api/proyectos/{{proyectoId}}/artefactos"
+      }
+    },
+    {
+      "name": "2. Crear Journey Map",
+      "event": [{
+        "listen": "test",
+        "script": {"type": "text/javascript", "exec": ["pm.collectionVariables.set('journeyId', pm.response.json().id);"]}
+      }],
+      "request": {
+        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{evaluatorToken}}", "type": "string"}]},
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {"mode": "raw", "raw": "{\n  \"tipo\": \"JOURNEY_MAP\",\n  \"contenido\": {\n    \"nombre\": \"Solicitar atención\",\n    \"etapas\": [\n      {\"nombre\": \"Inicio\", \"emocion\": 3, \"puntosContacto\": [\"Portal web\"], \"oportunidades\": [\"Mejorar orientación\"]}\n    ]\n  }\n}"},
+        "url": "{{baseUrl}}/api/proyectos/{{proyectoId}}/artefactos"
+      }
+    },
+    {
+      "name": "3. Crear Mapa de Momentos Críticos",
+      "event": [{
+        "listen": "test",
+        "script": {"type": "text/javascript", "exec": ["pm.collectionVariables.set('criticalMomentsId', pm.response.json().id);"]}
+      }],
+      "request": {
+        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{evaluatorToken}}", "type": "string"}]},
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {"mode": "raw", "raw": "{\n  \"tipo\": \"MOMENTOS_CRITICOS\",\n  \"contenido\": {\n    \"momentos\": [\n      {\"descripcion\": \"La persona no encuentra el botón continuar\", \"impacto\": 4, \"frecuencia\": 3, \"causa\": \"Jerarquía visual débil\", \"accionSugerida\": \"Reubicar y renombrar el botón\"}\n    ]\n  }\n}"},
+        "url": "{{baseUrl}}/api/proyectos/{{proyectoId}}/artefactos"
+      }
+    },
+    {
+      "name": "4. Crear versión del Perfil de Persona",
+      "request": {
+        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{evaluatorToken}}", "type": "string"}]},
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {"mode": "raw", "raw": "{\n  \"contenido\": {\n    \"nombre\": \"Ana, usuaria frecuente - actualizado\",\n    \"objetivos\": [\"Completar sus tareas rápidamente\", \"Entender el estado de su solicitud\"],\n    \"necesidades\": [\"Información clara\", \"Confirmación visible\"]\n  }\n}"},
+        "url": "{{baseUrl}}/api/proyectos/{{proyectoId}}/artefactos/{{personaId}}/versions"
+      }
+    },
+    {
+      "name": "5. Listar artefactos del proyecto",
+      "request": {
+        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{evaluatorToken}}", "type": "string"}]},
+        "method": "GET",
+        "url": "{{baseUrl}}/api/proyectos/{{proyectoId}}/artefactos"
+      }
+    }
+  ],
+  "variable": [
+    {"key": "baseUrl", "value": "http://localhost:3000"},
+    {"key": "proyectoId", "value": "2220b224-865d-4230-a484-19338c66b9e6"},
+    {"key": "evaluatorToken", "value": ""},
+    {"key": "personaId", "value": ""},
+    {"key": "journeyId", "value": ""},
+    {"key": "criticalMomentsId", "value": ""}
+  ]
+}

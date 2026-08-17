@@ -1,83 +1,116 @@
-// src/modules/sessions/evaluacion-heuristica/evaluacion-heuristica.service.ts
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { EstadoSesion, Prisma, TipoSesion } from '@prisma/client';
+import { randomUUID } from 'crypto';
+import { PrismaService } from '../../../core/database/prisma.service';
+import { AuthenticatedUser } from '../../auth/types/authenticated-user.interface';
+import { HeuristicaDto } from './dto/heuristica.dto';
 
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../../../core/database/prisma.service'; 
-import * as crypto from 'crypto'; 
+export interface HeuristicFinding {
+  id: string;
+  heuristicaId: string;
+  severidad: number;
+  descripcion: string;
+  evidencia: string | null;
+  recomendacion: string | null;
+  registradoEn: string;
+}
 
 @Injectable()
 export class EvaluacionHeuristicaService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async crearSesion(proyectoId: string, usuarioId: string) {
-  const nuevaSesion = await this.prisma.researchSession.create({
-    data: {
-      proyecto: { connect: { id: proyectoId } },
-      evaluador: { connect: { id: usuarioId } },
-      tipo: 'EVALUACION_HEURISTICA',
-      estado: 'EN_PROGRESO',
-      actor: 'EVALUADOR',
-    },
-  });
-  return nuevaSesion;
-}
-
-  async registrarHallazgo(sesionId: string, body: any, usuario: any) {
-    const sesion = await this.prisma.researchSession.findUnique({
-      where: { id: sesionId }
+  async crearSesion(proyectoId: string, user: AuthenticatedUser) {
+    const project = await this.prisma.proyecto.findUnique({
+      where: { id: proyectoId },
     });
 
-    if (!sesion) {
-      throw new NotFoundException('La sesión de evaluación no existe.');
+    if (!project) throw new NotFoundException('El proyecto no existe.');
+    if (project.creadoPorId !== user.id && user.rol !== 'ADMIN') {
+      throw new ForbiddenException('No tienes acceso a este proyecto.');
     }
 
-    const hallazgosActuales = (sesion.resultado as any[]) || [];
+    return this.prisma.researchSession.create({
+      data: {
+        proyectoId,
+        evaluadorId: user.id,
+        tipo: TipoSesion.EVALUACION_HEURISTICA,
+        estado: EstadoSesion.EN_PROGRESO,
+        actor: 'EVALUADOR',
+        resultado: [],
+      },
+    });
+  }
 
-    const nuevoHallazgo = {
-      id: crypto.randomUUID(), 
+  async registrarHallazgo(
+    sesionId: string,
+    body: HeuristicaDto,
+    user: AuthenticatedUser,
+  ) {
+    const session = await this.getOwnedSession(sesionId, user);
+
+    if (session.estado !== EstadoSesion.EN_PROGRESO) {
+      throw new ConflictException('La sesión ya no está abierta para edición.');
+    }
+
+    const current = Array.isArray(session.resultado)
+      ? (session.resultado as unknown as HeuristicFinding[])
+      : [];
+    const finding: HeuristicFinding = {
+      id: randomUUID(),
       heuristicaId: body.heuristicaId,
       severidad: body.severidad,
-      descripcion: body.descripcion,
-      evidencia: body.evidencia || null,
-      recomendacion: body.recomendacion || null,
+      descripcion: body.descripcion.trim(),
+      evidencia: body.evidencia?.trim() || null,
+      recomendacion: body.recomendacion?.trim() || null,
       registradoEn: new Date().toISOString(),
     };
 
-    hallazgosActuales.push(nuevoHallazgo);
-
-    await this.prisma.researchSession.update({
+    const updated = await this.prisma.researchSession.update({
       where: { id: sesionId },
       data: {
-        resultado: hallazgosActuales
-      }
-    });
-
-    return { 
-        mensaje: 'Problema de usabilidad registrado con éxito.',
-        hallazgo: nuevoHallazgo
-    };
-  }
-
-  async finalizarSesion(sesionId: string, usuario: any) {
-    const sesionFinalizada = await this.prisma.researchSession.update({
-      where: { id: sesionId },
-      data: {
-        estado: 'COMPLETADO',
-        completadoAt: new Date(),
+        resultado: [...current, finding] as unknown as Prisma.InputJsonValue,
       },
     });
 
-    return sesionFinalizada;
+    return { mensaje: 'Hallazgo registrado correctamente.', hallazgo: finding, sesion: updated };
   }
 
-  async obtenerSesion(sesionId: string, usuario: any) {
-    const sesion = await this.prisma.researchSession.findUnique({
+  async finalizarSesion(sesionId: string, user: AuthenticatedUser) {
+    const session = await this.getOwnedSession(sesionId, user);
+
+    if (session.estado !== EstadoSesion.EN_PROGRESO) {
+      throw new ConflictException('La sesión ya fue finalizada.');
+    }
+
+    return this.prisma.researchSession.update({
+      where: { id: sesionId },
+      data: { estado: EstadoSesion.COMPLETADO, completadoAt: new Date() },
+    });
+  }
+
+  async obtenerSesion(sesionId: string, user: AuthenticatedUser) {
+    return this.getOwnedSession(sesionId, user);
+  }
+
+  private async getOwnedSession(sesionId: string, user: AuthenticatedUser) {
+    const session = await this.prisma.researchSession.findUnique({
       where: { id: sesionId },
     });
 
-    if (!sesion) {
+    if (!session || session.tipo !== TipoSesion.EVALUACION_HEURISTICA) {
       throw new NotFoundException('La sesión de evaluación no existe.');
     }
 
-    return sesion;
+    if (user.rol !== 'ADMIN' && session.evaluadorId !== user.id) {
+      throw new ForbiddenException('No tienes acceso a esta sesión.');
+    }
+
+    return session;
   }
 }

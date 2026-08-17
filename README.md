@@ -98,6 +98,8 @@ observatorio-ux/
 
 ## Configuración y despliegue local
 
+La guía específica del backend está en [`docs/BACKEND.md`](docs/BACKEND.md).
+
 ### Prerrequisitos
 
 - Node.js 20+

@@ -1,20 +1,29 @@
+import { Type } from 'class-transformer';
 import {
+  ArrayMinSize,
+  IsArray,
+  IsEnum,
+  IsOptional,
   IsString,
   IsUUID,
-  IsOptional,
-  IsArray,
+  MinLength,
   ValidateNested,
-  IsEnum,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+
+export enum CardSortingTypeDto {
+  OPEN = 'ABIERTO',
+  CLOSED = 'CERRADO',
+}
 
 class TarjetaDto {
   @IsString()
+  @MinLength(1)
   etiqueta!: string;
 }
 
 class CategoriaDto {
   @IsString()
+  @MinLength(1)
   nombre!: string;
 }
 
@@ -23,10 +32,11 @@ export class CreateCardSortingSessionDto {
   proyectoId!: string;
 
   @IsOptional()
-  @IsEnum(['ABIERTO', 'CERRADO'])
-  tipo?: 'ABIERTO' | 'CERRADO';
+  @IsEnum(CardSortingTypeDto)
+  tipo?: CardSortingTypeDto;
 
   @IsArray()
+  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => TarjetaDto)
   tarjetas!: TarjetaDto[];
@@ -35,23 +45,28 @@ export class CreateCardSortingSessionDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CategoriaDto)
-  categorias?: CategoriaDto[] = [];
+  categorias?: CategoriaDto[];
 }
 
-// JoinCardSortingSessionDto fue eliminado: el participanteId ya NO viaja
-// en el Body. Ahora /join no requiere Body — el id sale del JWT.
-
 class GrupoDto {
+  @IsOptional()
+  @IsUUID()
+  categoriaId?: string;
+
+  @IsOptional()
   @IsString()
-  categoriaNombre!: string;
+  @MinLength(1)
+  categoriaNombre?: string;
 
   @IsArray()
-  @IsString({ each: true })
+  @ArrayMinSize(1)
+  @IsUUID('4', { each: true })
   cardIds!: string[];
 }
 
 export class SubmitCardSortingResultDto {
   @IsArray()
+  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => GrupoDto)
   grupos!: GrupoDto[];

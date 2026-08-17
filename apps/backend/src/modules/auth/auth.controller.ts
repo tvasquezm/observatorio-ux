@@ -1,21 +1,31 @@
-import { Controller, Get } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { Body, Controller, Get, Post } from '@nestjs/common';
+import { AuthService } from './auth.service';
+import { LoginDto, ParticipantTokenDto } from './auth.dto';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly jwtService: JwtService) {}
+  constructor(private readonly authService: AuthService) {}
 
-  // Endpoint temporal solo para generar tokens de prueba en Postman
+  @Post('login')
+  login(@Body() dto: LoginDto) {
+    return this.authService.login(dto.email, dto.password);
+  }
+
+  @Post('participants/token')
+  participantToken(@Body() dto: ParticipantTokenDto) {
+    return this.authService.issueParticipantToken(
+      dto.participanteId,
+      dto.proyectoId,
+    );
+  }
+
   @Get('test-token')
   getTestToken() {
-    const payload = { 
-  sub: 'c702fdcf-ff14-4e49-bcdf-620f1738bb04', 
-  email: 'evaluador@observatorioux.com', 
-  rol: 'DOCENTE' 
-};
-    
-    return {
-      access_token: this.jwtService.sign(payload),
-    };
+    return this.authService.issueDevelopmentEvaluatorToken();
+  }
+
+  @Get('test-participant-token')
+  getTestParticipantToken() {
+    return this.authService.issueDevelopmentParticipantToken();
   }
 }

@@ -1,9 +1,11 @@
-/**
- * Ajusta estos campos a lo que realmente firmas en el payload del JWT
- * (por ejemplo en tu AuthService.login / JwtStrategy.validate).
- */
+export type EvaluatorRole = 'ESTUDIANTE' | 'DOCENTE' | 'ADMIN';
+export type UserRole = EvaluatorRole | 'PARTICIPANTE';
+export type AuthenticatedActor = 'EVALUADOR' | 'PARTICIPANTE';
+
 export interface AuthenticatedUser {
   id: string;
   email?: string;
-  rol?: string;
+  rol: UserRole;
+  actor: AuthenticatedActor;
+  proyectoId?: string;
 }
