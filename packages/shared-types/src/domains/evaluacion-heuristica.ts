@@ -1,6 +1,6 @@
 // packages/shared-types/src/evaluacion-heuristica.ts
 import { z } from 'zod';
-import { createBasePayloadSchema } from './base-payload.schema';
+import { BaseMetadataSchema, createBasePayloadSchema } from '../common/base-payload.schema';
 
 export const HallazgoSchema = z.object({
   id: z.string().uuid(),
@@ -18,7 +18,11 @@ export const EvaluacionHeuristicaPayloadSchema = z.object({
 export const EvaluacionHeuristicaSchema = createBasePayloadSchema(EvaluacionHeuristicaPayloadSchema);
 
 // 2. Esquema Parcial (Para autoguardado en PATCH y React-Hook-Form)
-export const EvaluacionHeuristicaPartialSchema = EvaluacionHeuristicaSchema.deepPartial();
+//
+// zod v4 eliminó `.deepPartial()` (existía en v3). Se arma a mano:
+export const EvaluacionHeuristicaPartialSchema = BaseMetadataSchema.partial().extend({
+  hallazgos: z.array(HallazgoSchema.partial()).optional(),
+});
 
 export type Hallazgo = z.infer<typeof HallazgoSchema>;
 export type EvaluacionHeuristica = z.infer<typeof EvaluacionHeuristicaSchema>;
