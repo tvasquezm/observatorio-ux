@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -13,7 +14,11 @@ import { Roles } from '../../core/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 import { RolesGuard } from '../../core/guards/roles.guard';
 import { AuthenticatedUser } from '../auth/types/authenticated-user.interface';
-import { CreateProjectDto } from './projects.dto';
+import {
+  AddToWhitelistDto,
+  CreateProjectDto,
+  UpdateProjectDto,
+} from './projects.dto';
 import { ProjectsService } from './projects.service';
 
 @ApiTags('projects')
@@ -40,5 +45,31 @@ export class ProjectsController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.projects.findOne(id, user);
+  }
+
+  @Patch(':id')
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateProjectDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.projects.update(id, dto, user);
+  }
+
+  @Post(':id/participantes')
+  addToWhitelist(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AddToWhitelistDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.projects.addToWhitelist(id, dto, user);
+  }
+
+  @Get(':id/participantes')
+  listWhitelist(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.projects.listWhitelist(id, user);
   }
 }

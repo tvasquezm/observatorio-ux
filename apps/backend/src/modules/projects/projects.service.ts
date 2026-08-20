@@ -5,7 +5,11 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
 import { AuthenticatedUser } from '../auth/types/authenticated-user.interface';
-import { CreateProjectDto } from './projects.dto';
+import {
+  AddToWhitelistDto,
+  CreateProjectDto,
+  UpdateProjectDto,
+} from './projects.dto';
 
 @Injectable()
 export class ProjectsService {
@@ -42,5 +46,55 @@ export class ProjectsService {
     }
 
     return project;
+  }
+
+  async update(id: string, dto: UpdateProjectDto, user: AuthenticatedUser) {
+    await this.findOne(id, user);
+
+    return this.prisma.proyecto.update({
+      where: { id },
+      data: {
+        ...(dto.nombre !== undefined ? { nombre: dto.nombre.trim() } : {}),
+        ...(dto.descripcion !== undefined
+          ? { descripcion: dto.descripcion.trim() }
+          : {}),
+      },
+    });
+  }
+
+  async addToWhitelist(
+    id: string,
+    dto: AddToWhitelistDto,
+    user: AuthenticatedUser,
+  ) {
+    await this.findOne(id, user);
+
+    const result = await this.prisma.participanteWhitelist.createMany({
+      data: dto.participantes.map((p) => ({
+        proyectoId: id,
+        email: p.email.trim().toLowerCase(),
+        nombre: p.nombre?.trim(),
+        creadoPorId: user.id,
+      })),
+      skipDuplicates: true,
+    });
+
+    return { agregados: result.count, enviados: dto.participantes.length };
+  }
+
+  async listWhitelist(id: string, user: AuthenticatedUser) {
+    await this.findOne(id, user);
+
+    return this.prisma.participanteWhitelist.findMany({
+      where: { proyectoId: id },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        email: true,
+        nombre: true,
+        usado: true,
+        createdAt: true,
+      },
+    });
   }
 }

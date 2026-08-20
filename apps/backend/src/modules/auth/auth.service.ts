@@ -17,7 +17,47 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
   ) {}
+  /**
+   * Autorregistro de un participante. Solo funciona si su email está en
+   * la whitelist cargada por el docente/evaluador para ese proyecto.
+   * Es idempotente: si la persona ya se había registrado, devuelve el
+   * mismo participanteId en vez de fallar.
+   */
+  async registerParticipant(
+    proyectoId: string,
+    emailCrudo: string,
+    nombre?: string,
+  ) {
+    const email = emailCrudo.trim().toLowerCase();
 
+    const entry = await this.prisma.participanteWhitelist.findUnique({
+      where: { proyectoId_email: { proyectoId, email } },
+    });
+
+    if (!entry) {
+      throw new ForbiddenException(
+        'Este email no está autorizado para participar en este proyecto. ' +
+          'Pídele al docente que lo agregue a la lista.',
+      );
+    }
+
+    if (entry.usado && entry.participanteId) {
+      return { participanteId: entry.participanteId, yaRegistrado: true };
+    }
+
+    const participante = await this.prisma.participante.create({
+      data: {
+        metadata: nombre ? { nombre } : undefined,
+      },
+    });
+
+    await this.prisma.participanteWhitelist.update({
+      where: { id: entry.id },
+      data: { usado: true, participanteId: participante.id },
+    });
+
+    return { participanteId: participante.id, yaRegistrado: false };
+  }
   async login(email: string, password: string) {
     const user = await this.prisma.usuario.findUnique({ where: { email } });
 

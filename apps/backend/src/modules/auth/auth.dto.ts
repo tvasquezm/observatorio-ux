@@ -1,4 +1,4 @@
-import { IsEmail, IsString, IsUUID, MinLength } from 'class-validator';
+import { IsEmail, IsOptional, IsString, IsUUID, MinLength } from 'class-validator';
 
 export class LoginDto {
   @IsEmail()
@@ -15,4 +15,16 @@ export class ParticipantTokenDto {
 
   @IsUUID()
   proyectoId!: string;
+}
+
+export class RegisterParticipantDto {
+  @IsUUID()
+  proyectoId!: string;
+
+  @IsEmail()
+  email!: string;
+
+  @IsOptional()
+  @IsString()
+  nombre?: string;
 }
