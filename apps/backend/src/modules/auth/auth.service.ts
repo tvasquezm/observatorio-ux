@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -30,33 +31,98 @@ export class AuthService {
   ) {
     const email = emailCrudo.trim().toLowerCase();
 
-    const entry = await this.prisma.participanteWhitelist.findUnique({
-      where: { proyectoId_email: { proyectoId, email } },
+    return this.prisma.$transaction(async (tx) => {
+      const entry = await tx.participanteWhitelist.findUnique({
+        where: { proyectoId_email: { proyectoId, email } },
+      });
+
+      if (!entry) {
+        throw new ForbiddenException(
+          'Este email no está autorizado para participar en este proyecto. ' +
+            'Pídele al docente que lo agregue a la lista.',
+        );
+      }
+
+      if (entry.participanteId) {
+        return { participanteId: entry.participanteId, yaRegistrado: true };
+      }
+
+      const participante = await tx.participante.create({
+        data: {
+          metadata: nombre?.trim() ? { nombre: nombre.trim() } : undefined,
+        },
+      });
+
+      // La condición evita que dos solicitudes concurrentes reclamen la misma
+      // invitación. La segunda solicitud elimina su participante provisional y
+      // devuelve el participante ganador.
+      const claimed = await tx.participanteWhitelist.updateMany({
+        where: { id: entry.id, participanteId: null },
+        data: { usado: true, participanteId: participante.id },
+      });
+
+      if (claimed.count === 1) {
+        return { participanteId: participante.id, yaRegistrado: false };
+      }
+
+      const currentEntry = await tx.participanteWhitelist.findUnique({
+        where: { id: entry.id },
+      });
+
+      await tx.participante.delete({ where: { id: participante.id } });
+
+      if (currentEntry?.participanteId) {
+        return {
+          participanteId: currentEntry.participanteId,
+          yaRegistrado: true,
+        };
+      }
+
+      throw new ConflictException(
+        'No se pudo completar el registro. Inténtalo nuevamente.',
+      );
+    });
+  }
+
+  async registerParticipantConsent(
+    participanteId: string,
+    proyectoId: string,
+    aceptado: boolean,
+    version: string,
+  ) {
+    const participante = await this.prisma.participante.findUnique({
+      where: { id: participanteId },
     });
 
-    if (!entry) {
+    if (!participante) {
+      throw new NotFoundException('El participante no existe.');
+    }
+
+    const whitelistEntry = await this.prisma.participanteWhitelist.findFirst({
+      where: { proyectoId, participanteId, usado: true },
+    });
+
+    if (!whitelistEntry) {
       throw new ForbiddenException(
-        'Este email no está autorizado para participar en este proyecto. ' +
-          'Pídele al docente que lo agregue a la lista.',
+        'El participante no está autorizado para este proyecto.',
       );
     }
 
-    if (entry.usado && entry.participanteId) {
-      return { participanteId: entry.participanteId, yaRegistrado: true };
+    const latestConsent = await this.prisma.consentimiento.findFirst({
+      where: { participanteId, proyectoId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (latestConsent) {
+      return this.prisma.consentimiento.update({
+        where: { id: latestConsent.id },
+        data: { aceptado, version, createdAt: new Date() },
+      });
     }
 
-    const participante = await this.prisma.participante.create({
-      data: {
-        metadata: nombre ? { nombre } : undefined,
-      },
+    return this.prisma.consentimiento.create({
+      data: { participanteId, proyectoId, aceptado, version },
     });
-
-    await this.prisma.participanteWhitelist.update({
-      where: { id: entry.id },
-      data: { usado: true, participanteId: participante.id },
-    });
-
-    return { participanteId: participante.id, yaRegistrado: false };
   }
   async login(email: string, password: string) {
     const user = await this.prisma.usuario.findUnique({ where: { email } });
@@ -83,7 +149,11 @@ export class AuthService {
     };
   }
 
-  async issueParticipantToken(participanteId: string, proyectoId: string) {
+  async issueParticipantToken(
+    participanteId: string,
+    proyectoId: string,
+    allowUnlisted = false,
+  ) {
     const participante = await this.prisma.participante.findUnique({
       where: { id: participanteId },
     });
@@ -92,11 +162,24 @@ export class AuthService {
       throw new NotFoundException('El participante no existe.');
     }
 
+    if (!allowUnlisted) {
+      const whitelistEntry = await this.prisma.participanteWhitelist.findFirst({
+        where: { proyectoId, participanteId, usado: true },
+      });
+
+      if (!whitelistEntry) {
+        throw new ForbiddenException(
+          'El participante no está autorizado para este proyecto.',
+        );
+      }
+    }
+
     const consentimiento = await this.prisma.consentimiento.findFirst({
-      where: { participanteId, proyectoId, aceptado: true },
+      where: { participanteId, proyectoId },
+      orderBy: { createdAt: 'desc' },
     });
 
-    if (!consentimiento) {
+    if (!consentimiento?.aceptado) {
       throw new ForbiddenException(
         'El participante no tiene consentimiento aceptado para este proyecto.',
       );
@@ -158,7 +241,11 @@ export class AuthService {
       );
     }
 
-    return this.issueParticipantToken(consent.participanteId, consent.proyectoId);
+    return this.issueParticipantToken(
+      consent.participanteId,
+      consent.proyectoId,
+      true,
+    );
   }
 
   async validateTokenPayload(payload: {

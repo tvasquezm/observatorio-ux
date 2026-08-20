@@ -4,6 +4,7 @@ import {
   LoginDto,
   ParticipantTokenDto,
   RegisterParticipantDto,
+  RegisterParticipantConsentDto,
 } from './auth.dto';
 
 @Controller('auth')
@@ -21,6 +22,16 @@ export class AuthController {
       dto.proyectoId,
       dto.email,
       dto.nombre,
+    );
+  }
+
+  @Post('participants/consent')
+  registerParticipantConsent(@Body() dto: RegisterParticipantConsentDto) {
+    return this.authService.registerParticipantConsent(
+      dto.participanteId,
+      dto.proyectoId,
+      dto.aceptado,
+      dto.version,
     );
   }
 

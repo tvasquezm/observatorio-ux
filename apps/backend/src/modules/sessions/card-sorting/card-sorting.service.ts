@@ -100,11 +100,11 @@ export class CardSortingService {
       where: {
         participanteId: user.id,
         proyectoId: estudio.proyectoId,
-        aceptado: true,
       },
+      orderBy: { createdAt: 'desc' },
     });
 
-    if (!consent) {
+    if (!consent?.aceptado) {
       throw new ForbiddenException('No existe consentimiento para este proyecto.');
     }
 

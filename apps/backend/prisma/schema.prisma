@@ -88,7 +88,7 @@ model Participante {
   consentimientos Consentimiento[]
   sesiones        ResearchSession[] @relation("SesionesComoParticipante")
   categoriasCreadas Category[]
-  whitelistEntry  ParticipanteWhitelist? 
+  whitelistEntries ParticipanteWhitelist[]
   @@map("participantes")
 }
 model ParticipanteWhitelist {
@@ -100,13 +100,14 @@ model ParticipanteWhitelist {
   usado      Boolean  @default(false)
 
   participante   Participante? @relation(fields: [participanteId], references: [id])
-  participanteId String?       @unique
+  participanteId String?
 
   creadoPor   Usuario @relation(fields: [creadoPorId], references: [id])
   creadoPorId String
   createdAt   DateTime @default(now())
 
   @@unique([proyectoId, email])
+  @@index([proyectoId, participanteId])
   @@map("participantes_whitelist")
 }
 
