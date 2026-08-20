@@ -35,10 +35,21 @@ password: Demo1234!
 1. `POST /api/auth/login` con `email` y `password` para obtener un token de evaluador.
 2. Usar el token como `Authorization: Bearer <token>`.
 3. Crear o consultar proyectos desde `/api/projects`.
-4. Crear una sesión Card Sorting desde `POST /api/card-sorting/sessions`.
-5. Para un participante, solicitar `POST /api/auth/participants/token` con `participanteId` y `proyectoId`.
-6. Usar ese token en `POST /api/card-sorting/sessions/:id/join`.
-7. Enviar los resultados con `POST /api/card-sorting/sessions/:id/results`.
+4. Cargar participantes autorizados con `POST /api/proyectos/:id/participantes`.
+   El cuerpo tiene la forma `{ "participantes": [{ "email": "...", "nombre": "..." }] }`.
+5. Crear una sesión Card Sorting desde `POST /api/card-sorting/sessions`.
+6. El participante se registra con `POST /api/auth/participants/register`.
+7. Registrar su consentimiento con `POST /api/auth/participants/consent` usando
+   `participanteId`, `proyectoId`, `aceptado` y `version`.
+8. Solicitar `POST /api/auth/participants/token` con `participanteId` y
+   `proyectoId`.
+9. Usar ese token en `POST /api/card-sorting/sessions/:id/join`.
+10. Enviar los resultados con `POST /api/card-sorting/sessions/:id/results`.
+
+El registro exige que el email esté en la whitelist y la emisión del token
+vuelve a comprobar esa autorización. La verificación de que la persona controla
+el email requiere añadir un mecanismo de invitación o verificación por correo;
+el endpoint actual no envía emails por sí solo.
 
 En desarrollo también existen `GET /api/auth/test-token` y
 `GET /api/auth/test-participant-token`, que generan tokens a partir de los datos
