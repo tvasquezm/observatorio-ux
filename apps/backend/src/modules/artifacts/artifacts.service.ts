@@ -11,7 +11,7 @@ import { ZodError } from 'zod';
 import {
   JourneyMapSchema,
   MomentosCriticosSchema,
-} from '@my-org/shared-types'; // ajustar al alias real del monorepo
+} from '@observatorio-ux/shared-types'; // ajustar al alias real del monorepo
 import { PrismaService } from '../../core/database/prisma.service';
 import { AuthenticatedUser } from '../auth/types/authenticated-user.interface';
 import { CreateArtifactDto, CreateArtifactVersionDto } from './artifacts.dto';
