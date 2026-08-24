@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { UserProfileSchema } from './journey-map';
 
 // --- Enums del dominio ---
 
@@ -12,22 +13,6 @@ export const ImpactoIncidenteEnum = z.enum(['Alto', 'Medio', 'Bajo'], {
 
 export const FrecuenciaIncidenteEnum = z.enum(['Alta', 'Media', 'Baja'], {
   error: 'La frecuencia debe ser "Alta", "Media" o "Baja".',
-});
-
-// --- Perfil de usuario (inline para este artefacto) ---
-
-export const PerfilUsuarioMomentosCriticosSchema = z.object({
-  id: z
-    .string({ error: 'El id del usuario es obligatorio y debe ser un texto.' })
-    .uuid('El id del usuario debe ser un UUID válido.'),
-
-  nombre: z
-    .string({ error: 'El nombre del usuario es obligatorio y debe ser un texto.' })
-    .min(1, 'El nombre del usuario no puede estar vacío.'),
-
-  rol: z
-    .string({ error: 'El rol del usuario es obligatorio y debe ser un texto.' })
-    .min(1, 'El rol del usuario no puede estar vacío.'),
 });
 
 // --- Esquema de un Incidente Crítico individual ---
@@ -64,7 +49,7 @@ export const IncidenteCriticoSchema = z.object({
 // --- Esquema raíz del artefacto MOMENTOS_CRITICOS ---
 
 export const MomentosCriticosSchema = z.object({
-  perfilUsuario: PerfilUsuarioMomentosCriticosSchema,
+  perfilUsuario: UserProfileSchema,
 
   incidentes: z
     .array(IncidenteCriticoSchema, {
@@ -78,6 +63,5 @@ export const MomentosCriticosSchema = z.object({
 export type TipoIncidente = z.infer<typeof TipoIncidenteEnum>;
 export type ImpactoIncidente = z.infer<typeof ImpactoIncidenteEnum>;
 export type FrecuenciaIncidente = z.infer<typeof FrecuenciaIncidenteEnum>;
-export type PerfilUsuarioMomentosCriticos = z.infer<typeof PerfilUsuarioMomentosCriticosSchema>;
 export type IncidenteCritico = z.infer<typeof IncidenteCriticoSchema>;
 export type MomentosCriticos = z.infer<typeof MomentosCriticosSchema>;
