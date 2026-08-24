@@ -8,7 +8,10 @@ import {
 import { Prisma, TipoArtefacto } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { ZodError } from 'zod';
-import { JourneyMapSchema } from '@my-org/shared-types'; // ajustar al alias real del monorepo
+import {
+  JourneyMapSchema,
+  MomentosCriticosSchema,
+} from '@my-org/shared-types'; // ajustar al alias real del monorepo
 import { PrismaService } from '../../core/database/prisma.service';
 import { AuthenticatedUser } from '../auth/types/authenticated-user.interface';
 import { CreateArtifactDto, CreateArtifactVersionDto } from './artifacts.dto';
@@ -118,7 +121,7 @@ export class ArtifactsService {
           JourneyMapSchema.parse(contenido);
         } catch (error) {
           if (error instanceof ZodError) {
-            const errores = error.errors.map((issue) => ({
+            const errores = error.issues.map((issue) => ({
               campo: issue.path.join('.') || '(raíz)',
               mensaje: issue.message,
             }));
@@ -126,6 +129,27 @@ export class ArtifactsService {
             throw new BadRequestException({
               message:
                 'El contenido del Journey Map no cumple con la estructura requerida.',
+              errores,
+            });
+          }
+          throw error;
+        }
+        break;
+      }
+
+      case TipoArtefacto.MOMENTOS_CRITICOS: {
+        try {
+          MomentosCriticosSchema.parse(contenido);
+        } catch (error) {
+          if (error instanceof ZodError) {
+            const errores = error.issues.map((issue) => ({
+              campo: issue.path.join('.') || '(raíz)',
+              mensaje: issue.message,
+            }));
+
+            throw new BadRequestException({
+              message:
+                'El contenido de Momentos Críticos no cumple con la estructura requerida.',
               errores,
             });
           }
