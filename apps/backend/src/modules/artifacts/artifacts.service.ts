@@ -11,7 +11,8 @@ import { ZodError } from 'zod';
 import {
   JourneyMapSchema,
   MomentosCriticosSchema,
-} from '@observatorio-ux/shared-types'; // ajustar al alias real del monorepo
+  PersonaSchema,
+} from '@observatorio-ux/shared-types';
 import { PrismaService } from '../../core/database/prisma.service';
 import { AuthenticatedUser } from '../auth/types/authenticated-user.interface';
 import { CreateArtifactDto, CreateArtifactVersionDto } from './artifacts.dto';
@@ -158,11 +159,29 @@ export class ArtifactsService {
         break;
       }
 
+      case TipoArtefacto.PERSONA: {
+        try {
+          PersonaSchema.parse(contenido);
+        } catch (error) {
+          if (error instanceof ZodError) {
+            const errores = error.issues.map((issue) => ({
+              campo: issue.path.join('.') || '(raíz)',
+              mensaje: issue.message,
+            }));
+
+            throw new BadRequestException({
+              message:
+                'El contenido de Persona no cumple con la estructura requerida.',
+              errores,
+            });
+          }
+          throw error;
+        }
+        break;
+      }
+
       // Agregar más ramas a medida que se agreguen esquemas Zod para
-      // otros valores de TipoArtefacto, ej:
-      // case TipoArtefacto.PERSONA:
-      //   this.parseOrThrow(PersonaSchema, contenido, 'Persona');
-      //   break;
+      // otros valores de TipoArtefacto.
 
       default:
         // Tipos aún sin esquema estricto: no se valida (comportamiento actual).
