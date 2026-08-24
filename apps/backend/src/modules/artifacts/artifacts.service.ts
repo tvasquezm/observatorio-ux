@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -6,6 +7,8 @@ import {
 } from '@nestjs/common';
 import { Prisma, TipoArtefacto } from '@prisma/client';
 import { randomUUID } from 'crypto';
+import { ZodError } from 'zod';
+import { JourneyMapSchema } from '@my-org/shared-types'; // ajustar al alias real del monorepo
 import { PrismaService } from '../../core/database/prisma.service';
 import { AuthenticatedUser } from '../auth/types/authenticated-user.interface';
 import { CreateArtifactDto, CreateArtifactVersionDto } from './artifacts.dto';
@@ -20,6 +23,7 @@ export class ArtifactsService {
     user: AuthenticatedUser,
   ) {
     await this.assertProjectAccess(proyectoId, user);
+    this.validateContenidoByTipo(dto.tipo, dto.contenido);
 
     return this.prisma.uxArtifact.create({
       data: {
@@ -70,6 +74,9 @@ export class ArtifactsService {
       }
     }
 
+    // El tipo se hereda del artefacto lógico existente, no del DTO.
+    this.validateContenidoByTipo(artifact.tipo, dto.contenido);
+
     const latest = await this.prisma.uxArtifact.findFirst({
       where: { artefactoLogicoId: artifact.artefactoLogicoId },
       orderBy: { version: 'desc' },
@@ -96,6 +103,46 @@ export class ArtifactsService {
     if (!project) throw new NotFoundException('El proyecto no existe.');
     if (project.creadoPorId !== user.id && user.rol !== 'ADMIN') {
       throw new ForbiddenException('No tienes acceso a este proyecto.');
+    }
+  }
+
+  /**
+   * Valida el campo `contenido` de un UxArtifact según su `tipo` polimórfico
+   * (enum TipoArtefacto de Prisma). Lanza BadRequestException con el detalle
+   * de los campos inválidos si la validación de Zod falla.
+   */
+  private validateContenidoByTipo(tipo: TipoArtefacto, contenido: unknown): void {
+    switch (tipo) {
+      case TipoArtefacto.JOURNEY_MAP: {
+        try {
+          JourneyMapSchema.parse(contenido);
+        } catch (error) {
+          if (error instanceof ZodError) {
+            const errores = error.errors.map((issue) => ({
+              campo: issue.path.join('.') || '(raíz)',
+              mensaje: issue.message,
+            }));
+
+            throw new BadRequestException({
+              message:
+                'El contenido del Journey Map no cumple con la estructura requerida.',
+              errores,
+            });
+          }
+          throw error;
+        }
+        break;
+      }
+
+      // Agregar más ramas a medida que se agreguen esquemas Zod para
+      // otros valores de TipoArtefacto, ej:
+      // case TipoArtefacto.PERSONA:
+      //   this.parseOrThrow(PersonaSchema, contenido, 'Persona');
+      //   break;
+
+      default:
+        // Tipos aún sin esquema estricto: no se valida (comportamiento actual).
+        break;
     }
   }
 }
