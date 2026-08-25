@@ -136,16 +136,6 @@ pnpm --filter frontend test
 
 > Cobertura actualmente mínima en varios módulos — ampliarla es parte del backlog de Sprint 1 y 2 (ver [`docs/ROADMAP.md`](docs/ROADMAP.md)).
 
-## Cómo contribuir
-
-- **Commits:** [Conventional Commits](https://www.conventionalcommits.org/) (`feat(card-sorting): ...`, `fix(auth): ...`).
-- **Branches:** `tipo/ID-descripcion-corta` usando el ID del backlog (ej. `feature/A6-projects-module`) — ver [`docs/ROADMAP.md`](docs/ROADMAP.md) para la nomenclatura por sprint.
-- **PRs:** mínimo 1 aprobación antes de mergear a `main`, especialmente en cambios sobre `core/` (auth, guards, locks).
-- **Regla de slices verticales:** ningún módulo importa código de otro directamente; lo compartido vive en `core/` o `shared/`.
-- Antes de un PR sobre autenticación/autorización, revisa [`docs/ESTADO-TECNICO.md`](docs/ESTADO-TECNICO.md) — probablemente ya exista una tarea relacionada.
-- Deuda técnica nueva: documéntala en `docs/` siguiendo el formato de [`docs/deuda-tecnica-heuristica.md`](docs/deuda-tecnica-heuristica.md).
-- Nunca commitear `.env` real. Variable nueva → actualizar los tres `env.example` (raíz, backend, frontend) y, si es sensible, `env.validation.ts`.
-
 ## Documentación adicional
 
 - [`docs/ESTADO-TECNICO.md`](docs/ESTADO-TECNICO.md) — deuda técnica y estado real de cada módulo
