@@ -67,6 +67,7 @@ La interfaz implementa un sistema de diseño propio llamado *Academic Minimalism
 - **Backend:** NestJS, Prisma ORM, PostgreSQL, validación con Zod (`nestjs-zod`).
 - **Frontend:** React (Vite), TypeScript, Zustand (estado local), TanStack Query (estado de servidor), Tailwind CSS.
 - **Infraestructura de datos:** bloqueo pesimista (*pessimistic locking*) para concurrencia de edición de artefactos; constraints de integridad a nivel de base de datos (p. ej. `@@unique`) en vez de depender solo de validación de aplicación.
+- **Infraestructura de desarrollo:** Docker Compose orquesta `db` (PostgreSQL), `shared-types` (build en watch mode), `backend` y `frontend` como servicios independientes, con volúmenes compartidos para hot-reload.
 
 ## Estructura del monorepo
 
@@ -100,48 +101,78 @@ observatorio-ux/
 
 La guía específica del backend está en [`docs/BACKEND.md`](docs/BACKEND.md).
 
+El proyecto está **dockerizado**: la vía recomendada para levantarlo es Docker Compose, ya que orquesta base de datos, build de tipos compartidos, backend y frontend en un solo paso, sin depender de instalar PostgreSQL ni Node localmente.
+
 ### Prerrequisitos
 
-- Node.js 20+
-- pnpm 9+
-- PostgreSQL 15+ corriendo localmente (o accesible vía `DATABASE_URL`)
+- [Docker](https://www.docker.com/) y Docker Compose (incluido en Docker Desktop)
+- Git
 
-### 1. Clonar e instalar dependencias del monorepo
+> Node.js 20+ y pnpm 9+ solo son necesarios si prefieres correr los servicios **fuera** de Docker (ver [alternativa manual](#alternativa-sin-docker) al final).
+
+### 1. Clonar el repositorio
 
 ```bash
 git clone <url-del-repositorio>
 cd observatorio-ux
-pnpm install
 ```
 
 ### 2. Configurar variables de entorno
 
-Crea `apps/backend/.env` a partir del ejemplo del repositorio (ajusta los valores según tu entorno local):
+Copia el archivo de ejemplo de la **raíz del proyecto** a `.env` (también en la raíz — es el archivo que Docker Compose lee para `backend` y `frontend` vía `env_file`):
 
 ```bash
+cp env.example .env
+```
+
+Los valores por defecto en `env.example` ya están configurados para funcionar tal cual en desarrollo local con Docker (incluye `DATABASE_URL` apuntando al servicio `db` interno). No necesitas editar nada para el primer arranque.
+
+> ⚠️ No confundir con `apps/backend/.env.example` ni `apps/frontend/.env.example` — esos son referencias para quien corra esos servicios de forma individual fuera de Docker. El `.env` que realmente usa `docker-compose.yml` es el de la raíz.
+
+### 3. Levantar todo con Docker Compose
+
+```bash
+docker compose up --build
+```
+
+Este comando, en orden:
+
+1. Construye las imágenes de `shared-types`, `backend` y `frontend`.
+2. Levanta `db` (PostgreSQL) y espera a que su healthcheck pase.
+3. Compila `shared-types` en modo watch (tipos compartidos entre frontend y backend).
+4. En `backend`: aplica las migraciones de Prisma (`prisma migrate deploy`) y corre el seed automáticamente antes de iniciar el servidor Nest.
+5. Levanta `frontend` con Vite.
+
+Cuando termine, deberías ver:
+
+- Backend disponible en `http://localhost:3000/api`
+- Documentación Swagger en `http://localhost:3000/api/docs`
+- Frontend disponible en `http://localhost:5173`
+
+Para bajar todo (incluyendo los volúmenes de datos, útil para partir de cero):
+
+```bash
+docker compose down -v
+```
+
+### Alternativa sin Docker
+
+Si prefieres correr los servicios directamente en tu máquina (requiere Node.js 20+, pnpm 9+ y PostgreSQL 15+ accesible localmente):
+
+```bash
+pnpm install
+
+# Configura apps/backend/.env con tu propia DATABASE_URL local
 cp apps/backend/.env.example apps/backend/.env
-```
 
-```env
-DATABASE_URL="postgresql://usuario:password@localhost:5432/observatorio_ux"
-JWT_SECRET="reemplaza-esto-por-un-secreto-real"
-JWT_EXPIRATION="1d"
-```
+# Aplica migraciones
+pnpm --filter backend exec prisma migrate deploy
 
-> ⚠️ Verifica estos nombres contra tu `env.validation.ts`: los dejé como referencia razonable, pero no pude confirmarlos sin ver ese archivo.
-
-### 3. Ejecutar migraciones de Prisma
-
-```bash
-pnpm --filter backend exec prisma migrate dev
-```
-
-### 4. Levantar los servidores de desarrollo
-
-```bash
 # Backend (http://localhost:3000/api)
 pnpm --filter backend start:dev
 
-# Frontend (http://localhost:5173)
+# Frontend (http://localhost:5173), en otra terminal
 pnpm --filter frontend dev
 ```
+
+> Usa `prisma migrate deploy` (no `migrate dev`) para replicar el mismo comportamiento que corre dentro de Docker — `migrate dev` está pensado para crear migraciones nuevas durante desarrollo activo del schema, no para levantar el proyecto tal cual está.

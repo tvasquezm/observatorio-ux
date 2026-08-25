@@ -15,6 +15,20 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  shared-types:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+      target: development
+    working_dir: /app
+    entrypoint: []
+    command: pnpm --filter @observatorio-ux/shared-types exec tsc -p tsconfig.json --watch --preserveWatchOutput
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/packages/shared-types/node_modules
+      - shared_types_dist:/app/packages/shared-types/dist
+
   backend:
     build:
       context: .
@@ -27,14 +41,42 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    environment:
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/observatorio_ux?schema=public
-      NODE_ENV: development
+      shared-types:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
     volumes:
       - .:/app
       - /app/node_modules
       - /app/apps/backend/node_modules
       - /app/packages/shared-types/node_modules
+      - shared_types_dist:/app/packages/shared-types/dist
+
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+      target: development
+    env_file:
+      - .env
+    ports:
+      - "5173:5173"
+    depends_on:
+      backend:
+        condition: service_healthy
+      shared-types:
+        condition: service_started
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/apps/frontend/node_modules
+      - /app/packages/shared-types/node_modules
+      - shared_types_dist:/app/packages/shared-types/dist
 
 volumes:
   postgres_data:
+  shared_types_dist:

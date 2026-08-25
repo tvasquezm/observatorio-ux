@@ -2,23 +2,22 @@
 
 ## Requisitos
 
-- Node.js 20 o superior
-- pnpm 9 o superior
-- Docker Desktop para PostgreSQL
+- Docker Desktop
+
+No necesitas Node.js ni pnpm instalados localmente — todo corre dentro de los contenedores.
 
 ## Puesta en marcha
 
 Desde la raíz del repositorio:
 
 ```bash
-pnpm install
-Copy-Item apps/backend/.env.example apps/backend/.env
-docker compose up -d
-pnpm --filter backend prisma:generate
-pnpm --filter backend prisma:deploy
-pnpm --filter backend seed
-pnpm --filter backend start:dev
+cp .env.example .env
+docker compose up --build
 ```
+
+Esto levanta la base de datos, recompila `packages/shared-types` en watch mode,
+y arranca el backend — aplicando migraciones de Prisma y el seed
+automáticamente en cada arranque, sin pasos manuales.
 
 La API queda disponible en `http://localhost:3000/api` y Swagger en
 `http://localhost:3000/api/docs`. El chequeo básico es `GET /api/health`.
@@ -29,6 +28,10 @@ El usuario creado por el seed es:
 email: evaluador@ux.utem.cl
 password: Demo1234!
 ```
+
+> Para ver solo los logs del backend: `docker compose logs -f backend`.
+> Guía completa de arranque de todo el stack (incluyendo frontend) en el
+> [`README.md`](../README.md) de la raíz del proyecto.
 
 ## Flujo de autenticación
 

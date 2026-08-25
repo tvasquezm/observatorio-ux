@@ -23,4 +23,7 @@ RUN pnpm --filter @observatorio-ux/shared-types build
 # Generar el cliente de Prisma (pnpm bloquea postinstall scripts por defecto)
 RUN pnpm --filter backend exec prisma generate
 
+RUN chmod +x apps/backend/entrypoint.sh
+
+ENTRYPOINT ["sh", "apps/backend/entrypoint.sh"]
 CMD ["pnpm", "--filter", "backend", "start:dev"]

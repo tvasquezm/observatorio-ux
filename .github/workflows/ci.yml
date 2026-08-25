@@ -30,8 +30,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # 4. Así se ejecutan scripts en paquetes específicos con pnpm
+      # (corregido: el nombre real del paquete es "@observatorio-ux/shared-types",
+      # no "shared-types" — con el nombre viejo este filtro no matcheaba nada)
       - name: Compilar contratos compartidos (shared-types)
-        run: pnpm --filter shared-types run build
+        run: pnpm --filter @observatorio-ux/shared-types run build
 
       # 5. Así se ejecuta un comando en todos los proyectos del monorepo a la vez
       - name: Verificacion de tipos en todo el monorepo
