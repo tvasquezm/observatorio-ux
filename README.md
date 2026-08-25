@@ -131,6 +131,7 @@ pnpm --filter frontend dev
 pnpm --filter backend test        # unitarios
 pnpm --filter backend test:e2e    # end-to-end
 pnpm --filter frontend test
+pnpm -r test                      #(backend + frontend) de una vez
 ```
 
 > Cobertura actualmente mínima en varios módulos — ampliarla es parte del backlog de Sprint 1 y 2 (ver [`docs/ROADMAP.md`](docs/ROADMAP.md)).
