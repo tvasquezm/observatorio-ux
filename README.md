@@ -20,7 +20,6 @@ Trabajo de título de **Ingeniería en Computación (UTEM)**. Centraliza en un s
 - [Estructura del monorepo](#estructura-del-monorepo)
 - [Instalación y despliegue local](#instalación-y-despliegue-local)
 - [Testing](#testing)
-- [Cómo contribuir](#cómo-contribuir)
 - [Documentación adicional](#documentación-adicional)
 - [Autoría y contexto académico](#autoría-y-contexto-académico)
 
