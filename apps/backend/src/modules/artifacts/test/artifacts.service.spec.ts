@@ -34,6 +34,7 @@ describe('ArtifactsService', () => {
       findMany: jest.Mock;
       findUnique: jest.Mock;
       findFirst: jest.Mock;
+      update: jest.Mock;
     };
   };
 
@@ -49,6 +50,7 @@ describe('ArtifactsService', () => {
         findMany: jest.fn(),
         findUnique: jest.fn(),
         findFirst: jest.fn(),
+        update: jest.fn(),
       },
     };
 
@@ -297,6 +299,198 @@ describe('ArtifactsService', () => {
       const result = await service.createVersion('art-1', { contenido: {} }, ownerUser);
 
       expect(result).toEqual({ id: 'art-1', version: 3 });
+    });
+  });
+
+  // Cierra B4/B9/B14: antes de estos tests, lockedById/lockedUntil se leían
+  // en createVersion pero nada los escribía, así que el lock nunca se
+  // activaba de verdad. acquireLock/releaseLock son el lado que faltaba.
+  describe('acquireLock', () => {
+    const baseArtifact = {
+      id: 'art-1',
+      proyectoId: 'proy-1',
+      tipo: TipoArtefacto.PERSONA,
+      artefactoLogicoId: 'logico-1',
+      version: 2,
+      lockedById: null as string | null,
+      lockedUntil: null as Date | null,
+    };
+
+    it('adquiere el lock cuando el artefacto está libre', async () => {
+      prisma.uxArtifact.findUnique.mockResolvedValue(baseArtifact);
+      prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
+      prisma.uxArtifact.findFirst.mockResolvedValue(null);
+      prisma.uxArtifact.update.mockResolvedValue({
+        ...baseArtifact,
+        lockedById: ownerUser.id,
+      });
+
+      const result = await service.acquireLock('art-1', ownerUser);
+
+      expect(prisma.uxArtifact.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'art-1' },
+          data: expect.objectContaining({ lockedById: ownerUser.id }),
+        }),
+      );
+      const callArg = prisma.uxArtifact.update.mock.calls[0][0];
+      expect(callArg.data.lockedUntil).toBeInstanceOf(Date);
+      expect(callArg.data.lockedUntil.getTime()).toBeGreaterThan(Date.now());
+      expect(result.lockedById).toBe(ownerUser.id);
+    });
+
+    it('RECHAZA adquirir el lock si otro usuario ya lo tiene vigente', async () => {
+      prisma.uxArtifact.findUnique.mockResolvedValue(baseArtifact);
+      prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
+      prisma.uxArtifact.findFirst.mockResolvedValue({
+        ...baseArtifact,
+        lockedById: otherUser.id,
+        lockedUntil: new Date(Date.now() + 60_000),
+      });
+
+      await expect(service.acquireLock('art-1', ownerUser)).rejects.toThrow(
+        ConflictException,
+      );
+      expect(prisma.uxArtifact.update).not.toHaveBeenCalled();
+    });
+
+    it('PERMITE adquirir el lock si el de otro usuario ya expiró', async () => {
+      prisma.uxArtifact.findUnique.mockResolvedValue(baseArtifact);
+      prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
+      prisma.uxArtifact.findFirst.mockResolvedValue({
+        ...baseArtifact,
+        lockedById: otherUser.id,
+        lockedUntil: new Date(Date.now() - 60_000),
+      });
+      prisma.uxArtifact.update.mockResolvedValue({
+        ...baseArtifact,
+        lockedById: ownerUser.id,
+      });
+
+      const result = await service.acquireLock('art-1', ownerUser);
+      expect(result.lockedById).toBe(ownerUser.id);
+    });
+
+    it('renueva el TTL si el propio usuario ya tenía el lock', async () => {
+      prisma.uxArtifact.findUnique.mockResolvedValue(baseArtifact);
+      prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
+      prisma.uxArtifact.findFirst.mockResolvedValue({
+        ...baseArtifact,
+        lockedById: ownerUser.id,
+        lockedUntil: new Date(Date.now() + 5_000),
+      });
+      prisma.uxArtifact.update.mockResolvedValue({
+        ...baseArtifact,
+        lockedById: ownerUser.id,
+      });
+
+      await service.acquireLock('art-1', ownerUser);
+      expect(prisma.uxArtifact.update).toHaveBeenCalled();
+    });
+
+    it('respeta un ttlSegundos custom dentro del tope máximo', async () => {
+      prisma.uxArtifact.findUnique.mockResolvedValue(baseArtifact);
+      prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
+      prisma.uxArtifact.findFirst.mockResolvedValue(null);
+      prisma.uxArtifact.update.mockResolvedValue(baseArtifact);
+
+      await service.acquireLock('art-1', ownerUser, 10);
+
+      const callArg = prisma.uxArtifact.update.mock.calls[0][0];
+      const deltaMs = callArg.data.lockedUntil.getTime() - Date.now();
+      expect(deltaMs).toBeGreaterThan(5_000);
+      expect(deltaMs).toBeLessThanOrEqual(10_000);
+    });
+
+    it('un usuario sin acceso al proyecto no puede adquirir el lock', async () => {
+      prisma.uxArtifact.findUnique.mockResolvedValue(baseArtifact);
+      prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
+
+      await expect(service.acquireLock('art-1', otherUser)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+  });
+
+  describe('releaseLock', () => {
+    const lockedArtifact = {
+      id: 'art-1',
+      proyectoId: 'proy-1',
+      tipo: TipoArtefacto.PERSONA,
+      artefactoLogicoId: 'logico-1',
+      version: 2,
+      lockedById: 'user-owner',
+      lockedUntil: new Date(Date.now() + 60_000),
+    };
+
+    it('el dueño del lock puede liberarlo', async () => {
+      prisma.uxArtifact.findUnique.mockResolvedValue(lockedArtifact);
+      prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
+      prisma.uxArtifact.findFirst.mockResolvedValue(lockedArtifact);
+      prisma.uxArtifact.update.mockResolvedValue({
+        ...lockedArtifact,
+        lockedById: null,
+        lockedUntil: null,
+      });
+
+      const result = await service.releaseLock('art-1', ownerUser);
+
+      expect(prisma.uxArtifact.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'art-1' },
+          data: { lockedById: null, lockedUntil: null },
+        }),
+      );
+      expect(result.lockedById).toBeNull();
+    });
+
+    it('RECHAZA liberar el lock de otro usuario si sigue vigente', async () => {
+      prisma.uxArtifact.findUnique.mockResolvedValue(lockedArtifact);
+      prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
+      prisma.uxArtifact.findFirst.mockResolvedValue(lockedArtifact);
+
+      await expect(service.releaseLock('art-1', otherUser)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(prisma.uxArtifact.update).not.toHaveBeenCalled();
+    });
+
+    it('ADMIN puede liberar el lock de cualquier usuario', async () => {
+      prisma.uxArtifact.findUnique.mockResolvedValue(lockedArtifact);
+      prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
+      prisma.uxArtifact.findFirst.mockResolvedValue(lockedArtifact);
+      prisma.uxArtifact.update.mockResolvedValue({
+        ...lockedArtifact,
+        lockedById: null,
+        lockedUntil: null,
+      });
+
+      const result = await service.releaseLock('art-1', adminUser);
+      expect(result.lockedById).toBeNull();
+    });
+
+    it('liberar un lock ya expirado no falla aunque lo pida otro usuario con acceso al proyecto (ADMIN)', async () => {
+      // "otherUser" (DOCENTE que no es dueño del proyecto) directamente no
+      // pasaría ni el chequeo de acceso al proyecto (assertProjectAccess),
+      // así que el escenario realista de "otro usuario libera un lock ya
+      // expirado" es un ADMIN, que sí tiene acceso a cualquier proyecto.
+      prisma.uxArtifact.findUnique.mockResolvedValue({
+        ...lockedArtifact,
+        lockedUntil: new Date(Date.now() - 60_000),
+      });
+      prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
+      prisma.uxArtifact.findFirst.mockResolvedValue({
+        ...lockedArtifact,
+        lockedUntil: new Date(Date.now() - 60_000),
+      });
+      prisma.uxArtifact.update.mockResolvedValue({
+        ...lockedArtifact,
+        lockedById: null,
+        lockedUntil: null,
+      });
+
+      const result = await service.releaseLock('art-1', adminUser);
+      expect(result.lockedById).toBeNull();
     });
   });
 });

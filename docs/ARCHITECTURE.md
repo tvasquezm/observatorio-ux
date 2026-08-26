@@ -64,6 +64,12 @@ Decisiones clave:
 
 **Por qué se decidió así:** en un contexto de investigación colaborativa (varios estudiantes/evaluadores pueden trabajar sobre el mismo proyecto), el riesgo de que dos personas editen el mismo artefacto simultáneamente y una pierda su trabajo es real. Un bloqueo optimista (detectar el conflicto recién al guardar) se descartó a favor de uno pesimista con expiración automática, que avisa del conflicto *antes* de que la segunda persona invierta tiempo editando, sin el riesgo de bloqueos permanentes por sesiones abandonadas.
 
+**Corrección post-auditoría (cierre real de B4/B9/B14):** la primera versión de este mecanismo solo tenía el lado de *lectura* del lock: `createVersion` sabía interpretar `lockedById`/`lockedUntil`, pero ningún endpoint los escribía, así que en la práctica el lock nunca se activaba. Se agregaron dos endpoints nuevos en `ArtifactsController`/`ArtifactsService`:
+- `POST /projects/:proyectoId/artifacts/:artefactoId/lock` (`acquireLock`) — adquiere el lock sobre la **última versión** del artefacto lógico (no sobre la fila específica de la URL, para que el chequeo sea correcto aunque el cliente tenga abierta una versión vieja). Si el propio usuario ya lo tenía, lo renueva (soporta "heartbeats" desde el frontend mientras el usuario sigue editando). TTL configurable vía `ttlSegundos` en el body (tope 30 min), default 5 min.
+- `DELETE /projects/:proyectoId/artifacts/:artefactoId/lock` (`releaseLock`) — libera el lock. Solo el dueño del lock o un ADMIN pueden liberarlo explícitamente; liberar un lock ya expirado es idempotente y no falla.
+
+El frontend debe llamar a `acquireLock` al entrar a un formulario de edición y a `releaseLock` al salir (o dejar que expire el TTL como red de seguridad). Guardar una versión (`createVersion`) no libera el lock explícitamente: como cada versión nace en una fila nueva sin lock, el efecto práctico es el mismo.
+
 ---
 
 ### 4. Relación con el "ADR Master"

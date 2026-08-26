@@ -15,7 +15,16 @@ import {
 } from '@observatorio-ux/shared-types';
 import { PrismaService } from '../../core/database/prisma.service';
 import { AuthenticatedUser } from '../auth/types/authenticated-user.interface';
-import { CreateArtifactDto, CreateArtifactVersionDto } from './artifacts.dto';
+import {
+  AcquireLockDto,
+  CreateArtifactDto,
+  CreateArtifactVersionDto,
+} from './artifacts.dto';
+
+/** TTL por defecto del bloqueo pesimista si el cliente no envía uno propio. */
+const DEFAULT_LOCK_TTL_MS = 5 * 60 * 1000; // 5 minutos
+/** Tope máximo, para que un cliente no pueda pedir un lock "eterno". */
+const MAX_LOCK_TTL_MS = 30 * 60 * 1000; // 30 minutos
 
 @Injectable()
 export class ArtifactsService {
@@ -70,32 +79,125 @@ export class ArtifactsService {
     user: AuthenticatedUser,
   ) {
     const artifact = await this.findOne(artefactoId, user);
+    const latest = await this.getLatestVersion(artifact.artefactoLogicoId, artifact);
 
-    if (artifact.lockedById && artifact.lockedById !== user.id) {
-      const lockActive = artifact.lockedUntil && artifact.lockedUntil > new Date();
-      if (lockActive) {
-        throw new ConflictException('El artefacto está bloqueado por otro usuario.');
-      }
-    }
+    // El chequeo de lock se hace siempre contra la ÚLTIMA versión del
+    // artefacto lógico, no contra la fila que llegó en la URL: si el
+    // cliente pasó un id de una versión vieja, igual respetamos el lock
+    // vigente sobre el estado actual del artefacto.
+    this.assertNotLockedByOther(latest, user);
 
     // El tipo se hereda del artefacto lógico existente, no del DTO.
     this.validateContenidoByTipo(artifact.tipo, dto.contenido);
 
-    const latest = await this.prisma.uxArtifact.findFirst({
-      where: { artefactoLogicoId: artifact.artefactoLogicoId },
-      orderBy: { version: 'desc' },
-    });
-
+    // La nueva fila nace sin lock (lockedById/lockedUntil quedan null por
+    // default del schema): guardar una versión cierra, de hecho, la sesión
+    // de edición que originó el lock sobre la versión anterior.
     return this.prisma.uxArtifact.create({
       data: {
         proyectoId: artifact.proyectoId,
         tipo: artifact.tipo,
         artefactoLogicoId: artifact.artefactoLogicoId,
-        version: (latest?.version ?? artifact.version) + 1,
+        version: latest.version + 1,
         contenido: dto.contenido as Prisma.InputJsonValue,
         autorId: user.id,
       },
     });
+  }
+
+  /**
+   * Adquiere (o renueva) el bloqueo pesimista sobre la ÚLTIMA versión de un
+   * artefacto lógico. Cierra B4/B9/B14: antes de este método, `lockedById`/
+   * `lockedUntil` se leían en `createVersion` pero nada los escribía nunca,
+   * así que el lock jamás se activaba.
+   *
+   * Si el propio usuario ya tiene el lock, lo renueva (extiende el TTL) en
+   * vez de fallar, para soportar "heartbeats" desde el frontend mientras el
+   * usuario sigue editando.
+   */
+  async acquireLock(
+    artefactoId: string,
+    user: AuthenticatedUser,
+    ttlSegundos?: number,
+  ) {
+    const artifact = await this.findOne(artefactoId, user);
+    const latest = await this.getLatestVersion(artifact.artefactoLogicoId, artifact);
+
+    this.assertNotLockedByOther(latest, user);
+
+    const ttlMs = this.resolveTtlMs(ttlSegundos);
+    const lockedUntil = new Date(Date.now() + ttlMs);
+
+    return this.prisma.uxArtifact.update({
+      where: { id: latest.id },
+      data: { lockedById: user.id, lockedUntil },
+    });
+  }
+
+  /**
+   * Libera el lock sobre la última versión de un artefacto lógico. Solo
+   * quien lo tiene (o un ADMIN) puede liberarlo explícitamente; si ya expiró
+   * o nunca existió, no falla — liberar es idempotente.
+   */
+  async releaseLock(artefactoId: string, user: AuthenticatedUser) {
+    const artifact = await this.findOne(artefactoId, user);
+    const latest = await this.getLatestVersion(artifact.artefactoLogicoId, artifact);
+
+    const lockActive = !!latest.lockedById && this.isLockActive(latest.lockedUntil);
+
+    if (lockActive && latest.lockedById !== user.id && user.rol !== 'ADMIN') {
+      throw new ForbiddenException(
+        'No puedes liberar un bloqueo que pertenece a otro usuario.',
+      );
+    }
+
+    return this.prisma.uxArtifact.update({
+      where: { id: latest.id },
+      data: { lockedById: null, lockedUntil: null },
+    });
+  }
+
+  /**
+   * Busca la versión más reciente de un artefacto lógico. `fallback` es la
+   * fila que ya tenemos en mano (típicamente la que trajo `findOne`): si por
+   * la razón que sea `findFirst` no devuelve nada —no debería pasar en la
+   * práctica, ya que la propia fila de `fallback` matchea el where—, seguimos
+   * operando sobre esa fila en vez de fallar.
+   */
+  private async getLatestVersion<
+    T extends {
+      id: string;
+      version: number;
+      lockedById: string | null;
+      lockedUntil: Date | null;
+    },
+  >(artefactoLogicoId: string, fallback: T): Promise<T> {
+    const latest = await this.prisma.uxArtifact.findFirst({
+      where: { artefactoLogicoId },
+      orderBy: { version: 'desc' },
+    });
+
+    return (latest as T | null) ?? fallback;
+  }
+
+  private isLockActive(lockedUntil: Date | null): boolean {
+    return !!lockedUntil && lockedUntil > new Date();
+  }
+
+  private assertNotLockedByOther(
+    artifact: { lockedById: string | null; lockedUntil: Date | null },
+    user: AuthenticatedUser,
+  ): void {
+    const lockedByOther = artifact.lockedById && artifact.lockedById !== user.id;
+    if (lockedByOther && this.isLockActive(artifact.lockedUntil)) {
+      throw new ConflictException('El artefacto está bloqueado por otro usuario.');
+    }
+  }
+
+  private resolveTtlMs(ttlSegundos?: number): number {
+    if (!ttlSegundos) return DEFAULT_LOCK_TTL_MS;
+    const requestedMs = ttlSegundos * 1000;
+    return Math.min(Math.max(requestedMs, 1000), MAX_LOCK_TTL_MS);
   }
 
   private async assertProjectAccess(proyectoId: string, user: AuthenticatedUser) {

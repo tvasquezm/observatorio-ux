@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -8,14 +9,18 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { TipoArtefacto } from '@prisma/client';
 import { CurrentUser } from '../../core/decorators/current-user.decorator';
 import { Roles } from '../../core/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 import { RolesGuard } from '../../core/guards/roles.guard';
 import { AuthenticatedUser } from '../auth/types/authenticated-user.interface';
-import { CreateArtifactDto, CreateArtifactVersionDto } from './artifacts.dto';
+import {
+  AcquireLockDto,
+  CreateArtifactDto,
+  CreateArtifactVersionDto,
+} from './artifacts.dto';
 import { ArtifactsService } from './artifacts.service';
 
 @ApiTags('ux-artifacts')
@@ -62,5 +67,27 @@ export class ArtifactsController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.artifactsService.createVersion(artefactoId, dto, user);
+  }
+
+  @Post(':artefactoId/lock')
+  @ApiOperation({
+    summary:
+      'Adquiere (o renueva) el bloqueo pesimista sobre la última versión del artefacto.',
+  })
+  acquireLock(
+    @Param('artefactoId', ParseUUIDPipe) artefactoId: string,
+    @Body() dto: AcquireLockDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.artifactsService.acquireLock(artefactoId, user, dto.ttlSegundos);
+  }
+
+  @Delete(':artefactoId/lock')
+  @ApiOperation({ summary: 'Libera el bloqueo pesimista del artefacto.' })
+  releaseLock(
+    @Param('artefactoId', ParseUUIDPipe) artefactoId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.artifactsService.releaseLock(artefactoId, user);
   }
 }
