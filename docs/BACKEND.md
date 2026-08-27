@@ -38,7 +38,7 @@ password: Demo1234!
 1. `POST /api/auth/login` con `email` y `password` para obtener un token de evaluador.
 2. Usar el token como `Authorization: Bearer <token>`.
 3. Crear o consultar proyectos desde `/api/projects`.
-4. Cargar participantes autorizados con `POST /api/proyectos/:id/participantes`.
+4. Cargar participantes autorizados con `POST /api/projects/:id/participantes`.
    El cuerpo tiene la forma `{ "participantes": [{ "email": "...", "nombre": "..." }] }`.
 5. Crear una sesión Card Sorting desde `POST /api/card-sorting/sessions`.
 6. El participante se registra con `POST /api/auth/participants/register`.
@@ -80,16 +80,22 @@ salvo un usuario con rol `ADMIN`.
 Los tres módulos de artefactos utilizan el modelo versionado `UxArtifact`:
 
 ```text
-POST /api/proyectos/:proyectoId/artefactos
-GET  /api/proyectos/:proyectoId/artefactos
-GET  /api/proyectos/:proyectoId/artefactos/:artefactoId
-POST /api/proyectos/:proyectoId/artefactos/:artefactoId/versions
+POST   /api/projects/:proyectoId/artifacts
+GET    /api/projects/:proyectoId/artifacts
+GET    /api/projects/:proyectoId/artifacts/:artefactoId
+POST   /api/projects/:proyectoId/artifacts/:artefactoId/versions
+POST   /api/projects/:proyectoId/artifacts/:artefactoId/lock
+DELETE /api/projects/:proyectoId/artifacts/:artefactoId/lock
 ```
 
 Los valores admitidos para `tipo` son `PERSONA`, `JOURNEY_MAP` y
 `MOMENTOS_CRITICOS`. El campo `contenido` es JSON y permite que cada técnica
 conserve su estructura específica. Las nuevas versiones se almacenan como
 registros append-only asociados al mismo `artefactoLogicoId`.
+
+Antes de editar un artefacto, adquirir el bloqueo con `POST .../lock`
+(TTL configurable vía `ttlSegundos` en el body, default 5 min) y liberarlo
+con `DELETE .../lock` al terminar. Ver `docs/ARCHITECTURE.md` §Sprint 2.3.
 
 Para probar estos endpoints se puede importar
 `postman/ux-artifacts.postman_collection.json`.

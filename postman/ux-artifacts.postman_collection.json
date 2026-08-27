@@ -26,7 +26,7 @@
         "method": "POST",
         "header": [{"key": "Content-Type", "value": "application/json"}],
         "body": {"mode": "raw", "raw": "{\n  \"tipo\": \"PERSONA\",\n  \"contenido\": {\n    \"nombre\": \"Ana, usuaria frecuente\",\n    \"objetivos\": [\"Completar sus tareas rápidamente\"],\n    \"necesidades\": [\"Información clara\"],\n    \"frustraciones\": [\"Formularios extensos\"],\n    \"contextoUso\": \"Utiliza el sistema desde su teléfono\"\n  }\n}"},
-        "url": "{{baseUrl}}/api/proyectos/{{proyectoId}}/artefactos"
+        "url": "{{baseUrl}}/api/projects/{{proyectoId}}/artifacts"
       }
     },
     {
@@ -40,7 +40,7 @@
         "method": "POST",
         "header": [{"key": "Content-Type", "value": "application/json"}],
         "body": {"mode": "raw", "raw": "{\n  \"tipo\": \"JOURNEY_MAP\",\n  \"contenido\": {\n    \"nombre\": \"Solicitar atención\",\n    \"etapas\": [\n      {\"nombre\": \"Inicio\", \"emocion\": 3, \"puntosContacto\": [\"Portal web\"], \"oportunidades\": [\"Mejorar orientación\"]}\n    ]\n  }\n}"},
-        "url": "{{baseUrl}}/api/proyectos/{{proyectoId}}/artefactos"
+        "url": "{{baseUrl}}/api/projects/{{proyectoId}}/artifacts"
       }
     },
     {
@@ -54,7 +54,7 @@
         "method": "POST",
         "header": [{"key": "Content-Type", "value": "application/json"}],
         "body": {"mode": "raw", "raw": "{\n  \"tipo\": \"MOMENTOS_CRITICOS\",\n  \"contenido\": {\n    \"momentos\": [\n      {\"descripcion\": \"La persona no encuentra el botón continuar\", \"impacto\": 4, \"frecuencia\": 3, \"causa\": \"Jerarquía visual débil\", \"accionSugerida\": \"Reubicar y renombrar el botón\"}\n    ]\n  }\n}"},
-        "url": "{{baseUrl}}/api/proyectos/{{proyectoId}}/artefactos"
+        "url": "{{baseUrl}}/api/projects/{{proyectoId}}/artifacts"
       }
     },
     {
@@ -64,7 +64,7 @@
         "method": "POST",
         "header": [{"key": "Content-Type", "value": "application/json"}],
         "body": {"mode": "raw", "raw": "{\n  \"contenido\": {\n    \"nombre\": \"Ana, usuaria frecuente - actualizado\",\n    \"objetivos\": [\"Completar sus tareas rápidamente\", \"Entender el estado de su solicitud\"],\n    \"necesidades\": [\"Información clara\", \"Confirmación visible\"]\n  }\n}"},
-        "url": "{{baseUrl}}/api/proyectos/{{proyectoId}}/artefactos/{{personaId}}/versions"
+        "url": "{{baseUrl}}/api/projects/{{proyectoId}}/artifacts/{{personaId}}/versions"
       }
     },
     {
@@ -72,7 +72,7 @@
       "request": {
         "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{evaluatorToken}}", "type": "string"}]},
         "method": "GET",
-        "url": "{{baseUrl}}/api/proyectos/{{proyectoId}}/artefactos"
+        "url": "{{baseUrl}}/api/projects/{{proyectoId}}/artifacts"
       }
     }
   ],

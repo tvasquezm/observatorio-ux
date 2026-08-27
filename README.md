@@ -10,7 +10,7 @@ Plataforma SaaS para la ejecución, gestión y análisis matemático de metodolo
 
 Trabajo de título de **Ingeniería en Computación (UTEM)**. Centraliza en un solo lugar cinco metodologías de UX Research —Evaluación Heurística, Card Sorting, Perfil de Persona, Journey Map y Mapa de Momentos Críticos—, con autenticación por roles, gestión de proyectos y un modelo de datos pensado para el análisis, no solo el almacenamiento.
 
-> **Estado:** en desarrollo activo (Sprint 1 de 13). Antes de auditar o contribuir, revisa [`docs/ESTADO-TECNICO.md`](docs/ESTADO-TECNICO.md), donde se documenta la deuda técnica conocida.
+> **Estado:** en desarrollo activo (Sprint 1 y 2 de 13, ya cerrados). Antes de auditar o contribuir, revisa [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), donde se documentan las decisiones de arquitectura y los hallazgos de auditoría técnica.
 
 ## Tabla de contenidos
 
@@ -36,11 +36,13 @@ Monorepo con **arquitectura de slices verticales** (bajo acoplamiento, alta cohe
 
 La interfaz usa un sistema de diseño propio, **Academic Minimalism**: paleta monocromática en grises + un "Azul Académico" (Indigo) reservado para acciones transaccionales.
 
+> Toda la API usa **un solo idioma para las rutas: inglés** (`/api/projects`, `/api/projects/:id/artifacts`, etc.). `EvaluacionHeuristicaController` es la única excepción pendiente de migrar (sigue en español, `/api/proyectos/.../evaluacion-heuristica/...`) — ver `docs/ARCHITECTURE.md` §5.
+
 ## Stack tecnológico
 
 - **Backend:** NestJS, Prisma ORM, PostgreSQL, validación con Zod (`nestjs-zod`)
 - **Frontend:** React (Vite), TypeScript, Zustand, TanStack Query, Tailwind CSS
-- **Concurrencia:** bloqueo pesimista para edición de artefactos + constraints a nivel de base de datos
+- **Concurrencia:** bloqueo pesimista con TTL para edición de artefactos (`POST`/`DELETE .../artifacts/:id/lock`) + constraints a nivel de base de datos
 - **Infra de desarrollo:** Docker Compose (`db`, `shared-types` en watch mode, `backend`, `frontend`)
 - **Reportería:** PDF por proyecto + exportación JSON (Sprint 7)
 - **Pruebas de carga:** k6, objetivo 200 usuarios concurrentes (Sprint 8)
@@ -56,7 +58,7 @@ observatorio-ux/
 │   └── frontend/                # Cliente SPA (React)
 │       └── src/{features,layouts,pages,shared}/
 ├── packages/shared-types/       # Contratos DTO compartidos Frontend/Backend
-├── postman/                     # Colección Postman para pruebas manuales
+├── postman/                     # Colecciones Postman para pruebas manuales
 ├── docs/                        # Documentación técnica y académica
 └── CHANGELOG.md
 ```
@@ -64,8 +66,6 @@ observatorio-ux/
 ## Instalación y despliegue local
 
 Guía detallada del backend en [`docs/BACKEND.md`](docs/BACKEND.md).
-
-> ⚠️ El build de `shared-types` está roto actualmente — revisa [`docs/ESTADO-TECNICO.md`](docs/ESTADO-TECNICO.md) antes de levantar el proyecto.
 
 **Requisitos:** Docker + Docker Compose, Git.
 
@@ -84,7 +84,7 @@ Copia el archivo de ejemplo de la **raíz del proyecto** a `.env` (es el que lee
 cp env.example .env
 ```
 
-Los valores por defecto ya funcionan para desarrollo local con Docker (incluye `DATABASE_URL` apuntando al servicio `db` interno) — no necesitas editar nada para el primer arranque.
+Los valores por defecto ya funcionan para desarrollo local con Docker (incluye `DATABASE_URL` apuntando al servicio `db` interno) — no necesitas editar nada para el primer arranque. `NODE_ENV=development` viene seteado explícito a propósito: sin esa variable la aplicación no arranca (ver `docs/ARCHITECTURE.md` sobre por qué se decidió así).
 
 > ⚠️ No confundir con `apps/backend/.env.example` ni `apps/frontend/.env.example` — esos son solo para quien corra esos servicios de forma individual fuera de Docker.
 
@@ -94,7 +94,7 @@ Los valores por defecto ya funcionan para desarrollo local con Docker (incluye `
 docker compose up --build
 ```
 
-Esto, en orden: construye las imágenes de `shared-types`, `backend` y `frontend`; levanta `db` (Postgres) y espera su healthcheck; compila `shared-types` en modo watch; aplica migraciones de Prisma y corre el seed; y levanta el frontend con Vite.
+Esto, en orden: construye las imágenes de `shared-types`, `backend` y `frontend`; levanta `db` (Postgres) y espera su healthcheck; compila `shared-types` en modo watch; aplica migraciones de Prisma; corre el seed **solo si `NODE_ENV` no es `production`**; y levanta el frontend con Vite.
 
 - Backend: `http://localhost:3000/api` (Swagger en `/api/docs`)
 - Frontend: `http://localhost:5173`
@@ -114,8 +114,14 @@ pnpm install
 # Configura apps/backend/.env con tu propia DATABASE_URL local
 cp apps/backend/.env.example apps/backend/.env
 
+# Genera el cliente de Prisma
+pnpm --filter backend exec prisma generate
+
 # Aplica migraciones (usa "migrate deploy", no "migrate dev", para replicar el mismo comportamiento que Docker)
 pnpm --filter backend exec prisma migrate deploy
+
+# Corre el seed (crea un usuario demo — ver docs/BACKEND.md)
+pnpm --filter backend run seed
 
 # Backend (http://localhost:3000/api)
 pnpm --filter backend start:dev
@@ -128,20 +134,23 @@ pnpm --filter frontend dev
 ## Testing
 
 ```bash
-pnpm --filter backend test        # unitarios
-pnpm --filter backend test:e2e    # end-to-end
-pnpm --filter frontend test
-pnpm -r test                      #(backend + frontend) de una vez
+pnpm --filter backend test        # unitarios (57 tests, 6 suites — en verde)
+pnpm -r test                      # corre "test" en todos los workspaces que lo definan
 ```
 
-> Cobertura actualmente mínima en varios módulos — ampliarla es parte del backlog de Sprint 1 y 2 (ver [`docs/ROADMAP.md`](docs/ROADMAP.md)).
+> ⚠️ Todavía no existen tests e2e (`test:e2e`) ni tests de frontend — son parte del
+> backlog pendiente, no scripts ya implementados. Antes de correr `pnpm -r test`
+> desde la raíz, tené en cuenta que solo `apps/backend` define ese script hoy;
+> `apps/frontend` y `packages/shared-types` no lo tienen todavía.
+>
+> Cobertura actualmente mínima en varios módulos — ampliarla es parte del backlog.
 
 ## Documentación adicional
 
-- [`docs/ESTADO-TECNICO.md`](docs/ESTADO-TECNICO.md) — deuda técnica y estado real de cada módulo
-- [`docs/ROADMAP.md`](docs/ROADMAP.md) — roadmap completo por sprint y backlog detallado (140+ tareas)
-- [`docs/BACKEND.md`](docs/BACKEND.md) — guía de arranque del backend
-- [`postman/`](postman/) — colección Postman (token de prueba vía `/auth/test-token`, actualmente sin proteger — no usar contra una instancia expuesta públicamente)
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — decisiones de arquitectura por sprint, mecanismos (versionado append-only, bloqueo pesimista), y hallazgos/correcciones de auditoría técnica
+- [`docs/BACKEND.md`](docs/BACKEND.md) — guía de arranque del backend y flujo completo de autenticación/artefactos
+- [`docs/deuda-tecnica-heuristica.md`](docs/deuda-tecnica-heuristica.md) — registro histórico de deuda técnica detectada en el módulo de Evaluación Heurística (03/08/2026) — la mayoría de esos ítems ya están resueltos, revisar `ARCHITECTURE.md` para el estado vigente
+- [`postman/`](postman/) — colecciones Postman por módulo (token de prueba vía `/auth/test-token`, deshabilitado automáticamente cuando `NODE_ENV=production`)
 
 ## Licencia
 
