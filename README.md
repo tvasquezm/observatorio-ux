@@ -6,6 +6,8 @@
 ![Prisma](https://img.shields.io/badge/Prisma-3982CE?style=for-the-badge&logo=Prisma&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
 
+[![CI](https://github.com/tvasquezm/observatorio-ux/actions/workflows/ci.yml/badge.svg)](https://github.com/tvasquezm/observatorio-ux/actions/workflows/ci.yml)
+
 Plataforma SaaS para la ejecución, gestión y análisis matemático de metodologías de investigación en Experiencia de Usuario (UX), desarrollada para el **Observatorio UX para la Inclusión Social** de la Universidad Tecnológica Metropolitana (UTEM).
 
 Trabajo de título de **Ingeniería en Computación (UTEM)**. Centraliza en un solo lugar cinco metodologías de UX Research —Evaluación Heurística, Card Sorting, Perfil de Persona, Journey Map y Mapa de Momentos Críticos—, con autenticación por roles, gestión de proyectos y un modelo de datos pensado para el análisis, no solo el almacenamiento.
@@ -20,6 +22,7 @@ Trabajo de título de **Ingeniería en Computación (UTEM)**. Centraliza en un s
 - [Estructura del monorepo](#estructura-del-monorepo)
 - [Instalación y despliegue local](#instalación-y-despliegue-local)
 - [Testing](#testing)
+- [CI](#ci)
 - [Documentación adicional](#documentación-adicional)
 - [Autoría y contexto académico](#autoría-y-contexto-académico)
 
@@ -144,6 +147,16 @@ pnpm -r test                      # corre "test" en todos los workspaces que lo 
 > `apps/frontend` y `packages/shared-types` no lo tienen todavía.
 >
 > Cobertura actualmente mínima en varios módulos — ampliarla es parte del backlog.
+
+## CI
+
+Cada `push` a `main` y cada Pull Request disparan un workflow de GitHub
+Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) que corre,
+contra un Postgres real: build de `shared-types`, `prisma generate` +
+`migrate deploy`, los tests del backend, y el build del frontend. No requiere
+ninguna acción manual — se ve en la pestaña **Actions** del repo, o como
+check ✅/❌ directo en la página del Pull Request. Si falla, el log de cada
+paso está ahí mismo.
 
 ## Documentación adicional
 
