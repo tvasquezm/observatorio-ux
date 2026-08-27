@@ -25,7 +25,7 @@ import { ProjectsService } from './projects.service';
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ESTUDIANTE', 'DOCENTE', 'ADMIN')
-@Controller(['projects', 'proyectos'])
+@Controller('projects')
 export class ProjectsController {
   constructor(private readonly projects: ProjectsService) {}
 

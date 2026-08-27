@@ -27,10 +27,7 @@ import { ArtifactsService } from './artifacts.service';
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ESTUDIANTE', 'DOCENTE', 'ADMIN')
-@Controller([
-  'projects/:proyectoId/artifacts',
-  'proyectos/:proyectoId/artefactos',
-])
+@Controller('projects/:proyectoId/artifacts')
 export class ArtifactsController {
   constructor(private readonly artifactsService: ArtifactsService) {}
 

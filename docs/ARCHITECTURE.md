@@ -15,6 +15,8 @@ Decisiones clave:
 
 *(Sección resumida — completar con más detalle si se requiere para la memoria del proyecto.)*
 
+**Corrección post-auditoría (cierre real de A4 — endpoint `/auth/test-token`):** el endpoint no se removió, se gatea con `if (nodeEnv === 'production') throw NotFoundException()`. El riesgo real detectado: `NODE_ENV` tenía `.default('development')` en `env.validation.ts`, así que un despliegue que se olvidara de setear esa variable arrancaba igual, en modo `development`, dejando el endpoint de bypass de autenticación abierto sin que nadie lo notara. Se cambió a `.required()`: ahora la app no arranca si falta `NODE_ENV`, en vez de arrancar silenciosamente en el modo equivocado. Verificado con `env.validation.smoke.spec.ts`.
+
 ---
 
 ## Sprint 2 — Backends de Persona, Journey Map y Momentos Críticos
@@ -75,6 +77,14 @@ El frontend debe llamar a `acquireLock` al entrar a un formulario de edición y 
 ### 4. Relación con el "ADR Master"
 
 El encabezado de `schema.prisma` referencia un **ADR Master** ("Refleja el ADR Master: modelo dual, bloqueo pesimista, consentimiento") como la fuente de las decisiones de fondo que el schema implementa. Si ese ADR existe como documento aparte, debería enlazarse aquí; si todavía no se ha formalizado por separado, las secciones 1–3 de esta entrada cumplen ese rol mientras tanto y deberían migrarse a un ADR dedicado cuando el equipo formalice ese proceso.
+
+### 5. Consolidación de rutas: un solo idioma (inglés)
+
+**Qué se encontró:** `ProjectsController` y `ArtifactsController` tenían `@Controller([...])` con un array de dos prefijos, sirviendo la misma implementación bajo dos idiomas a la vez: `/api/projects` y `/api/proyectos` (y sus equivalentes `/artifacts` / `/artefactos`). No era una duplicación de código —un solo controller, un solo service— sino dos alias de URL para el mismo endpoint. `EvaluacionHeuristicaController` y `CardSortingController` no tenían este patrón: solo exponían su ruta en español/técnico único.
+
+**Decisión:** el equipo decidió quedarse con **un solo idioma para toda la API: inglés**. Se quitó el alias en español de `ProjectsController` (`@Controller('projects')`) y `ArtifactsController` (`@Controller('projects/:proyectoId/artifacts')`). Rutas afectadas — dejan de existir `/api/proyectos/*` y `/api/proyectos/:proyectoId/artefactos/*`; siguen existiendo `/api/projects/*` y `/api/projects/:proyectoId/artifacts/*` (incluyendo `/lock` de B4/B9/B14).
+
+**Pendiente para el equipo:** `EvaluacionHeuristicaController` (`proyectos/:proyectoId/evaluacion-heuristica/sesiones`) sigue en español y no tiene alias en inglés — no se tocó porque no era parte de la duplicación reportada, pero para consistencia con la decisión de este ítem, valdría la pena migrarlo también en un cambio aparte (afecta más superficie de API, conviene coordinarlo con quien consuma esas rutas).
 
 ---
 
