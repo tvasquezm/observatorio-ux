@@ -1,40 +1,79 @@
-name: Observatorio UX - CI Gate
+name: CI
 
+# Corre en cada push y en cada Pull Request. El objetivo es simple: si algo
+# rompe pnpm --filter backend test, el build de shared-types, o el build del
+# frontend, que se vea en rojo en el PR — no que alguien lo descubra días
+# después al clonar de cero.
 on:
+  push:
+    branches: [main]
   pull_request:
-    branches: [ main ]
+
+# Si se pushean varios commits seguidos a la misma rama/PR, cancela la
+# corrida anterior en vez de dejarlas todas corriendo en paralelo.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  auditoria-tecnica:
-    name: Validacion de Codigo y Contratos Zod
+  build-and-test:
     runs-on: ubuntu-latest
 
+    # Postgres real, igual que el que usa docker-compose.yml en local
+    # (mismo tag: postgres:16-alpine), para que `prisma migrate deploy`
+    # corra contra una base de verdad y no quede sin probar en CI.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: observatorio_ux
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d observatorio_ux"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/observatorio_ux
+      JWT_SECRET: ci_only_secret_not_for_real_use
+      JWT_EXPIRES_IN: 1h
+      PORT: 3000
+      CORS_ORIGIN: http://localhost:5173
+
     steps:
-      - name: Checkout del codigo
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # 1. Le enseñamos al servidor de GitHub qué es pnpm
-      - name: Instalar pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
+      # El Dockerfile del backend fija pnpm@9 vía corepack — se replica acá
+      # para que CI use exactamente la misma versión que local/Docker.
+      - name: Habilitar pnpm (misma versión que apps/backend/Dockerfile)
+        run: corepack enable && corepack prepare pnpm@9 --activate
 
-      - name: Configurar Node.js 20
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm' # 2. Cambiamos el caché de npm a pnpm
+          cache: 'pnpm'
 
-      # 3. pnpm install --frozen-lockfile es el equivalente exacto de "npm ci"
       - name: Instalar dependencias
         run: pnpm install --frozen-lockfile
 
-      # 4. Así se ejecutan scripts en paquetes específicos con pnpm
-      # (corregido: el nombre real del paquete es "@observatorio-ux/shared-types",
-      # no "shared-types" — con el nombre viejo este filtro no matcheaba nada)
-      - name: Compilar contratos compartidos (shared-types)
-        run: pnpm --filter @observatorio-ux/shared-types run build
+      - name: Build shared-types
+        run: pnpm --filter @observatorio-ux/shared-types build
 
-      # 5. Así se ejecuta un comando en todos los proyectos del monorepo a la vez
-      - name: Verificacion de tipos en todo el monorepo
-        run: pnpm -r run build
+      - name: Generar cliente de Prisma
+        run: pnpm --filter backend exec prisma generate
+
+      - name: Aplicar migraciones (contra el Postgres del job)
+        run: pnpm --filter backend exec prisma migrate deploy
+
+      - name: Tests del backend
+        run: pnpm --filter backend test
+
+      - name: Build del frontend (tsc --noEmit + vite build)
+        run: pnpm --filter frontend build
