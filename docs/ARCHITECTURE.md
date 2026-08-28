@@ -86,6 +86,18 @@ El encabezado de `schema.prisma` referencia un **ADR Master** ("Refleja el ADR M
 
 **Pendiente para el equipo:** `EvaluacionHeuristicaController` (`proyectos/:proyectoId/evaluacion-heuristica/sesiones`) sigue en español y no tiene alias en inglés — no se tocó porque no era parte de la duplicación reportada, pero para consistencia con la decisión de este ítem, valdría la pena migrarlo también en un cambio aparte (afecta más superficie de API, conviene coordinarlo con quien consuma esas rutas).
 
+### 6. Helmet + rate limiting
+
+**Helmet** (`app.use(helmet())` en `main.ts`) agrega los headers de seguridad HTTP estándar (anti-clickjacking, MIME sniffing, etc.) que Express/Nest no ponen por defecto. Costo prácticamente nulo, sin trade-offs — se agregó sin condicionar nada.
+
+**Rate limiting** (`@nestjs/throttler`), aplicado en dos niveles:
+- **Global**: 60 requests/minuto por IP en toda la API (`ThrottlerModule.forRoot` + `ThrottlerGuard` como `APP_GUARD` en `app.module.ts`).
+- **Más estricto en `AuthController`**: `POST /auth/login` a 5/min (blanco directo de fuerza bruta contra contraseñas), y los tres endpoints de `participants/*` a 10/min (no requieren credenciales previas — cualquiera puede intentar registrar emails o pedir tokens de participante en loop).
+
+`/auth/test-token` y `/auth/test-participant-token` quedaron con el límite global (60/min) — ya están gateados por `NODE_ENV` (ver A4 más arriba), así que el rate limit ahí es una capa extra, no la protección principal.
+
+**Probado en real** contra `POST /auth/login`: 5 intentos consecutivos devuelven `401` (credenciales inválidas, como se espera), el 6° y 7° devuelven `429 Too Many Requests`. La respuesta también trae los headers `X-RateLimit-Limit` / `X-RateLimit-Remaining` / `X-RateLimit-Reset`, y los headers de Helmet (`Content-Security-Policy`, `Strict-Transport-Security`, `X-Frame-Options`, etc.) aparecen en toda respuesta.
+
 ---
 
 ## Cómo usar este documento
