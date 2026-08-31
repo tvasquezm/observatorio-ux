@@ -29,20 +29,33 @@ export interface UxArtifact<TContenido = unknown> {
   lockedUntil: string | null;
 }
 
-// OJO / CAMBIO DE CONTRATO: `detalles` era { campo, mensaje }[] asumiendo
-// un envoltorio { error: { message, detalles } } que la prueba real contra
-// el backend (POST /projects/:id/artifacts) no confirmó — la respuesta
-// vino sin envoltorio. Con el filtro global plano acordado, lo único
-// disponible es `message` (string | string[]), sin campo aislado.
+// Estructura acordada tras la decisión del dueño (Sprint 3): el backend
+// ahora emite `message` como { campo, mensaje }[] en los 400 de validación
+// (ver exceptionFactory en main.ts), así que se recupera el detalle por campo.
+export interface DetalleValidacion {
+  campo: string;
+  mensaje: string;
+}
+
 export class ArtifactsApiError extends Error {
   constructor(
     public readonly status: number,
     message: string,
-    public readonly detalles?: string[],
+    public readonly detalles?: DetalleValidacion[],
   ) {
     super(message);
     this.name = 'ArtifactsApiError';
   }
+}
+
+function normalizarDetalles(message: unknown): DetalleValidacion[] | undefined {
+  if (Array.isArray(message) && message.every((m) => m && typeof m === 'object' && 'campo' in m)) {
+    return message as DetalleValidacion[];
+  }
+  if (Array.isArray(message)) {
+    return message.map((m) => ({ campo: '', mensaje: String(m) }));
+  }
+  return undefined;
 }
 
 // TODO: reemplazar por el authStore real de evaluador cuando exista.
@@ -69,12 +82,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
   if (!res.ok) {
     const body = await res.json().catch(() => null);
-    const mensaje = Array.isArray(body?.message) ? body.message.join(' ') : body?.message;
-    throw new ArtifactsApiError(
-      res.status,
-      mensaje ?? `Error HTTP ${res.status}`,
-      Array.isArray(body?.message) ? body.message : undefined,
-    );
+    const detalles = normalizarDetalles(body?.message);
+    const mensaje = detalles ? detalles.map((d) => d.mensaje).join(' ') : (typeof body?.message === 'string' ? body.message : undefined);
+    throw new ArtifactsApiError(res.status, mensaje ?? `Error HTTP ${res.status}`, detalles);
   }
 
   // Confirmado por prueba real: el backend devuelve el objeto directo,

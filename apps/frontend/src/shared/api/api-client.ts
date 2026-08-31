@@ -7,17 +7,31 @@
 
 import { notify } from './toast';
 
-// OJO / CAMBIO DE CONTRATO: antes esta clase esperaba `detalles` como
-// { campo, mensaje }[] (errores por campo). El filtro global nuevo del
-// backend (formato plano acordado) no distingue campo — ValidationPipe
-// entrega `message` como string[] genérico ("nombreCompleto must be a
-// string", etc.), sin el nombre del campo aislado. Si algún formulario
-// consumía `.detalles[i].campo` para resaltar un input específico, ese
-// uso se rompe acá y hay que revisarlo aparte.
+// Estructura acordada tras la decisión del dueño (Sprint 3): se necesita
+// marcar el input exacto que falló en los formularios. El backend ahora
+// emite `message` como { campo, mensaje }[] en los 400 de validación
+// (ver exceptionFactory en main.ts). `campo: ''` cubre el caso borde de
+// un 400 manual (ej. `throw new BadRequestException('mensaje suelto')`)
+// que no pasó por ValidationPipe y no trae campo aislado.
+export interface DetalleValidacion {
+  campo: string;
+  mensaje: string;
+}
+
 export class ApiValidationError extends Error {
-  constructor(public detalles: string[]) {
+  constructor(public detalles: DetalleValidacion[]) {
     super('Error de validación del servidor');
   }
+}
+
+function normalizarDetalles(message: unknown): DetalleValidacion[] {
+  if (Array.isArray(message) && message.every((m) => m && typeof m === 'object' && 'campo' in m)) {
+    return message as DetalleValidacion[];
+  }
+  if (Array.isArray(message)) {
+    return message.map((m) => ({ campo: '', mensaje: String(m) }));
+  }
+  return [{ campo: '', mensaje: String(message ?? 'Error de validación') }];
 }
 
 let renovandoToken: Promise<string> | null = null;
@@ -87,9 +101,9 @@ export async function apiFetch<T>(
 
   if (res.status === 400) {
     const body = await res.json();
-    const mensajes = Array.isArray(body.message) ? body.message : [body.message ?? 'Error de validación'];
-    notify.error(mensajes.join(' '));
-    throw new ApiValidationError(mensajes);
+    const detalles = normalizarDetalles(body.message);
+    notify.error(detalles.map((d) => d.mensaje).join(' '));
+    throw new ApiValidationError(detalles);
   }
   if (!res.ok) {
     const body = await res.json().catch(() => null);

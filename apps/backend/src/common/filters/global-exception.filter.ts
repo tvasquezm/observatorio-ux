@@ -10,14 +10,14 @@ import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
 
 // Formato plano acordado — sin envoltorio { data } / { error }.
-// message puede venir como string (excepciones manuales) o string[]
-// (ValidationPipe de class-validator: whitelist/transform/forbidNonWhitelisted
-// ya están activos en main.ts y generan un array de mensajes por campo).
+// message puede venir como:
+//   - string: excepciones manuales simples (ej. throw new NotFoundException('...'))
+//   - { campo, mensaje }[]: errores 400 de ValidationPipe (ver exceptionFactory en main.ts)
 interface ErrorResponseBody {
   statusCode: number;
   timestamp: string;
   path: string;
-  message: string | string[];
+  message: string | { campo: string; mensaje: string }[];
   errorCode: string;
 }
 
@@ -52,12 +52,22 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     response.status(statusCode).json(body);
   }
 
-  private resolve(exception: unknown): { statusCode: number; message: string | string[]; errorCode: string } {
+  private resolve(exception: unknown): { statusCode: number; message: string | { campo: string; mensaje: string }[]; errorCode: string } {
     if (exception instanceof HttpException) {
       const status = exception.getStatus();
       const res = exception.getResponse();
-      // ValidationPipe devuelve { statusCode, message: string[], error: 'Bad Request' }
-      // como getResponse() — este branch cubre tanto eso como HttpException simples.
+
+      // Los BadRequestException lanzados a mano en artifacts.service.ts
+      // (validación Zod de PersonaSchema/JourneyMapSchema/MomentosCriticosSchema)
+      // arman { message: 'texto genérico', errores: [{campo,mensaje}] } —
+      // priorizamos `errores` porque es la forma estructurada que el
+      // frontend necesita para resaltar el input exacto.
+      if (typeof res === 'object' && res !== null && Array.isArray((res as any).errores)) {
+        return { statusCode: status, message: (res as any).errores, errorCode: this.codeFor(status) };
+      }
+
+      // ValidationPipe (vía exceptionFactory de main.ts) ya deja `message`
+      // como { campo, mensaje }[] directamente — este branch lo pasa tal cual.
       const message = typeof res === 'string' ? res : (res as any).message ?? exception.message;
       return { statusCode: status, message, errorCode: this.codeFor(status) };
     }

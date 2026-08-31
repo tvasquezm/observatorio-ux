@@ -1,10 +1,32 @@
-import { ValidationPipe } from '@nestjs/common';
+import { BadRequestException, ValidationPipe, ValidationError } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+
+// Aplana los ValidationError de class-validator (incluye anidados, ej.
+// contenido.hobbies.0) a la forma estructurada que el frontend necesita
+// para marcar el input exacto que falló: [{ campo, mensaje }].
+function formatValidationErrors(
+  errors: ValidationError[],
+  prefix = '',
+): { campo: string; mensaje: string }[] {
+  const resultado: { campo: string; mensaje: string }[] = [];
+  for (const error of errors) {
+    const campo = prefix ? `${prefix}.${error.property}` : error.property;
+    if (error.constraints) {
+      // Nos quedamos con el primer mensaje de constraint por campo — alcanza
+      // para resaltar el input; si se necesitan todos, cambiar a Object.values.join.
+      resultado.push({ campo, mensaje: Object.values(error.constraints)[0] });
+    }
+    if (error.children?.length) {
+      resultado.push(...formatValidationErrors(error.children, campo));
+    }
+  }
+  return resultado;
+}
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -22,6 +44,14 @@ async function bootstrap() {
       whitelist: true,
       transform: true,
       forbidNonWhitelisted: true,
+      // El filtro global toma esto como `message` y lo pasa tal cual —
+      // llega al frontend como array estructurado, no como string[] genérico.
+      exceptionFactory: (errors) =>
+        new BadRequestException({
+          statusCode: 400,
+          error: 'Bad Request',
+          message: formatValidationErrors(errors),
+        }),
     }),
   );
 
