@@ -1,18 +1,45 @@
-1. Para encender el Backend (NestJS)
-Abre tu primera pestaña de terminal y ejecuta:
+# Comandos de backend — dos flujos válidos
 
-Bash
-pnpm --filter backend start:dev
-Este comando levantará tu API en el puerto 3000 y se quedará observando los cambios en tus archivos.
+Ver también [`BACKEND.md`](./BACKEND.md) para el flujo recomendado (Docker,
+sin instalar nada localmente). Esta guía es la alternativa para quien
+prefiera correr el backend fuera de contenedores, con Node/pnpm instalados
+en su máquina.
 
-2. Para encender la Base de Datos (Prisma Studio)
-Abre una nueva pestaña en la terminal (usando el botón + o Ctrl + Shift + \ en VS Code) y ejecuta:
+## Flujo A — Docker (recomendado, ver BACKEND.md)
 
-Bash
-pnpm --filter backend exec prisma studio
-Este comando levantará el visor visual de tu base de datos en el puerto 5555 (http://localhost:5555).
+```bash
+cp .env.example .env
+docker compose up --build
+```
 
-Tip rápido para evitar errores de puerto ocupado: Si al levantar el backend te aparece el error EADDRINUSE :::3000, recuerda que puedes liberar el puerto rápidamente ejecutando npx kill-port 3000 antes de volver a correr el comando de inicio.
+Levanta DB + backend + watch de `packages/shared-types`, con migraciones y
+seed automáticos. No requiere Node.js ni pnpm locales.
 
+Para levantar en segundo plano (sin quedarte pegado a los logs):
 
+```bash
 docker compose up -d
+```
+
+## Flujo B — Node/pnpm local (alternativa)
+
+Requiere Node.js y pnpm instalados en tu máquina, y una base de datos
+corriendo (por ejemplo, solo el servicio de DB vía
+`docker compose up -d db`).
+
+1. Encender el backend en modo watch:
+```bash
+   pnpm --filter backend start:dev
+```
+   Levanta la API en el puerto 3000 y recarga con cada cambio de archivo.
+
+2. Encender Prisma Studio (visor de base de datos), en otra pestaña:
+```bash
+   pnpm --filter backend exec prisma studio
+```
+   Disponible en `http://localhost:5555`.
+
+**Tip:** si el backend tira `EADDRINUSE :::3000`, liberar el puerto con:
+```bash
+npx kill-port 3000
+```
