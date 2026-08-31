@@ -87,4 +87,16 @@ export class ArtifactsController {
   ) {
     return this.artifactsService.releaseLock(artefactoId, user);
   }
+
+  @Delete(':artefactoId')
+  @ApiOperation({
+    summary:
+      'Elimina el artefacto (soft delete: marca deletedAt en todas sus versiones, no borra filas).',
+  })
+  remove(
+    @Param('artefactoId', ParseUUIDPipe) artefactoId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.artifactsService.softDelete(artefactoId, user);
+  }
 }
