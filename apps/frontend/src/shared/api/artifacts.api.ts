@@ -29,11 +29,16 @@ export interface UxArtifact<TContenido = unknown> {
   lockedUntil: string | null;
 }
 
+// OJO / CAMBIO DE CONTRATO: `detalles` era { campo, mensaje }[] asumiendo
+// un envoltorio { error: { message, detalles } } que la prueba real contra
+// el backend (POST /projects/:id/artifacts) no confirmó — la respuesta
+// vino sin envoltorio. Con el filtro global plano acordado, lo único
+// disponible es `message` (string | string[]), sin campo aislado.
 export class ArtifactsApiError extends Error {
   constructor(
     public readonly status: number,
     message: string,
-    public readonly detalles?: { campo: string; mensaje: string }[],
+    public readonly detalles?: string[],
   ) {
     super(message);
     this.name = 'ArtifactsApiError';
@@ -64,16 +69,17 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
   if (!res.ok) {
     const body = await res.json().catch(() => null);
+    const mensaje = Array.isArray(body?.message) ? body.message.join(' ') : body?.message;
     throw new ArtifactsApiError(
       res.status,
-      body?.error?.message ?? `Error HTTP ${res.status}`,
-      body?.error?.detalles,
+      mensaje ?? `Error HTTP ${res.status}`,
+      Array.isArray(body?.message) ? body.message : undefined,
     );
   }
 
-  // El backend envuelve la respuesta en { data, meta } (ver api-client.ts).
-  const json = await res.json();
-  return json.data as T;
+  // Confirmado por prueba real: el backend devuelve el objeto directo,
+  // sin envoltorio { data, meta }.
+  return (await res.json()) as T;
 }
 
 /**

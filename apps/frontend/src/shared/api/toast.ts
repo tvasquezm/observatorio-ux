@@ -1,27 +1,36 @@
 // apps/frontend/src/shared/api/toast.ts
 //
-// Notificador mínimo para que `api-client.ts` (y cualquier otro código que
-// necesite avisar errores/éxitos al usuario) tenga algo real para importar.
-// Implementación sin dependencias: solo loguea a consola por ahora.
+// Wrapper mínimo, cero dependencias de pago. api-client.ts ya importa
+// `notify` desde este mismo directorio (`./toast`), así que este archivo
+// vive acá y no en shared/ui/ — mantiene el import existente sin tocarlo.
 //
-// Cuando el equipo elija una librería de toasts real (react-hot-toast,
-// sonner, shadcn/toast, etc.), reemplazar el cuerpo de estas funciones sin
-// tocar los call sites — la forma de `notify` (con `.error`/`.success`/
-// `.info`) está pensada para calzar con la API típica de esas librerías.
+// Implementación in-memory + CustomEvent: cualquier componente de UI
+// (un <ToastContainer /> en el layout raíz) puede escuchar el evento
+// 'app:toast' en window y renderizar. Si el proyecto ya tiene una librería
+// de toasts (ej. algo que se vea en features/card-sorting o en package.json),
+// reemplazar el cuerpo de estas 3 funciones por esa llamada — la firma
+// pública (notify.error/success/info) no tiene que cambiar.
 
-type NotifyFn = (message: string) => void;
+export type ToastType = 'error' | 'success' | 'info';
 
-function log(level: 'error' | 'success' | 'info', message: string): void {
-  // eslint-disable-next-line no-console
-  console[level === 'error' ? 'error' : 'log'](`[toast:${level}] ${message}`);
+export interface ToastEventDetail {
+  type: ToastType;
+  message: string;
 }
 
-export const notify: {
-  error: NotifyFn;
-  success: NotifyFn;
-  info: NotifyFn;
-} = {
-  error: (message) => log('error', message),
-  success: (message) => log('success', message),
-  info: (message) => log('info', message),
+function emit(type: ToastType, message: string) {
+  if (typeof window === 'undefined') {
+    // SSR / entorno de test sin window: no romper, solo loguear.
+    console.warn(`[toast:${type}]`, message);
+    return;
+  }
+  window.dispatchEvent(
+    new CustomEvent<ToastEventDetail>('app:toast', { detail: { type, message } }),
+  );
+}
+
+export const notify = {
+  error: (message: string) => emit('error', message),
+  success: (message: string) => emit('success', message),
+  info: (message: string) => emit('info', message),
 };

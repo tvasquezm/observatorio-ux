@@ -7,8 +7,15 @@
 
 import { notify } from './toast';
 
+// OJO / CAMBIO DE CONTRATO: antes esta clase esperaba `detalles` como
+// { campo, mensaje }[] (errores por campo). El filtro global nuevo del
+// backend (formato plano acordado) no distingue campo — ValidationPipe
+// entrega `message` como string[] genérico ("nombreCompleto must be a
+// string", etc.), sin el nombre del campo aislado. Si algún formulario
+// consumía `.detalles[i].campo` para resaltar un input específico, ese
+// uso se rompe acá y hay que revisarlo aparte.
 export class ApiValidationError extends Error {
-  constructor(public detalles: { campo: string; mensaje: string }[]) {
+  constructor(public detalles: string[]) {
     super('Error de validación del servidor');
   }
 }
@@ -80,14 +87,19 @@ export async function apiFetch<T>(
 
   if (res.status === 400) {
     const body = await res.json();
-    notify.error(body.error?.message ?? 'Error de validación');
-    throw new ApiValidationError(body.error?.detalles ?? []);
+    const mensajes = Array.isArray(body.message) ? body.message : [body.message ?? 'Error de validación'];
+    notify.error(mensajes.join(' '));
+    throw new ApiValidationError(mensajes);
   }
   if (!res.ok) {
-    notify.error('Ocurrió un error inesperado');
+    const body = await res.json().catch(() => null);
+    const mensaje = Array.isArray(body?.message) ? body.message.join(' ') : body?.message;
+    notify.error(mensaje ?? 'Ocurrió un error inesperado');
     throw new Error(`Error ${res.status}: ${res.statusText}`);
   }
 
-  const json = await res.json();
-  return json.data as T; // desenvuelve el ResponseInterceptor { data, meta }
+  // Confirmado por prueba real (POST /projects/:id/artifacts): el backend
+  // NO envuelve la respuesta exitosa en { data, meta } — devuelve el
+  // objeto directo. Se quita el desenvoltorio que asumía ese wrapper.
+  return (await res.json()) as T;
 }
