@@ -28,46 +28,22 @@ y quirúrgicas. No hay archivos inventados desde cero salvo los indicados.
    cream+terracota #D97757 por defecto de IA, ni cards con sombra
    genérica; paleta más apagada/editorial, acorde a un tool académico.
 
-   **Dónde montarlo:** no tengo tu `App.tsx` ni `main.tsx` reales (no
-   venían en el tar), así que no puedo editarlos directamente. Móntalo
-   UNA sola vez, en el nivel más alto de tu árbol de React — típicamente
-   en `App.tsx`, así:
-   ```tsx
-   import { ToastContainer } from './shared/components/ToastContainer';
+   **Montado:** confirmado en `main.tsx`, dentro de `<BrowserRouter>`,
+   una sola vez. Resuelto.
 
-   export function App() {
-     return (
-       <>
-         {/* tu router / providers existentes */}
-         <ToastContainer />
-       </>
-     );
-   }
-   ```
-   Si tu raíz real está en `main.tsx` en vez de `App.tsx`, el mismo patrón
-   aplica ahí — solo que quede UNA vez, no una por feature.
-
-## Nuevos (no existían)
+## Nuevos (no existían, ronda 2)
 
 - `apps/backend/src/common/filters/global-exception.filter.ts`
 - `apps/frontend/src/shared/api/toast.ts`
 - `apps/frontend/src/shared/components/ToastContainer.tsx`
 
-## Editados (diff quirúrgico, resto del archivo intacto)
+## Editados (diff quirúrgico, resto del archivo intacto, ronda 2)
 
 - `apps/backend/src/main.ts` — filtro global + `exceptionFactory` estructurado.
   Tu `ConfigService`, `helmet`, `SwaggerModule` — sin tocar.
 - `apps/frontend/src/shared/api/api-client.ts` — parseo de error a
   `{campo,mensaje}[]`, se quitó `json.data`. Reconexión 401 — intacta.
 - `apps/frontend/src/shared/api/artifacts.api.ts` — mismo criterio, espejo.
-
-## ⚠️ Pendiente real, no resuelto acá
-
-- El fallback `campo: ''` cubre un 400 lanzado a mano (`throw new
-  BadRequestException('mensaje suelto')`, sin pasar por ValidationPipe).
-  Si tu equipo dispara ese tipo de excepción manual en algún servicio,
-  el formulario no podrá resaltar un input específico para ese caso —
-  es información que el propio `throw` manual nunca tuvo.
 
 ## Ronda 3 (frontend — fases 3-4 + estilo + fix DTO heurística)
 
@@ -86,21 +62,30 @@ y quirúrgicas. No hay archivos inventados desde cero salvo los indicados.
    (`UX-Observatory-Presentacion.html`). Aplicado a Login, sidebar/topbar
    (`AppLayout`) y Dashboard. Importado una vez en `main.tsx`.
 
-## ⚠️ Pendiente real, detectado al cruzar con ARCHITECTURE.md §5 y §3 (NO resuelto en esta ronda)
+## ⚠️ Pendiente real (revisado — ronda 3, corregido tras ver hooks/artifacts.api.ts)
 
-- **Riesgo de rutas en español muertas.** `ARCHITECTURE.md §5` documenta
-  que se eliminaron los alias `/api/proyectos/*` y
-  `/api/proyectos/:proyectoId/artefactos/*`. Las páginas de Personas/
-  Journey Map/Momentos Críticos consumen hooks (`features/persona`,
-  `features/journey-map`, `features/momentos-criticos`) que ya existían
-  antes de esta ronda y nunca se revisaron contra este cambio de rutas —
-  pendiente confirmar que apuntan a `/api/projects/.../artifacts` en
-  inglés y no a la ruta en español ya removida.
+- ~~Riesgo de rutas en español muertas~~ — **Descartado.**
+  `shared/api/artifacts.api.ts` ya usa `/projects/:proyectoId/artifacts`
+  en inglés en las 6 funciones que expone. Sin riesgo.
 
-- **Lock/unlock no implementado en el frontend.** `ARCHITECTURE.md §3`
-  (corrección post-auditoría B4/B9/B14) documenta que el backend ahora
-  requiere `POST .../artifacts/:artefactoId/lock` al entrar a editar un
-  artefacto y `DELETE .../lock` al salir. Ninguna de las páginas de
-  Personas/Journey Map/Momentos Críticos entregadas hasta ahora llama a
-  estos endpoints — dos personas editando el mismo artefacto pueden
-  seguir pisándose el trabajo hasta que se agregue.
+- **Falta vista de edición en Personas/Journey Map/Momentos Críticos.**
+  La capa de hooks (`useUpdatePersona`, `useLockPersona`/`useUnlockPersona`,
+  y sus equivalentes en journey-map y momentos-criticos) ya está completa
+  y lista para usar — incluye lock/unlock con TTL, tal como pide
+  `ARCHITECTURE.md §3`. Lo que falta es la UI: las páginas de Fase 3
+  entregadas solo tienen crear + listar + borrar, ningún formulario de
+  edición que llame `lock` al abrir, `update` al guardar y `unlock` al
+  cerrar. Es la próxima tarea de frontend, no una regresión de esta ronda.
+
+- **`getAuthToken()` en `artifacts.api.ts` es un placeholder** (lee
+  `localStorage.getItem('evaluadorToken')`) a la espera de un authStore
+  real de evaluador — ya señalado en el propio archivo como TODO del
+  equipo, no es algo que rompimos nosotros.
+
+## Pendiente real, no resuelto (ronda 2, sigue vigente)
+
+- El fallback `campo: ''` cubre un 400 lanzado a mano (`throw new
+  BadRequestException('mensaje suelto')`, sin pasar por ValidationPipe).
+  Si tu equipo dispara ese tipo de excepción manual en algún servicio,
+  el formulario no podrá resaltar un input específico para ese caso —
+  es información que el propio `throw` manual nunca tuvo.
