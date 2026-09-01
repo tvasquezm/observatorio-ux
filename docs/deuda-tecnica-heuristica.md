@@ -23,19 +23,23 @@ Estado actualizado cruzando con `ARCHITECTURE.md` (Sprint 1) y
    **Resuelto.** `ARCHITECTURE.md` Sprint 1: "Se estandarizó
    `ParseUUIDPipe` en los parámetros de ruta de todos los módulos."
 
-## Sigue abierto (sin evidencia de resolución en ARCHITECTURE.md/BACKEND.md)
+## Resueltos (verificado sobre código real, sesión actual)
 
-5. **Tipado débil en capa de autenticación.** Controller y service podrían
-   seguir usando `usuario: any` en vez de `AuthenticatedUser`. No
-   confirmado ni desmentido por los documentos actuales — verificar en
-   código.
+5. ~~Tipado débil en capa de autenticación~~ — **Resuelto.**
+   `evaluacion-heuristica.controller.ts` usa `@CurrentUser() user:
+   AuthenticatedUser` (interfaz tipada en
+   `auth/types/authenticated-user.interface.ts`) en sus 4 endpoints. Cero
+   `usuario: any` en el módulo.
 
-6. **`/auth/test-token` no distingue tipo de usuario.** `ARCHITECTURE.md`
-   A4 solo aborda que el endpoint se gatea por `NODE_ENV` en producción —
-   no aborda el payload hardcodeado a Usuario evaluador. Sigue pendiente
-   parametrizar por query param o crear variantes separadas.
+7. ~~Restos de debugging en código productivo~~ — **Resuelto.** Cero
+   `console.log` en `apps/backend/src/modules/sessions/evaluacion-heuristica`.
 
-7. **Restos de debugging en código productivo**
-   (`console.log('Objeto usuario detectado:', usuario)` en
-   `EvaluacionHeuristicaController.crear`). Sin mención en auditorías
-   posteriores — verificar y remover si sigue ahí.
+## Sigue abierto (verificado, matiz sobre el hallazgo original)
+
+6. **`/auth/test-token` no distingue tipo de usuario.** Matiz: no es un
+   único endpoint con payload hardcodeado — son dos endpoints separados
+   (`GET /auth/test-token` → `issueDevelopmentEvaluatorToken()`,
+   `GET /auth/test-participant-token` →
+   `issueDevelopmentParticipantToken()`). El riesgo original (un solo
+   endpoint sin distinguir tipo) ya no existe tal cual; sigue pendiente
+   evaluar si conviene consolidar en uno parametrizado o dejar así.
