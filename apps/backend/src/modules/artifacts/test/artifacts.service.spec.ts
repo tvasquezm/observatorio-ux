@@ -181,7 +181,7 @@ describe('ArtifactsService', () => {
 
       expect(prisma.uxArtifact.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { proyectoId: 'proy-1', tipo: TipoArtefacto.PERSONA },
+          where: expect.objectContaining({ proyectoId: 'proy-1', tipo: TipoArtefacto.PERSONA }),
         }),
       );
       expect(result).toEqual([{ id: 'a1' }]);
@@ -194,7 +194,7 @@ describe('ArtifactsService', () => {
       await service.findAll('proy-1', undefined, ownerUser);
 
       expect(prisma.uxArtifact.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { proyectoId: 'proy-1' } }),
+        expect.objectContaining({ where: expect.objectContaining({ proyectoId: 'proy-1' }) }),
       );
     });
   });

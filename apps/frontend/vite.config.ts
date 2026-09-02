@@ -10,6 +10,7 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     server: {
       port: 5173,
+      host: true,
       // En desarrollo, podemos usar proxy para evitar problemas de CORS si lo prefieren
       proxy: env.VITE_USE_PROXY === 'true' ? {
         '/api': {

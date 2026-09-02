@@ -58,7 +58,10 @@ export class ArtifactsService {
     await this.assertProjectAccess(proyectoId, user);
 
     return this.prisma.uxArtifact.findMany({
-      where: { proyectoId, ...(tipo ? { tipo } : {}) },
+      // deletedAt: null excluye por defecto los artefactos eliminados
+      // (soft delete). No hay parámetro para incluirlos vía esta ruta a
+      // propósito — el listado normal nunca debe mostrar evidencia borrada.
+      where: { proyectoId, deletedAt: null, ...(tipo ? { tipo } : {}) },
       orderBy: [{ artefactoLogicoId: 'asc' }, { version: 'desc' }],
     });
   }
@@ -71,6 +74,31 @@ export class ArtifactsService {
     if (!artifact) throw new NotFoundException('El artefacto no existe.');
     await this.assertProjectAccess(artifact.proyectoId, user);
     return artifact;
+  }
+
+  /**
+   * Soft delete: marca deletedAt en TODAS las versiones del artefacto
+   * lógico (no solo la última), para que ninguna quede visible en
+   * findAll sin importar cuál sea la versión "más reciente" en ese
+   * momento. La fila nunca se borra de la base de datos — se conserva la
+   * cadena de evidencia del Observatorio.
+   *
+   * Idempotente: eliminar un artefacto ya eliminado no falla, solo
+   * refresca deletedAt.
+   */
+  async softDelete(artefactoId: string, user: AuthenticatedUser) {
+    const artifact = await this.findOne(artefactoId, user);
+
+    if (artifact.lockedById && this.isLockActive(artifact.lockedUntil)) {
+      this.assertNotLockedByOther(artifact, user);
+    }
+
+    await this.prisma.uxArtifact.updateMany({
+      where: { artefactoLogicoId: artifact.artefactoLogicoId },
+      data: { deletedAt: new Date() },
+    });
+
+    return this.findOne(artefactoId, user);
   }
 
   async createVersion(

@@ -239,6 +239,11 @@ model UxArtifact {
   lockedById  String?
   lockedUntil DateTime?
 
+  // Soft delete: proteger la cadena de evidencia del Observatorio.
+  // Un artefacto "eliminado" nunca se borra de la fila; solo se marca.
+  // El listado (findAll) lo excluye por defecto (deletedAt: null).
+  deletedAt DateTime?
+
   @@unique([artefactoLogicoId, version])
   @@map("ux_artifacts")
 }

@@ -1,25 +1,45 @@
-Aquí tienes un mensaje resumen que puedes guardar o compartir (por ejemplo, en el README del módulo, en un issue de GitHub, o para tu informe de tesis):
+# Deuda técnica — Módulo Evaluación Heurística
 
-Deuda técnica — Módulo Evaluación Heurística
-Detectada durante auditoría de integración (Postman), 03/08/2026
+Detectada durante auditoría de integración (Postman), 03/08/2026.
+Estado actualizado cruzando con `ARCHITECTURE.md` (Sprint 1) y
+`BACKEND.md` — ver fuente citada en cada ítem.
 
-1. Falta autorización por propiedad de sesión (prioridad alta)
-registrarHallazgo, finalizarSesion y obtenerSesion en EvaluacionHeuristicaService reciben el usuario autenticado pero no verifican que sea el dueño de la sesión (usuario.id === sesion.evaluadorId). Actualmente, cualquier usuario autenticado puede leer, editar o finalizar la sesión de otro evaluador con solo conocer el sesionId. Se requiere agregar la validación de pertenencia (y considerar excepción para rol ADMIN).
+## Resueltos
 
-2. No existe RolesGuard
-El schema define Rol (ESTUDIANTE, DOCENTE, ADMIN) pero ningún endpoint restringe acceso por rol. Falta implementar un guard de roles reutilizable para todos los módulos.
+1. ~~Falta autorización por propiedad de sesión~~ — **Resuelto.**
+   `BACKEND.md` §Evaluación heurística confirma: "Solo el evaluador dueño
+   del proyecto puede modificar o finalizar sus sesiones, salvo un
+   usuario con rol ADMIN."
 
-3. Tipado débil en capa de autenticación
-Controller y service usan usuario: any en lugar de la interfaz AuthenticatedUser ya definida en el proyecto. Esto oculta errores en tiempo de compilación que solo aparecen en runtime (como el bug de usuario.id undefined detectado en esta auditoría).
+2. ~~No existe RolesGuard~~ — **Resuelto.** `ARCHITECTURE.md` Sprint 1:
+   "Se implementó `RolesGuard` como guard reutilizable para todos los
+   módulos futuros."
 
-4. Secreto JWT hardcodeado
-'secreto_super_seguro_de_tu_tesis' está escrito directamente en jwt.strategy.ts y auth.module.ts. Debe moverse a variable de entorno (JWT_SECRET) vía ConfigService.
+3. ~~Secreto JWT hardcodeado~~ — **Resuelto.** `ARCHITECTURE.md` Sprint 1:
+   "El secreto JWT se movió a `ConfigService` (`.env`), eliminando el
+   hardcodeo previo."
 
-5. Endpoint /auth/test-token no distingue tipo de usuario
-El endpoint temporal de generación de tokens de prueba tiene el payload hardcodeado (actualmente fijo a un Usuario evaluador). Módulos distintos (Heurística vs. Card Sorting) requieren tokens con sub de Usuario o de Participante respectivamente, y hoy se pisan entre sí. Pendiente: parametrizar por query param o crear variantes separadas.
+4. ~~Falta validación de formato UUID en parámetros de ruta~~ —
+   **Resuelto.** `ARCHITECTURE.md` Sprint 1: "Se estandarizó
+   `ParseUUIDPipe` en los parámetros de ruta de todos los módulos."
 
-6. Falta validación de formato UUID en parámetros de ruta
-proyectoId y sesionId se reciben como string sin ParseUUIDPipe, por lo que un ID malformado produce error 500 de Prisma no controlado en lugar de un 400 claro.
+## Resueltos (verificado sobre código real, sesión actual)
 
-7. Restos de debugging en código productivo
-console.log('Objeto usuario detectado:', usuario) en EvaluacionHeuristicaController.crear — remover antes de considerar el módulo cerrado.
+5. ~~Tipado débil en capa de autenticación~~ — **Resuelto.**
+   `evaluacion-heuristica.controller.ts` usa `@CurrentUser() user:
+   AuthenticatedUser` (interfaz tipada en
+   `auth/types/authenticated-user.interface.ts`) en sus 4 endpoints. Cero
+   `usuario: any` en el módulo.
+
+7. ~~Restos de debugging en código productivo~~ — **Resuelto.** Cero
+   `console.log` en `apps/backend/src/modules/sessions/evaluacion-heuristica`.
+
+## Sigue abierto (verificado, matiz sobre el hallazgo original)
+
+6. **`/auth/test-token` no distingue tipo de usuario.** Matiz: no es un
+   único endpoint con payload hardcodeado — son dos endpoints separados
+   (`GET /auth/test-token` → `issueDevelopmentEvaluatorToken()`,
+   `GET /auth/test-participant-token` →
+   `issueDevelopmentParticipantToken()`). El riesgo original (un solo
+   endpoint sin distinguir tipo) ya no existe tal cual; sigue pendiente
+   evaluar si conviene consolidar en uno parametrizado o dejar así.

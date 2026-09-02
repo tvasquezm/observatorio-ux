@@ -7,10 +7,31 @@
 
 import { notify } from './toast';
 
+// Estructura acordada tras la decisión del dueño (Sprint 3): se necesita
+// marcar el input exacto que falló en los formularios. El backend ahora
+// emite `message` como { campo, mensaje }[] en los 400 de validación
+// (ver exceptionFactory en main.ts). `campo: ''` cubre el caso borde de
+// un 400 manual (ej. `throw new BadRequestException('mensaje suelto')`)
+// que no pasó por ValidationPipe y no trae campo aislado.
+export interface DetalleValidacion {
+  campo: string;
+  mensaje: string;
+}
+
 export class ApiValidationError extends Error {
-  constructor(public detalles: { campo: string; mensaje: string }[]) {
+  constructor(public detalles: DetalleValidacion[]) {
     super('Error de validación del servidor');
   }
+}
+
+function normalizarDetalles(message: unknown): DetalleValidacion[] {
+  if (Array.isArray(message) && message.every((m) => m && typeof m === 'object' && 'campo' in m)) {
+    return message as DetalleValidacion[];
+  }
+  if (Array.isArray(message)) {
+    return message.map((m) => ({ campo: '', mensaje: String(m) }));
+  }
+  return [{ campo: '', mensaje: String(message ?? 'Error de validación') }];
 }
 
 let renovandoToken: Promise<string> | null = null;
@@ -80,14 +101,19 @@ export async function apiFetch<T>(
 
   if (res.status === 400) {
     const body = await res.json();
-    notify.error(body.error?.message ?? 'Error de validación');
-    throw new ApiValidationError(body.error?.detalles ?? []);
+    const detalles = normalizarDetalles(body.message);
+    notify.error(detalles.map((d) => d.mensaje).join(' '));
+    throw new ApiValidationError(detalles);
   }
   if (!res.ok) {
-    notify.error('Ocurrió un error inesperado');
+    const body = await res.json().catch(() => null);
+    const mensaje = Array.isArray(body?.message) ? body.message.join(' ') : body?.message;
+    notify.error(mensaje ?? 'Ocurrió un error inesperado');
     throw new Error(`Error ${res.status}: ${res.statusText}`);
   }
 
-  const json = await res.json();
-  return json.data as T; // desenvuelve el ResponseInterceptor { data, meta }
+  // Confirmado por prueba real (POST /projects/:id/artifacts): el backend
+  // NO envuelve la respuesta exitosa en { data, meta } — devuelve el
+  // objeto directo. Se quita el desenvoltorio que asumía ese wrapper.
+  return (await res.json()) as T;
 }

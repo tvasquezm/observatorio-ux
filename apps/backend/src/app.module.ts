@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { DatabaseModule } from './core/database/database.module';
 import appConfig from './core/config/app.config';
 import databaseConfig from './core/config/database.config';
@@ -20,13 +22,22 @@ import { HealthController } from './health.controller';
       validationSchema: envValidationSchema,
       cache: true,
     }),
+    // Límite global por defecto: 60 requests / 60s por IP. Endpoints
+    // puntuales (como /auth/login) sobreescriben esto con @Throttle a algo
+    // más estricto — ver auth.controller.ts.
+    ThrottlerModule.forRoot({
+      throttlers: [{ name: 'default', ttl: 60_000, limit: 60 }],
+    }),
     DatabaseModule,
     AuthModule,
     ArtifactsModule,
     ProjectsModule,
     SessionsModule,
   ],
-  providers: [RolesGuard],
+  providers: [
+    RolesGuard,
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+  ],
   controllers: [HealthController],
 })
 export class AppModule {}

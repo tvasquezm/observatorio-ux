@@ -86,7 +86,14 @@ GET    /api/projects/:proyectoId/artifacts/:artefactoId
 POST   /api/projects/:proyectoId/artifacts/:artefactoId/versions
 POST   /api/projects/:proyectoId/artifacts/:artefactoId/lock
 DELETE /api/projects/:proyectoId/artifacts/:artefactoId/lock
+DELETE /api/projects/:proyectoId/artifacts/:artefactoId
 ```
+
+`DELETE .../:artefactoId` (sin `/lock`) hace soft delete: marca `deletedAt`
+en **todas** las versiones del mismo `artefactoLogicoId`, no borra filas.
+Requiere que el artefacto no esté bloqueado por otro usuario. `findAll`
+excluye por defecto los artefactos con `deletedAt` seteado — no hay
+parámetro para incluirlos vía esta ruta.
 
 Los valores admitidos para `tipo` son `PERSONA`, `JOURNEY_MAP` y
 `MOMENTOS_CRITICOS`. El campo `contenido` es JSON y permite que cada técnica
@@ -99,3 +106,33 @@ con `DELETE .../lock` al terminar. Ver `docs/ARCHITECTURE.md` §Sprint 2.3.
 
 Para probar estos endpoints se puede importar
 `postman/ux-artifacts.postman_collection.json`.
+
+## Manejo de errores estandarizado
+
+Toda respuesta de error (400/401/403/404/409/500) tiene la misma forma,
+sin importar el módulo:
+
+```json
+{
+  "statusCode": 400,
+  "timestamp": "2026-08-31T21:30:30.873Z",
+  "path": "/api/projects/:id/artifacts",
+  "message": "...",
+  "errorCode": "BAD_REQUEST"
+}
+```
+
+`message` es un string simple para errores generales (`NotFoundException`,
+`ForbiddenException`, etc.), o un array `{ campo, mensaje }[]` cuando el
+error viene de una validación — tanto de la forma general del body
+(`class-validator` vía `ValidationPipe`) como del contenido específico por
+`tipo` de artefacto (Zod, ver §Artefactos UX arriba). Esto permite que un
+formulario resalte el input exacto que falló.
+
+Implementado en `GlobalExceptionFilter`
+(`apps/backend/src/common/filters/global-exception.filter.ts`), registrado
+globalmente en `main.ts`. Ver `docs/ARCHITECTURE.md §Sprint 3` para el
+detalle de decisiones y `docs/SESION-CLAUDE-sprint3.md §9` para el registro
+de la sesión que lo implementó (incluye un bug real encontrado y corregido:
+el filtro inicialmente ignoraba el array estructurado que ya armaba
+`artifacts.service.ts`).

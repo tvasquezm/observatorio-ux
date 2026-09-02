@@ -86,8 +86,88 @@ El encabezado de `schema.prisma` referencia un **ADR Master** ("Refleja el ADR M
 
 **Pendiente para el equipo:** `EvaluacionHeuristicaController` (`proyectos/:proyectoId/evaluacion-heuristica/sesiones`) sigue en español y no tiene alias en inglés — no se tocó porque no era parte de la duplicación reportada, pero para consistencia con la decisión de este ítem, valdría la pena migrarlo también en un cambio aparte (afecta más superficie de API, conviene coordinarlo con quien consuma esas rutas).
 
+### 6. Helmet + rate limiting
+
+**Helmet** (`app.use(helmet())` en `main.ts`) agrega los headers de seguridad HTTP estándar (anti-clickjacking, MIME sniffing, etc.) que Express/Nest no ponen por defecto. Costo prácticamente nulo, sin trade-offs — se agregó sin condicionar nada.
+
+**Rate limiting** (`@nestjs/throttler`), aplicado en dos niveles:
+- **Global**: 60 requests/minuto por IP en toda la API (`ThrottlerModule.forRoot` + `ThrottlerGuard` como `APP_GUARD` en `app.module.ts`).
+- **Más estricto en `AuthController`**: `POST /auth/login` a 5/min (blanco directo de fuerza bruta contra contraseñas), y los tres endpoints de `participants/*` a 10/min (no requieren credenciales previas — cualquiera puede intentar registrar emails o pedir tokens de participante en loop).
+
+`/auth/test-token` y `/auth/test-participant-token` quedaron con el límite global (60/min) — ya están gateados por `NODE_ENV` (ver A4 más arriba), así que el rate limit ahí es una capa extra, no la protección principal.
+
+**Probado en real** contra `POST /auth/login`: 5 intentos consecutivos devuelven `401` (credenciales inválidas, como se espera), el 6° y 7° devuelven `429 Too Many Requests`. La respuesta también trae los headers `X-RateLimit-Limit` / `X-RateLimit-Remaining` / `X-RateLimit-Reset`, y los headers de Helmet (`Content-Security-Policy`, `Strict-Transport-Security`, `X-Frame-Options`, etc.) aparecen en toda respuesta.
+
 ---
 
 ## Cómo usar este documento
 
 Al cerrar cada sprint, agregar una sección con: foco del sprint, decisiones clave tomadas, motivación, alternativas descartadas, mecanismo de funcionamiento y trade-offs aceptados. Priorizar registrar **decisiones que se desvían de lo planeado originalmente** (como el pivote de Sprint 2), ya que son las que más valor aportan para entender el proyecto más adelante.
+
+---
+
+## Sprint 3 — Sistema de manejo de errores (backend + frontend), integración Persona/Journey Map/Momentos Críticos
+
+Foco del sprint: antes de construir las interfaces de las tres técnicas UX, dejar un sistema base de manejo de errores nativo y de costo cero (sin librerías de terceros de pago), consistente entre backend y frontend.
+
+### 1. Formato de error estandarizado (plano)
+
+**Qué se decidió:** todo error HTTP (400/401/403/404/409/500) responde con la misma forma:
+```json
+{
+  "statusCode": 400,
+  "timestamp": "2026-08-31T21:30:30.873Z",
+  "path": "/api/projects/:id/artifacts",
+  "message": "..." ,
+  "errorCode": "BAD_REQUEST"
+}
+```
+`message` puede ser un string simple (excepciones manuales, ej. `NotFoundException('...')`) o un array estructurado `{ campo, mensaje }[]` cuando el error viene de una validación (ver punto 2).
+
+**Alternativa descartada:** un envoltorio anidado `{ error: { message, detalles } }`. Se encontró que dos archivos del frontend (`api-client.ts`, `artifacts.api.ts`) ya asumían esa forma en sus comentarios, pero ningún `ResponseInterceptor` real la producía (confirmado con `grep -rn "ResponseInterceptor" apps/backend/src` sin resultados, y con una prueba real de `curl` que devolvió el objeto plano). Un tercer archivo, `card-sorting.api.ts`, ya funcionaba en producción esperando `body.message` plano. Se estandarizó en el formato plano porque era el que menos archivos rompía.
+
+**Mecanismo:** `GlobalExceptionFilter` (`apps/backend/src/common/filters/global-exception.filter.ts`), registrado con `app.useGlobalFilters(...)` en `main.ts`. Usa `@Catch()` (sin tipo) para interceptar cualquier excepción, no solo `HttpException`. Mapea además `Prisma.PrismaClientKnownRequestError` (`P2025` → 404, `P2002` → 409) para que errores de Prisma no controlados no lleguen como 500 crudo al cliente — este es justo el tipo de error que causó el bloqueo de infraestructura de este sprint (ver corrección post-auditoría más abajo).
+
+### 2. Errores de validación estructurados por campo
+
+**Qué es:** los 400 de validación devuelven `message` como `{ campo, mensaje }[]` en vez de texto genérico, para que los formularios de Persona/Journey Map/Momentos Críticos puedan resaltar el input exacto que falló.
+
+**Dos fuentes distintas de validación, dos mecanismos:**
+- **`ValidationPipe` (forma del DTO)** — valida que el body tenga la forma general (`tipo`, `contenido` presentes, etc.), vía `class-validator`. Se le agregó un `exceptionFactory` custom en `main.ts` que aplana los `ValidationError` (incluyendo anidados, ej. `contenido.hobbies.0`) a `{campo, mensaje}[]`.
+- **Validación Zod del contenido (`validateContenidoByTipo` en `artifacts.service.ts`)** — valida la forma específica de cada `PersonaSchema`/`JourneyMapSchema`/`MomentosCriticosSchema`. Esta validación ya armaba el array `{campo, mensaje}[]` correctamente (bajo la llave `errores`), pero el `GlobalExceptionFilter` no lo leía — ver corrección post-auditoría.
+
+**Trade-off aceptado:** el fallback (`campo: ''`) cubre el caso de un `400` lanzado a mano con un string simple (`throw new BadRequestException('mensaje suelto')`, sin pasar por ninguno de los dos mecanismos anteriores) — ahí no hay campo que aislar, porque el propio `throw` manual nunca tuvo esa información.
+
+**Corrección post-auditoría (bug encontrado y cerrado en este mismo sprint):** la primera versión del `GlobalExceptionFilter` solo leía `exception.getResponse().message`. Las excepciones de `artifacts.service.ts` arman `{ message: 'texto genérico', errores: [{campo,mensaje}] }` — el array bueno vivía en `errores`, no en `message`, así que se perdía y el frontend solo recibía el string genérico. Se corrigió priorizando `res.errores` sobre `res.message` cuando el primero existe. Verificado con `curl` real: `POST /projects/:id/artifacts` con `{"nombreCompleto":123}` ahora devuelve `"message":[{"campo":"nombreCompleto","mensaje":"Invalid input: expected string, received number"}]`.
+
+### 3. Sistema de toasts (frontend, costo cero)
+
+**Qué es:** `apps/frontend/src/shared/api/toast.ts` expone `notify.error/success/info(mensaje)`, que emiten un `CustomEvent('app:toast')` sobre `window`. `apps/frontend/src/shared/components/ToastContainer.tsx` escucha ese evento, apila avisos, auto-descarta a los 5s, respeta `prefers-reduced-motion`. Se montó una sola vez en `main.tsx`, como hermano del árbol de `<App />` dentro de `<BrowserRouter>`.
+
+**Por qué se decidió así:** cero dependencias nuevas (nada de librerías de toast de terceros), y el patrón de evento global permite que cualquier capa (interceptor HTTP, un componente suelto) dispare un aviso sin acoplarse a dónde vive el `ToastContainer` en el árbol.
+
+### 4. `main.tsx` estaba vacío
+
+**Qué se encontró:** al integrar el `ToastContainer`, se detectó que `apps/frontend/src/main.tsx` tenía 0 bytes — nunca existió un punto de entrada real con `createRoot`, providers ni `<App />` montado. No es una regresión de este sprint; se desconoce si el archivo se vació en algún punto anterior del proyecto o nunca se llenó tras el scaffold inicial de Vite.
+
+**Reconstruido con:** `StrictMode` → `QueryClientProvider` (instancia única de TanStack Query) → `BrowserRouter` → `<App />` + `<ToastContainer />` como hermano.
+
+**Pendiente para el equipo:** confirmar que `App.tsx` sí tiene contenido real (no se verificó en este sprint, solo se asumió su existencia porque `main.tsx` lo importa). Si también está vacío o incompleto, el build fallará hasta llenarlo.
+
+### 5. Pendiente real, no cerrado en este sprint
+
+- `ErrorBoundary.tsx` y `NotFound.tsx` se generaron como componentes standalone, pero no se confirmó que estén efectivamente envolviendo las features (`<ErrorBoundary><PersonaFeature /></ErrorBoundary>`) ni que la ruta comodín (`<Route path="*" element={<NotFound />} />`) esté agregada al router real — quedó como instrucción, no como cambio verificado en archivo.
+- El fallback de campo vacío (punto 2) sigue abierto para cualquier `throw` manual futuro que no pase por `ValidationPipe` ni por la validación Zod del service.
+
+**⚠️ Conflicto de arquitectura sin resolver (crítico, bloquea merge):** `main.tsx`, `NotFound.tsx` y `ErrorBoundary.tsx` de este sprint asumen `react-router-dom` (`BrowserRouter`, `<Link>`). Una sesión de trabajo distinta, en paralelo, tomó la decisión deliberada de **no** agregar `react-router-dom` y usar routing por `location.hash` en su lugar (`useHashRoute.ts`), específicamente para no sumar una dependencia nueva a mitad de sprint sin acuerdo del equipo. Ambos supuestos no pueden convivir tal cual. Detalle completo, con los archivos exactos de cada lado, en `docs/SESION-CLAUDE-sprint3.md §8.1` y `§9.1` — resolver ahí antes de fusionar cualquier rama que toque `main.tsx`, `App.tsx` o el router.
+---
+
+## Sprint 3 (continuación) — Cierre del conflicto de routing (C4) + frontend funcional end-to-end
+
+**Resolución de C4:** al retomar el proyecto en una sesión posterior, `main.tsx` y `App.tsx` ya reflejaban la decisión a favor de `react-router-dom` (`BrowserRouter`, no `useHashRoute`) — la reconstrucción de `§9.2` del log de sesión había prevalecido. Se cerró la brecha real que quedaba abierta: la dependencia nunca se había agregado a `package.json` pese a que el código ya la importaba. Agregada (`react-router-dom@7.18.3`) y construido `App.tsx` con rutas anidadas: `/login` pública, resto protegido por `ProtectedRoute` (redirige si no hay `evaluadorToken`), `/proyectos/:proyectoId` como layout con sub-navegación a cada técnica UX (Personas, Journey Map, Momentos Críticos, Card Sorting, Evaluación Heurística).
+
+**Auth de evaluador implementada:** cerrando el placeholder que `§7.3` de `SESION-CLAUDE-sprint3.md` dejaba pendiente para "Sprint 4", se construyó `features/auth/` (api + store Zustand + página de login) contra `POST /api/auth/login` real. El store escribe en la misma llave `localStorage.getItem('evaluadorToken')` que `shared/api/artifacts.api.ts` ya leía como TODO — sin necesidad de tocar ese archivo.
+
+**Páginas conectadas a los hooks ya existentes:** las páginas de Persona, Journey Map y Momentos Críticos consumen directamente los hooks de TanStack Query que ya existían (`usePersonaQueries.ts`, etc., escritos en la sesión de `§4`) — no se tocó esa capa, solo se construyó la UI encima. Card Sorting (evaluador crea el estudio maestro) usa `useCardSortingQueries.ts` ya existente. Evaluación Heurística no tenía capa `api/`/`hooks/` todavía (solo `.gitkeep`) — se construyó siguiendo el mismo patrón que el resto de las features, contra las rutas documentadas en `docs/BACKEND.md §Evaluación heurística`.
+
+**Nota de fricción a resolver por el equipo:** `HallazgoHeuristica` (forma del payload que espera `PATCH .../hallazgos`) se construyó por inferencia razonable (nombre del método `registrarHallazgo`, las 10 heurísticas de Nielsen), sin haber visto el DTO real del backend (`apps/backend/src/modules/sessions/evaluacion-heuristica/dto/heuristica.dto.ts` no se inspeccionó en esta sesión). Si el backend rechaza el POST con 400, ese es el primer archivo a revisar.
