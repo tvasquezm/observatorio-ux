@@ -42,7 +42,7 @@ export function DashboardPage() {
       <div className="panel">
         {isLoading && <p>Cargando…</p>}
         {recientes.map((p, i) => (
-          <Link key={p.id} to={`/proyectos/${p.id}`} className="project-row">
+          <Link key={p.id} to={`/proyectos/${p.id.replace(/^\//, '')}`} className="project-row">
             <span className={`project-dot ${DOT_COLORS[i % DOT_COLORS.length]}`}>
               {p.nombre[0]?.toUpperCase()}
             </span>

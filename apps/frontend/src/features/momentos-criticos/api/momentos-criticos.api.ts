@@ -76,8 +76,9 @@ export function updateCriticalMoment(
   return createArtifactVersion<MomentosCriticosContenido>(
     proyectoId,
     artefactoId,
+    'MOMENTOS_CRITICOS', // 👈 Se agrega el tipo explícito para la validación del DTO
     contenido,
-  );
+  ) as Promise<MomentosCriticosArtifact>;
 }
 
 export function lockCriticalMoment(
@@ -99,8 +100,9 @@ export function unlockCriticalMoment(
 export function deleteCriticalMoment(
   proyectoId: string,
   artefactoId: string,
-): Promise<MomentosCriticosArtifact> {
-  return deleteArtifact<MomentosCriticosContenido>(proyectoId, artefactoId);
+): Promise<void> {
+  // 👈 Cambiado a Promise<void> para alinearlo con el contrato de la API
+  return deleteArtifact(proyectoId, artefactoId);
 }
 
 // --- Helpers de "incidente" (sub-elemento de incidentes[], no entidad ---

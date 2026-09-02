@@ -48,7 +48,7 @@ export function ProjectsPage() {
         {proyectos?.map((p) => (
           <Link
             key={p.id}
-            to={`/proyectos/${p.id}`}
+            to={`/proyectos/${p.id.replace(/^\//, '')}`}
             style={{
               display: 'block',
               padding: 14,

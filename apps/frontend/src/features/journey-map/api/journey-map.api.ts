@@ -48,19 +48,29 @@ export function getJourney(
   return getArtifact<JourneyMapContenido>(proyectoId, artefactoId);
 }
 
-export function createJourney(
+export function createJourneyMap(
   proyectoId: string,
   contenido: JourneyMapContenido,
 ): Promise<JourneyMapArtifact> {
-  return createArtifact<JourneyMapContenido>(proyectoId, 'JOURNEY_MAP', contenido);
+  return createArtifact<JourneyMapContenido>(
+    proyectoId,
+    'JOURNEY_MAP',
+    contenido,
+  ) as Promise<JourneyMapArtifact>;
 }
+// apps/frontend/src/features/journey-map/api/journey-map.api.ts
 
-export function updateJourney(
+export function updateJourneyMap(
   proyectoId: string,
-  artefactoId: string,
+  artefactoLogicoId: string,
   contenido: JourneyMapContenido,
 ): Promise<JourneyMapArtifact> {
-  return createArtifactVersion<JourneyMapContenido>(proyectoId, artefactoId, contenido);
+  return createArtifactVersion<JourneyMapContenido>(
+    proyectoId,
+    artefactoLogicoId,
+    'JOURNEY_MAP',
+    contenido,
+  ) as Promise<JourneyMapArtifact>;
 }
 
 export function lockJourney(
@@ -79,11 +89,14 @@ export function unlockJourney(
 }
 
 /** Soft delete — ver nota en persona.api.ts. */
-export function deleteJourney(
+// En apps/frontend/src/features/journey-map/api/journey-map.api.ts
+
+export function deleteJourneyMap(
   proyectoId: string,
   artefactoId: string,
-): Promise<JourneyMapArtifact> {
-  return deleteArtifact<JourneyMapContenido>(proyectoId, artefactoId);
+): Promise<void> {
+  // Se invoca deleteArtifact sin pasar genéricos de retorno
+  return deleteArtifact(proyectoId, artefactoId);
 }
 
 // --- Helpers de "etapa" (no existen como entidad propia en el backend: ---
@@ -115,3 +128,7 @@ export function removePhase(
   // antes de llamar updateJourney, o el backend responderá 400.
   return { ...contenido, fases: contenido.fases.filter((_, i) => i !== index) };
 }
+
+export { createJourneyMap as createJourney };
+export { updateJourneyMap as updateJourney };
+export { deleteJourneyMap as deleteJourney };
