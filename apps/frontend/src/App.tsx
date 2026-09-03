@@ -13,6 +13,7 @@ import { JourneyMapPage } from './pages/JourneyMapPage';
 import { MomentosCriticosPage } from './pages/MomentosCriticosPage';
 import { CardSortingPage } from './pages/CardSortingPage';
 import { EvaluacionHeuristicaPage } from './pages/EvaluacionHeuristicaPage';
+import { AnalyticsPage } from './pages/AnalyticsPage';
 
 export default function App() {
   return (
@@ -31,6 +32,7 @@ export default function App() {
             <Route path="momentos-criticos" element={<MomentosCriticosPage />} />
             <Route path="card-sorting" element={<CardSortingPage />} />
             <Route path="evaluacion-heuristica" element={<EvaluacionHeuristicaPage />} />
+            <Route path="analitica" element={<AnalyticsPage />} />
           </Route>
         </Route>
       </Route>

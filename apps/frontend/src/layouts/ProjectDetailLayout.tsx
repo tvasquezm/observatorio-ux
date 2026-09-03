@@ -14,6 +14,7 @@ const SUB_NAV = [
   { to: 'momentos-criticos', label: 'Momentos Críticos' },
   { to: 'card-sorting', label: 'Card Sorting' },
   { to: 'evaluacion-heuristica', label: 'Evaluación Heurística' },
+  { to: 'analitica', label: 'Analítica' },
 ];
 
 export interface ProjectOutletContext {

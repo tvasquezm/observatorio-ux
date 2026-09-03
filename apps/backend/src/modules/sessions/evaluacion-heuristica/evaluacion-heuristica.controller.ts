@@ -62,3 +62,21 @@ export class EvaluacionHeuristicaController {
     return this.service.obtenerSesion(sesionId, user);
   }
 }
+
+@ApiTags('evaluacion-heuristica')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('ESTUDIANTE', 'DOCENTE', 'ADMIN')
+@Controller('proyectos/:proyectoId/evaluacion-heuristica/analytics')
+export class EvaluacionHeuristicaAnalyticsController {
+  constructor(private readonly service: EvaluacionHeuristicaService) {}
+
+  @Get()
+  @ApiOperation({ summary: 'Distribución de severidad agregada del proyecto' })
+  obtenerAnalitica(
+    @Param('proyectoId', ParseUUIDPipe) proyectoId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.service.obtenerAnalitica(proyectoId, user);
+  }
+}

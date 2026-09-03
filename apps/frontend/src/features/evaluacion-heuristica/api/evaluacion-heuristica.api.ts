@@ -112,3 +112,20 @@ export function obtenerSesionHeuristica(
 ): Promise<EvaluacionHeuristicaSesion> {
   return request(`/proyectos/${proyectoId}/evaluacion-heuristica/sesiones/${sesionId}`);
 }
+
+export interface AnaliticaSeveridad {
+  severidad: 0 | 1 | 2 | 3 | 4;
+  count: number;
+  porcentaje: number;
+}
+
+export interface AnaliticaHeuristica {
+  sesionesTotal: number;
+  sesionesCompletadas: number;
+  hallazgosTotal: number;
+  porSeveridad: AnaliticaSeveridad[];
+}
+
+export function obtenerAnaliticaHeuristica(proyectoId: string): Promise<AnaliticaHeuristica> {
+  return request(`/proyectos/${proyectoId}/evaluacion-heuristica/analytics`);
+}

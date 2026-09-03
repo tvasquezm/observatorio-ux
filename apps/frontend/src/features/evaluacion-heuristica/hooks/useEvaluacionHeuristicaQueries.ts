@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   crearSesionHeuristica,
   finalizarSesionHeuristica,
+  obtenerAnaliticaHeuristica,
   obtenerSesionHeuristica,
   registrarHallazgo,
   type HallazgoHeuristicaInput,
@@ -11,7 +12,16 @@ import {
 
 export const heuristicaKeys = {
   detail: (proyectoId: string, sesionId: string) => ['evaluacion-heuristica', proyectoId, sesionId] as const,
+  analytics: (proyectoId: string) => ['evaluacion-heuristica', proyectoId, 'analytics'] as const,
 };
+
+export function useAnaliticaHeuristica(proyectoId: string) {
+  return useQuery({
+    queryKey: heuristicaKeys.analytics(proyectoId),
+    queryFn: () => obtenerAnaliticaHeuristica(proyectoId),
+    enabled: !!proyectoId,
+  });
+}
 
 export function useCrearSesionHeuristica(proyectoId: string) {
   return useMutation({ mutationFn: () => crearSesionHeuristica(proyectoId) });
@@ -30,7 +40,10 @@ export function useRegistrarHallazgo(proyectoId: string) {
   return useMutation({
     mutationFn: ({ sesionId, hallazgo }: { sesionId: string; hallazgo: HallazgoHeuristicaInput }) =>
       registrarHallazgo(proyectoId, sesionId, hallazgo),
-    onSuccess: (s) => qc.setQueryData(heuristicaKeys.detail(proyectoId, s.id), s),
+    onSuccess: (s) => {
+      qc.setQueryData(heuristicaKeys.detail(proyectoId, s.id), s);
+      qc.invalidateQueries({ queryKey: heuristicaKeys.analytics(proyectoId) });
+    },
   });
 }
 
@@ -38,6 +51,9 @@ export function useFinalizarSesionHeuristica(proyectoId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (sesionId: string) => finalizarSesionHeuristica(proyectoId, sesionId),
-    onSuccess: (s) => qc.setQueryData(heuristicaKeys.detail(proyectoId, s.id), s),
+    onSuccess: (s) => {
+      qc.setQueryData(heuristicaKeys.detail(proyectoId, s.id), s);
+      qc.invalidateQueries({ queryKey: heuristicaKeys.analytics(proyectoId) });
+    },
   });
 }

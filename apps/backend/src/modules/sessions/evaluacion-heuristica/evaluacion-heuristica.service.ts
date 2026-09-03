@@ -98,6 +98,56 @@ export class EvaluacionHeuristicaService {
     return this.getOwnedSession(sesionId, user);
   }
 
+  /**
+   * Analítica agregada de hallazgos heurísticos para un proyecto,
+   * calculada sobre las sesiones reales (todas las de tipo
+   * EVALUACION_HEURISTICA del proyecto, no solo la del usuario actual
+   * si es ADMIN). Distribución por severidad 0-4 + totales.
+   * No incluye SUS/NPS: no existe en el modelo ningún mecanismo de
+   * encuesta que produzca esos puntajes.
+   */
+  async obtenerAnalitica(proyectoId: string, user: AuthenticatedUser) {
+    const project = await this.prisma.proyecto.findUnique({
+      where: { id: proyectoId },
+    });
+    if (!project) throw new NotFoundException('El proyecto no existe.');
+    if (project.creadoPorId !== user.id && user.rol !== 'ADMIN') {
+      throw new ForbiddenException('No tienes acceso a este proyecto.');
+    }
+
+    const sesiones = await this.prisma.researchSession.findMany({
+      where: { proyectoId, tipo: TipoSesion.EVALUACION_HEURISTICA },
+    });
+
+    const porSeveridad = [0, 0, 0, 0, 0]; // índice = severidad 0..4
+    let total = 0;
+    let sesionesCompletadas = 0;
+
+    for (const s of sesiones) {
+      if (s.estado === EstadoSesion.COMPLETADO) sesionesCompletadas++;
+      const hallazgos = Array.isArray(s.resultado)
+        ? (s.resultado as unknown as HeuristicFinding[])
+        : [];
+      for (const h of hallazgos) {
+        if (h.severidad >= 0 && h.severidad <= 4) {
+          porSeveridad[h.severidad]++;
+          total++;
+        }
+      }
+    }
+
+    return {
+      sesionesTotal: sesiones.length,
+      sesionesCompletadas,
+      hallazgosTotal: total,
+      porSeveridad: porSeveridad.map((count, severidad) => ({
+        severidad,
+        count,
+        porcentaje: total > 0 ? Math.round((count / total) * 100) : 0,
+      })),
+    };
+  }
+
   private async getOwnedSession(sesionId: string, user: AuthenticatedUser) {
     const session = await this.prisma.researchSession.findUnique({
       where: { id: sesionId },

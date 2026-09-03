@@ -8,12 +8,18 @@
 import { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import type { ProjectOutletContext } from '../layouts/ProjectDetailLayout';
-import { useCreateCardSortingSession } from '../features/card-sorting/hooks/useCardSortingQueries';
+import {
+  useCardSortingAnalytics,
+  useCreateCardSortingSession,
+} from '../features/card-sorting/hooks/useCardSortingQueries';
 import type { TipoCardSorting } from '../features/card-sorting/api/card-sorting.api';
 
 export function CardSortingPage() {
   const { proyectoId } = useOutletContext<ProjectOutletContext>();
   const { mutate: crear, data: sesion, isPending, error } = useCreateCardSortingSession();
+  const { data: analytics, isLoading: cargandoAnalytics, refetch: refetchAnalytics } = useCardSortingAnalytics(
+    sesion?.id ?? null,
+  );
   const [tipo, setTipo] = useState<TipoCardSorting>('ABIERTO');
   const [tarjetasTexto, setTarjetasTexto] = useState('');
   const [categoriasTexto, setCategoriasTexto] = useState('');
@@ -32,45 +38,231 @@ export function CardSortingPage() {
   }
 
   return (
-    <div className="panel">
-      <h2>Card Sorting</h2>
+    <div className="fade">
+      <div className="page-head">
+        <div>
+          <span className="kicker">ARQUITECTURA DE INFORMACIÓN</span>
+          <h1>Card sorting</h1>
+          <p>Define las tarjetas (y, si el estudio es cerrado, las categorías) que los participantes van a ordenar.</p>
+        </div>
+      </div>
 
-      <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 8, maxWidth: 480 }}>
-        <select value={tipo} onChange={(e) => setTipo(e.target.value as TipoCardSorting)} style={{ padding: 8 }}>
-          <option value="ABIERTO">Abierto (el participante crea sus categorías)</option>
-          <option value="CERRADO">Cerrado (categorías predefinidas)</option>
-        </select>
+      <section className="sort-layout">
+        <article className="panel sort-board">
+          <div className="panel-head">
+            <div>
+              <span className="kicker">NUEVO ESTUDIO</span>
+              <h2>Configurar tarjetas y categorías</h2>
+            </div>
+          </div>
 
-        <textarea
-          placeholder="Tarjetas, una por línea *"
-          value={tarjetasTexto}
-          onChange={(e) => setTarjetasTexto(e.target.value)}
-          required
-          style={{ padding: 8, minHeight: 100 }}
-        />
+          <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 10, maxWidth: 480 }}>
+            <label className="field">
+              Tipo de estudio
+              <select value={tipo} onChange={(e) => setTipo(e.target.value as TipoCardSorting)}>
+                <option value="ABIERTO">Abierto (el participante crea sus categorías)</option>
+                <option value="CERRADO">Cerrado (categorías predefinidas)</option>
+              </select>
+            </label>
 
-        {tipo === 'CERRADO' && (
-          <textarea
-            placeholder="Categorías predefinidas, una por línea"
-            value={categoriasTexto}
-            onChange={(e) => setCategoriasTexto(e.target.value)}
-            style={{ padding: 8, minHeight: 80 }}
-          />
-        )}
+            <label className="field">
+              Tarjetas (una por línea)
+              <textarea
+                placeholder={'Inscripción de asignaturas\nCalendario académico\nBiblioteca'}
+                value={tarjetasTexto}
+                onChange={(e) => setTarjetasTexto(e.target.value)}
+                required
+                style={{ minHeight: 120 }}
+              />
+            </label>
 
-        <button type="submit" className="primary" disabled={isPending}>
-          {isPending ? 'Creando estudio…' : 'Crear estudio de Card Sorting'}
-        </button>
-      </form>
+            {tipo === 'CERRADO' && (
+              <label className="field">
+                Categorías predefinidas (una por línea)
+                <textarea
+                  placeholder={'Información académica\nServicios\nVida universitaria'}
+                  value={categoriasTexto}
+                  onChange={(e) => setCategoriasTexto(e.target.value)}
+                  style={{ minHeight: 80 }}
+                />
+              </label>
+            )}
 
-      {error && <p style={{ color: 'var(--coral)' }}>{(error as Error).message}</p>}
+            <button type="submit" className="primary" disabled={isPending}>
+              {isPending ? 'Creando estudio…' : '+ Crear estudio de card sorting'}
+            </button>
+          </form>
+
+          {error && <p style={{ color: 'var(--coral)', marginTop: 10 }}>{(error as Error).message}</p>}
+        </article>
+
+        <aside className="panel sort-analysis">
+          <span className="kicker">CÓMO FUNCIONA</span>
+          <h2>Del estudio a la evidencia</h2>
+          <p style={{ fontSize: 10, color: '#718d97', lineHeight: 1.5 }}>
+            Al crear el estudio, cada participante recibe el ID de sesión para unirse y clasificar
+            las tarjetas. Los resultados quedan disponibles en la sesión maestra.
+          </p>
+          <div className="sort-stat">
+            <div>
+              <strong>{sesion?.cardsDefinidas.length ?? 0}</strong>
+              <small>tarjetas definidas</small>
+            </div>
+            <div>
+              <strong>{sesion?.categoriasDefinidas.length ?? 0}</strong>
+              <small>categorías predefinidas</small>
+            </div>
+            <div>
+              <strong>{sesion?.tipoCardSorting === 'CERRADO' ? 'Cerrado' : sesion ? 'Abierto' : '—'}</strong>
+              <small>tipo de estudio</small>
+            </div>
+          </div>
+        </aside>
+      </section>
 
       {sesion && (
-        <div style={{ marginTop: 20, padding: 12, border: '1px solid var(--line)', borderRadius: 8 }}>
-          <b>Estudio creado</b>
-          <p style={{ margin: '6px 0' }}>ID de sesión (compartir con participantes): <code>{sesion.id}</code></p>
-          <p style={{ margin: 0 }}>{sesion.cardsDefinidas.length} tarjetas · {sesion.categoriasDefinidas.length} categorías predefinidas</p>
-        </div>
+        <section className="sort-layout" style={{ marginTop: 16 }}>
+          <article className="panel sort-board">
+            <div className="panel-head">
+              <div>
+                <span className="kicker">VISTA PREVIA DEL ESTUDIO</span>
+                <h2>Lo que verá cada participante</h2>
+              </div>
+              <span className="count">{sesion.cardsDefinidas.length} tarjetas</span>
+            </div>
+            <div className="sort-workspace">
+              <div className="deck">
+                <div className="zone-head"><b>Mazo inicial</b><span>{sesion.cardsDefinidas.length}</span></div>
+                <p className="drop-hint">Cada tarjeta arranca sin clasificar</p>
+                {sesion.cardsDefinidas.map((c) => (
+                  <div key={c.id} className="sort-card">
+                    <span className="grip">⠿</span>
+                    <b>{c.etiqueta}</b>
+                  </div>
+                ))}
+              </div>
+              <div className="drop-zones">
+                {sesion.categoriasDefinidas.length > 0 ? (
+                  sesion.categoriasDefinidas.map((cat) => (
+                    <div key={cat.id} className="drop-zone">
+                      <div className="zone-head"><b>{cat.nombre}</b><span>0</span></div>
+                      <p className="drop-hint">Zona de destino</p>
+                    </div>
+                  ))
+                ) : (
+                  <div className="drop-zone">
+                    <div className="zone-head"><b>Sin categorías predefinidas</b></div>
+                    <p className="drop-hint">Estudio abierto: cada participante crea sus propias categorías.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </article>
+
+          <aside className="panel sort-analysis">
+            <span className="kicker">COMPARTIR</span>
+            <h2>ID de sesión</h2>
+            <p style={{ fontSize: 10, color: '#718d97' }}>Compartí este ID con cada participante para que se una al estudio.</p>
+            <div className="callout" style={{ wordBreak: 'break-all' }}>{sesion.id}</div>
+          </aside>
+        </section>
+      )}
+
+      {sesion && (
+        <article className="panel" style={{ marginTop: 16 }}>
+          <div className="panel-head">
+            <div>
+              <span className="kicker">ANALÍTICA DEL ESTUDIO</span>
+              <h2>Consenso entre participantes</h2>
+            </div>
+            <button type="button" className="ghost" onClick={() => refetchAnalytics()}>
+              ↺ Actualizar
+            </button>
+          </div>
+
+          {cargandoAnalytics && <p>Calculando…</p>}
+
+          {analytics && analytics.participantesCount === 0 && (
+            <p style={{ color: 'var(--muted)', fontSize: 12 }}>
+              Todavía no hay participantes que hayan completado el estudio. La analítica se calcula
+              en tiempo real a partir de sus resultados.
+            </p>
+          )}
+
+          {analytics && analytics.participantesCount > 0 && (
+            <>
+              <div className="sort-stat">
+                <div>
+                  <strong>{analytics.participantesCount}</strong>
+                  <small>participantes completados</small>
+                </div>
+                <div>
+                  <strong>{analytics.acuerdoGlobal}%</strong>
+                  <small>acuerdo global</small>
+                </div>
+                <div>
+                  <strong>{analytics.clusters.length}</strong>
+                  <small>categorías con resultados</small>
+                </div>
+              </div>
+
+              {analytics.tarjetas.length > 0 && (
+                <div className="table-wrap">
+                  <table className="heat-table">
+                    <thead>
+                      <tr>
+                        <th>Tarjeta / tarjeta</th>
+                        {analytics.tarjetas.map((t) => (
+                          <th key={t}>{t}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {analytics.matrizSimilitud.map((fila, i) => (
+                        <tr key={analytics.tarjetas[i]}>
+                          <th>{analytics.tarjetas[i]}</th>
+                          {fila.map((v, j) => (
+                            <td key={j} className={v >= 75 ? 'hot' : v >= 40 ? 'warm' : ''}>
+                              {v}%
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {analytics.frecuenciaPorCategoria.length > 0 && (
+                <div style={{ marginTop: 16 }}>
+                  {analytics.frecuenciaPorCategoria.map((f) => (
+                    <div key={f.nombre} className="frequency-row">
+                      <b>{f.nombre}</b>
+                      <span><i style={{ width: `${f.porcentaje}%` }} /></span>
+                      <strong>{f.porcentaje}%</strong>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {analytics.clusters.length > 0 && (
+                <div className="clusters" style={{ marginTop: 16 }}>
+                  {analytics.clusters.map((c) => (
+                    <div key={c.nombre} className="cluster">
+                      <h3>{c.nombre}</h3>
+                      <strong>{c.acuerdo}%</strong>
+                      <div className="chip-list">
+                        {c.tarjetas.map((t) => (
+                          <span key={t} className="chip">{t}</span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </article>
       )}
     </div>
   );

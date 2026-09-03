@@ -175,6 +175,39 @@ export function joinCardSortingSession(
  * participanteId de la sesión en el servidor (no viaja en el body, ver
  * ADR de seguridad IDOR).
  */
+export interface CardSortingFrecuenciaCategoria {
+  nombre: string;
+  count: number;
+  porcentaje: number;
+}
+
+export interface CardSortingCluster {
+  nombre: string;
+  tarjetas: string[];
+  acuerdo: number;
+}
+
+export interface CardSortingAnalytics {
+  participantesCount: number;
+  cardsCount: number;
+  acuerdoGlobal: number;
+  tarjetas: string[];
+  matrizSimilitud: number[][];
+  frecuenciaPorCategoria: CardSortingFrecuenciaCategoria[];
+  clusters: CardSortingCluster[];
+}
+
+/**
+ * Analítica agregada del estudio (matriz de similitud, frecuencia de
+ * categorías y clústeres), calculada por el backend a partir de las
+ * agrupaciones reales de los participantes completados.
+ */
+export function getCardSortingAnalytics(estudioId: string): Promise<CardSortingAnalytics> {
+  return request<CardSortingAnalytics>(`/card-sorting/sessions/${estudioId}/analytics`, {
+    method: 'GET',
+  });
+}
+
 export function submitCardSortingResult(
   participanteSesionId: string,
   grupos: SubmitCardSortingGrupo[],

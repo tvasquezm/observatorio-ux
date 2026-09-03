@@ -45,6 +45,16 @@ export class CardSortingController {
     return this.cardSortingService.getSession(id, user);
   }
 
+  @Get(':id/analytics')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ESTUDIANTE', 'DOCENTE', 'ADMIN')
+  getAnalytics(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.cardSortingService.getAnalytics(id, user);
+  }
+
   @Post(':id/join')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('PARTICIPANTE')

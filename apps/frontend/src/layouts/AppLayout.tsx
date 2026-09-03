@@ -2,6 +2,7 @@
 
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../features/auth/store/useAuthStore';
+import { exportarResumenPdf } from '../shared/utils/pdf';
 
 const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', icon: '◆', end: true },
@@ -70,6 +71,21 @@ export function AppLayout() {
           </span>
           <div className="top-actions">
             <span className="role">{user?.rol?.toUpperCase()}</span>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() =>
+                exportarResumenPdf(crumb, [
+                  `Usuario: ${user?.nombre ?? ''}`,
+                  `Rol: ${user?.rol ?? ''}`,
+                  `Vista: ${crumb}`,
+                  '',
+                  'Exportado desde Observatorio UX',
+                ])
+              }
+            >
+              ↓ PDF
+            </button>
           </div>
         </div>
         <div className="content">

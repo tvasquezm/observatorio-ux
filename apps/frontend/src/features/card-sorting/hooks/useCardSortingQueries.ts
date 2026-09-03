@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   CardSortingApiError,
   createCardSortingSession,
+  getCardSortingAnalytics,
   getCardSortingSession,
   joinCardSortingSession,
   submitCardSortingResult,
@@ -20,7 +21,21 @@ import { useCardSortingStore } from '../store/useCardSortingStore';
 export const cardSortingKeys = {
   all: ['card-sorting'] as const,
   session: (id: string) => ['card-sorting', 'session', id] as const,
+  analytics: (id: string) => ['card-sorting', 'analytics', id] as const,
 };
+
+/**
+ * Analítica agregada del estudio (matriz de similitud, frecuencia,
+ * clústeres). `enabled` se controla desde afuera porque solo tiene
+ * sentido pedirla una vez el estudio ya existe.
+ */
+export function useCardSortingAnalytics(estudioId: string | null) {
+  return useQuery({
+    queryKey: cardSortingKeys.analytics(estudioId ?? ''),
+    queryFn: () => getCardSortingAnalytics(estudioId as string),
+    enabled: !!estudioId,
+  });
+}
 
 /**
  * Lee una sesión de Card Sorting (maestra o de participante).
