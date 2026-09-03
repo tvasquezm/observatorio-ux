@@ -1,27 +1,14 @@
-# Comandos de backend — dos flujos válidos
+# Comandos de backend — flujo sin Docker
 
-Ver también [`BACKEND.md`](./BACKEND.md) para el flujo recomendado (Docker,
-sin instalar nada localmente). Esta guía es la alternativa para quien
-prefiera correr el backend fuera de contenedores, con Node/pnpm instalados
-en su máquina.
+Para el flujo recomendado (Docker, sin instalar nada localmente) ver
+[`BACKEND.md`](./BACKEND.md). Para el listado completo de comandos del
+proyecto (Docker, tests, troubleshooting, seed) con el caso de uso de cada
+uno, ver [`COMANDOS.md`](./COMANDOS.md).
 
-## Flujo A — Docker (recomendado, ver BACKEND.md)
+Esta guía cubre la alternativa: correr el backend fuera de contenedores,
+con Node/pnpm instalados en tu máquina.
 
-```bash
-cp .env.example .env
-docker compose up --build
-```
-
-Levanta DB + backend + watch de `packages/shared-types`, con migraciones y
-seed automáticos. No requiere Node.js ni pnpm locales.
-
-Para levantar en segundo plano (sin quedarte pegado a los logs):
-
-```bash
-docker compose up -d
-```
-
-## Flujo B — Node/pnpm local (alternativa)
+## Flujo B — Node/pnpm local
 
 Requiere Node.js y pnpm instalados en tu máquina, y una base de datos
 corriendo (por ejemplo, solo el servicio de DB vía

@@ -10,7 +10,7 @@
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
 
-export interface HallazgoHeuristica {
+export interface HallazgoHeuristicaInput {
   heuristicaId: string;
   severidad: 0 | 1 | 2 | 3 | 4;
   descripcion: string;
@@ -18,11 +18,22 @@ export interface HallazgoHeuristica {
   recomendacion?: string;
 }
 
+// Lo que realmente devuelve el backend por hallazgo (HeuristicFinding en
+// evaluacion-heuristica.service.ts): además de los campos de entrada, trae
+// `id` (generado con randomUUID) y `registradoEn` (timestamp ISO).
+export interface HallazgoHeuristica extends HallazgoHeuristicaInput {
+  id: string;
+  registradoEn: string;
+}
+
+// OJO: el modelo Prisma `researchSession` (backend) guarda los hallazgos en
+// el campo `resultado` (JSON), no `hallazgos` — el nombre `hallazgos` nunca
+// existió en la respuesta real y rompía la UI al leer `sesion.hallazgos`.
 export interface EvaluacionHeuristicaSesion {
   id: string;
   proyectoId: string;
   estado: 'INVITADO' | 'EN_PROGRESO' | 'COMPLETADO' | 'ABANDONADO';
-  hallazgos: HallazgoHeuristica[];
+  resultado: HallazgoHeuristica[];
   createdAt: string;
   completadoAt: string | null;
 }
@@ -67,15 +78,23 @@ export function crearSesionHeuristica(proyectoId: string): Promise<EvaluacionHeu
   return request(`/proyectos/${proyectoId}/evaluacion-heuristica/sesiones`, { method: 'POST' });
 }
 
-export function registrarHallazgo(
+export async function registrarHallazgo(
   proyectoId: string,
   sesionId: string,
-  hallazgo: HallazgoHeuristica,
+  hallazgo: HallazgoHeuristicaInput,
 ): Promise<EvaluacionHeuristicaSesion> {
-  return request(`/proyectos/${proyectoId}/evaluacion-heuristica/sesiones/${sesionId}/hallazgos`, {
+  // El backend (EvaluacionHeuristicaService.registrarHallazgo) responde
+  // { mensaje, hallazgo, sesion } — no la sesión directa. Se desenvuelve acá
+  // para que el resto del frontend siga trabajando con EvaluacionHeuristicaSesion.
+  const respuesta = await request<{
+    mensaje: string;
+    hallazgo: HallazgoHeuristica;
+    sesion: EvaluacionHeuristicaSesion;
+  }>(`/proyectos/${proyectoId}/evaluacion-heuristica/sesiones/${sesionId}/hallazgos`, {
     method: 'PATCH',
     body: JSON.stringify(hallazgo),
   });
+  return respuesta.sesion;
 }
 
 export function finalizarSesionHeuristica(

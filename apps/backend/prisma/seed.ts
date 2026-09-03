@@ -288,48 +288,93 @@ async function main() {
   });
 
   // --- Técnica 4: Journey Map ---
+  // OJO: el shape de `contenido` debe coincidir con JourneyMapSchema
+  // (packages/shared-types/src/domains/journey-map.ts) — perfilUsuario +
+  // fases (mín. 3, cada una con touchpoints/pensamientos/oportunidades no
+  // vacíos). `update` también fija `contenido` (no `{}`) para que un
+  // re-seed sobre una BD ya poblada con el shape viejo la corrija.
+  const journeyMapContenido = {
+    perfilUsuario: {
+      id: 'b2b1a6a1-0030-4a11-9c00-000000000041',
+      nombre: 'María Pérez',
+      rol: 'Usuaria potencial',
+    },
+    fases: [
+      {
+        nombre: 'Descubrimiento',
+        touchpoints: ['Búsqueda en Google', 'Landing page'],
+        pensamientos: ['¿Esto me sirve para lo que necesito?'],
+        emocion: 'Neutral',
+        oportunidades: ['Clarificar la propuesta de valor en el hero'],
+      },
+      {
+        nombre: 'Registro',
+        touchpoints: ['Formulario de registro'],
+        pensamientos: ['El registro fue rápido y directo'],
+        emocion: 'Positiva',
+        oportunidades: ['Agregar registro con un solo click (SSO)'],
+      },
+      {
+        nombre: 'Primer uso',
+        touchpoints: ['Dashboard inicial'],
+        pensamientos: ['No encuentro el botón de inicio'],
+        emocion: 'Negativa',
+        oportunidades: ['Agregar onboarding guiado en el primer login'],
+      },
+    ],
+  };
+
   await prisma.uxArtifact.upsert({
     where: {
       artefactoLogicoId_version: { artefactoLogicoId: artifactJourneyMapId, version: 1 },
     },
-    update: {},
+    update: { contenido: journeyMapContenido },
     create: {
       proyectoId: profesorProject.id,
       autorId: profesor.id,
       tipo: TipoArtefacto.JOURNEY_MAP,
       artefactoLogicoId: artifactJourneyMapId,
       version: 1,
-      contenido: {
-        etapas: [
-          { nombre: 'Descubrimiento', emocion: 'neutral', accion: 'Busca la plataforma' },
-          { nombre: 'Registro', emocion: 'positiva', accion: 'Crea su cuenta' },
-          { nombre: 'Primer uso', emocion: 'negativa', accion: 'No encuentra el botón de inicio' },
-        ],
-      },
+      contenido: journeyMapContenido,
     },
   });
 
   // --- Técnica 5: Momentos Críticos ---
+  // Mismo criterio: shape debe coincidir con MomentosCriticosSchema
+  // (packages/shared-types/src/domains/momentos-criticos.ts) — perfilUsuario
+  // + incidentes (mín. 1, cada uno con tipo/impacto/frecuencia en el enum
+  // correcto y accionesSugeridas no vacío).
+  const momentosCriticosContenido = {
+    perfilUsuario: {
+      id: 'b2b1a6a1-0030-4a11-9c00-000000000041',
+      nombre: 'María Pérez',
+      rol: 'Usuaria potencial',
+    },
+    incidentes: [
+      {
+        nombre: 'Botón de inicio invisible',
+        descripcion: 'El participante tardó más de 40s en encontrar cómo comenzar.',
+        tipo: 'Negativo',
+        impacto: 'Alto',
+        frecuencia: 'Alta',
+        causa: 'El botón principal no tiene suficiente contraste ni jerarquía visual.',
+        accionesSugeridas: ['Rediseñar el CTA con mayor contraste', 'Agregar tooltip guía en el primer uso'],
+      },
+    ],
+  };
+
   await prisma.uxArtifact.upsert({
     where: {
       artefactoLogicoId_version: { artefactoLogicoId: artifactMomentosCriticosId, version: 1 },
     },
-    update: {},
+    update: { contenido: momentosCriticosContenido },
     create: {
       proyectoId: profesorProject.id,
       autorId: profesor.id,
       tipo: TipoArtefacto.MOMENTOS_CRITICOS,
       artefactoLogicoId: artifactMomentosCriticosId,
       version: 1,
-      contenido: {
-        momentos: [
-          {
-            titulo: 'Botón de inicio invisible',
-            impacto: 'alto',
-            descripcion: 'El participante tardó más de 40s en encontrar cómo comenzar.',
-          },
-        ],
-      },
+      contenido: momentosCriticosContenido,
     },
   });
 

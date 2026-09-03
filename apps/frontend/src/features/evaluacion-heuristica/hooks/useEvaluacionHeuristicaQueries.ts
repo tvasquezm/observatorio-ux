@@ -6,7 +6,7 @@ import {
   finalizarSesionHeuristica,
   obtenerSesionHeuristica,
   registrarHallazgo,
-  type HallazgoHeuristica,
+  type HallazgoHeuristicaInput,
 } from '../api/evaluacion-heuristica.api';
 
 export const heuristicaKeys = {
@@ -28,7 +28,7 @@ export function useSesionHeuristica(proyectoId: string, sesionId: string | null)
 export function useRegistrarHallazgo(proyectoId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ sesionId, hallazgo }: { sesionId: string; hallazgo: HallazgoHeuristica }) =>
+    mutationFn: ({ sesionId, hallazgo }: { sesionId: string; hallazgo: HallazgoHeuristicaInput }) =>
       registrarHallazgo(proyectoId, sesionId, hallazgo),
     onSuccess: (s) => qc.setQueryData(heuristicaKeys.detail(proyectoId, s.id), s),
   });
