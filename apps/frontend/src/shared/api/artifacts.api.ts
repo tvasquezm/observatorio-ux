@@ -146,41 +146,28 @@ export function createArtifact<T = unknown>(
 }
 
 
-// apps/frontend/src/shared/api/artifacts.api.ts
-
-// apps/frontend/src/shared/api/artifacts.api.ts
-
-// apps/frontend/src/shared/api/artifacts.api.ts
-
-// apps/frontend/src/shared/api/artifacts.api.ts
-
-// apps/frontend/src/shared/api/artifacts.api.ts
-
-// apps/frontend/src/shared/api/artifacts.api.ts
-
-// apps/frontend/src/shared/api/artifacts.api.ts
-
-// apps/frontend/src/shared/api/artifacts.api.ts
-
-// apps/frontend/src/shared/api/artifacts.api.ts
-
+/**
+ * Crea una nueva versión de un artefacto lógico ya existente.
+ * Pega directo al endpoint de versionado del backend
+ * (`POST /projects/:proyectoId/artifacts/:artefactoId/versions`), que solo
+ * espera `{ contenido }` — el `tipo` no se manda porque el backend ya lo
+ * conoce a través del artefacto lógico existente (ver
+ * `ArtifactsController.createVersion` / `ArtifactsService.createVersion`).
+ *
+ * OJO: `artefactoId` acá es cualquier fila (versión) de ese artefacto
+ * lógico — el service resuelve la última versión real internamente.
+ */
 export function createArtifactVersion<T = unknown>(
   proyectoId: string,
-  artefactoLogicoId: string,
-  tipo: string, // 👈 Agregar parámetro tipo
+  artefactoId: string,
   contenido: T,
 ): Promise<UxArtifact<T>> {
   return request<UxArtifact<T>>(
-    `/projects/${proyectoId}/artifacts?artefactoLogicoId=${artefactoLogicoId}`,
-    {
-      method: 'POST',
-      body: JSON.stringify({
-        tipo, // 👈 Usar el tipo dinámico ('JOURNEY_MAP', 'PERSONA', etc.)
-        contenido,
-      }),
-    },
+    `/projects/${proyectoId}/artifacts/${artefactoId}/versions`,
+    { method: 'POST', body: JSON.stringify({ contenido }) },
   );
 }
+
 export function acquireLock<T = unknown>(
   proyectoId: string,
   artefactoId: string,
@@ -208,35 +195,11 @@ export function releaseLock<T = unknown>(
  * base de datos, así que el objeto devuelto sigue existiendo, solo que ya
  * no aparecerá en listArtifacts.
  */
-// apps/frontend/src/shared/api/artifacts.api.ts
-
-
-
-// apps/frontend/src/shared/api/artifacts.api.ts
-
-// apps/frontend/src/shared/api/artifacts.api.ts
-
 export function deleteArtifact(
   proyectoId: string,
   artefactoId: string,
 ): Promise<void> {
-  return request<void>(
-    `/projects/${proyectoId}/artifacts/${artefactoId}`,
-    {
-      method: 'DELETE',
-    },
-  );
-}
-export function updateArtifact<T = unknown>(
-  proyectoId: string,
-  artefactoId: string,
-  contenido: T,
-): Promise<UxArtifact<T>> {
-  return request<UxArtifact<T>>(
-    `/projects/${proyectoId}/artifacts/${artefactoId}`,
-    { 
-      method: 'PUT', 
-      body: JSON.stringify({ contenido }) 
-    },
-  );
+  return request<void>(`/projects/${proyectoId}/artifacts/${artefactoId}`, {
+    method: 'DELETE',
+  });
 }

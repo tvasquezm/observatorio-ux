@@ -73,12 +73,7 @@ export function updateCriticalMoment(
   artefactoId: string,
   contenido: MomentosCriticosContenido,
 ): Promise<MomentosCriticosArtifact> {
-  return createArtifactVersion<MomentosCriticosContenido>(
-    proyectoId,
-    artefactoId,
-    'MOMENTOS_CRITICOS', // 👈 Se agrega el tipo explícito para la validación del DTO
-    contenido,
-  ) as Promise<MomentosCriticosArtifact>;
+  return createArtifactVersion<MomentosCriticosContenido>(proyectoId, artefactoId, contenido);
 }
 
 export function lockCriticalMoment(

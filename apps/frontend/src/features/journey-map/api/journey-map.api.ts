@@ -48,29 +48,19 @@ export function getJourney(
   return getArtifact<JourneyMapContenido>(proyectoId, artefactoId);
 }
 
-export function createJourneyMap(
+export function createJourney(
   proyectoId: string,
   contenido: JourneyMapContenido,
 ): Promise<JourneyMapArtifact> {
-  return createArtifact<JourneyMapContenido>(
-    proyectoId,
-    'JOURNEY_MAP',
-    contenido,
-  ) as Promise<JourneyMapArtifact>;
+  return createArtifact<JourneyMapContenido>(proyectoId, 'JOURNEY_MAP', contenido);
 }
-// apps/frontend/src/features/journey-map/api/journey-map.api.ts
 
-export function updateJourneyMap(
+export function updateJourney(
   proyectoId: string,
-  artefactoLogicoId: string,
+  artefactoId: string,
   contenido: JourneyMapContenido,
 ): Promise<JourneyMapArtifact> {
-  return createArtifactVersion<JourneyMapContenido>(
-    proyectoId,
-    artefactoLogicoId,
-    'JOURNEY_MAP',
-    contenido,
-  ) as Promise<JourneyMapArtifact>;
+  return createArtifactVersion<JourneyMapContenido>(proyectoId, artefactoId, contenido);
 }
 
 export function lockJourney(
@@ -89,13 +79,10 @@ export function unlockJourney(
 }
 
 /** Soft delete — ver nota en persona.api.ts. */
-// En apps/frontend/src/features/journey-map/api/journey-map.api.ts
-
-export function deleteJourneyMap(
+export function deleteJourney(
   proyectoId: string,
   artefactoId: string,
 ): Promise<void> {
-  // Se invoca deleteArtifact sin pasar genéricos de retorno
   return deleteArtifact(proyectoId, artefactoId);
 }
 
@@ -128,7 +115,3 @@ export function removePhase(
   // antes de llamar updateJourney, o el backend responderá 400.
   return { ...contenido, fases: contenido.fases.filter((_, i) => i !== index) };
 }
-
-export { createJourneyMap as createJourney };
-export { updateJourneyMap as updateJourney };
-export { deleteJourneyMap as deleteJourney };

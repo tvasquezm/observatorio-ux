@@ -6,12 +6,16 @@ import {
   useUpdateCriticalMoment,
   useDeleteCriticalMoment,
   useCriticalMoments,
+  useLockCriticalMoment,
+  useUnlockCriticalMoment,
 } from '../features/momentos-criticos/hooks/useMomentosCriticosQueries';
 import type {
   IncidenteCritico,
   MomentosCriticosContenido,
   MomentosCriticosArtifact,
 } from '../features/momentos-criticos/api/momentos-criticos.api';
+import { ArtifactsApiError } from '../shared/api/artifacts.api';
+import { notify } from '../shared/api/toast';
 
 function incidenteVacio(): IncidenteCritico {
   return {
@@ -34,30 +38,51 @@ function contenidoVacio(): MomentosCriticosContenido {
 
 export function MomentosCriticosPage() {
   const { proyectoId } = useOutletContext<ProjectOutletContext>();
-  const { data: momentos, isLoading } = useCriticalMoments(proyectoId);
-  const { mutate: crear, isPending: isCreating } = useCreateCriticalMoment(proyectoId);
-  const { mutate: actualizar, isPending: isUpdating } = useUpdateCriticalMoment(proyectoId);
-  const { mutate: eliminar } = useDeleteCriticalMoment(proyectoId);
+  const { data: momentos, isLoading, isError: isListError, error: listError } = useCriticalMoments(proyectoId);
+  const { mutate: crear, isPending: isCreating, error: createError } = useCreateCriticalMoment(proyectoId);
+  const { mutate: actualizar, isPending: isUpdating, error: updateError } = useUpdateCriticalMoment(proyectoId);
+  const { mutate: eliminar, error: deleteError } = useDeleteCriticalMoment(proyectoId);
+  const { mutate: lockCriticalMoment } = useLockCriticalMoment(proyectoId);
+  const { mutate: unlockCriticalMoment } = useUnlockCriticalMoment(proyectoId);
+  const error = listError ?? createError ?? updateError ?? deleteError;
 
   const [form, setForm] = useState<MomentosCriticosContenido>(contenidoVacio());
   const [accionesInput, setAccionesInput] = useState('');
   const [mostrarForm, setMostrarForm] = useState(false);
   const [vistaMatriz, setVistaMatriz] = useState(false);
   const [editandoArtefactoId, setEditandoArtefactoId] = useState<string | null>(null);
+  const [readOnly, setReadOnly] = useState(false);
 
   function resetForm() {
+    if (editandoArtefactoId) unlockCriticalMoment(editandoArtefactoId);
     setForm(contenidoVacio());
     setAccionesInput('');
     setEditandoArtefactoId(null);
     setMostrarForm(false);
+    setReadOnly(false);
   }
 
   function handleStartEdit(m: MomentosCriticosArtifact) {
+    const artefactoId = m.artefactoLogicoId || m.id;
     const primerIncidente = m.contenido.incidentes[0] || incidenteVacio();
-    setEditandoArtefactoId(m.artefactoLogicoId || m.id);
+    setEditandoArtefactoId(artefactoId);
     setForm(m.contenido);
     setAccionesInput(primerIncidente.accionesSugeridas ? primerIncidente.accionesSugeridas.join(', ') : '');
     setMostrarForm(true);
+    setReadOnly(false);
+
+    lockCriticalMoment(
+      { artefactoId },
+      {
+        onError: (err) => {
+          const msg = err instanceof ArtifactsApiError && err.status === 409
+            ? 'Otro usuario está editando este momento crítico ahora mismo.'
+            : 'No se pudo bloquear el momento crítico para editar.';
+          notify.error(msg);
+          setReadOnly(true);
+        },
+      },
+    );
   }
 
   function actualizarIncidente(campo: keyof IncidenteCritico, valor: string) {
@@ -85,9 +110,15 @@ export function MomentosCriticosPage() {
     };
 
     if (editandoArtefactoId) {
+      const idAEditar = editandoArtefactoId;
       actualizar(
-        { artefactoId: editandoArtefactoId, contenido: payload },
-        { onSuccess: resetForm }
+        { artefactoId: idAEditar, contenido: payload },
+        {
+          onSuccess: () => {
+            unlockCriticalMoment(idAEditar);
+            resetForm();
+          },
+        }
       );
     } else {
       crear(payload, { onSuccess: resetForm });
@@ -134,7 +165,13 @@ export function MomentosCriticosPage() {
       {mostrarForm && (
         <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 8, margin: '12px 0', padding: 12, border: '1px solid var(--line)', borderRadius: 8 }}>
           <h3>{editandoArtefactoId ? 'Editar Momento Crítico' : 'Nuevo Momento Crítico'}</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          {readOnly && (
+            <p style={{ color: 'var(--coral)' }}>
+              Este momento crítico está bloqueado por otro usuario. No puedes editarlo en este momento.
+            </p>
+          )}
+          <fieldset disabled={readOnly} style={{ border: 0, padding: 0, margin: 0, display: 'contents' }}>
+          <div className="form-grid-2">
             <input
               placeholder="Nombre del perfil de usuario *"
               value={form.perfilUsuario.nombre}
@@ -163,7 +200,7 @@ export function MomentosCriticosPage() {
             onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => actualizarIncidente('descripcion', e.target.value)}
             style={{ padding: 8, minHeight: 50 }}
           />
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+          <div className="form-grid-3">
             <select value={form.incidentes[0].tipo} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => actualizarIncidente('tipo', e.target.value)} style={{ padding: 8 }}>
               <option value="Positivo">Positivo</option>
               <option value="Negativo">Negativo</option>
@@ -195,10 +232,17 @@ export function MomentosCriticosPage() {
           <button type="submit" className="primary" disabled={isSaving}>
             {isSaving ? 'Guardando…' : editandoArtefactoId ? 'Actualizar momento crítico' : 'Guardar momento crítico'}
           </button>
+          </fieldset>
         </form>
       )}
 
       {isLoading && <p>Cargando…</p>}
+      {error && (
+        <p style={{ color: 'var(--coral)' }}>
+          {isListError ? 'No se pudo cargar los momentos críticos. ' : ''}
+          {(error as Error).message}
+        </p>
+      )}
 
       {vistaMatriz && !isLoading && (
         <div style={{ marginTop: 16, overflowX: 'auto' }}>

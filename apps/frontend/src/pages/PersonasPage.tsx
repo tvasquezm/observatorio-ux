@@ -6,8 +6,12 @@ import {
   useUpdatePersona,
   useDeletePersona,
   usePersonas,
+  useLockPersona,
+  useUnlockPersona,
 } from '../features/persona/hooks/usePersonaQueries';
 import type { PersonaContenido, PersonaArtifact } from '../features/persona/api/persona.api';
+import { ArtifactsApiError } from '../shared/api/artifacts.api';
+import { notify } from '../shared/api/toast';
 
 const CAMPOS_LISTA: (keyof PersonaContenido)[] = [
   'hobbies', 'habilidades', 'objetivos', 'necesidades',
@@ -28,25 +32,32 @@ function vacioListInputs(): Record<string, string> {
 
 export function PersonasPage() {
   const { proyectoId } = useOutletContext<ProjectOutletContext>();
-  const { data: personas, isLoading } = usePersonas(proyectoId);
-  const { mutate: crear, isPending: isCreating } = useCreatePersona(proyectoId);
-  const { mutate: actualizar, isPending: isUpdating } = useUpdatePersona(proyectoId);
-  const { mutate: eliminar } = useDeletePersona(proyectoId);
+  const { data: personas, isLoading, isError: isListError, error: listError } = usePersonas(proyectoId);
+  const { mutate: crear, isPending: isCreating, error: createError } = useCreatePersona(proyectoId);
+  const { mutate: actualizar, isPending: isUpdating, error: updateError } = useUpdatePersona(proyectoId);
+  const { mutate: eliminar, error: deleteError } = useDeletePersona(proyectoId);
+  const { mutate: lockPersona } = useLockPersona(proyectoId);
+  const { mutate: unlockPersona } = useUnlockPersona(proyectoId);
+  const error = listError ?? createError ?? updateError ?? deleteError;
 
   const [form, setForm] = useState<PersonaContenido>(vacio());
   const [listInputs, setListInputs] = useState<Record<string, string>>(vacioListInputs());
   const [mostrarForm, setMostrarForm] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [readOnly, setReadOnly] = useState(false);
 
   function resetForm() {
+    if (editandoId) unlockPersona(editandoId);
     setForm(vacio());
     setListInputs(vacioListInputs());
     setEditandoId(null);
     setMostrarForm(false);
+    setReadOnly(false);
   }
 
   function handleIniciarEditar(persona: PersonaArtifact) {
-    setEditandoId(persona.artefactoLogicoId || persona.id);
+    const artefactoId = persona.artefactoLogicoId || persona.id;
+    setEditandoId(artefactoId);
     setForm(persona.contenido);
     
     const inputsState: Record<string, string> = {};
@@ -56,6 +67,20 @@ export function PersonasPage() {
     });
     setListInputs(inputsState);
     setMostrarForm(true);
+    setReadOnly(false);
+
+    lockPersona(
+      { artefactoId },
+      {
+        onError: (err) => {
+          const msg = err instanceof ArtifactsApiError && err.status === 409
+            ? 'Otro usuario está editando esta persona ahora mismo.'
+            : 'No se pudo bloquear la persona para editar.';
+          notify.error(msg);
+          setReadOnly(true);
+        },
+      },
+    );
   }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -70,9 +95,15 @@ export function PersonasPage() {
     });
 
     if (editandoId) {
+      const idAEditar = editandoId;
       actualizar(
-        { artefactoId: editandoId, contenido: payload },
-        { onSuccess: resetForm }
+        { artefactoId: idAEditar, contenido: payload },
+        {
+          onSuccess: () => {
+            unlockPersona(idAEditar);
+            resetForm();
+          },
+        }
       );
     } else {
       crear(payload, { onSuccess: resetForm });
@@ -93,7 +124,12 @@ export function PersonasPage() {
       {mostrarForm && (
         <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 8, margin: '12px 0', padding: 12, border: '1px solid var(--line)', borderRadius: 8 }}>
           <h3>{editandoId ? 'Editar Persona' : 'Nueva Persona'}</h3>
-          
+          {readOnly && (
+            <p style={{ color: 'var(--coral)' }}>
+              Esta persona está bloqueada por otro usuario. No puedes editarla en este momento.
+            </p>
+          )}
+          <fieldset disabled={readOnly} style={{ border: 0, padding: 0, margin: 0, display: 'contents' }}>
           <input
             placeholder="Nombre completo *"
             value={form.nombreCompleto}
@@ -101,7 +137,7 @@ export function PersonasPage() {
             required
             style={{ padding: 8 }}
           />
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <div className="form-grid-2">
             <input
               placeholder="Edad"
               type="number"
@@ -134,10 +170,17 @@ export function PersonasPage() {
           <button type="submit" className="primary" disabled={isPending}>
             {isPending ? 'Guardando…' : editandoId ? 'Actualizar persona' : 'Guardar persona'}
           </button>
+          </fieldset>
         </form>
       )}
 
       {isLoading && <p>Cargando…</p>}
+      {error && (
+        <p style={{ color: 'var(--coral)' }}>
+          {isListError ? 'No se pudo cargar las personas. ' : ''}
+          {(error as Error).message}
+        </p>
+      )}
 
       <div style={{ display: 'grid', gap: 8 }}>
         {personas?.map((p: PersonaArtifact) => (

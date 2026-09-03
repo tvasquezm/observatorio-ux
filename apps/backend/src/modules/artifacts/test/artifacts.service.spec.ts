@@ -35,6 +35,7 @@ describe('ArtifactsService', () => {
       findUnique: jest.Mock;
       findFirst: jest.Mock;
       update: jest.Mock;
+      updateMany: jest.Mock;
     };
   };
 
@@ -51,6 +52,7 @@ describe('ArtifactsService', () => {
         findUnique: jest.fn(),
         findFirst: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn(),
       },
     };
 
@@ -305,6 +307,107 @@ describe('ArtifactsService', () => {
   // Cierra B4/B9/B14: antes de estos tests, lockedById/lockedUntil se leían
   // en createVersion pero nada los escribía, así que el lock nunca se
   // activaba de verdad. acquireLock/releaseLock son el lado que faltaba.
+  describe('softDelete', () => {
+    const baseArtifact = {
+      id: 'art-1',
+      proyectoId: 'proy-1',
+      tipo: TipoArtefacto.PERSONA,
+      artefactoLogicoId: 'logico-1',
+      version: 2,
+      lockedById: null as string | null,
+      lockedUntil: null as Date | null,
+      deletedAt: null as Date | null,
+    };
+
+    it('marca deletedAt en todas las versiones del artefacto lógico', async () => {
+      prisma.uxArtifact.findUnique.mockResolvedValue(baseArtifact);
+      prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
+      prisma.uxArtifact.updateMany.mockResolvedValue({ count: 3 });
+
+      await service.softDelete('art-1', ownerUser);
+
+      expect(prisma.uxArtifact.updateMany).toHaveBeenCalledWith({
+        where: { artefactoLogicoId: 'logico-1' },
+        data: { deletedAt: expect.any(Date) },
+      });
+    });
+
+    it('lanza NotFoundException si el artefacto no existe', async () => {
+      prisma.uxArtifact.findUnique.mockResolvedValue(null);
+
+      await expect(service.softDelete('art-1', ownerUser)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(prisma.uxArtifact.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('lanza ForbiddenException si el usuario no tiene acceso al proyecto', async () => {
+      prisma.uxArtifact.findUnique.mockResolvedValue(baseArtifact);
+      prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
+
+      await expect(service.softDelete('art-1', otherUser)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(prisma.uxArtifact.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('RECHAZA eliminar si está bloqueado por otro usuario y el bloqueo sigue vigente', async () => {
+      prisma.uxArtifact.findUnique.mockResolvedValue({
+        ...baseArtifact,
+        lockedById: otherUser.id,
+        lockedUntil: new Date(Date.now() + 60_000),
+      });
+      prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
+
+      await expect(service.softDelete('art-1', ownerUser)).rejects.toThrow(
+        ConflictException,
+      );
+      expect(prisma.uxArtifact.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('permite eliminar si el bloqueo de otro usuario ya expiró', async () => {
+      const lockedArtifact = {
+        ...baseArtifact,
+        lockedById: otherUser.id,
+        lockedUntil: new Date(Date.now() - 60_000),
+      };
+      prisma.uxArtifact.findUnique.mockResolvedValue(lockedArtifact);
+      prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
+      prisma.uxArtifact.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.softDelete('art-1', ownerUser);
+
+      expect(prisma.uxArtifact.updateMany).toHaveBeenCalled();
+    });
+
+    it('permite eliminar si el propio usuario tiene el lock', async () => {
+      const lockedArtifact = {
+        ...baseArtifact,
+        lockedById: ownerUser.id,
+        lockedUntil: new Date(Date.now() + 60_000),
+      };
+      prisma.uxArtifact.findUnique.mockResolvedValue(lockedArtifact);
+      prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
+      prisma.uxArtifact.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.softDelete('art-1', ownerUser);
+
+      expect(prisma.uxArtifact.updateMany).toHaveBeenCalled();
+    });
+
+    it('es idempotente: eliminar un artefacto ya eliminado no falla', async () => {
+      prisma.uxArtifact.findUnique.mockResolvedValue({
+        ...baseArtifact,
+        deletedAt: new Date(Date.now() - 3600_000),
+      });
+      prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
+      prisma.uxArtifact.updateMany.mockResolvedValue({ count: 3 });
+
+      await expect(service.softDelete('art-1', ownerUser)).resolves.toBeDefined();
+      expect(prisma.uxArtifact.updateMany).toHaveBeenCalled();
+    });
+  });
+
   describe('acquireLock', () => {
     const baseArtifact = {
       id: 'art-1',

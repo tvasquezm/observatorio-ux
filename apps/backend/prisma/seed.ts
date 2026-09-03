@@ -1,11 +1,42 @@
 import 'dotenv/config';
-import { PrismaClient, Rol } from '@prisma/client';
+import {
+  ActorSesion,
+  EstadoSesion,
+  PrismaClient,
+  Rol,
+  TipoArtefacto,
+  TipoCardSorting,
+  TipoSesion,
+} from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 const demoPassword = process.env.SEED_PASSWORD || 'Demo1234!';
 const evaluatorId = 'c702fdcf-ff14-4e49-bcdf-620f1738bb04';
 const projectId = '2220b224-865d-4230-a484-19338c66b9e6';
+
+// --- Usuario profesor de prueba (login simple para QA manual) ---
+const profesorPassword = process.env.SEED_PROFESOR_PASSWORD || 'profesor123';
+const profesorId = 'f1e1b6a1-0000-4a11-9c00-000000000001';
+const profesorEmail = 'profesor@test.com';
+const profesorProjectId = 'f1e1b6a1-0001-4a11-9c00-000000000002';
+const cardSortingEstudioId = 'f1e1b6a1-0002-4a11-9c00-000000000003';
+const cardSortingParticipanteSesionId = 'f1e1b6a1-0003-4a11-9c00-000000000004';
+const heuristicaSesionId = 'f1e1b6a1-0004-4a11-9c00-000000000005';
+const participanteDemoId = 'f1e1b6a1-0005-4a11-9c00-000000000006';
+const cardIds = [
+  'f1e1b6a1-0010-4a11-9c00-000000000010',
+  'f1e1b6a1-0010-4a11-9c00-000000000011',
+  'f1e1b6a1-0010-4a11-9c00-000000000012',
+  'f1e1b6a1-0010-4a11-9c00-000000000013',
+];
+const categoryIds = [
+  'f1e1b6a1-0020-4a11-9c00-000000000020',
+  'f1e1b6a1-0020-4a11-9c00-000000000021',
+];
+const artifactPersonaId = 'f1e1b6a1-0030-4a11-9c00-000000000030';
+const artifactJourneyMapId = 'f1e1b6a1-0030-4a11-9c00-000000000031';
+const artifactMomentosCriticosId = 'f1e1b6a1-0030-4a11-9c00-000000000032';
 
 async function main() {
   const passwordHash = await bcrypt.hash(demoPassword, 12);
@@ -73,9 +104,242 @@ async function main() {
     }
   }
 
+  // ------------------------------------------------------------
+  // Usuario profesor de prueba + proyecto con las 5 técnicas UX
+  // ------------------------------------------------------------
+  const profesorPasswordHash = await bcrypt.hash(profesorPassword, 12);
+
+  const profesor = await prisma.usuario.upsert({
+    where: { email: profesorEmail },
+    update: {
+      nombre: 'Profesor de Prueba',
+      rol: Rol.DOCENTE,
+      passwordHash: profesorPasswordHash,
+    },
+    create: {
+      id: profesorId,
+      nombre: 'Profesor de Prueba',
+      email: profesorEmail,
+      rol: Rol.DOCENTE,
+      passwordHash: profesorPasswordHash,
+    },
+  });
+
+  const profesorProject = await prisma.proyecto.upsert({
+    where: { id: profesorProjectId },
+    update: {
+      nombre: 'Proyecto Demo Profesor',
+      descripcion: 'Proyecto de prueba con las 5 técnicas del Observatorio UX',
+      creadoPorId: profesor.id,
+    },
+    create: {
+      id: profesorProjectId,
+      nombre: 'Proyecto Demo Profesor',
+      descripcion: 'Proyecto de prueba con las 5 técnicas del Observatorio UX',
+      creadoPorId: profesor.id,
+    },
+  });
+
+  const participanteDemo = await prisma.participante.upsert({
+    where: { id: participanteDemoId },
+    update: { metadata: { perfil: 'Participante Demo', edad: 25 } },
+    create: {
+      id: participanteDemoId,
+      metadata: { perfil: 'Participante Demo', edad: 25 },
+    },
+  });
+
+  const consentDemo = await prisma.consentimiento.findFirst({
+    where: { participanteId: participanteDemo.id, proyectoId: profesorProject.id },
+  });
+  if (consentDemo) {
+    await prisma.consentimiento.update({
+      where: { id: consentDemo.id },
+      data: { aceptado: true, version: '1.0' },
+    });
+  } else {
+    await prisma.consentimiento.create({
+      data: {
+        participanteId: participanteDemo.id,
+        proyectoId: profesorProject.id,
+        aceptado: true,
+        version: '1.0',
+      },
+    });
+  }
+
+  // --- Técnica 1: Card Sorting (estudio + sesión de participante completada) ---
+  // Se limpian hijos del estudio para que el seed sea re-ejecutable sin duplicar.
+  await prisma.cardGrouping.deleteMany({
+    where: { participanteSesionId: cardSortingParticipanteSesionId },
+  });
+  await prisma.category.deleteMany({ where: { sessionId: cardSortingEstudioId } });
+  await prisma.card.deleteMany({ where: { sessionId: cardSortingEstudioId } });
+  await prisma.researchSession.deleteMany({
+    where: { id: { in: [cardSortingParticipanteSesionId, cardSortingEstudioId] } },
+  });
+
+  const cardSortingEstudio = await prisma.researchSession.create({
+    data: {
+      id: cardSortingEstudioId,
+      proyectoId: profesorProject.id,
+      evaluadorId: profesor.id,
+      tipo: TipoSesion.CARD_SORTING,
+      estado: EstadoSesion.EN_PROGRESO,
+      actor: ActorSesion.EVALUADOR,
+      tipoCardSorting: TipoCardSorting.CERRADO,
+      cardsDefinidas: {
+        create: cardIds.map((id, i) => ({ id, etiqueta: `Tarjeta ${i + 1}` })),
+      },
+      categoriasDefinidas: {
+        create: categoryIds.map((id, i) => ({
+          id,
+          nombre: `Categoría ${i + 1}`,
+          esPredefinida: true,
+        })),
+      },
+    },
+  });
+
+  await prisma.researchSession.create({
+    data: {
+      id: cardSortingParticipanteSesionId,
+      proyectoId: profesorProject.id,
+      tipo: TipoSesion.CARD_SORTING,
+      estado: EstadoSesion.COMPLETADO,
+      actor: ActorSesion.PARTICIPANTE,
+      participanteId: participanteDemo.id,
+      estudioId: cardSortingEstudio.id,
+      completadoAt: new Date(),
+      agrupaciones: {
+        create: [
+          { cardId: cardIds[0], categoryId: categoryIds[0] },
+          { cardId: cardIds[1], categoryId: categoryIds[0] },
+          { cardId: cardIds[2], categoryId: categoryIds[1] },
+          { cardId: cardIds[3], categoryId: categoryIds[1] },
+        ],
+      },
+    },
+  });
+
+  // --- Técnica 2: Evaluación Heurística ---
+  await prisma.researchSession.upsert({
+    where: { id: heuristicaSesionId },
+    update: {
+      estado: EstadoSesion.COMPLETADO,
+      resultado: [
+        {
+          heuristicaId: 'H4',
+          severidad: 3,
+          descripcion: 'Falta consistencia en los botones de acción principal.',
+          recomendacion: 'Unificar estilo de botones primarios en todo el flujo.',
+        },
+        {
+          heuristicaId: 'H1',
+          severidad: 2,
+          descripcion: 'El sistema no informa el estado de carga al guardar cambios.',
+          evidencia: 'Pantalla de edición de proyecto.',
+        },
+      ],
+    },
+    create: {
+      id: heuristicaSesionId,
+      proyectoId: profesorProject.id,
+      evaluadorId: profesor.id,
+      tipo: TipoSesion.EVALUACION_HEURISTICA,
+      estado: EstadoSesion.COMPLETADO,
+      actor: ActorSesion.EVALUADOR,
+      completadoAt: new Date(),
+      resultado: [
+        {
+          heuristicaId: 'H4',
+          severidad: 3,
+          descripcion: 'Falta consistencia en los botones de acción principal.',
+          recomendacion: 'Unificar estilo de botones primarios en todo el flujo.',
+        },
+        {
+          heuristicaId: 'H1',
+          severidad: 2,
+          descripcion: 'El sistema no informa el estado de carga al guardar cambios.',
+          evidencia: 'Pantalla de edición de proyecto.',
+        },
+      ],
+    },
+  });
+
+  // --- Técnica 3: Persona ---
+  await prisma.uxArtifact.upsert({
+    where: { artefactoLogicoId_version: { artefactoLogicoId: artifactPersonaId, version: 1 } },
+    update: {},
+    create: {
+      proyectoId: profesorProject.id,
+      autorId: profesor.id,
+      tipo: TipoArtefacto.PERSONA,
+      artefactoLogicoId: artifactPersonaId,
+      version: 1,
+      contenido: {
+        nombre: 'María Pérez',
+        edad: 28,
+        ocupacion: 'Diseñadora UX Junior',
+        objetivos: ['Encontrar información rápido', 'Completar tareas sin fricción'],
+        frustraciones: ['Navegación confusa', 'Textos poco claros'],
+      },
+    },
+  });
+
+  // --- Técnica 4: Journey Map ---
+  await prisma.uxArtifact.upsert({
+    where: {
+      artefactoLogicoId_version: { artefactoLogicoId: artifactJourneyMapId, version: 1 },
+    },
+    update: {},
+    create: {
+      proyectoId: profesorProject.id,
+      autorId: profesor.id,
+      tipo: TipoArtefacto.JOURNEY_MAP,
+      artefactoLogicoId: artifactJourneyMapId,
+      version: 1,
+      contenido: {
+        etapas: [
+          { nombre: 'Descubrimiento', emocion: 'neutral', accion: 'Busca la plataforma' },
+          { nombre: 'Registro', emocion: 'positiva', accion: 'Crea su cuenta' },
+          { nombre: 'Primer uso', emocion: 'negativa', accion: 'No encuentra el botón de inicio' },
+        ],
+      },
+    },
+  });
+
+  // --- Técnica 5: Momentos Críticos ---
+  await prisma.uxArtifact.upsert({
+    where: {
+      artefactoLogicoId_version: { artefactoLogicoId: artifactMomentosCriticosId, version: 1 },
+    },
+    update: {},
+    create: {
+      proyectoId: profesorProject.id,
+      autorId: profesor.id,
+      tipo: TipoArtefacto.MOMENTOS_CRITICOS,
+      artefactoLogicoId: artifactMomentosCriticosId,
+      version: 1,
+      contenido: {
+        momentos: [
+          {
+            titulo: 'Botón de inicio invisible',
+            impacto: 'alto',
+            descripcion: 'El participante tardó más de 40s en encontrar cómo comenzar.',
+          },
+        ],
+      },
+    },
+  });
+
   console.log(`Seed listo. Usuario: ${evaluator.email}`);
   console.log(`Contraseña demo: ${demoPassword}`);
   console.log(`Proyecto demo: ${project.id}`);
+  console.log('---');
+  console.log(`Usuario profesor (prueba): ${profesor.email}`);
+  console.log(`Contraseña profesor: ${profesorPassword}`);
+  console.log(`Proyecto profesor: ${profesorProject.id}`);
 }
 
 main()

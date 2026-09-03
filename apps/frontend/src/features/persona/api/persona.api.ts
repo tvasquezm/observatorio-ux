@@ -2,12 +2,10 @@
 //
 // Wrapper delgado sobre shared/api/artifacts.api.ts para tipo PERSONA.
 
-// apps/frontend/src/features/persona/api/persona.api.ts
-
 import {
   acquireLock,
   createArtifact,
- createArtifactVersion, 
+  createArtifactVersion,
   dedupeLatestVersions,
   deleteArtifact,
   getArtifact,
@@ -61,16 +59,12 @@ export function createPersona(
 
 export function updatePersona(
   proyectoId: string,
-  artefactoLogicoId: string,
+  artefactoId: string,
   contenido: PersonaContenido,
 ): Promise<PersonaArtifact> {
-  return createArtifactVersion<PersonaContenido>(
-    proyectoId,
-    artefactoLogicoId,
-    'PERSONA',
-    contenido,
-  );
+  return createArtifactVersion<PersonaContenido>(proyectoId, artefactoId, contenido);
 }
+
 export function lockPersona(
   proyectoId: string,
   artefactoId: string,
@@ -91,12 +85,9 @@ export function unlockPersona(
  * evidencia). No borra la fila — marca deletedAt y deja de aparecer en
  * listPersonas.
  */
-// En apps/frontend/src/features/persona/api/persona.api.ts
-
 export function deletePersona(
   proyectoId: string,
-  artefactoLogicoId: string,
+  artefactoId: string,
 ): Promise<void> {
-  // Asegúrate de remover el tipo genérico <PersonaArtifact> si la función deleteArtifact es void
-  return deleteArtifact(proyectoId, artefactoLogicoId);
+  return deleteArtifact(proyectoId, artefactoId);
 }

@@ -171,3 +171,55 @@ Foco del sprint: antes de construir las interfaces de las tres técnicas UX, dej
 **Páginas conectadas a los hooks ya existentes:** las páginas de Persona, Journey Map y Momentos Críticos consumen directamente los hooks de TanStack Query que ya existían (`usePersonaQueries.ts`, etc., escritos en la sesión de `§4`) — no se tocó esa capa, solo se construyó la UI encima. Card Sorting (evaluador crea el estudio maestro) usa `useCardSortingQueries.ts` ya existente. Evaluación Heurística no tenía capa `api/`/`hooks/` todavía (solo `.gitkeep`) — se construyó siguiendo el mismo patrón que el resto de las features, contra las rutas documentadas en `docs/BACKEND.md §Evaluación heurística`.
 
 **Nota de fricción a resolver por el equipo:** `HallazgoHeuristica` (forma del payload que espera `PATCH .../hallazgos`) se construyó por inferencia razonable (nombre del método `registrarHallazgo`, las 10 heurísticas de Nielsen), sin haber visto el DTO real del backend (`apps/backend/src/modules/sessions/evaluacion-heuristica/dto/heuristica.dto.ts` no se inspeccionó en esta sesión). Si el backend rechaza el POST con 400, ese es el primer archivo a revisar.
+
+---
+
+## Sprint 4 — Edición de artefactos (Persona / Journey Map / Momentos Críticos), matriz de priorización y auditoría de UX
+
+**Qué se agregó:** las tres páginas conectadas en el sprint anterior (Persona, Journey Map, Momentos Críticos) solo permitían crear y eliminar. Se agregó edición in-place: cada página guarda `editandoId` en estado local, precarga el `form` con el `contenido` del artefacto seleccionado (`handleIniciarEditar`/`handleStartEdit`) y en `handleSubmit` decide entre `crear(...)` o `actualizar({artefactoId, contenido}, ...)`. Momentos Críticos además suma una vista de matriz 3×3 (impacto × frecuencia) que agrupa client-side los incidentes de `listCriticalMoments` sin pegarle a ningún endpoint nuevo.
+
+### Bug crítico encontrado y corregido: `createArtifactVersion` apuntaba a un endpoint inexistente
+
+**Qué se encontró (auditoría):** la función `updatePersona`/`updateJourney`/`updateCriticalMoment` llamaba a `createArtifactVersion(proyectoId, artefactoLogicoId, tipo, contenido)`, que hacía:
+```
+POST /projects/:proyectoId/artifacts?artefactoLogicoId=...
+body: { tipo, contenido }
+```
+Ese endpoint **no existe**. `ArtifactsController` solo expone `POST /projects/:proyectoId/artifacts` (crear, ignora query params, espera `artefactoLogicoId` en el **body**) y `POST /projects/:proyectoId/artifacts/:artefactoId/versions` (versionar, espera solo `{ contenido }`). Como la llamada real caía en el endpoint de *crear* sin `artefactoLogicoId` en el body, `ArtifactsService.create` generaba un `randomUUID()` nuevo cada vez (`artefactoLogicoId: dto.artefactoLogicoId?.trim() || randomUUID()`) — **"editar" creaba un artefacto lógico duplicado en vez de versionar el existente**, y el listado (ya deduplicado por `dedupeLatestVersions`) mostraba dos entradas donde debía haber una actualizada.
+
+**Severidad:** Alta — rompía silenciosamente la función que se acababa de construir en las 3 features (Persona, etapas de Journey Map, incidentes de Momentos Críticos), sin ningún error visible porque tampoco había manejo de errores en esas páginas (ver siguiente punto).
+
+**Cerrado:** `createArtifactVersion` vuelve a apuntar a `POST /projects/:proyectoId/artifacts/:artefactoId/versions` con body `{ contenido }` únicamente (`apps/frontend/src/shared/api/artifacts.api.ts`). Se actualizaron los 3 wrappers (`persona.api.ts`, `journey-map.api.ts`, `momentos-criticos.api.ts`) para no mandar `tipo` en la actualización. Se eliminó también `updateArtifact` (función muerta agregada en el mismo cambio, sin uso en ningún componente, que pegaba a un `PUT /artifacts/:id` que tampoco existe en el controller). Verificado con `npx tsc --noEmit` y `npx vite build` sin errores.
+
+### Gap encontrado y corregido: errores invisibles en Persona / Journey Map / Momentos Críticos
+
+**Qué se encontró:** a diferencia de `CardSortingPage.tsx` (que sí muestra `{error && <p>...}`), las 3 páginas de este sprint solo renderizaban `isLoading`. `shared/api/artifacts.api.ts` sí lanza `ArtifactsApiError` con mensaje legible en cada fallo (400 con detalle por campo, u "Error HTTP 500"), pero como ninguna página desestructuraba `error` de `useQuery`/`useMutation`, ese error quedaba solo en la consola — el usuario no se enteraba de que su "Guardar" había fallado.
+
+**Cerrado:** las 3 páginas ahora desestructuran `error` (de la query de listado y de las 3 mutaciones: crear/actualizar/eliminar) y lo muestran con el mismo patrón que `CardSortingPage.tsx` (`<p style={{ color: 'var(--coral)' }}>...</p>`), distinguiendo si el fallo fue al cargar el listado o al guardar.
+
+### Gap encontrado y corregido: layout no responsive (mobile roto)
+
+**Qué se encontró:** `.app { grid-template-columns: 254px 1fr; }` en `theme.css`, sin ningún `@media`. En un viewport de ~375–414px el sidebar fijo dejaba ~120–160px para todo el contenido — inutilizable en las 5 features, no solo en las 3 de este sprint. Los formularios de Persona/Journey Map/Momentos Críticos además usaban `gridTemplateColumns: '1fr 1fr'`/`'1fr 1fr 1fr'` inline, sin forma de colapsar a 1 columna.
+
+**Cerrado:** se agregó un breakpoint `@media (max-width: 768px)` en `theme.css` que: colapsa `.app` a una columna, convierte el sidebar (`.side`) de columna fija a barra horizontal con scroll (nav + usuario en línea), reduce paddings de `.top`/`.content`, y pasa `.metrics` a 2 columnas. Se extrajeron los grids inline de los 3 formularios a clases reutilizables `.form-grid-2`/`.form-grid-3`, que el mismo breakpoint colapsa a 1 columna. La matriz de Momentos Críticos (`minWidth: 600` + `overflowX: auto`) se dejó igual — ya resuelve mobile con scroll horizontal, el problema real era el layout padre.
+
+**Pendiente real, no cerrado en este sprint:** no se tocaron los grids inline de `ProjectsPage.tsx`/`DashboardPage.tsx` (tarjetas de proyecto) ni el resto de estilos inline de las 5 páginas — quedan angostos en mobile aunque ya no compiten con un sidebar de 254px. Los tests del backend (`softDelete` en `artifacts.service.spec.ts`, ver auditoría previa) tampoco se recuperaron en esta sesión — siguen sin cobertura en `main`.
+
+### Cabo suelto cerrado: crear/quitar etapas de Journey Map
+
+**Qué se encontró:** `useJourneyMapQueries.ts` tenía tres hooks (`useCreateStage`, `useUpdateStage`, `useDeleteStage`) que nunca se usaban desde `JourneyMapPage.tsx`. Cada uno persistía una sola etapa contra el backend de inmediato (vía `updateJourney`), un diseño que no era compatible con el resto de la página: (a) requerían un `artefactoId` ya existente, así que no podían usarse mientras se crea un Journey Map nuevo (todavía sin persistir), y (b) el resto del formulario (nombre, rol, cada campo de cada etapa) edita `form` en memoria y solo persiste todo junto al enviar — mezclar un guardado inmediato por etapa con el resto del form en borrador habría generado inconsistencias (ej. agregar una etapa quedaría guardada aunque el usuario cancele el formulario sin enviar el resto de los cambios).
+
+**Gap real que dejaba:** no había ningún botón para agregar o quitar una etapa — el usuario solo podía editar el texto de las 3 etapas con las que arranca `contenidoVacio()`. El helper puro `removePhase` tampoco aplicaba su propia regla de mínimo 3 etapas (esa validación vivía solo en el hook huérfano `useDeleteStage`, nunca ejecutada).
+
+**Cerrado:** se eliminaron los 3 hooks huérfanos de `useJourneyMapQueries.ts` (y sus imports no usados de `addPhase`/`replacePhase`/`removePhase`/`Phase`). En `JourneyMapPage.tsx` se agregaron `handleAgregarFase` (usa el helper puro `addPhase` sobre `form`, en memoria) y `handleQuitarFase` (usa `removePhase`, respeta el mínimo de 3 etapas con `disabled` en el botón), consistente con el patrón de "editar en memoria, persistir todo junto al enviar" que ya usan Persona y Momentos Críticos. Botón "+ Agregar etapa" al final de la lista y "Quitar etapa" (deshabilitado bajo el mínimo) en cada card. Verificado con `npx tsc --noEmit` y `npx vite build` sin errores; confirmado que no quedan referencias a los hooks eliminados (`grep -r useCreateStage/useUpdateStage/useDeleteStage` sin resultados).
+
+### Gap encontrado y corregido: bloqueo pesimista sin conectar a la UI (F1)
+
+**Qué se encontró (auditoría contra el Flujo de Usuario maestro):** el mecanismo de lock estaba completo en el backend (`acquireLock`/`releaseLock`, §Sprint 2.3) y en la capa de hooks del frontend (`useLockPersona`/`useUnlockPersona` y sus equivalentes en `journey-map`/`momentos-criticos` — ya nombrados así, ya funcionales), pero ninguna de las 3 páginas los llamaba. Confirmado con `grep` de `acquireLock`/`lockX`/`setLocked` sobre `PersonasPage.tsx`, `JourneyMapPage.tsx` y `MomentosCriticosPage.tsx`: cero resultados. En la práctica, dos estudiantes podían editar el mismo artefacto en simultáneo y el segundo guardado sobrescribía al primero sin ningún aviso — justo el escenario que el TTL pesimista fue diseñado para prevenir (§Sprint 2.3).
+
+**Cerrado:** las 3 páginas ahora integran el ciclo completo:
+- Al iniciar edición (`handleIniciarEditar`/`handleStartEdit`), se llama `lockX.mutate({ artefactoId })`.
+- Si el backend responde `409` (lock vigente de otro usuario), se dispara `notify.error(...)` con un mensaje explícito y el formulario queda en solo lectura (`<fieldset disabled>` envolviendo los campos), sin bloquear la lectura del contenido.
+- Al cancelar (`resetForm`) o al guardar con éxito (`onSuccess` de la mutación de actualizar), se llama `unlockX.mutate(artefactoId)`.
+
+**Trade-off aceptado:** no se agregó `unlock` en un `useEffect` de desmontaje — si el usuario navega fuera de la página a mitad de una edición sin cancelar ni guardar, el lock queda tomado hasta que expire el TTL (5 min default). Se decidió no complicar el ciclo de vida del componente para ese caso, apoyándose en el TTL como la red de seguridad que ya estaba diseñada para eso (§Sprint 2.3). Detalle completo en `docs/AUDIT_LOG.md` (F1) y `docs/CAMBIOS.md §Ronda 4`.

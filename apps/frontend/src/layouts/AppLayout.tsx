@@ -37,7 +37,7 @@ export function AppLayout() {
         </div>
 
         <span className="side-label">NAVEGACIÓN</span>
-        <nav style={{ display: 'grid', gap: 4 }}>
+        <nav className="side-nav">
           {NAV_ITEMS.map((item) => (
             <NavLink
               key={item.to}

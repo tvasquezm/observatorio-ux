@@ -62,20 +62,34 @@ y quirúrgicas. No hay archivos inventados desde cero salvo los indicados.
    (`UX-Observatory-Presentacion.html`). Aplicado a Login, sidebar/topbar
    (`AppLayout`) y Dashboard. Importado una vez en `main.tsx`.
 
+## Ronda 4 (frontend — lock conectado en las 3 páginas de artefactos)
+
+1. **Bloqueo pesimista conectado a la UI.** `PersonasPage.tsx`,
+   `JourneyMapPage.tsx` y `MomentosCriticosPage.tsx` ahora llaman
+   `lockX.mutate` al abrir el formulario de edición (`handleIniciarEditar`/
+   `handleStartEdit`) y `unlockX.mutate` tanto al cancelar (`resetForm`)
+   como en el `onSuccess` de la actualización. Si el `lock` devuelve `409`
+   (bloqueado por otro usuario), se muestra `notify.error(...)` y el
+   formulario queda deshabilitado (`<fieldset disabled>`) — no se puede
+   editar hasta que el lock se libere o expire.
+
+2. **Seed nuevo: usuario DOCENTE de prueba.** `profesor@test.com` /
+   `profesor123` (contraseña configurable vía `SEED_PROFESOR_PASSWORD`),
+   con un proyecto propio ya cargado con las 5 técnicas (Card Sorting,
+   Evaluación Heurística, Persona, Journey Map, Momentos Críticos), para
+   QA manual sin tener que crear datos a mano. Ver `docs/BACKEND.md`.
+
 ## ⚠️ Pendiente real (revisado — ronda 3, corregido tras ver hooks/artifacts.api.ts)
 
 - ~~Riesgo de rutas en español muertas~~ — **Descartado.**
   `shared/api/artifacts.api.ts` ya usa `/projects/:proyectoId/artifacts`
   en inglés en las 6 funciones que expone. Sin riesgo.
 
-- **Falta vista de edición en Personas/Journey Map/Momentos Críticos.**
-  La capa de hooks (`useUpdatePersona`, `useLockPersona`/`useUnlockPersona`,
-  y sus equivalentes en journey-map y momentos-criticos) ya está completa
-  y lista para usar — incluye lock/unlock con TTL, tal como pide
-  `ARCHITECTURE.md §3`. Lo que falta es la UI: las páginas de Fase 3
-  entregadas solo tienen crear + listar + borrar, ningún formulario de
-  edición que llame `lock` al abrir, `update` al guardar y `unlock` al
-  cerrar. Es la próxima tarea de frontend, no una regresión de esta ronda.
+- ~~**Falta vista de edición en Personas/Journey Map/Momentos Críticos.**~~
+  **Cerrado en Ronda 4** — ver arriba. La capa de hooks (`useUpdatePersona`,
+  `useLockPersona`/`useUnlockPersona`, y sus equivalentes en journey-map y
+  momentos-criticos) ya estaba completa desde esta ronda; lo que faltaba
+  era la UI, resuelto en Ronda 4.
 
 - **`getAuthToken()` en `artifacts.api.ts` es un placeholder** (lee
   `localStorage.getItem('evaluadorToken')`) a la espera de un authStore

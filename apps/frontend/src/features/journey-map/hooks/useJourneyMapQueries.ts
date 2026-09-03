@@ -2,18 +2,14 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  addPhase,
   createJourney,
   deleteJourney,
   getJourney,
   listJourneys,
   lockJourney,
-  removePhase,
-  replacePhase,
   unlockJourney,
   updateJourney,
   type JourneyMapContenido,
-  type Phase,
 } from '../api/journey-map.api';
 
 export const journeyKeys = {
@@ -93,61 +89,5 @@ export function useLockJourney(proyectoId: string) {
 export function useUnlockJourney(proyectoId: string) {
   return useMutation({
     mutationFn: (artefactoId: string) => unlockJourney(proyectoId, artefactoId),
-  });
-}
-
-// --- Etapas: no son endpoint propio. Se resuelven client-side sobre el ---
-// --- contenido ya cargado, y se persisten con useUpdateJourney. ---
-
-export function useCreateStage(proyectoId: string) {
-  return useMutation({
-    mutationFn: ({
-      artefactoId,
-      contenido,
-      phase,
-    }: {
-      artefactoId: string;
-      contenido: JourneyMapContenido;
-      phase: Phase;
-    }) => updateJourney(proyectoId, artefactoId, addPhase(contenido, phase)),
-  });
-}
-
-export function useUpdateStage(proyectoId: string) {
-  return useMutation({
-    mutationFn: ({
-      artefactoId,
-      contenido,
-      index,
-      phase,
-    }: {
-      artefactoId: string;
-      contenido: JourneyMapContenido;
-      index: number;
-      phase: Phase;
-    }) => updateJourney(proyectoId, artefactoId, replacePhase(contenido, index, phase)),
-  });
-}
-
-export function useDeleteStage(proyectoId: string) {
-  return useMutation({
-    mutationFn: ({
-      artefactoId,
-      contenido,
-      index,
-    }: {
-      artefactoId: string;
-      contenido: JourneyMapContenido;
-      index: number;
-    }) => {
-      if (contenido.fases.length <= 3) {
-        // JourneyMapSchema exige mínimo 3 fases: fallar rápido en el
-        // cliente en vez de mandar un request que el backend rechazará.
-        return Promise.reject(
-          new Error('El Journey Map debe conservar al menos 3 etapas.'),
-        );
-      }
-      return updateJourney(proyectoId, artefactoId, removePhase(contenido, index));
-    },
   });
 }

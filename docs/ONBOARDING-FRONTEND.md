@@ -20,6 +20,9 @@ cuando hace falta más detalle.
 - Alternativa sin Docker (`pnpm --filter backend start:dev`, etc.) →
   ver `docs/comandos-backend.md`.
 - Usuario semilla: `evaluador@ux.utem.cl` / `Demo1234!`.
+- Usuario DOCENTE de prueba (login simple para QA manual, con un proyecto
+  ya cargado con las 5 técnicas): `profesor@test.com` / `profesor123`.
+  Ver `docs/BACKEND.md`.
 
 ## 2. Autenticación en el frontend
 
@@ -79,7 +82,13 @@ refleja como:
   `ttlSegundos`) y `DELETE .../lock` al terminar. Si otro usuario tiene el
   lock vigente, el backend responde `409 Conflict`. Los hooks
   (`useLockPersona`/`useUnlockPersona` y sus equivalentes) **ya están
-  implementados** — lo que falta es conectarlos a una UI de edición real.
+  conectados** en las 3 páginas (`PersonasPage`, `JourneyMapPage`,
+  `MomentosCriticosPage`, Sprint 4): `lock` al abrir el formulario de
+  edición, `unlock` al cancelar o tras guardar con éxito, y si el `lock`
+  devuelve `409` el formulario queda en solo lectura con un
+  `notify.error(...)` avisando quién lo tiene tomado. No hay `unlock` al
+  desmontar el componente sin pasar por cancelar/guardar (navegar fuera a
+  mitad de edición) — ahí el TTL del backend es la red de seguridad.
 - **Soft delete.** `deleteArtifact` no borra la fila — marca `deletedAt`.
   El objeto devuelto sigue "existiendo", solo desaparece de
   `listArtifacts`.
@@ -129,9 +138,11 @@ con el mockup sin reinventar estilos sueltos por página.
 
 ## 8. Pendientes conocidos para quien siga
 
-1. **Falta la vista de edición** en Personas/Journey Map/Momentos Críticos.
-   La capa de hooks ya soporta lock/unlock/update — falta el formulario que
-   los use (abrir → `lock` → editar → `update` → `unlock` al salir).
+1. ~~Falta la vista de edición en Personas/Journey Map/Momentos Críticos.~~
+   **Resuelto (Sprint 4):** las 3 páginas ya llaman `lock`/`update`/`unlock`
+   end-to-end, con manejo de `409` (solo lectura + toast). Sigue pendiente:
+   liberar el lock también al desmontar el componente sin guardar/cancelar
+   explícitamente (hoy depende del TTL de 5 min como red de seguridad).
 2. **No hay authStore de evaluador.** `getAuthToken()` en `artifacts.api.ts`
    es un placeholder sobre `localStorage` directo.
 3. **`EvaluacionHeuristicaController` sigue en español**, sin alias en

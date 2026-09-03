@@ -8,13 +8,21 @@ import {
   useUpdateJourney,
   useDeleteJourney,
   useJourneys,
+  useLockJourney,
+  useUnlockJourney,
 } from '../features/journey-map/hooks/useJourneyMapQueries';
-import type {
-  Emocion,
-  JourneyMapContenido,
-  JourneyMapArtifact,
-  Phase,
+import {
+  addPhase,
+  removePhase,
+  type Emocion,
+  type JourneyMapContenido,
+  type JourneyMapArtifact,
+  type Phase,
 } from '../features/journey-map/api/journey-map.api';
+import { ArtifactsApiError } from '../shared/api/artifacts.api';
+import { notify } from '../shared/api/toast';
+
+const MIN_FASES = 3;
 
 function faseVacia(nombre: string): Phase {
   return { nombre, touchpoints: [], pensamientos: [], emocion: 'Neutral', oportunidades: [] };
@@ -29,26 +37,47 @@ function contenidoVacio(): JourneyMapContenido {
 
 export function JourneyMapPage() {
   const { proyectoId } = useOutletContext<ProjectOutletContext>();
-  const { data: journeys, isLoading } = useJourneys(proyectoId);
-  const { mutate: crear, isPending: isCreating } = useCreateJourney(proyectoId);
-  const { mutate: actualizar, isPending: isUpdating } = useUpdateJourney(proyectoId);
-  const { mutate: eliminar } = useDeleteJourney(proyectoId);
+  const { data: journeys, isLoading, isError: isListError, error: listError } = useJourneys(proyectoId);
+  const { mutate: crear, isPending: isCreating, error: createError } = useCreateJourney(proyectoId);
+  const { mutate: actualizar, isPending: isUpdating, error: updateError } = useUpdateJourney(proyectoId);
+  const { mutate: eliminar, error: deleteError } = useDeleteJourney(proyectoId);
+  const { mutate: lockJourney } = useLockJourney(proyectoId);
+  const { mutate: unlockJourney } = useUnlockJourney(proyectoId);
+  const error = listError ?? createError ?? updateError ?? deleteError;
 
   const [form, setForm] = useState<JourneyMapContenido>(contenidoVacio());
   const [mostrarForm, setMostrarForm] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [readOnly, setReadOnly] = useState(false);
 
   function resetForm() {
+    if (editandoId) unlockJourney(editandoId);
     setForm(contenidoVacio());
     setEditandoId(null);
     setMostrarForm(false);
+    setReadOnly(false);
   }
 
   function handleIniciarEditar(journey: JourneyMapArtifact) {
     // Usamos el artefactoLogicoId para versionar la edición
-    setEditandoId(journey.artefactoLogicoId || journey.id);
+    const artefactoId = journey.artefactoLogicoId || journey.id;
+    setEditandoId(artefactoId);
     setForm(journey.contenido);
     setMostrarForm(true);
+    setReadOnly(false);
+
+    lockJourney(
+      { artefactoId },
+      {
+        onError: (err) => {
+          const msg = err instanceof ArtifactsApiError && err.status === 409
+            ? 'Otro usuario está editando este journey map ahora mismo.'
+            : 'No se pudo bloquear el journey map para editar.';
+          notify.error(msg);
+          setReadOnly(true);
+        },
+      },
+    );
   }
 
   function actualizarFase(index: number, campo: keyof Phase, valor: string) {
@@ -63,14 +92,29 @@ export function JourneyMapPage() {
     setForm({ ...form, fases });
   }
 
+  function handleAgregarFase() {
+    setForm(addPhase(form, faseVacia(`Etapa ${form.fases.length + 1}`)));
+  }
+
+  function handleQuitarFase(index: number) {
+    if (form.fases.length <= MIN_FASES) return;
+    setForm(removePhase(form, index));
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.perfilUsuario.nombre.trim()) return;
 
     if (editandoId) {
+      const idAEditar = editandoId;
       actualizar(
-        { artefactoId: editandoId, contenido: form },
-        { onSuccess: resetForm }
+        { artefactoId: idAEditar, contenido: form },
+        {
+          onSuccess: () => {
+            unlockJourney(idAEditar);
+            resetForm();
+          },
+        }
       );
     } else {
       crear(form, { onSuccess: resetForm });
@@ -97,8 +141,14 @@ export function JourneyMapPage() {
       {mostrarForm && (
         <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 8, margin: '12px 0', padding: 12, border: '1px solid var(--line)', borderRadius: 8 }}>
           <h3>{editandoId ? 'Editar Journey Map' : 'Nuevo Journey Map'}</h3>
+          {readOnly && (
+            <p style={{ color: 'var(--coral)' }}>
+              Este journey map está bloqueado por otro usuario. No puedes editarlo en este momento.
+            </p>
+          )}
+          <fieldset disabled={readOnly} style={{ border: 0, padding: 0, margin: 0, display: 'contents' }}>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <div className="form-grid-2">
             <input
               placeholder="Nombre del perfil de usuario *"
               value={form.perfilUsuario.nombre}
@@ -114,9 +164,27 @@ export function JourneyMapPage() {
             />
           </div>
 
-          <small style={{ color: '#888' }}>Etapas (mínimo 3):</small>
+          <small style={{ color: '#888' }}>Etapas (mínimo {MIN_FASES}):</small>
           {form.fases.map((fase, i) => (
             <div key={i} style={{ border: '1px solid var(--line)', borderRadius: 6, padding: 8, display: 'grid', gap: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <small style={{ color: 'var(--muted)' }}>Etapa {i + 1}</small>
+                <button
+                  type="button"
+                  onClick={() => handleQuitarFase(i)}
+                  disabled={form.fases.length <= MIN_FASES}
+                  title={form.fases.length <= MIN_FASES ? `El journey map debe conservar al menos ${MIN_FASES} etapas` : 'Quitar etapa'}
+                  style={{
+                    cursor: form.fases.length <= MIN_FASES ? 'not-allowed' : 'pointer',
+                    color: form.fases.length <= MIN_FASES ? 'var(--muted)' : 'var(--coral)',
+                    background: 'none',
+                    border: 0,
+                    fontSize: 11,
+                  }}
+                >
+                  Quitar etapa
+                </button>
+              </div>
               <input
                 placeholder="Nombre de la etapa"
                 value={fase.nombre}
@@ -153,13 +221,29 @@ export function JourneyMapPage() {
             </div>
           ))}
 
+          <button
+            type="button"
+            className="secondary"
+            onClick={handleAgregarFase}
+            style={{ justifySelf: 'start' }}
+          >
+            + Agregar etapa
+          </button>
+
           <button type="submit" className="primary" disabled={isPending}>
             {isPending ? 'Guardando…' : editandoId ? 'Actualizar journey map' : 'Guardar journey map'}
           </button>
+          </fieldset>
         </form>
       )}
 
       {isLoading && <p>Cargando…</p>}
+      {error && (
+        <p style={{ color: 'var(--coral)' }}>
+          {isListError ? 'No se pudo cargar los journey maps. ' : ''}
+          {(error as Error).message}
+        </p>
+      )}
 
       <div style={{ display: 'grid', gap: 8 }}>
         {journeys?.map((j: JourneyMapArtifact) => (
