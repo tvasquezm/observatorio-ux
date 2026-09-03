@@ -8,6 +8,8 @@ import {
   useUpdateJourney,
   useDeleteJourney,
   useJourneys,
+  useLockJourney,
+  useUnlockJourney,
 } from '../features/journey-map/hooks/useJourneyMapQueries';
 import {
   addPhase,
@@ -17,6 +19,8 @@ import {
   type JourneyMapArtifact,
   type Phase,
 } from '../features/journey-map/api/journey-map.api';
+import { ArtifactsApiError } from '../shared/api/artifacts.api';
+import { notify } from '../shared/api/toast';
 
 const MIN_FASES = 3;
 
@@ -37,23 +41,43 @@ export function JourneyMapPage() {
   const { mutate: crear, isPending: isCreating, error: createError } = useCreateJourney(proyectoId);
   const { mutate: actualizar, isPending: isUpdating, error: updateError } = useUpdateJourney(proyectoId);
   const { mutate: eliminar, error: deleteError } = useDeleteJourney(proyectoId);
+  const { mutate: lockJourney } = useLockJourney(proyectoId);
+  const { mutate: unlockJourney } = useUnlockJourney(proyectoId);
   const error = listError ?? createError ?? updateError ?? deleteError;
 
   const [form, setForm] = useState<JourneyMapContenido>(contenidoVacio());
   const [mostrarForm, setMostrarForm] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [readOnly, setReadOnly] = useState(false);
 
   function resetForm() {
+    if (editandoId) unlockJourney(editandoId);
     setForm(contenidoVacio());
     setEditandoId(null);
     setMostrarForm(false);
+    setReadOnly(false);
   }
 
   function handleIniciarEditar(journey: JourneyMapArtifact) {
     // Usamos el artefactoLogicoId para versionar la edición
-    setEditandoId(journey.artefactoLogicoId || journey.id);
+    const artefactoId = journey.artefactoLogicoId || journey.id;
+    setEditandoId(artefactoId);
     setForm(journey.contenido);
     setMostrarForm(true);
+    setReadOnly(false);
+
+    lockJourney(
+      { artefactoId },
+      {
+        onError: (err) => {
+          const msg = err instanceof ArtifactsApiError && err.status === 409
+            ? 'Otro usuario está editando este journey map ahora mismo.'
+            : 'No se pudo bloquear el journey map para editar.';
+          notify.error(msg);
+          setReadOnly(true);
+        },
+      },
+    );
   }
 
   function actualizarFase(index: number, campo: keyof Phase, valor: string) {
@@ -82,9 +106,15 @@ export function JourneyMapPage() {
     if (!form.perfilUsuario.nombre.trim()) return;
 
     if (editandoId) {
+      const idAEditar = editandoId;
       actualizar(
-        { artefactoId: editandoId, contenido: form },
-        { onSuccess: resetForm }
+        { artefactoId: idAEditar, contenido: form },
+        {
+          onSuccess: () => {
+            unlockJourney(idAEditar);
+            resetForm();
+          },
+        }
       );
     } else {
       crear(form, { onSuccess: resetForm });
@@ -111,6 +141,12 @@ export function JourneyMapPage() {
       {mostrarForm && (
         <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 8, margin: '12px 0', padding: 12, border: '1px solid var(--line)', borderRadius: 8 }}>
           <h3>{editandoId ? 'Editar Journey Map' : 'Nuevo Journey Map'}</h3>
+          {readOnly && (
+            <p style={{ color: 'var(--coral)' }}>
+              Este journey map está bloqueado por otro usuario. No puedes editarlo en este momento.
+            </p>
+          )}
+          <fieldset disabled={readOnly} style={{ border: 0, padding: 0, margin: 0, display: 'contents' }}>
 
           <div className="form-grid-2">
             <input
@@ -197,6 +233,7 @@ export function JourneyMapPage() {
           <button type="submit" className="primary" disabled={isPending}>
             {isPending ? 'Guardando…' : editandoId ? 'Actualizar journey map' : 'Guardar journey map'}
           </button>
+          </fieldset>
         </form>
       )}
 

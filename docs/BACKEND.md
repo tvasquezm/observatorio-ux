@@ -29,6 +29,19 @@ email: evaluador@ux.utem.cl
 password: Demo1234!
 ```
 
+El seed también crea un usuario **DOCENTE de prueba** (login simple, pensado
+para QA manual), con un proyecto propio ("Proyecto Demo Profesor") que ya
+trae las 5 técnicas cargadas (Card Sorting, Evaluación Heurística, Persona,
+Journey Map, Momentos Críticos):
+
+```text
+email: profesor@test.com
+password: profesor123
+```
+
+Contraseña configurable vía `SEED_PROFESOR_PASSWORD` en `.env` si no querés
+usar el default. Ver `apps/backend/prisma/seed.ts`.
+
 > Para ver solo los logs del backend: `docker compose logs -f backend`.
 > Guía completa de arranque de todo el stack (incluyendo frontend) en el
 > [`README.md`](../README.md) de la raíz del proyecto.
@@ -103,6 +116,11 @@ registros append-only asociados al mismo `artefactoLogicoId`.
 Antes de editar un artefacto, adquirir el bloqueo con `POST .../lock`
 (TTL configurable vía `ttlSegundos` en el body, default 5 min) y liberarlo
 con `DELETE .../lock` al terminar. Ver `docs/ARCHITECTURE.md` §Sprint 2.3.
+El frontend ya integra esto en las 3 páginas de artefactos (Persona,
+Journey Map, Momentos Críticos): `lock` al iniciar edición, `unlock` al
+cancelar o al guardar con éxito, y el formulario queda en solo lectura con
+un toast de aviso si el `POST .../lock` devuelve `409` (bloqueado por otro
+usuario). Ver `docs/ARCHITECTURE.md` §Sprint 4.
 
 Para probar estos endpoints se puede importar
 `postman/ux-artifacts.postman_collection.json`.
