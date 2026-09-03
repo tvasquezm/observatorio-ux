@@ -90,6 +90,7 @@ button { cursor: pointer; }
 /* ---------- App shell ---------- */
 .app { min-height: 100vh; display: grid; grid-template-columns: 254px 1fr; }
 .side { background: linear-gradient(180deg, var(--navy), var(--navy-2)); color: #d0e2e4; padding: 20px 10px; display: flex; flex-direction: column; }
+.side-nav { display: grid; gap: 4px; }
 .brand { display: flex; align-items: center; gap: 9px; padding: 0 8px 20px; }
 .brand .brand-mark { width: 38px; height: 38px; border-radius: 10px; font-size: 18px; background: var(--mint); color: var(--navy-2); }
 .brand b { display: block; color: #fff; font-size: 13px; }
@@ -151,3 +152,34 @@ button { cursor: pointer; }
 .project-row > div:nth-child(2) { min-width: 0; flex: 1; }
 .project-row b { display: block; font-size: 11px; color: #466774; }
 .project-row small { display: block; font-size: 9px; color: #91a5ab; margin-top: 3px; }
+
+/* ---------- Formularios (Persona / Journey Map / Momentos Críticos) ---------- */
+/* Grids reutilizables en vez de inline styles fijos, para poder colapsarlas
+   a 1 columna en mobile sin tocar cada página por separado. */
+.form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+
+/* ---------- Responsive: mobile (sidebar fijo de 254px rompía el layout) ---------- */
+@media (max-width: 768px) {
+  .app { grid-template-columns: 1fr; }
+  .side {
+    flex-direction: row;
+    align-items: center;
+    padding: 10px 12px;
+    gap: 10px;
+    overflow-x: auto;
+  }
+  .brand { padding: 0 10px 0 0; flex: 0 0 auto; }
+  .side-label { display: none; }
+  .side-nav { display: flex; gap: 4px; flex: 0 0 auto; }
+  .nav-btn { width: auto; white-space: nowrap; }
+  .side-bottom { margin-top: 0; margin-left: auto; flex: 0 0 auto; }
+  .side-user { border-top: 0; padding: 0; margin-top: 0; }
+  .side-user b, .side-user small { max-width: 90px; }
+
+  .top { padding: 0 14px; gap: 10px; }
+  .content { padding: 16px 14px 32px; }
+
+  .metrics { grid-template-columns: repeat(2, 1fr); }
+  .form-grid-2, .form-grid-3 { grid-template-columns: 1fr; }
+}

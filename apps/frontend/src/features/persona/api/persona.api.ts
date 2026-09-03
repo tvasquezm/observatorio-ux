@@ -88,6 +88,6 @@ export function unlockPersona(
 export function deletePersona(
   proyectoId: string,
   artefactoId: string,
-): Promise<PersonaArtifact> {
-  return deleteArtifact<PersonaContenido>(proyectoId, artefactoId);
+): Promise<void> {
+  return deleteArtifact(proyectoId, artefactoId);
 }

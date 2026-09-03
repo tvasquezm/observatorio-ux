@@ -82,8 +82,8 @@ export function unlockJourney(
 export function deleteJourney(
   proyectoId: string,
   artefactoId: string,
-): Promise<JourneyMapArtifact> {
-  return deleteArtifact<JourneyMapContenido>(proyectoId, artefactoId);
+): Promise<void> {
+  return deleteArtifact(proyectoId, artefactoId);
 }
 
 // --- Helpers de "etapa" (no existen como entidad propia en el backend: ---

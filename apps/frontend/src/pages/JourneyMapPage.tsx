@@ -1,14 +1,24 @@
 // apps/frontend/src/pages/JourneyMapPage.tsx
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import type { ProjectOutletContext } from '../layouts/ProjectDetailLayout';
 import {
   useCreateJourney,
+  useUpdateJourney,
   useDeleteJourney,
   useJourneys,
 } from '../features/journey-map/hooks/useJourneyMapQueries';
-import type { Emocion, JourneyMapContenido, Phase } from '../features/journey-map/api/journey-map.api';
+import {
+  addPhase,
+  removePhase,
+  type Emocion,
+  type JourneyMapContenido,
+  type JourneyMapArtifact,
+  type Phase,
+} from '../features/journey-map/api/journey-map.api';
+
+const MIN_FASES = 3;
 
 function faseVacia(nombre: string): Phase {
   return { nombre, touchpoints: [], pensamientos: [], emocion: 'Neutral', oportunidades: [] };
@@ -23,11 +33,28 @@ function contenidoVacio(): JourneyMapContenido {
 
 export function JourneyMapPage() {
   const { proyectoId } = useOutletContext<ProjectOutletContext>();
-  const { data: journeys, isLoading } = useJourneys(proyectoId);
-  const { mutate: crear, isPending } = useCreateJourney(proyectoId);
-  const { mutate: eliminar } = useDeleteJourney(proyectoId);
+  const { data: journeys, isLoading, isError: isListError, error: listError } = useJourneys(proyectoId);
+  const { mutate: crear, isPending: isCreating, error: createError } = useCreateJourney(proyectoId);
+  const { mutate: actualizar, isPending: isUpdating, error: updateError } = useUpdateJourney(proyectoId);
+  const { mutate: eliminar, error: deleteError } = useDeleteJourney(proyectoId);
+  const error = listError ?? createError ?? updateError ?? deleteError;
+
   const [form, setForm] = useState<JourneyMapContenido>(contenidoVacio());
   const [mostrarForm, setMostrarForm] = useState(false);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+
+  function resetForm() {
+    setForm(contenidoVacio());
+    setEditandoId(null);
+    setMostrarForm(false);
+  }
+
+  function handleIniciarEditar(journey: JourneyMapArtifact) {
+    // Usamos el artefactoLogicoId para versionar la edición
+    setEditandoId(journey.artefactoLogicoId || journey.id);
+    setForm(journey.contenido);
+    setMostrarForm(true);
+  }
 
   function actualizarFase(index: number, campo: keyof Phase, valor: string) {
     const fases = [...form.fases];
@@ -41,24 +68,51 @@ export function JourneyMapPage() {
     setForm({ ...form, fases });
   }
 
+  function handleAgregarFase() {
+    setForm(addPhase(form, faseVacia(`Etapa ${form.fases.length + 1}`)));
+  }
+
+  function handleQuitarFase(index: number) {
+    if (form.fases.length <= MIN_FASES) return;
+    setForm(removePhase(form, index));
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.perfilUsuario.nombre.trim()) return;
-    crear(form, { onSuccess: () => { setForm(contenidoVacio()); setMostrarForm(false); } });
+
+    if (editandoId) {
+      actualizar(
+        { artefactoId: editandoId, contenido: form },
+        { onSuccess: resetForm }
+      );
+    } else {
+      crear(form, { onSuccess: resetForm });
+    }
   }
+
+  const isPending = isCreating || isUpdating;
 
   return (
     <div className="panel">
       <div className="panel-head">
         <h2>Journey Maps</h2>
-        <button className="secondary" onClick={() => setMostrarForm((v) => !v)}>
+        <button
+          className="secondary"
+          onClick={() => {
+            if (mostrarForm) resetForm();
+            else setMostrarForm(true);
+          }}
+        >
           {mostrarForm ? 'Cancelar' : '+ Nuevo journey map'}
         </button>
       </div>
 
       {mostrarForm && (
         <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 8, margin: '12px 0', padding: 12, border: '1px solid var(--line)', borderRadius: 8 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <h3>{editandoId ? 'Editar Journey Map' : 'Nuevo Journey Map'}</h3>
+
+          <div className="form-grid-2">
             <input
               placeholder="Nombre del perfil de usuario *"
               value={form.perfilUsuario.nombre}
@@ -74,9 +128,27 @@ export function JourneyMapPage() {
             />
           </div>
 
-          <small style={{ color: '#888' }}>Etapas (mínimo 3):</small>
+          <small style={{ color: '#888' }}>Etapas (mínimo {MIN_FASES}):</small>
           {form.fases.map((fase, i) => (
             <div key={i} style={{ border: '1px solid var(--line)', borderRadius: 6, padding: 8, display: 'grid', gap: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <small style={{ color: 'var(--muted)' }}>Etapa {i + 1}</small>
+                <button
+                  type="button"
+                  onClick={() => handleQuitarFase(i)}
+                  disabled={form.fases.length <= MIN_FASES}
+                  title={form.fases.length <= MIN_FASES ? `El journey map debe conservar al menos ${MIN_FASES} etapas` : 'Quitar etapa'}
+                  style={{
+                    cursor: form.fases.length <= MIN_FASES ? 'not-allowed' : 'pointer',
+                    color: form.fases.length <= MIN_FASES ? 'var(--muted)' : 'var(--coral)',
+                    background: 'none',
+                    border: 0,
+                    fontSize: 11,
+                  }}
+                >
+                  Quitar etapa
+                </button>
+              </div>
               <input
                 placeholder="Nombre de la etapa"
                 value={fase.nombre}
@@ -113,27 +185,62 @@ export function JourneyMapPage() {
             </div>
           ))}
 
+          <button
+            type="button"
+            className="secondary"
+            onClick={handleAgregarFase}
+            style={{ justifySelf: 'start' }}
+          >
+            + Agregar etapa
+          </button>
+
           <button type="submit" className="primary" disabled={isPending}>
-            {isPending ? 'Guardando…' : 'Guardar journey map'}
+            {isPending ? 'Guardando…' : editandoId ? 'Actualizar journey map' : 'Guardar journey map'}
           </button>
         </form>
       )}
 
       {isLoading && <p>Cargando…</p>}
+      {error && (
+        <p style={{ color: 'var(--coral)' }}>
+          {isListError ? 'No se pudo cargar los journey maps. ' : ''}
+          {(error as Error).message}
+        </p>
+      )}
 
       <div style={{ display: 'grid', gap: 8 }}>
-        {journeys?.map((j) => (
+        {journeys?.map((j: JourneyMapArtifact) => (
           <div key={j.id} style={{ padding: 12, border: '1px solid var(--line)', borderRadius: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <b>{j.contenido.perfilUsuario.nombre}</b>
-              <button onClick={() => eliminar(j.artefactoLogicoId)} style={{ cursor: 'pointer', color: 'var(--coral)', background: 'none', border: 0 }}>
-                Eliminar
-              </button>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <button
+                  type="button"
+                  onClick={() => handleIniciarEditar(j)}
+                  style={{ cursor: 'pointer', color: 'var(--teal, #0d9488)', background: 'none', border: 0, fontWeight: 500 }}
+                >
+                  Editar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm('¿Estás seguro de eliminar este journey map?')) {
+                      eliminar(j.id);
+                    }
+                  }}
+                  style={{ cursor: 'pointer', color: 'var(--coral)', background: 'none', border: 0 }}
+                >
+                  Eliminar
+                </button>
+              </div>
             </div>
-            <small style={{ color: 'var(--muted)' }}>{j.contenido.fases.length} etapas</small>
+            <small style={{ color: 'var(--muted)' }}>
+              {j.contenido.perfilUsuario.rol ? `${j.contenido.perfilUsuario.rol} · ` : ''}
+              {j.contenido.fases.length} etapas
+            </small>
           </div>
         ))}
-        {journeys && journeys.length === 0 && <p>No hay journey maps todavía.</p>}
+        {journeys && journeys.length === 0 && !isLoading && <p>No hay journey maps todavía.</p>}
       </div>
     </div>
   );

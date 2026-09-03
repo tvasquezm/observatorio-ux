@@ -73,11 +73,7 @@ export function updateCriticalMoment(
   artefactoId: string,
   contenido: MomentosCriticosContenido,
 ): Promise<MomentosCriticosArtifact> {
-  return createArtifactVersion<MomentosCriticosContenido>(
-    proyectoId,
-    artefactoId,
-    contenido,
-  );
+  return createArtifactVersion<MomentosCriticosContenido>(proyectoId, artefactoId, contenido);
 }
 
 export function lockCriticalMoment(
@@ -99,8 +95,9 @@ export function unlockCriticalMoment(
 export function deleteCriticalMoment(
   proyectoId: string,
   artefactoId: string,
-): Promise<MomentosCriticosArtifact> {
-  return deleteArtifact<MomentosCriticosContenido>(proyectoId, artefactoId);
+): Promise<void> {
+  // 👈 Cambiado a Promise<void> para alinearlo con el contrato de la API
+  return deleteArtifact(proyectoId, artefactoId);
 }
 
 // --- Helpers de "incidente" (sub-elemento de incidentes[], no entidad ---

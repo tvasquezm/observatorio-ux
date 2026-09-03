@@ -145,6 +145,18 @@ export function createArtifact<T = unknown>(
   });
 }
 
+
+/**
+ * Crea una nueva versión de un artefacto lógico ya existente.
+ * Pega directo al endpoint de versionado del backend
+ * (`POST /projects/:proyectoId/artifacts/:artefactoId/versions`), que solo
+ * espera `{ contenido }` — el `tipo` no se manda porque el backend ya lo
+ * conoce a través del artefacto lógico existente (ver
+ * `ArtifactsController.createVersion` / `ArtifactsService.createVersion`).
+ *
+ * OJO: `artefactoId` acá es cualquier fila (versión) de ese artefacto
+ * lógico — el service resuelve la última versión real internamente.
+ */
 export function createArtifactVersion<T = unknown>(
   proyectoId: string,
   artefactoId: string,
@@ -183,11 +195,11 @@ export function releaseLock<T = unknown>(
  * base de datos, así que el objeto devuelto sigue existiendo, solo que ya
  * no aparecerá en listArtifacts.
  */
-export function deleteArtifact<T = unknown>(
+export function deleteArtifact(
   proyectoId: string,
   artefactoId: string,
-): Promise<UxArtifact<T>> {
-  return request<UxArtifact<T>>(`/projects/${proyectoId}/artifacts/${artefactoId}`, {
+): Promise<void> {
+  return request<void>(`/projects/${proyectoId}/artifacts/${artefactoId}`, {
     method: 'DELETE',
   });
 }
