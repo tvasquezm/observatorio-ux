@@ -21,8 +21,8 @@ export function LoginPage() {
   return (
     <div className="login">
       <section className="login-card">
-        <img className="login-logo" src="/brand/uxlab-observatorio.png" alt="UXLab Observatorio - Experiencia usuaria" />
-        <span className="eyebrow">PLATAFORMA UX LAB</span>
+        <div className="brand-mark">✣</div>
+        <span className="eyebrow">Observatorio UX</span>
         <h1>Ingresá a tu cuenta</h1>
         <p>Accedé para gestionar tus proyectos de investigación UX.</p>
 
@@ -63,7 +63,7 @@ export function LoginPage() {
         <div className="orbit" />
         <div className="orbit two" />
         <div>
-          <img className="login-art-logo" src="/brand/uxlab-observatorio-white.png" alt="UXLab Observatorio" />
+          <small>OBSERVATORIO UX</small>
           <strong>Diseñá con evidencia.</strong>
           <p>
             Personas, journey maps, momentos críticos, card sorting y evaluación
