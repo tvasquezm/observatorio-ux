@@ -1,5 +1,6 @@
 // apps/frontend/src/layouts/AppLayout.tsx
 
+import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { exportarResumenPdf } from '../shared/utils/pdf';
@@ -17,7 +18,16 @@ const CRUMB_LABELS: Record<string, string> = {
 export function AppLayout() {
   const { user, logout } = useAuthStore();
   const location = useLocation();
+  const [darkMode, setDarkMode] = useState(() => {
+    const savedTheme = window.localStorage.getItem('observatorio-ux-theme');
+    return savedTheme === 'dark' || (savedTheme === null && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  });
   const crumb = CRUMB_LABELS[location.pathname] ?? 'Proyecto';
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = darkMode ? 'dark' : 'light';
+    window.localStorage.setItem('observatorio-ux-theme', darkMode ? 'dark' : 'light');
+  }, [darkMode]);
 
   const iniciales = (user?.nombre ?? '?')
     .split(' ')
@@ -71,6 +81,15 @@ export function AppLayout() {
           </span>
           <div className="top-actions">
             <span className="role">{user?.rol?.toUpperCase()}</span>
+            <button
+              type="button"
+              className="theme-toggle"
+              aria-label={darkMode ? 'Activar modo claro' : 'Activar modo oscuro'}
+              aria-pressed={darkMode}
+              onClick={() => setDarkMode((current) => !current)}
+            >
+              {darkMode ? '☼ Claro' : '☾ Oscuro'}
+            </button>
             <button
               type="button"
               className="secondary"
