@@ -7,9 +7,9 @@ import { useAuthStore } from '../features/auth/store/useAuthStore';
 const DOT_COLORS = ['blue', 'green', 'orange'] as const;
 
 const TECHNIQUES = [
-  { to: 'personas', label: 'User persona', icon: '◌', desc: 'Necesidades, motivaciones y escenarios reales', cls: 'c2' },
+  { to: 'personas', label: 'Personas', icon: '◌', desc: 'Necesidades, motivaciones y escenarios reales', cls: 'c2' },
   { to: 'journey-map', label: 'Journey map', icon: '⌁', desc: 'Acciones, emociones y oportunidades por etapa', cls: 'c4' },
-  { to: 'momentos-criticos', label: 'Priorización 2x2', icon: '✚', desc: 'Impacto, frecuencia y priorización cualitativa', cls: 'c5' },
+  { to: 'momentos-criticos', label: 'Momentos críticos', icon: '✚', desc: 'Impacto, frecuencia y priorización cualitativa', cls: 'c5' },
   { to: 'card-sorting', label: 'Card sorting', icon: '▦', desc: 'Agrupaciones, categorías y nivel de consenso', cls: 'c1' },
   { to: 'evaluacion-heuristica', label: 'Hallazgos heurísticos', icon: '✦', desc: 'Severidad, evidencia y recomendaciones accionables', cls: 'c3' },
 ] as const;

@@ -428,3 +428,49 @@ button { cursor: pointer; }
   .facts, .persona-sections, .finding-grid, .analysis-stats { grid-template-columns: 1fr; }
   .matrix { margin: 20px 0; height: 300px; }
 }
+
+/* ---------- Aplicación de marca UXLab ---------- */
+:root {
+  --navy: #000b78;
+  --navy-2: #000b78;
+  --teal: #253ff6;
+  --mint: #b9e20e;
+  --ink: #131315;
+  --muted: #575756;
+  --bg: #f7f8fc;
+  --line: #dfe2ef;
+  --coral: #000b78;
+  --shadow: 0 10px 28px rgba(0, 11, 120, .10);
+}
+
+html, body, #root { font-family: "Bilo", Arial, Helvetica, sans-serif; color: var(--ink); }
+.brand-isotipo { width: 42px; height: 42px; object-fit: contain; flex: 0 0 42px; }
+.login-logo { display: block; width: min(230px, 100%); height: auto; margin-bottom: 8px; }
+.login-art-logo { display: block; width: min(330px, 100%); height: auto; margin-bottom: 20px; }
+.brand-mark { background: var(--teal); }
+.side { background: var(--navy); }
+.side .brand b { color: #fff; }.side .brand small { color: #fff; opacity: .78; }
+.login-art { background: linear-gradient(135deg, var(--navy), var(--teal)); }
+.login-art strong { font-family: "Bilo", Arial, Helvetica, sans-serif; font-weight: 800; }
+.login-card h1, .page-head h1, .welcome h1, .section-title h2, .panel h2, .finding h3, .identity h2, .project-card h3, .cluster h3, .tech-card h3, .insight strong { font-family: "Bilo", Arial, Helvetica, sans-serif; font-weight: 800; }
+.page-head h1, .welcome h1 { letter-spacing: -.055em; }
+.primary { background: var(--teal); border-color: var(--teal); box-shadow: 0 6px 14px #253ff633; }
+.primary:hover { background: #1c2fb9; }
+.secondary { border-color: #b8c0f2; color: var(--navy); background: #fff; }
+.nav-btn.active { background: var(--mint); color: var(--navy); box-shadow: inset 3px 0 var(--teal); }
+.role, .count { background: #eef0ff; border-color: #d8dcff; color: var(--navy); }
+.tech-card.c1 { background: linear-gradient(135deg, #eef0ff, #dce1ff); }
+.tech-card.c2 { background: linear-gradient(135deg, #f4f9dc, #e7f2b4); }
+.tech-card.c3 { background: linear-gradient(135deg, var(--navy), #1c2fb9); }.tech-card.c3 h3, .tech-card.c3 p, .tech-card.c3 small { color: #fff; }
+.tech-card.c4 { background: linear-gradient(135deg, #e6e9ff, #cfd5ff); }
+.tech-card.c5 { background: linear-gradient(135deg, #f4f9dc, #dfeea0); }
+.tech-glyph { color: var(--teal); background: #ffffffcc; }
+.tech-card.c3 .tech-glyph { background: #ffffff22; color: var(--mint); }
+.decision { background: linear-gradient(145deg, var(--navy), #1c2fb9); }.decision .kicker { color: var(--mint); }
+.welcome-visual { background: linear-gradient(145deg, #eef0ff, #dfe3ff 62%, #f4f9dc); border-color: #000b781a; }
+.welcome-visual:before { border-color: #253ff659; }.node { border-color: #253ff647; color: var(--navy); }.welcome-visual > b { font-family: "Bilo", Arial, Helvetica, sans-serif; }
+.moment-dot { background: var(--teal); box-shadow: 0 4px 12px #000b7833; }.moment-dot.selected { background: var(--navy); color: var(--mint); }
+.severity-row.sev-critical i, .severity-row.sev-major i, .severity-row.sev-minor i, .severity-row.sev-cosmetic i { background: var(--teal); }
+.toast { background: var(--navy); box-shadow: 0 10px 25px #000b7840; }.toast b { color: var(--mint); }
+.kicker { color: var(--navy); }
+.side-user > span { background: var(--mint); color: var(--navy); }

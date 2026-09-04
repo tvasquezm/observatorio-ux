@@ -139,6 +139,8 @@ export function MomentosCriticosPage() {
   const nivelesImpacto = ['Alto', 'Medio', 'Bajo'] as const;
 
   return (
+    <div className="artifact-page">
+      <div className="page-head"><div><span className="eyebrow">TÉCNICA DE INVESTIGACIÓN</span><h1>Momentos críticos</h1><p>Prioriza los incidentes que más afectan la experiencia de tus usuarios.</p></div><span className="status-pill">Matriz de impacto</span></div>
     <div className="panel">
       <div className="panel-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2>Momentos Críticos</h2>
@@ -335,6 +337,6 @@ export function MomentosCriticosPage() {
           {momentos && momentos.length === 0 && <p>No hay momentos críticos todavía.</p>}
         </div>
       )}
-    </div>
+    </div></div>
   );
 }

@@ -113,6 +113,8 @@ export function PersonasPage() {
   const isPending = isCreating || isUpdating;
 
   return (
+    <div className="artifact-page">
+      <div className="page-head"><div><span className="eyebrow">TÉCNICA DE INVESTIGACIÓN</span><h1>Personas</h1><p>Construye perfiles claros para diseñar con las necesidades reales en mente.</p></div><span className="status-pill">Artefactos versionados</span></div>
     <div className="panel">
       <div className="panel-head">
         <h2>Personas</h2>
@@ -217,6 +219,6 @@ export function PersonasPage() {
         ))}
         {personas && personas.length === 0 && !isLoading && <p>No hay personas todavía.</p>}
       </div>
-    </div>
+    </div></div>
   );
 }
