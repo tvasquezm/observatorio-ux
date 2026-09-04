@@ -53,6 +53,8 @@ button { cursor: pointer; }
   background: var(--teal); color: #fff;
   border-radius: 12px; font-size: 22px; font-weight: 800;
 }
+.login-logo { display: block; width: min(270px, 100%); height: auto; margin: 0 0 18px; }
+.login-art-logo { display: block; width: min(340px, 100%); height: auto; margin: 0 0 20px; }
 .eyebrow, .kicker {
   display: block; margin-top: 22px;
   font-size: 10px; font-weight: 850; letter-spacing: .13em;
@@ -103,6 +105,7 @@ button { cursor: pointer; }
 .side { background: linear-gradient(180deg, var(--navy), var(--navy-2)); color: #d0e2e4; padding: 20px 10px; display: flex; flex-direction: column; }
 .side-nav { display: grid; gap: 4px; }
 .brand { display: flex; align-items: center; gap: 9px; padding: 0 8px 20px; }
+.brand-isotipo { width: 38px; height: 38px; object-fit: contain; flex: 0 0 38px; }
 .brand .brand-mark { width: 38px; height: 38px; border-radius: 10px; font-size: 18px; background: var(--mint); color: var(--navy-2); }
 .brand b { display: block; color: #fff; font-size: 13px; }
 .brand small { display: block; color: #a9ced2; font-size: 9px; margin-top: 2px; }

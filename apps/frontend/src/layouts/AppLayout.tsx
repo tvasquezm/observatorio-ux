@@ -40,10 +40,10 @@ export function AppLayout() {
     <div className="app">
       <aside className="side">
         <div className="brand">
-          <div className="brand-mark">✣</div>
+          <img className="brand-isotipo" src="/brand/uxlab-isotipo-white.png" alt="UXLab" />
           <div>
-            <b>Observatorio UX</b>
-            <small>UTEM</small>
+            <b>UXLab Observatorio</b>
+            <small>Experiencia usuaria</small>
           </div>
         </div>
 
