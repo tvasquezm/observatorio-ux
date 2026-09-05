@@ -2,9 +2,41 @@ import { BadRequestException, ValidationPipe, ValidationError } from '@nestjs/co
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import cookieParser from 'cookie-parser';
+import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+
+// CSRF (double-submit cookie): solo aplica a requests que ya traen la
+// cookie httpOnly `evaluadorToken` (o sea, sesión de EVALUADOR autenticada
+// por cookie) y a métodos mutantes. El flujo de PARTICIPANTE sigue usando
+// Bearer token (nunca manda esta cookie), así que nunca cae acá — un
+// header Authorization no se adjunta solo, a diferencia de una cookie, y
+// por eso no necesita este chequeo.
+const METODOS_MUTANTES = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+function csrfProtection(req: Request, res: Response, next: NextFunction) {
+  const tieneCookieDeSesion = Boolean((req as any).cookies?.evaluadorToken);
+  if (!METODOS_MUTANTES.has(req.method) || !tieneCookieDeSesion) {
+    next();
+    return;
+  }
+
+  const headerToken = req.header('x-csrf-token');
+  const cookieToken = (req as any).cookies?.csrfToken;
+
+  if (!headerToken || !cookieToken || headerToken !== cookieToken) {
+    res.status(403).json({
+      statusCode: 403,
+      error: 'Forbidden',
+      message: 'Token CSRF inválido o ausente.',
+    });
+    return;
+  }
+
+  next();
+}
 
 // Aplana los ValidationError de class-validator (incluye anidados, ej.
 // contenido.hobbies.0) a la forma estructurada que el frontend necesita
@@ -34,6 +66,8 @@ async function bootstrap() {
 
   app.useGlobalFilters(new GlobalExceptionFilter());
   app.use(helmet());
+  app.use(cookieParser());
+  app.use(csrfProtection);
   app.setGlobalPrefix('api');
   app.enableCors({
     origin: config.getOrThrow<string>('app.corsOrigin'),

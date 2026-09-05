@@ -164,9 +164,9 @@ export function MomentosCriticosPage() {
     <div className="artifact-page">
       <div className="page-head"><div><span className="eyebrow">TÉCNICA DE INVESTIGACIÓN</span><h1>Momentos críticos</h1><p>Prioriza los incidentes que más afectan la experiencia de tus usuarios.</p></div><span className="status-pill">Matriz de impacto</span></div>
     <div className="panel">
-      <div className="panel-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="panel-head">
         <h2>Momentos Críticos</h2>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="row-gap">
           <button className="secondary" type="button" onClick={() => setVistaMatriz((v: boolean) => !v)}>
             {vistaMatriz ? 'Ver Lista' : 'Ver Matriz 3x3'}
           </button>
@@ -187,14 +187,14 @@ export function MomentosCriticosPage() {
       </div>
 
       {mostrarForm && (
-        <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 8, margin: '12px 0', padding: 12, border: '1px solid var(--line)', borderRadius: 8 }}>
+        <form onSubmit={handleSubmit} className="entity-card form">
           <h3>{editandoArtefactoId ? 'Editar Momento Crítico' : 'Nuevo Momento Crítico'}</h3>
           {readOnly && (
-            <p style={{ color: 'var(--coral)' }}>
+            <p className="error-text">
               Este momento crítico está bloqueado por otro usuario. No puedes editarlo en este momento.
             </p>
           )}
-          <fieldset disabled={readOnly} style={{ border: 0, padding: 0, margin: 0, display: 'contents' }}>
+          <fieldset disabled={readOnly} className="readonly-fieldset">
           <div className="form-grid-2">
             <input
               placeholder="Nombre del perfil de usuario *"
@@ -202,34 +202,28 @@ export function MomentosCriticosPage() {
               value={form.perfilUsuario.nombre}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, perfilUsuario: { ...form.perfilUsuario, nombre: e.target.value } })}
               required
-              style={{ padding: 8 }}
+              className="input-sm"
             />
             <input
               placeholder="Rol"
               aria-label="Rol"
               value={form.perfilUsuario.rol}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, perfilUsuario: { ...form.perfilUsuario, rol: e.target.value } })}
-              style={{ padding: 8 }}
+              className="input-sm"
             />
           </div>
 
-          <small style={{ color: 'var(--muted)' }}>Incidentes (mínimo {MIN_INCIDENTES}):</small>
+          <small className="text-muted">Incidentes (mínimo {MIN_INCIDENTES}):</small>
           {form.incidentes.map((incidente, i) => (
-            <div key={i} style={{ border: '1px solid var(--line)', borderRadius: 6, padding: 8, display: 'grid', gap: 6 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <small style={{ color: 'var(--muted)' }}>Incidente {i + 1}</small>
+            <div key={i} className="mini-card">
+              <div className="row-between">
+                <small className="text-muted">Incidente {i + 1}</small>
                 <button
                   type="button"
                   onClick={() => handleQuitarIncidente(i)}
                   disabled={form.incidentes.length <= MIN_INCIDENTES}
                   title={form.incidentes.length <= MIN_INCIDENTES ? `Debes conservar al menos ${MIN_INCIDENTES} incidente(s)` : 'Quitar incidente'}
-                  style={{
-                    cursor: form.incidentes.length <= MIN_INCIDENTES ? 'not-allowed' : 'pointer',
-                    color: form.incidentes.length <= MIN_INCIDENTES ? 'var(--muted)' : 'var(--coral)',
-                    background: 'none',
-                    border: 0,
-                    fontSize: 11,
-                  }}
+                  className="link-btn link-btn--warn"
                 >
                   Quitar incidente
                 </button>
@@ -240,26 +234,26 @@ export function MomentosCriticosPage() {
                 value={incidente.nombre}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => actualizarIncidente(i, 'nombre', e.target.value)}
                 required
-                style={{ padding: 8 }}
+                className="input-sm"
               />
               <textarea
                 placeholder="Descripción"
                 aria-label={`Descripción incidente ${i + 1}`}
                 value={incidente.descripcion}
                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => actualizarIncidente(i, 'descripcion', e.target.value)}
-                style={{ padding: 8, minHeight: 50 }}
+                className="textarea-desc"
               />
               <div className="form-grid-3">
-                <select aria-label={`Tipo incidente ${i + 1}`} value={incidente.tipo} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => actualizarIncidente(i, 'tipo', e.target.value)} style={{ padding: 8 }}>
+                <select aria-label={`Tipo incidente ${i + 1}`} value={incidente.tipo} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => actualizarIncidente(i, 'tipo', e.target.value)} className="input-sm">
                   <option value="Positivo">Positivo</option>
                   <option value="Negativo">Negativo</option>
                 </select>
-                <select aria-label={`Impacto incidente ${i + 1}`} value={incidente.impacto} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => actualizarIncidente(i, 'impacto', e.target.value)} style={{ padding: 8 }}>
+                <select aria-label={`Impacto incidente ${i + 1}`} value={incidente.impacto} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => actualizarIncidente(i, 'impacto', e.target.value)} className="input-sm">
                   <option value="Alto">Impacto Alto</option>
                   <option value="Medio">Impacto Medio</option>
                   <option value="Bajo">Impacto Bajo</option>
                 </select>
-                <select aria-label={`Frecuencia incidente ${i + 1}`} value={incidente.frecuencia} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => actualizarIncidente(i, 'frecuencia', e.target.value)} style={{ padding: 8 }}>
+                <select aria-label={`Frecuencia incidente ${i + 1}`} value={incidente.frecuencia} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => actualizarIncidente(i, 'frecuencia', e.target.value)} className="input-sm">
                   <option value="Alta">Frecuencia Alta</option>
                   <option value="Media">Frecuencia Media</option>
                   <option value="Baja">Frecuencia Baja</option>
@@ -270,28 +264,27 @@ export function MomentosCriticosPage() {
                 aria-label={`Causa incidente ${i + 1}`}
                 value={incidente.causa}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => actualizarIncidente(i, 'causa', e.target.value)}
-                style={{ padding: 8 }}
+                className="input-sm"
               />
               <input
                 placeholder="Acciones sugeridas (separadas por coma)"
                 aria-label={`Acciones sugeridas incidente ${i + 1}`}
                 value={accionesInputs[i] ?? ''}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => actualizarIncidente(i, 'accionesSugeridas', e.target.value)}
-                style={{ padding: 8 }}
+                className="input-sm"
               />
             </div>
           ))}
 
           <button
             type="button"
-            className="secondary"
+            className="secondary btn-start"
             onClick={handleAgregarIncidente}
-            style={{ justifySelf: 'start' }}
           >
             + Agregar incidente
           </button>
 
-          <button type="submit" className="primary" disabled={isSaving} style={{ justifySelf: 'start' }}>
+          <button type="submit" className="primary btn-start" disabled={isSaving}>
             {isSaving ? 'Guardando…' : editandoArtefactoId ? 'Actualizar momento crítico' : 'Guardar momento crítico'}
           </button>
           </fieldset>
@@ -300,23 +293,23 @@ export function MomentosCriticosPage() {
 
       {isLoading && <p>Cargando…</p>}
       {error && (
-        <p style={{ color: 'var(--coral)' }}>
+        <p className="error-text">
           {isListError ? 'No se pudo cargar los momentos críticos. ' : ''}
           {(error as Error).message}
         </p>
       )}
 
       {vistaMatriz && !isLoading && (
-        <div style={{ marginTop: 16, overflowX: 'auto' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '100px repeat(3, 1fr)', gap: 6, minWidth: 600, textAlign: 'center' }}>
-            <div style={{ fontWeight: 'bold', fontSize: 12, padding: 8 }}>Frec. \ Imp.</div>
-            <div style={{ fontWeight: 'bold', fontSize: 12, padding: 8, background: 'var(--surface-subtle, #f1f5f9)', borderRadius: 4 }}>Impacto Alto</div>
-            <div style={{ fontWeight: 'bold', fontSize: 12, padding: 8, background: 'var(--surface-subtle, #f1f5f9)', borderRadius: 4 }}>Impacto Medio</div>
-            <div style={{ fontWeight: 'bold', fontSize: 12, padding: 8, background: 'var(--surface-subtle, #f1f5f9)', borderRadius: 4 }}>Impacto Bajo</div>
+        <div className="matrix-wrap">
+          <div className="matrix-grid">
+            <div className="matrix-corner">Frec. \ Imp.</div>
+            <div className="matrix-cell-head">Impacto Alto</div>
+            <div className="matrix-cell-head">Impacto Medio</div>
+            <div className="matrix-cell-head">Impacto Bajo</div>
 
             {nivelesFrecuencia.map((frec) => (
               <React.Fragment key={frec}>
-                <div style={{ fontWeight: 'bold', fontSize: 12, padding: 8, background: 'var(--surface-subtle, #f1f5f9)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div className="matrix-cell-head matrix-cell-head--center">
                   Frec. {frec}
                 </div>
                 {nivelesImpacto.map((imp) => {
@@ -329,31 +322,12 @@ export function MomentosCriticosPage() {
                     <div
                       key={`${frec}-${imp}`}
                       data-testid={`celda-${imp}-${frec}`}
-                      style={{
-                        minHeight: 90,
-                        padding: 6,
-                        border: '1px solid var(--line, #e2e8f0)',
-                        borderRadius: 6,
-                        background: esCritico ? '#fff1f2' : 'var(--bg, #fafafa)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 4,
-                        textAlign: 'left',
-                      }}
+                      className={`matrix-cell${esCritico ? ' matrix-cell--critical' : ''}`}
                     >
                       {filtrados.map((inc, idx: number) => (
-                        <div
-                          key={idx}
-                          style={{
-                            padding: 6,
-                            background: '#fff',
-                            border: '1px solid var(--line, #cbd5e1)',
-                            borderRadius: 4,
-                            fontSize: 11,
-                          }}
-                        >
-                          <strong style={{ display: 'block' }}>{inc.nombre}</strong>
-                          <span style={{ color: 'var(--muted, #64748b)', fontSize: 10 }}>{inc.perfilNombre}</span>
+                        <div key={idx} className="matrix-incident">
+                          <strong className="block">{inc.nombre}</strong>
+                          <span className="text-muted-xs">{inc.perfilNombre}</span>
                         </div>
                       ))}
                     </div>
@@ -366,16 +340,16 @@ export function MomentosCriticosPage() {
       )}
 
       {!vistaMatriz && (
-        <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
+        <div className="list-stack">
           {momentos?.map((m: MomentosCriticosArtifact) => (
-            <div key={m.id} style={{ padding: 12, border: '1px solid var(--line)', borderRadius: 8 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div key={m.id} className="entity-card">
+              <div className="row-between">
                 <b>{m.contenido.perfilUsuario.nombre}</b>
-                <div style={{ display: 'flex', gap: 12 }}>
+                <div className="row-gap-md">
                   <button
                     type="button"
                     onClick={() => handleStartEdit(m)}
-                    style={{ cursor: 'pointer', color: 'var(--teal, #0d9488)', background: 'none', border: 0, fontWeight: 500 }}
+                    className="link-btn link-btn--edit"
                   >
                     Editar
                   </button>
@@ -386,13 +360,13 @@ export function MomentosCriticosPage() {
                         eliminar(m.id);
                       }
                     }}
-                    style={{ cursor: 'pointer', color: 'var(--coral, #ef4444)', background: 'none', border: 0 }}
+                    className="link-btn link-btn--delete"
                   >
                     Eliminar
                   </button>
                 </div>
               </div>
-              <small style={{ color: 'var(--muted)' }}>{m.contenido.incidentes.length} incidente(s)</small>
+              <small className="text-muted">{m.contenido.incidentes.length} incidente(s)</small>
             </div>
           ))}
           {momentos && momentos.length === 0 && <p>No hay momentos críticos todavía.</p>}

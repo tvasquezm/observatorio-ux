@@ -288,6 +288,25 @@ export class AuthService {
     };
   }
 
+  /**
+   * Perfil completo para GET /auth/me. `validateTokenPayload` (usado por
+   * JwtStrategy) devuelve el `AuthenticatedUser` mínimo (sin `nombre`) que
+   * necesitan los guards; acá se reconstruye la forma que espera el
+   * frontend (`EvaluatorUser`: id, nombre, email, rol) a partir del id.
+   */
+  async getEvaluatorProfile(userId: string) {
+    const user = await this.prisma.usuario.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException('El usuario del token no existe.');
+    }
+    return {
+      id: user.id,
+      nombre: user.nombre,
+      email: user.email,
+      rol: user.rol,
+    };
+  }
+
   private signEvaluatorToken(user: AuthenticatedUser) {
     return this.jwt.signAsync({
       sub: user.id,

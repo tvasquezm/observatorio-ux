@@ -47,7 +47,7 @@ export function ProjectMembersPage() {
       </div>
 
       {esCreadorOAdmin && (
-        <form onSubmit={handleAgregar} style={{ display: 'flex', gap: 8, margin: '12px 0' }}>
+        <form onSubmit={handleAgregar} className="form-row-inline">
           <input
             type="email"
             placeholder="Email del usuario a agregar"
@@ -55,7 +55,7 @@ export function ProjectMembersPage() {
             value={email}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
             required
-            style={{ flex: 1, padding: 8 }}
+            className="input-flex"
           />
           <button type="submit" className="primary" disabled={isAdding}>
             {isAdding ? 'Agregando…' : '+ Agregar miembro'}
@@ -64,39 +64,29 @@ export function ProjectMembersPage() {
       )}
 
       {!esCreadorOAdmin && (
-        <p style={{ color: 'var(--muted)', fontSize: 13, margin: '12px 0' }}>
+        <p className="hint-block">
           Solo el creador del proyecto o un administrador pueden agregar o quitar miembros.
         </p>
       )}
 
       {isLoading && <p>Cargando…</p>}
-      {isError && <p style={{ color: 'var(--coral)' }}>{(error as Error).message}</p>}
+      {isError && <p className="error-text">{(error as Error).message}</p>}
 
-      <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
+      <div className="list-stack">
         {miembros?.map((m) => (
-          <div
-            key={m.id}
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: 12,
-              border: '1px solid var(--line)',
-              borderRadius: 8,
-            }}
-          >
+          <div key={m.id} className="entity-card row-between">
             <div>
               <b>{m.usuario.nombre}</b>
               {m.usuario.id === proyecto?.creadoPorId && (
-                <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--muted)' }}>(creador)</span>
+                <span className="badge-muted">(creador)</span>
               )}
-              <div style={{ fontSize: 12, color: 'var(--muted)' }}>{m.usuario.email}</div>
+              <div className="text-muted-sm">{m.usuario.email}</div>
             </div>
             {esCreadorOAdmin && m.usuario.id !== proyecto?.creadoPorId && (
               <button
                 type="button"
                 onClick={() => handleQuitar(m.usuario.id, m.usuario.nombre)}
-                style={{ cursor: 'pointer', color: 'var(--coral)', background: 'none', border: 0 }}
+                className="link-btn link-btn--delete"
               >
                 Quitar
               </button>

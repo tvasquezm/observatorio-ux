@@ -694,6 +694,22 @@ button { cursor: pointer; }
 .stat-value { font-size: 16px; }
 .text-success { color: #2F6846; }
 
+/* ---------- Fase 3 — más utilidades (reemplazan style={{}} de MomentosCriticosPage/ProjectMembersPage) ---------- */
+.text-muted-xs { color: var(--muted); font-size: 10px; }
+.link-btn--warn { color: var(--coral); font-size: 11px; }
+.link-btn:disabled { cursor: not-allowed; color: var(--muted); }
+.list-stack { display: grid; gap: 8px; margin-top: 12px; }
+.row-gap-md { display: flex; gap: 12px; align-items: center; }
+.form-row-inline { display: flex; gap: 8px; margin: 12px 0; }
+.input-flex { flex: 1; padding: 8px; }
+.hint-block { color: var(--muted); font-size: 13px; margin: 12px 0; }
+.badge-muted { margin-left: 8px; font-size: 11px; color: var(--muted); }
+.matrix-wrap { margin-top: 16px; overflow-x: auto; }
+.matrix-grid { display: grid; grid-template-columns: 100px repeat(3, 1fr); gap: 6px; min-width: 600px; text-align: center; }
+.matrix-cell { min-height: 90px; padding: 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); display: flex; flex-direction: column; gap: 4px; text-align: left; }
+.matrix-cell--critical { background: #fff1f2; }
+.matrix-incident { padding: 6px; background: #fff; border: 1px solid var(--line); border-radius: 4px; font-size: 11px; }
+
 /* ---------- ConfirmDialog / ToastContainer (antes 100% style={{}} inline) ---------- */
 .confirm-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,0.45);

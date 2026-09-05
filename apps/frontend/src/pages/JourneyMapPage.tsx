@@ -270,7 +270,7 @@ export function JourneyMapPage() {
                 <span className="kicker">RECORRIDO DE {j.contenido.perfilUsuario.nombre.toUpperCase()}</span>
                 <h2>{j.contenido.perfilUsuario.rol || 'Journey Map'}</h2>
               </div>
-              <div className="row-gap-sm" style={{ gap: 12 }}>
+              <div className="row-gap-md">
                 <span className="count">Emoción media {avg.toFixed(1)}/5</span>
                 <button
                   type="button"
