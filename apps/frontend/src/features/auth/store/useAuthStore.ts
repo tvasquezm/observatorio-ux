@@ -1,21 +1,27 @@
 // apps/frontend/src/features/auth/store/useAuthStore.ts
 //
-// OJO: la llave 'evaluadorToken' en localStorage ya la lee
-// shared/api/artifacts.api.ts (getAuthToken, marcado como TODO ahí).
-// Este store es la fuente real que faltaba — no cambiar el nombre de la
-// llave sin actualizar ese archivo también.
+// Alineado a Fase 3 (auth por cookie httpOnly `evaluadorToken`, ver
+// jwt.strategy.ts): el token YA NO vive en localStorage ni en este store
+// — es httpOnly, ni siquiera JS puede leerlo, y no hace falta: el
+// navegador lo reenvía solo en cada fetch con `credentials: 'include'`
+// (ver shared/api/artifacts.api.ts, features/projects/api/projects.api.ts,
+// features/evaluacion-heuristica/api/evaluacion-heuristica.api.ts).
+//
+// Lo único que este store cachea en localStorage es el `user` (no es
+// secreto, es solo para no mostrar la UI vacía medio segundo en cada
+// recarga) — la fuente de verdad real de la sesión es la cookie del
+// backend, no esta caché.
 
 import { create } from 'zustand';
 import type { EvaluatorUser } from '../api/auth.api';
+import { logout as logoutApi } from '../api/auth.api';
 
-const TOKEN_KEY = 'evaluadorToken';
 const USER_KEY = 'evaluadorUser';
 
 interface AuthState {
-  token: string | null;
   user: EvaluatorUser | null;
   isAuthenticated: boolean;
-  setSession: (token: string, user: EvaluatorUser) => void;
+  setSession: (user: EvaluatorUser) => void;
   logout: () => void;
 }
 
@@ -30,19 +36,21 @@ function leerUserGuardado(): EvaluatorUser | null {
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
-  token: localStorage.getItem(TOKEN_KEY),
   user: leerUserGuardado(),
-  isAuthenticated: !!localStorage.getItem(TOKEN_KEY),
+  isAuthenticated: !!leerUserGuardado(),
 
-  setSession: (token, user) => {
-    localStorage.setItem(TOKEN_KEY, token);
+  setSession: (user) => {
     localStorage.setItem(USER_KEY, JSON.stringify(user));
-    set({ token, user, isAuthenticated: true });
+    set({ user, isAuthenticated: true });
   },
 
   logout: () => {
-    localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
-    set({ token: null, user: null, isAuthenticated: false });
+    set({ user: null, isAuthenticated: false });
+    // Best-effort: limpia las cookies httpOnly en el backend. No se espera
+    // la respuesta — el estado local ya cambió y ProtectedRoute ya va a
+    // redirigir a /login; si esta llamada falla (ej. red caída), las
+    // cookies igual van a expirar solas por el TTL del JWT.
+    logoutApi().catch(() => {});
   },
 }));

@@ -5,11 +5,14 @@
 // journey-map, momentos-criticos. Sin estado, sin hooks — solo fetch + tipos,
 // mismo criterio que features/card-sorting/api/card-sorting.api.ts.
 //
-// El store de autenticación del evaluador y este cliente comparten la llave
-// `evaluadorToken` en localStorage.
+// Auth por cookie httpOnly `evaluadorToken` (Fase 3) — este cliente ya no
+// toca localStorage para el token; usa `credentials: 'include'` para que
+// el navegador la reenvíe sola, y agrega el header CSRF (`csrfHeaders`,
+// ver ./csrf.ts) en cada mutación.
 
 import { useAuthStore } from '../../features/auth/store/useAuthStore';
 import { notify } from './toast';
+import { csrfHeaders } from './csrf';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
 
@@ -57,20 +60,18 @@ function normalizarDetalles(message: unknown): DetalleValidacion[] | undefined {
   return undefined;
 }
 
-function getAuthToken(): string | null {
-  return localStorage.getItem('evaluadorToken');
-}
-
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const token = getAuthToken();
   let res: Response;
 
   try {
     res = await fetch(`${API_BASE}${path}`, {
       ...init,
+      // Sin esto, un fetch cross-origin (dev: 5173 → 3000) nunca manda ni
+      // guarda la cookie httpOnly de sesión — todo terminaría en 401.
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...csrfHeaders(init.method),
         ...init.headers,
       },
     });
@@ -80,8 +81,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
   if (res.status === 401) {
     // Sesión expirada o token inválido: no tiene sentido reintentar ni
-    // mostrar el body del error crudo — se cierra sesión (limpia el token
-    // de useAuthStore/localStorage) y se avisa. ProtectedRoute ya está
+    // mostrar el body del error crudo — se cierra sesión (limpia el
+    // usuario cacheado de useAuthStore) y se avisa. ProtectedRoute ya está
     // suscrito a `isAuthenticated`, así que el logout por sí solo dispara
     // el redirect a /login sin necesitar un evento global aparte.
     useAuthStore.getState().logout();

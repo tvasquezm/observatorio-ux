@@ -2,6 +2,7 @@
 
 import { useAuthStore } from '../../auth/store/useAuthStore';
 import { notify } from '../../../shared/api/toast';
+import { csrfHeaders } from '../../../shared/api/csrf';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
 
@@ -20,19 +21,20 @@ export class ProjectsApiError extends Error {
   }
 }
 
-function getAuthToken(): string | null {
-  return localStorage.getItem('evaluadorToken');
-}
-
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const token = getAuthToken();
   let res: Response;
   try {
     res = await fetch(`${API_BASE}${path}`, {
       ...init,
+      // Cookie de sesión httpOnly (Fase 3) — sin esto el navegador no
+      // manda `evaluadorToken` en un fetch cross-origin (5173 → 3000 en
+      // dev), y el backend rechaza todo con 401.
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        // Double-submit CSRF: solo se agrega para métodos mutantes (ver
+        // shared/api/csrf.ts) — csrfProtection en main.ts los exige.
+        ...csrfHeaders(init.method),
         ...init.headers,
       },
     });
@@ -111,4 +113,42 @@ export function removeMember(proyectoId: string, usuarioId: string): Promise<{ e
   return request<{ eliminado: boolean }>(`/projects/${proyectoId}/miembros/${usuarioId}`, {
     method: 'DELETE',
   });
+}
+
+// --- Whitelist de participantes (sujetos de estudio, distinto de miembros) ---
+//
+// Sin una entrada acá, AuthService.registerParticipant (backend) rechaza el
+// autorregistro del participante con 403 — este es el paso previo obligatorio
+// para que alguien pueda unirse a cualquier sesión (card sorting, evaluación
+// heurística, etc). Ruta real: WhitelistEntryDto { email, nombre? } — el
+// backend acepta bulk (mínimo 1), por eso el request toma un array.
+
+export interface WhitelistEntry {
+  id: string;
+  email: string;
+  nombre: string | null;
+  usado: boolean;
+  createdAt: string;
+}
+
+export interface WhitelistEntradaInput {
+  email: string;
+  nombre?: string;
+}
+
+export function listWhitelist(proyectoId: string): Promise<WhitelistEntry[]> {
+  return request<WhitelistEntry[]>(`/projects/${proyectoId}/participantes`);
+}
+
+export function addToWhitelist(
+  proyectoId: string,
+  participantes: WhitelistEntradaInput[],
+): Promise<{ agregados: number; enviados: number }> {
+  return request<{ agregados: number; enviados: number }>(
+    `/projects/${proyectoId}/participantes`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ participantes }),
+    },
+  );
 }

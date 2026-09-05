@@ -11,6 +11,8 @@
 //   POST /api/card-sorting/sessions/:id/join
 //   POST /api/card-sorting/sessions/:id/results
 
+import { csrfHeaders } from '../../../shared/api/csrf';
+
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
 
 // --- Tipos que reflejan las entidades reales del schema.prisma ---
@@ -111,7 +113,14 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
   try {
     res = await fetch(`${API_BASE}${path}`, {
       credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        // Solo pega para las llamadas de EVALUADOR (createCardSortingSession):
+        // getCsrfToken() no encuentra la cookie `csrfToken` en el flujo de
+        // PARTICIPANTE (nunca se emite ahí), así que en esos casos esto no
+        // agrega nada — inofensivo.
+        ...csrfHeaders(init.method),
+      },
       ...init,
     });
   } catch {

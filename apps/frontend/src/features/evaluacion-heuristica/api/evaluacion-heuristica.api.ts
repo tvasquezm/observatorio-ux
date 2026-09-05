@@ -8,6 +8,8 @@
 //
 // Forma confirmada contra HeuristicaDto real (apps/backend/.../dto/heuristica.dto.ts).
 
+import { csrfHeaders } from '../../../shared/api/csrf';
+
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
 
 export interface HallazgoHeuristicaInput {
@@ -38,10 +40,6 @@ export interface EvaluacionHeuristicaSesion {
   completadoAt: string | null;
 }
 
-function getAuthToken(): string | null {
-  return localStorage.getItem('evaluadorToken');
-}
-
 export class EvaluacionHeuristicaApiError extends Error {
   constructor(public readonly status: number, message: string) {
     super(message);
@@ -50,14 +48,16 @@ export class EvaluacionHeuristicaApiError extends Error {
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const token = getAuthToken();
   let res: Response;
   try {
     res = await fetch(`${API_BASE}${path}`, {
       ...init,
+      // Cookie httpOnly de sesión (Fase 3) — sin esto, cross-origin en
+      // dev (5173 → 3000), el navegador nunca la manda y todo es 401.
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...csrfHeaders(init.method),
         ...init.headers,
       },
     });

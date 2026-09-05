@@ -15,6 +15,7 @@ import { CardSortingPage } from './pages/CardSortingPage';
 import { EvaluacionHeuristicaPage } from './pages/EvaluacionHeuristicaPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { ProjectMembersPage } from './pages/ProjectMembersPage';
+import { ProjectParticipantsPage } from './pages/ProjectParticipantsPage';
 
 export default function App() {
   return (
@@ -35,6 +36,7 @@ export default function App() {
             <Route path="evaluacion-heuristica" element={<EvaluacionHeuristicaPage />} />
             <Route path="analitica" element={<AnalyticsPage />} />
             <Route path="miembros" element={<ProjectMembersPage />} />
+            <Route path="participantes" element={<ProjectParticipantsPage />} />
           </Route>
         </Route>
       </Route>

@@ -16,6 +16,7 @@ const SUB_NAV = [
   { to: 'evaluacion-heuristica', label: 'Evaluación Heurística' },
   { to: 'analitica', label: 'Analítica' },
   { to: 'miembros', label: 'Miembros' },
+  { to: 'participantes', label: 'Participantes' },
 ];
 
 export interface ProjectOutletContext {
