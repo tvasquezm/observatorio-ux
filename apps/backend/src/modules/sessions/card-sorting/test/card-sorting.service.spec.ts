@@ -9,6 +9,7 @@ import { ConflictException, ForbiddenException, NotFoundException } from '@nestj
 import { ActorSesion, EstadoSesion, TipoSesion } from '@prisma/client';
 import { CardSortingService } from '../card-sorting.service';
 import { PrismaService } from '../../../../core/database/prisma.service';
+import { ProjectAccessService } from '../../../../core/access/project-access.service';
 import { AuthenticatedUser } from '../../../auth/types/authenticated-user.interface';
 
 describe('CardSortingService.submitResult', () => {
@@ -69,6 +70,7 @@ describe('CardSortingService.submitResult', () => {
       providers: [
         CardSortingService,
         { provide: PrismaService, useValue: prisma },
+        { provide: ProjectAccessService, useValue: { assertAccess: jest.fn() } },
       ],
     }).compile();
 

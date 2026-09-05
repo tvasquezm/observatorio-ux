@@ -46,3 +46,8 @@ export class AddToWhitelistDto {
   @Type(() => WhitelistEntryDto)
   participantes!: WhitelistEntryDto[];
 }
+
+export class AddMemberDto {
+  @IsEmail()
+  email!: string;
+}

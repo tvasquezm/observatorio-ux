@@ -8,6 +8,7 @@ import {
 import { TipoArtefacto } from '@prisma/client';
 import { ArtifactsService } from '../artifacts.service';
 import { PrismaService } from '../../../core/database/prisma.service';
+import { ProjectAccessService } from '../../../core/access/project-access.service';
 
 // Los schemas de Zod viven en un paquete compartido y validan la forma real
 // de cada tipo de artefacto. Aquí se mockean para probar la LÓGICA del
@@ -29,6 +30,7 @@ describe('ArtifactsService', () => {
   let service: ArtifactsService;
   let prisma: {
     proyecto: { findUnique: jest.Mock };
+    proyectoMiembro: { findUnique: jest.Mock };
     uxArtifact: {
       create: jest.Mock;
       findMany: jest.Mock;
@@ -46,6 +48,7 @@ describe('ArtifactsService', () => {
   beforeEach(async () => {
     prisma = {
       proyecto: { findUnique: jest.fn() },
+      proyectoMiembro: { findUnique: jest.fn() },
       uxArtifact: {
         create: jest.fn(),
         findMany: jest.fn(),
@@ -57,7 +60,11 @@ describe('ArtifactsService', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [ArtifactsService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        ArtifactsService,
+        ProjectAccessService,
+        { provide: PrismaService, useValue: prisma },
+      ],
     }).compile();
 
     service = module.get(ArtifactsService);

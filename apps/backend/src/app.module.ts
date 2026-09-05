@@ -3,6 +3,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { DatabaseModule } from './core/database/database.module';
+import { ProjectAccessModule } from './core/access/project-access.module';
 import appConfig from './core/config/app.config';
 import databaseConfig from './core/config/database.config';
 import { envValidationSchema } from './core/config/env.validation';
@@ -29,6 +30,7 @@ import { HealthController } from './health.controller';
       throttlers: [{ name: 'default', ttl: 60_000, limit: 60 }],
     }),
     DatabaseModule,
+    ProjectAccessModule,
     AuthModule,
     ArtifactsModule,
     ProjectsModule,

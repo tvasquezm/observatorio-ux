@@ -255,3 +255,41 @@ Detalle en `docs/AUDIT_LOG.md` (F2, F3, F4).
 - `ProjectsService`, `CardSortingService` y `EvaluacionHeuristicaService` siguen con su propio chequeo de acceso por `creadoPorId` — no se tocaron, así que solo el módulo de Artefactos UX (Persona/Journey Map/Momentos Críticos) reconoce a los miembros nuevos por ahora.
 
 Detalle en `docs/AUDIT_LOG.md` (F5) y `docs/CAMBIOS.md` (§Ronda 5).
+
+---
+
+## Sprint 6 — Acceso a proyectos consolidado + gestión de miembros (Fase 2, backend)
+
+Foco: cerrar los dos "pendiente acotado" que dejó el Sprint 5 (F5) — el modelo `ProyectoMiembro` existía pero (a) `ProjectsService`/`CardSortingService`/`EvaluacionHeuristicaService` no lo reconocían, cada uno con su propio chequeo `creadoPorId`/ADMIN duplicado, y (b) no había forma de gestionar la membresía salvo por seed o base de datos directa.
+
+### De 4 chequeos duplicados a un servicio compartido
+
+**Qué se encontró:** el chequeo "dueño, ADMIN, o miembro" vivía completo solo dentro de `ArtifactsService` (método privado `assertProjectAccess`, agregado en F5). Los otros tres servicios con acceso a proyecto (`ProjectsService.findOne`, `CardSortingService.createSession`, `EvaluacionHeuristicaService.crearSesion`/`obtenerAnalitica`) seguían con la versión vieja, sin `ProyectoMiembro`: un estudiante agregado como miembro podía ver/editar artefactos (Persona, Journey Map, Momentos Críticos) pero no podía crear un estudio de Card Sorting ni una Evaluación Heurística en ese mismo proyecto — inconsistencia directa con el propósito del modelo `ProyectoMiembro`.
+
+**Cerrado:** extraído a `ProjectAccessService` (`core/access/project-access.service.ts`), registrado en un módulo `@Global` (`core/access/project-access.module.ts`) para no requerir imports explícitos en cada módulo feature. Expone `assertAccess` (dueño/ADMIN/miembro — uso normal) y `assertOwnerOrAdmin` (dueño/ADMIN únicamente — operaciones administrativas, como gestionar membresía). Los 4 call-sites duplicados fueron reemplazados por llamadas a este servicio; el método privado de `ArtifactsService` fue eliminado.
+
+**Trade-off aceptado en `ProjectsService.findOne`:** antes hacía un solo `prisma.proyecto.findUnique` (con `_count` incluido) y chequeaba `creadoPorId` sobre el resultado. Ahora hace ese `findUnique` *más* el que hace `assertAccess` internamente — dos queries a la tabla `proyectos` en vez de una. Se aceptó la duplicación en vez de complicar la firma de `assertAccess` para que acepte un proyecto ya cargado, priorizando reusar la misma lógica de acceso en los 4 lugares sobre una micro-optimización de una query extra (barata) por request.
+
+### Gestión de miembros vía API
+
+**Qué se agregó:** `GET/POST/DELETE /projects/:id/miembros` en `ProjectsController`/`ProjectsService`.
+- `GET`: lista miembros con datos básicos del usuario (`id`, `nombre`, `email`, `rol`). Requiere `assertAccess` — cualquier miembro puede ver la lista, no hace falta ser dueño.
+- `POST` (`{ email }`): agrega un miembro existente por email. Requiere `assertOwnerOrAdmin` — un miembro no puede agregar a otro. Resuelve el `Usuario` por email (`404` si no existe ninguno con ese correo) y usa `upsert` sobre `@@unique([proyectoId, usuarioId])`, así que agregar dos veces al mismo usuario es idempotente, no un error.
+- `DELETE /:usuarioId`: quita un miembro. Requiere `assertOwnerOrAdmin`. Si `usuarioId` coincide con `creadoPorId` del proyecto, se rechaza con `400` explícito ("No puedes quitar al creador del proyecto") — el creador no es una fila de `ProyectoMiembro`, es el dueño real, y sacarlo de la lista de miembros no tendría el efecto que alguien esperaría (seguiría teniendo acceso total igual).
+
+**Fuera de alcance a propósito:** no hay invitación por correo ni creación de cuentas — agregar por email requiere que el `Usuario` ya exista. No se agregó UI todavía (queda para cuando se aborde el frontend de esta fase).
+
+### Bug encontrado en los tests al hacer el refactor (G1)
+
+Al mover el chequeo de `ArtifactsService` al servicio compartido, se revisó su spec (`artifacts.service.spec.ts`) para no romperlo — y se encontró que el mock de `prisma` nunca tuvo `proyectoMiembro`, pese a que el código real ya lo consultaba desde F5. Los 3 tests que ejercitan "usuario sin acceso" (`create`, `softDelete`, `acquireLock`, todos con `otherUser`) estaban, en la práctica, llamando a un método inexistente (`undefined.findUnique`) en vez de validar el `ForbiddenException` real que decían estar probando. Cerrado agregando `proyectoMiembro: { findUnique: jest.fn() }` al mock. Detalle en `docs/AUDIT_LOG.md` (G1).
+
+### Verificación — parcial, limitación de entorno documentada
+
+`npx tsc --noEmit`: sin errores propios (con la salvedad de que hay un `dist/tsconfig.tsbuildinfo` cacheado del build original que podría estar ocultando errores vía caché incremental — no se tomó como confirmación fuerte por eso).
+
+`npx jest`: 2 de 6 suites corren y pasan completas (`projects.service.spec.ts` 12/12, `env.validation.smoke.spec.ts`). Las otras 4 (`artifacts`, `card-sorting`, `evaluacion-heuristica`, `auth`) no llegan a ejecutar: fallan en tiempo de tipos porque el `@prisma/client` instalado en el entorno de trabajo usado para este sprint es un placeholder sin los enums reales del schema (`TipoArtefacto`, `ActorSesion`, `EstadoSesion`, `TipoSesion`). `prisma generate` no pudo completar ahí porque `binaries.prisma.sh` no tenía salida a internet en ese sandbox (`403 Forbidden`, probado con `PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1`, `--no-engine`, y engine type `wasm`). Confirmado que es una limitación del entorno, no del código: los imports que fallan son líneas preexistentes, no tocadas en este sprint. **Pendiente real:** correr `pnpm prisma generate` + `pnpm test` en un entorno con red real (o Docker) para confirmar esas 4 suites.
+
+**Pendiente real, no cerrado en este sprint:**
+- Frontend: pantalla "Miembros del proyecto" (agregar por email) — el backend está listo para consumir, falta la UI en `ProjectDetailLayout.tsx` y el cliente API correspondiente.
+- Sin tests nuevos para `listMembers`/`addMember`/`removeMember` — se acordó backend primero, tests de frontend en fase aparte.
+

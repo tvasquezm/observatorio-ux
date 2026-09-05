@@ -13,6 +13,7 @@ import {
   TipoSesion,
 } from '@prisma/client';
 import { PrismaService } from '../../../core/database/prisma.service';
+import { ProjectAccessService } from '../../../core/access/project-access.service';
 import { AuthenticatedUser } from '../../auth/types/authenticated-user.interface';
 import {
   CardSortingTypeDto,
@@ -27,17 +28,17 @@ export type Grupo = {
 
 @Injectable()
 export class CardSortingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly projectAccess: ProjectAccessService,
+  ) {}
 
   async createSession(dto: CreateCardSortingSessionDto, user: AuthenticatedUser) {
-    const project = await this.prisma.proyecto.findUnique({
-      where: { id: dto.proyectoId },
-    });
-
-    if (!project) throw new NotFoundException('El proyecto no existe.');
-    if (project.creadoPorId !== user.id && user.rol !== 'ADMIN') {
-      throw new ForbiddenException('No tienes acceso para crear estudios en este proyecto.');
-    }
+    await this.projectAccess.assertAccess(
+      dto.proyectoId,
+      user,
+      'No tienes acceso para crear estudios en este proyecto.',
+    );
 
     const tipo =
       dto.tipo === CardSortingTypeDto.CLOSED

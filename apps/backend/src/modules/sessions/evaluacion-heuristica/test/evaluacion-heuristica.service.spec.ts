@@ -10,6 +10,7 @@ import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { EstadoSesion, TipoSesion } from '@prisma/client';
 import { EvaluacionHeuristicaService } from '../evaluacion-heuristica.service';
 import { PrismaService } from '../../../../core/database/prisma.service';
+import { ProjectAccessService } from '../../../../core/access/project-access.service';
 import { AuthenticatedUser } from '../../../auth/types/authenticated-user.interface';
 
 describe('EvaluacionHeuristicaService', () => {
@@ -63,6 +64,7 @@ describe('EvaluacionHeuristicaService', () => {
       providers: [
         EvaluacionHeuristicaService,
         { provide: PrismaService, useValue: prisma },
+        { provide: ProjectAccessService, useValue: { assertAccess: jest.fn() } },
       ],
     }).compile();
 

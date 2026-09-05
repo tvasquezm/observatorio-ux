@@ -6,6 +6,7 @@ import { Test } from '@nestjs/testing';
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { ProjectsService } from '../projects.service';
 import { PrismaService } from '../../../core/database/prisma.service';
+import { ProjectAccessService } from '../../../core/access/project-access.service';
 import { AuthenticatedUser } from '../../auth/types/authenticated-user.interface';
 
 describe('ProjectsService', () => {
@@ -16,6 +17,9 @@ describe('ProjectsService', () => {
       findMany: jest.Mock;
       findUnique: jest.Mock;
       update: jest.Mock;
+    };
+    proyectoMiembro: {
+      findUnique: jest.Mock;
     };
   };
 
@@ -41,10 +45,17 @@ describe('ProjectsService', () => {
         findUnique: jest.fn(),
         update: jest.fn(),
       },
+      proyectoMiembro: {
+        findUnique: jest.fn(),
+      },
     };
 
     const moduleRef = await Test.createTestingModule({
-      providers: [ProjectsService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        ProjectsService,
+        ProjectAccessService,
+        { provide: PrismaService, useValue: prisma },
+      ],
     }).compile();
 
     service = moduleRef.get(ProjectsService);

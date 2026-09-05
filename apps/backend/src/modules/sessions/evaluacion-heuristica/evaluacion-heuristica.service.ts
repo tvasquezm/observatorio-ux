@@ -8,6 +8,7 @@ import {
 import { EstadoSesion, Prisma, TipoSesion } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../../../core/database/prisma.service';
+import { ProjectAccessService } from '../../../core/access/project-access.service';
 import { AuthenticatedUser } from '../../auth/types/authenticated-user.interface';
 import { HeuristicaDto } from './dto/heuristica.dto';
 
@@ -23,17 +24,13 @@ export interface HeuristicFinding {
 
 @Injectable()
 export class EvaluacionHeuristicaService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly projectAccess: ProjectAccessService,
+  ) {}
 
   async crearSesion(proyectoId: string, user: AuthenticatedUser) {
-    const project = await this.prisma.proyecto.findUnique({
-      where: { id: proyectoId },
-    });
-
-    if (!project) throw new NotFoundException('El proyecto no existe.');
-    if (project.creadoPorId !== user.id && user.rol !== 'ADMIN') {
-      throw new ForbiddenException('No tienes acceso a este proyecto.');
-    }
+    await this.projectAccess.assertAccess(proyectoId, user);
 
     return this.prisma.researchSession.create({
       data: {
@@ -107,13 +104,7 @@ export class EvaluacionHeuristicaService {
    * encuesta que produzca esos puntajes.
    */
   async obtenerAnalitica(proyectoId: string, user: AuthenticatedUser) {
-    const project = await this.prisma.proyecto.findUnique({
-      where: { id: proyectoId },
-    });
-    if (!project) throw new NotFoundException('El proyecto no existe.');
-    if (project.creadoPorId !== user.id && user.rol !== 'ADMIN') {
-      throw new ForbiddenException('No tienes acceso a este proyecto.');
-    }
+    await this.projectAccess.assertAccess(proyectoId, user);
 
     const sesiones = await this.prisma.researchSession.findMany({
       where: { proyectoId, tipo: TipoSesion.EVALUACION_HEURISTICA },

@@ -14,6 +14,7 @@ import {
   PersonaSchema,
 } from '@observatorio-ux/shared-types';
 import { PrismaService } from '../../core/database/prisma.service';
+import { ProjectAccessService } from '../../core/access/project-access.service';
 import { AuthenticatedUser } from '../auth/types/authenticated-user.interface';
 import {
   AcquireLockDto,
@@ -28,14 +29,17 @@ const MAX_LOCK_TTL_MS = 30 * 60 * 1000; // 30 minutos
 
 @Injectable()
 export class ArtifactsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly projectAccess: ProjectAccessService,
+  ) {}
 
   async create(
     proyectoId: string,
     dto: CreateArtifactDto,
     user: AuthenticatedUser,
   ) {
-    await this.assertProjectAccess(proyectoId, user);
+    await this.projectAccess.assertAccess(proyectoId, user);
     this.validateContenidoByTipo(dto.tipo, dto.contenido);
 
     return this.prisma.uxArtifact.create({
@@ -55,7 +59,7 @@ export class ArtifactsService {
     tipo: TipoArtefacto | undefined,
     user: AuthenticatedUser,
   ) {
-    await this.assertProjectAccess(proyectoId, user);
+    await this.projectAccess.assertAccess(proyectoId, user);
 
     return this.prisma.uxArtifact.findMany({
       // deletedAt: null excluye por defecto los artefactos eliminados
@@ -72,7 +76,7 @@ export class ArtifactsService {
     });
 
     if (!artifact) throw new NotFoundException('El artefacto no existe.');
-    await this.assertProjectAccess(artifact.proyectoId, user);
+    await this.projectAccess.assertAccess(artifact.proyectoId, user);
     return artifact;
   }
 
@@ -243,25 +247,6 @@ export class ArtifactsService {
     if (!ttlSegundos) return DEFAULT_LOCK_TTL_MS;
     const requestedMs = ttlSegundos * 1000;
     return Math.min(Math.max(requestedMs, 1000), MAX_LOCK_TTL_MS);
-  }
-
-  private async assertProjectAccess(proyectoId: string, user: AuthenticatedUser) {
-    const project = await this.prisma.proyecto.findUnique({
-      where: { id: proyectoId },
-      select: { creadoPorId: true },
-    });
-
-    if (!project) throw new NotFoundException('El proyecto no existe.');
-    if (project.creadoPorId === user.id || user.rol === 'ADMIN') return;
-
-    const esMiembro = await this.prisma.proyectoMiembro.findUnique({
-      where: { proyectoId_usuarioId: { proyectoId, usuarioId: user.id } },
-      select: { id: true },
-    });
-
-    if (!esMiembro) {
-      throw new ForbiddenException('No tienes acceso a este proyecto.');
-    }
   }
 
   /**

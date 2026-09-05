@@ -3,6 +3,112 @@
 Todo acá parte de TUS archivos reales que subiste, con ediciones mínimas
 y quirúrgicas. No hay archivos inventados desde cero salvo los indicados.
 
+## Ronda 6 (Fase 2 — acceso a proyectos consolidado + gestión de miembros)
+
+Foco: cerrar el hueco que dejó F5 (Ronda 5) a propósito — `ProyectoMiembro`
+existía en el modelo de datos pero (a) no había forma de gestionarlo salvo
+por seed/base de datos directa, y (b) solo `ArtifactsService` lo reconocía;
+`ProjectsService`, `CardSortingService` y `EvaluacionHeuristicaService`
+seguían chequeando acceso solo por `creadoPorId`/ADMIN.
+
+1. **`ProjectAccessService` compartido.** Nuevo
+   (`core/access/project-access.service.ts`), registrado en un módulo
+   `@Global` (`core/access/project-access.module.ts`) para no tener que
+   importarlo a mano en cada módulo feature. Dos métodos:
+   - `assertAccess(proyectoId, user, mensaje?)`: dueño, ADMIN, o miembro
+     (`ProyectoMiembro`). Uso normal (leer/crear/editar dentro del
+     proyecto).
+   - `assertOwnerOrAdmin(proyectoId, user, mensaje?)`: dueño o ADMIN
+     únicamente — un miembro no alcanza. Para operaciones administrativas
+     del proyecto (gestionar la membresía). Devuelve `{ creadoPorId }`
+     para evitar un segundo `findUnique` en el caller.
+
+   Reemplaza el chequeo inline duplicado en 4 lugares: el
+   `assertProjectAccess` privado de `ArtifactsService` (ya reconocía
+   miembros desde F5, pero estaba encerrado ahí), y los chequeos de solo
+   `creadoPorId`/ADMIN en `ProjectsService.findOne`,
+   `CardSortingService.createSession`, y
+   `EvaluacionHeuristicaService.crearSesion`/`obtenerAnalitica`. Estos
+   tres últimos ahora también reconocen `ProyectoMiembro` — antes no lo
+   hacían, aunque el modelo ya existiera desde Ronda 5.
+
+2. **Endpoints de miembros.** Nuevo en `projects.controller.ts` /
+   `projects.service.ts`:
+   - `GET /projects/:id/miembros` — lista miembros con datos básicos del
+     usuario (`id`, `nombre`, `email`, `rol`). Acceso: cualquiera con
+     `assertAccess` (dueño, ADMIN, o miembro — no hace falta ser dueño
+     para ver la lista).
+   - `POST /projects/:id/miembros` (`{ email }`) — agrega un miembro
+     existente por email. Acceso: `assertOwnerOrAdmin` (un miembro no
+     puede agregar a otro). Si el email no corresponde a ningún
+     `Usuario`, `404`. Implementado con `upsert` sobre
+     `@@unique([proyectoId, usuarioId])`: agregar dos veces al mismo
+     usuario no falla, es idempotente.
+   - `DELETE /projects/:id/miembros/:usuarioId` — quita un miembro.
+     Acceso: `assertOwnerOrAdmin`. Bloqueado explícitamente si
+     `usuarioId` es el creador del proyecto (`400`, "No puedes quitar al
+     creador del proyecto") — el creador no es una fila de
+     `ProyectoMiembro` gestionable, es el dueño real.
+
+   **Sin invitación por correo ni creación de cuentas nuevas**: agregar
+   por email requiere que el `Usuario` ya exista y tenga cuenta creada.
+   Fuera de alcance a propósito (no pedido).
+
+3. **Bug preexistente encontrado y corregido en los tests** (ver
+   `docs/AUDIT_LOG.md` G1): `artifacts.service.spec.ts` nunca tuvo
+   `proyectoMiembro` en su mock de `prisma`, pese a que
+   `assertProjectAccess` ya lo consultaba desde F5 (Ronda 5). Los 3 tests
+   que ejercitaban el camino "usuario sin acceso" (`create`,
+   `softDelete`, `acquireLock` con `otherUser`) tiraban `TypeError` en
+   vez de validar `ForbiddenException` — el `.rejects.toThrow(...)`
+   probablemente los dejaba pasar en verde igual por cómo Jest resuelve
+   esa aserción contra un rechazo no instanciado del tipo esperado, pero
+   no estaban probando lo que decían probar. Corregido agregando
+   `proyectoMiembro: { findUnique: jest.fn() }` al mock.
+
+**Specs actualizados** (necesario: los 4 servicios tocados ahora
+requieren `ProjectAccessService` en el constructor, así que los
+`Test.createTestingModule` que los instancian directo se rompían sin
+proveerlo):
+   - `projects.service.spec.ts` y `artifacts.service.spec.ts`: usan el
+     `ProjectAccessService` **real** (no mockeado) sobre el mismo mock de
+     `prisma`, porque ambos specs sí ejercitan el comportamiento de
+     ownership/forbidden en detalle.
+   - `card-sorting.service.spec.ts` y
+     `evaluacion-heuristica.service.spec.ts`: usan un mock simple
+     (`{ assertAccess: jest.fn() }`) porque ninguno de los dos testea los
+     métodos que llaman a `assertAccess` (`createSession`, `crearSesion`,
+     `obtenerAnalitica`).
+
+**Verificado:** `npx tsc --noEmit` sin errores propios (nota: hay un
+`dist/tsconfig.tsbuildinfo` cacheado del build original en el zip
+entregado por el usuario, así que este resultado no es 100% confiable
+como confirmación de tipos — puede estar salteando re-chequeos por la
+caché incremental). `npx jest`: 2 suites pasan completas
+(`projects.service.spec.ts` 12/12, `env.validation.smoke.spec.ts`);
+4 suites (`artifacts`, `card-sorting`, `evaluacion-heuristica`, `auth`)
+no llegan a correr — fallan en la fase de tipos porque el
+`@prisma/client` instalado en este entorno de trabajo es un placeholder
+sin los enums reales del schema (`TipoArtefacto`, `ActorSesion`,
+`EstadoSesion`, `TipoSesion`): `prisma generate` no pudo completar
+porque `binaries.prisma.sh` no tiene salida a internet en este sandbox
+(`403 Forbidden` al bajar `schema-engine`/`query-engine`, probado con
+`PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1`, `--no-engine`, y engine type
+`wasm`, sin éxito). **Es una limitación del entorno de trabajo, no de
+este código** — los imports que fallan (`import { TipoArtefacto } from
+'@prisma/client'`, etc.) son líneas preexistentes que este cambio no
+tocó. Falta correr `pnpm prisma generate` + `pnpm test` en un entorno
+con red real (o Docker, como en sprints anteriores) para confirmar esas
+4 suites.
+
+**Pendiente real, no cerrado en esta ronda (Fase 2):**
+- Frontend: pantalla "Miembros del proyecto" (agregar por email) en
+  `ProjectDetailLayout.tsx` — el backend ya está completo y listo para
+  consumir, falta la UI y el cliente API correspondiente.
+- No se agregaron tests nuevos para `listMembers`/`addMember`/
+  `removeMember` — fuera del alcance acordado para esta ronda (se pidió
+  cerrar el backend de Fase 2, tests de frontend quedaron para Fase 3).
+
 ## Ronda 2 (decisiones confirmadas por el dueño)
 
 1. **Granularidad por campo restaurada.** `main.ts` ahora tiene un

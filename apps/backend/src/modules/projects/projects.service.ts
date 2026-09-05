@@ -1,11 +1,13 @@
 import {
-  ForbiddenException,
+  BadRequestException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service';
+import { ProjectAccessService } from '../../core/access/project-access.service';
 import { AuthenticatedUser } from '../auth/types/authenticated-user.interface';
 import {
+  AddMemberDto,
   AddToWhitelistDto,
   CreateProjectDto,
   UpdateProjectDto,
@@ -13,7 +15,10 @@ import {
 
 @Injectable()
 export class ProjectsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly projectAccess: ProjectAccessService,
+  ) {}
 
   create(user: AuthenticatedUser, dto: CreateProjectDto) {
     return this.prisma.proyecto.create({
@@ -34,16 +39,14 @@ export class ProjectsService {
   }
 
   async findOne(id: string, user: AuthenticatedUser) {
+    await this.projectAccess.assertAccess(id, user);
+
     const project = await this.prisma.proyecto.findUnique({
       where: { id },
       include: { _count: { select: { sesiones: true, artefactos: true } } },
     });
 
     if (!project) throw new NotFoundException('El proyecto no existe.');
-
-    if (project.creadoPorId !== user.id && user.rol !== 'ADMIN') {
-      throw new ForbiddenException('No tienes acceso a este proyecto.');
-    }
 
     return project;
   }
@@ -96,5 +99,65 @@ export class ProjectsService {
         createdAt: true,
       },
     });
+  }
+
+  async listMembers(id: string, user: AuthenticatedUser) {
+    await this.projectAccess.assertAccess(id, user);
+
+    return this.prisma.proyectoMiembro.findMany({
+      where: { proyectoId: id },
+      orderBy: { createdAt: 'asc' },
+      include: {
+        usuario: { select: { id: true, nombre: true, email: true, rol: true } },
+      },
+    });
+  }
+
+  async addMember(id: string, dto: AddMemberDto, user: AuthenticatedUser) {
+    await this.projectAccess.assertOwnerOrAdmin(
+      id,
+      user,
+      'Solo el creador del proyecto o un administrador pueden agregar miembros.',
+    );
+
+    const email = dto.email.trim().toLowerCase();
+    const usuario = await this.prisma.usuario.findUnique({ where: { email } });
+
+    if (!usuario) {
+      throw new NotFoundException('No existe un usuario registrado con ese email.');
+    }
+
+    return this.prisma.proyectoMiembro.upsert({
+      where: { proyectoId_usuarioId: { proyectoId: id, usuarioId: usuario.id } },
+      create: { proyectoId: id, usuarioId: usuario.id },
+      update: {},
+      include: {
+        usuario: { select: { id: true, nombre: true, email: true, rol: true } },
+      },
+    });
+  }
+
+  async removeMember(id: string, usuarioId: string, user: AuthenticatedUser) {
+    const project = await this.projectAccess.assertOwnerOrAdmin(
+      id,
+      user,
+      'Solo el creador del proyecto o un administrador pueden quitar miembros.',
+    );
+
+    if (project.creadoPorId === usuarioId) {
+      throw new BadRequestException('No puedes quitar al creador del proyecto.');
+    }
+
+    const membresia = await this.prisma.proyectoMiembro.findUnique({
+      where: { proyectoId_usuarioId: { proyectoId: id, usuarioId } },
+    });
+
+    if (!membresia) {
+      throw new NotFoundException('Ese usuario no es miembro de este proyecto.');
+    }
+
+    await this.prisma.proyectoMiembro.delete({ where: { id: membresia.id } });
+
+    return { eliminado: true };
   }
 }

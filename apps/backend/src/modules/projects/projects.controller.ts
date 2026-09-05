@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -15,6 +16,7 @@ import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 import { RolesGuard } from '../../core/guards/roles.guard';
 import { AuthenticatedUser } from '../auth/types/authenticated-user.interface';
 import {
+  AddMemberDto,
   AddToWhitelistDto,
   CreateProjectDto,
   UpdateProjectDto,
@@ -71,5 +73,31 @@ export class ProjectsController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.projects.listWhitelist(id, user);
+  }
+
+  @Get(':id/miembros')
+  listMembers(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.projects.listMembers(id, user);
+  }
+
+  @Post(':id/miembros')
+  addMember(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AddMemberDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.projects.addMember(id, dto, user);
+  }
+
+  @Delete(':id/miembros/:usuarioId')
+  removeMember(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('usuarioId', ParseUUIDPipe) usuarioId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.projects.removeMember(id, usuarioId, user);
   }
 }
