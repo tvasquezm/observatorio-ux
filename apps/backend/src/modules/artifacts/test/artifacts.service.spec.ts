@@ -35,6 +35,7 @@ describe('ArtifactsService', () => {
       create: jest.Mock;
       findMany: jest.Mock;
       findUnique: jest.Mock;
+      findUniqueOrThrow: jest.Mock;
       findFirst: jest.Mock;
       update: jest.Mock;
       updateMany: jest.Mock;
@@ -53,6 +54,7 @@ describe('ArtifactsService', () => {
         create: jest.fn(),
         findMany: jest.fn(),
         findUnique: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
         findFirst: jest.fn(),
         update: jest.fn(),
         updateMany: jest.fn(),
@@ -430,20 +432,21 @@ describe('ArtifactsService', () => {
       prisma.uxArtifact.findUnique.mockResolvedValue(baseArtifact);
       prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
       prisma.uxArtifact.findFirst.mockResolvedValue(null);
-      prisma.uxArtifact.update.mockResolvedValue({
+      prisma.uxArtifact.updateMany.mockResolvedValue({ count: 1 });
+      prisma.uxArtifact.findUniqueOrThrow.mockResolvedValue({
         ...baseArtifact,
         lockedById: ownerUser.id,
       });
 
       const result = await service.acquireLock('art-1', ownerUser);
 
-      expect(prisma.uxArtifact.update).toHaveBeenCalledWith(
+      expect(prisma.uxArtifact.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'art-1' },
+          where: expect.objectContaining({ id: 'art-1' }),
           data: expect.objectContaining({ lockedById: ownerUser.id }),
         }),
       );
-      const callArg = prisma.uxArtifact.update.mock.calls[0][0];
+      const callArg = prisma.uxArtifact.updateMany.mock.calls[0][0];
       expect(callArg.data.lockedUntil).toBeInstanceOf(Date);
       expect(callArg.data.lockedUntil.getTime()).toBeGreaterThan(Date.now());
       expect(result.lockedById).toBe(ownerUser.id);
@@ -461,7 +464,7 @@ describe('ArtifactsService', () => {
       await expect(service.acquireLock('art-1', ownerUser)).rejects.toThrow(
         ConflictException,
       );
-      expect(prisma.uxArtifact.update).not.toHaveBeenCalled();
+      expect(prisma.uxArtifact.updateMany).not.toHaveBeenCalled();
     });
 
     it('PERMITE adquirir el lock si el de otro usuario ya expiró', async () => {
@@ -472,7 +475,8 @@ describe('ArtifactsService', () => {
         lockedById: otherUser.id,
         lockedUntil: new Date(Date.now() - 60_000),
       });
-      prisma.uxArtifact.update.mockResolvedValue({
+      prisma.uxArtifact.updateMany.mockResolvedValue({ count: 1 });
+      prisma.uxArtifact.findUniqueOrThrow.mockResolvedValue({
         ...baseArtifact,
         lockedById: ownerUser.id,
       });
@@ -489,24 +493,26 @@ describe('ArtifactsService', () => {
         lockedById: ownerUser.id,
         lockedUntil: new Date(Date.now() + 5_000),
       });
-      prisma.uxArtifact.update.mockResolvedValue({
+      prisma.uxArtifact.updateMany.mockResolvedValue({ count: 1 });
+      prisma.uxArtifact.findUniqueOrThrow.mockResolvedValue({
         ...baseArtifact,
         lockedById: ownerUser.id,
       });
 
       await service.acquireLock('art-1', ownerUser);
-      expect(prisma.uxArtifact.update).toHaveBeenCalled();
+      expect(prisma.uxArtifact.updateMany).toHaveBeenCalled();
     });
 
     it('respeta un ttlSegundos custom dentro del tope máximo', async () => {
       prisma.uxArtifact.findUnique.mockResolvedValue(baseArtifact);
       prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
       prisma.uxArtifact.findFirst.mockResolvedValue(null);
-      prisma.uxArtifact.update.mockResolvedValue(baseArtifact);
+      prisma.uxArtifact.updateMany.mockResolvedValue({ count: 1 });
+      prisma.uxArtifact.findUniqueOrThrow.mockResolvedValue(baseArtifact);
 
       await service.acquireLock('art-1', ownerUser, 10);
 
-      const callArg = prisma.uxArtifact.update.mock.calls[0][0];
+      const callArg = prisma.uxArtifact.updateMany.mock.calls[0][0];
       const deltaMs = callArg.data.lockedUntil.getTime() - Date.now();
       expect(deltaMs).toBeGreaterThan(5_000);
       expect(deltaMs).toBeLessThanOrEqual(10_000);

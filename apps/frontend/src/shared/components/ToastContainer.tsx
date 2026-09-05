@@ -13,10 +13,10 @@ interface ToastItem extends ToastEventDetail {
 
 const DURACION_MS = 5000;
 
-const ACCENTOS: Record<ToastType, string> = {
-  error: '#B3431E',
-  success: '#2F6846',
-  info: '#3A5A78',
+const ACCENT_CLASS: Record<ToastType, string> = {
+  error: 'toast-item--error',
+  success: 'toast-item--success',
+  info: 'toast-item--info',
 };
 
 let contador = 0;
@@ -50,66 +50,19 @@ export function ToastContainer() {
   if (items.length === 0) return null;
 
   return (
-    <div
-      aria-live="polite"
-      style={{
-        position: 'fixed',
-        bottom: 20,
-        right: 20,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 8,
-        zIndex: 1000,
-        maxWidth: 340,
-      }}
-    >
+    <div aria-live="polite" className="toast-stack">
       {items.map((item) => (
         <div
           key={item.id}
           role={item.type === 'error' ? 'alert' : 'status'}
-          style={{
-            background: '#1C1C1C',
-            color: '#F2F0EC',
-            borderLeft: `3px solid ${ACCENTOS[item.type]}`,
-            borderRadius: 4,
-            padding: '10px 14px',
-            fontSize: 14,
-            lineHeight: 1.4,
-            fontFamily: 'system-ui, -apple-system, sans-serif',
-            boxShadow: '0 2px 10px rgba(0,0,0,0.25)',
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 10,
-            animation: 'toast-in 160ms ease-out',
-          }}
+          className={`toast-item ${ACCENT_CLASS[item.type]}`}
         >
-          <span style={{ flex: 1 }}>{item.message}</span>
-          <button
-            onClick={() => quitar(item.id)}
-            aria-label="Cerrar aviso"
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: '#A6A29B',
-              cursor: 'pointer',
-              fontSize: 14,
-              lineHeight: 1,
-              padding: 2,
-            }}
-          >
+          <span className="toast-message">{item.message}</span>
+          <button onClick={() => quitar(item.id)} aria-label="Cerrar aviso" className="toast-close">
             ×
           </button>
         </div>
       ))}
-      <style>{`
-        @keyframes toast-in {
-          from { opacity: 0; transform: translateY(6px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          div[role="alert"], div[role="status"] { animation: none !important; }
-        }
-      `}</style>
     </div>
   );
 }

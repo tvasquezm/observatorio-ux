@@ -76,26 +76,26 @@ export function EvaluacionHeuristicaPage() {
         </div>
       </div>
 
-      <div className="panel" style={{ marginBottom: 16 }}>
-        <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 8, maxWidth: 520 }}>
+      <div className="panel mb-16">
+        <form onSubmit={handleSubmit} className="form-grid" style={{ maxWidth: 520 }}>
           <input
             placeholder="Código de heurística (ej. H4) *"
             value={hallazgo.heuristicaId}
             onChange={(e) => setHallazgo({ ...hallazgo, heuristicaId: e.target.value })}
             required
-            style={{ padding: 8 }}
+            className="input-sm"
           />
           <textarea
             placeholder="Descripción del problema"
             value={hallazgo.descripcion}
             onChange={(e) => setHallazgo({ ...hallazgo, descripcion: e.target.value })}
-            style={{ padding: 8, minHeight: 60 }}
+            className="textarea-sm"
           />
           <div className="form-grid-2">
             <select
               value={hallazgo.severidad}
               onChange={(e) => setHallazgo({ ...hallazgo, severidad: Number(e.target.value) as HallazgoHeuristicaInput['severidad'] })}
-              style={{ padding: 8 }}
+              className="input-sm"
             >
               {Object.entries(SEVERIDAD_INFO).map(([valor, info]) => (
                 <option key={valor} value={valor}>{valor} — {info.label}</option>
@@ -105,16 +105,16 @@ export function EvaluacionHeuristicaPage() {
               placeholder="Evidencia (opcional)"
               value={hallazgo.evidencia ?? ''}
               onChange={(e) => setHallazgo({ ...hallazgo, evidencia: e.target.value })}
-              style={{ padding: 8 }}
+              className="input-sm"
             />
           </div>
           <input
             placeholder="Recomendación"
             value={hallazgo.recomendacion ?? ''}
             onChange={(e) => setHallazgo({ ...hallazgo, recomendacion: e.target.value })}
-            style={{ padding: 8 }}
+            className="input-sm"
           />
-          <button type="submit" className="primary" disabled={guardando} style={{ justifySelf: 'start' }}>
+          <button type="submit" className="primary btn-start" disabled={guardando}>
             {guardando ? 'Guardando…' : '+ Agregar hallazgo'}
           </button>
         </form>
@@ -130,7 +130,7 @@ export function EvaluacionHeuristicaPage() {
         </div>
 
         {sesion?.resultado.length === 0 && (
-          <p style={{ fontSize: 11, color: 'var(--muted)' }}>Todavía no hay hallazgos registrados en esta sesión.</p>
+          <p className="text-muted" style={{ fontSize: 11 }}>Todavía no hay hallazgos registrados en esta sesión.</p>
         )}
 
         {sesion?.resultado.map((h) => {
@@ -151,13 +151,13 @@ export function EvaluacionHeuristicaPage() {
         })}
       </div>
 
-      <div style={{ marginTop: 16 }}>
+      <div className="mt-16">
         {sesion?.estado !== 'COMPLETADO' && (
           <button onClick={() => finalizar(sesionId)} disabled={finalizando} className="primary">
             {finalizando ? 'Finalizando…' : 'Finalizar sesión'}
           </button>
         )}
-        {sesion?.estado === 'COMPLETADO' && <p style={{ color: '#2F6846' }}>✓ Sesión finalizada.</p>}
+        {sesion?.estado === 'COMPLETADO' && <p className="text-success">✓ Sesión finalizada.</p>}
       </div>
     </div>
   );

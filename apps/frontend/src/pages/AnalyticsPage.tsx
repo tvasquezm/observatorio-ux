@@ -40,7 +40,7 @@ export function AnalyticsPage() {
       </div>
 
       {isLoading && <p>Cargando…</p>}
-      {error && <p style={{ color: 'var(--coral)' }}>{(error as Error).message}</p>}
+      {error && <p className="error-text">{(error as Error).message}</p>}
 
       {data && (
         <>
@@ -95,7 +95,7 @@ export function AnalyticsPage() {
                 </div>
               ))}
             {data.hallazgosTotal === 0 && (
-              <p style={{ color: 'var(--muted)', fontSize: 12 }}>
+              <p className="text-muted-sm">
                 Todavía no hay hallazgos registrados en este proyecto.
               </p>
             )}

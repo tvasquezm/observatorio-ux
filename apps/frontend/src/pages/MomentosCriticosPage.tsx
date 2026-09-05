@@ -328,6 +328,7 @@ export function MomentosCriticosPage() {
                   return (
                     <div
                       key={`${frec}-${imp}`}
+                      data-testid={`celda-${imp}-${frec}`}
                       style={{
                         minHeight: 90,
                         padding: 6,

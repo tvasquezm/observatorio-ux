@@ -44,50 +44,20 @@ export function ConfirmDialog() {
   if (!pending) return null;
 
   return (
-    <div
-      role="presentation"
-      onClick={() => responder(false)}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.45)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1100,
-      }}
-    >
+    <div role="presentation" onClick={() => responder(false)} className="confirm-overlay">
       <div
         role="alertdialog"
         aria-modal="true"
         aria-label={pending.message}
         onClick={(e) => e.stopPropagation()}
-        style={{
-          background: '#1C1C1C',
-          color: '#F2F0EC',
-          borderRadius: 6,
-          padding: 20,
-          maxWidth: 360,
-          width: '90%',
-          fontFamily: 'system-ui, -apple-system, sans-serif',
-          boxShadow: '0 8px 30px rgba(0,0,0,0.35)',
-          animation: 'confirm-in 140ms ease-out',
-        }}
+        className="confirm-dialog"
       >
-        <p style={{ margin: '0 0 16px', fontSize: 14, lineHeight: 1.5 }}>{pending.message}</p>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <p className="confirm-message">{pending.message}</p>
+        <div className="confirm-actions">
           <button
             type="button"
             onClick={() => responder(false)}
-            style={{
-              background: 'transparent',
-              border: '1px solid #4A4A4A',
-              color: '#F2F0EC',
-              borderRadius: 4,
-              padding: '6px 14px',
-              fontSize: 13,
-              cursor: 'pointer',
-            }}
+            className="confirm-btn confirm-btn--cancel"
           >
             Cancelar
           </button>
@@ -95,30 +65,12 @@ export function ConfirmDialog() {
             type="button"
             onClick={() => responder(true)}
             autoFocus
-            style={{
-              background: '#B3431E',
-              border: 'none',
-              color: '#fff',
-              borderRadius: 4,
-              padding: '6px 14px',
-              fontSize: 13,
-              cursor: 'pointer',
-              fontWeight: 600,
-            }}
+            className="confirm-btn confirm-btn--confirm"
           >
             Confirmar
           </button>
         </div>
       </div>
-      <style>{`
-        @keyframes confirm-in {
-          from { opacity: 0; transform: scale(0.97); }
-          to { opacity: 1; transform: scale(1); }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          div[role="alertdialog"] { animation: none !important; }
-        }
-      `}</style>
     </div>
   );
 }

@@ -3,6 +3,132 @@
 Todo acá parte de TUS archivos reales que subiste, con ediciones mínimas
 y quirúrgicas. No hay archivos inventados desde cero salvo los indicados.
 
+## Ronda 8 (UI de miembros + Vitest + cierre de documentación)
+
+Foco: terminar el "pendiente real, no cerrado" que dejó explícito el Sprint
+6/Ronda 6 (frontend de miembros y tests), más la infraestructura de Vitest
+que no existía en el proyecto, más documentar la Fase 1 (nunca se había
+documentado — quedó pendiente entre Ronda 4 y Ronda 5).
+
+1. **UI "Miembros del proyecto".** El backend (`GET/POST/DELETE
+   /projects/:id/miembros`) ya estaba de la Ronda 6, sin tocar acá.
+   - `features/projects/api/projects.api.ts`: agregadas `listMembers`,
+     `addMember`, `removeMember` + tipo `MiembroProyecto`. De paso, se
+     agregó el mismo manejo de sesión expirada (401 → `useAuthStore`
+     `logout()` + `notify.error`) que ya tenía `artifacts.api.ts` desde la
+     Fase 1 y que a este archivo se le había quedado afuera — mismo
+     criterio, no una decisión nueva.
+   - `features/projects/hooks/useProjectsQueries.ts`: agregados
+     `useMembers`, `useAddMember`, `useRemoveMember` (mismo patrón
+     react-query que el resto del archivo).
+   - Nueva página `pages/ProjectMembersPage.tsx`: lista miembros
+     (nombre/email/rol), formulario de alta por email, botón "Quitar" con
+     `useConfirm()` (Fase 1). El formulario de alta y el botón "Quitar"
+     solo se muestran si el usuario logueado es el creador del proyecto o
+     ADMIN (`useAuthStore().user` vs `proyecto.creadoPorId`/`rol`) — evita
+     mostrar controles que el backend igual va a rechazar con `403`; el
+     creador nunca muestra botón "Quitar" (el backend ya lo rechaza con
+     `400`, acá simplemente no se ofrece).
+   - `layouts/ProjectDetailLayout.tsx`: tab nueva "Miembros" en `SUB_NAV`.
+   - `App.tsx`: ruta `miembros` dentro de `/proyectos/:proyectoId`.
+
+2. **Vitest — infraestructura nueva, no existía.**
+   - `apps/frontend/package.json`: devDependencies
+     `vitest`, `@testing-library/react`, `@testing-library/jest-dom`,
+     `@testing-library/user-event`, `jsdom`; script `"test": "vitest run"`.
+   - `apps/frontend/vitest.config.ts` (nuevo, separado de `vite.config.ts`
+     para no mezclar config de dev server con la de test): `environment:
+     'jsdom'`, `setupFiles: ['./src/test/setup.ts']`.
+   - `apps/frontend/src/test/setup.ts` (nuevo): importa
+     `@testing-library/jest-dom/vitest` para los matchers (`toBeDisabled`,
+     etc.).
+   - `apps/frontend/src/pages/__tests__/MomentosCriticosPage.test.tsx`
+     (nuevo), los 3 casos de mayor riesgo que ya estaban priorizados en
+     `AUDIT_LOG.md`:
+     - Lock `409` → el formulario pasa a solo lectura sin romperse (F1).
+     - No se puede quitar el último incidente (`MIN_INCIDENTES = 1`,
+       Fase 1).
+     - La matriz 3×3 agrupa cada incidente en la celda de impacto ×
+       frecuencia que le corresponde, y no se cruza con otras celdas.
+     Estrategia de mock: se mockea el módulo de **hooks**
+     (`useMomentosCriticosQueries`), no el de `api` — `addIncidente`/
+     `removeIncidente` son funciones puras y corren reales, sin necesidad
+     de mockear `fetch`. Se agregó un `data-testid="celda-{impacto}-{frecuencia}"`
+     a cada celda de la matriz únicamente para poder aserirlo desde el
+     test (no cambia comportamiento ni accesibilidad).
+   - **Verificado de verdad, no a mano:** se instaló el frontend en un
+     entorno aislado (`npm install` fuera del workspace pnpm, para evitar
+     que npm intente resolver el protocolo `workspace:` de otros paquetes
+     del monorepo) y se corrió `npx vitest run` → **3/3 tests pasan**.
+     También se corrió `npx tsc --noEmit` sobre todo el frontend → sin
+     errores. Ambos se corrieron sobre una copia de trabajo, no se dejó
+     `node_modules` ni lockfile de npm en el repo real — al integrar estos
+     archivos hace falta `pnpm install` normal desde la raíz del
+     monorepo.
+
+3. **Documentación:**
+   - `ARCHITECTURE.md`: nota corta agregada sobre "JWT en localStorage →
+     cookie httpOnly" — señalada como **pendiente sin analizar en
+     profundidad**, no como decisión tomada ni como trabajo hecho.
+   - Esta misma ronda cierra también el resumen de Fase 3 (estilos inline
+     → clases reutilizables): **sigue sin hacerse**, se documenta acá como
+     pendiente explícito, no se marca como completado.
+   - Se documentó retroactivamente la Fase 1 completa (ver Ronda 7 abajo),
+     que se había hecho en una sesión anterior pero nunca se había
+     registrado en `CAMBIOS.md`/`AUDIT_LOG.md`/`ARCHITECTURE.md`.
+
+**Pendiente real, no cerrado en esta ronda:**
+- Fase 3 completa: tests de backend/frontend adicionales fuera de los 3
+  ya hechos, refactor de estilos inline → `theme.css`, y el análisis (no
+  solo la nota) de JWT → cookie httpOnly.
+- Sin test de integración real contra el backend (todo lo de Vitest usa
+  mocks de los hooks, no `fetch` real ni Supertest) — es un test de
+  componente, no un E2E.
+
+## Ronda 7 (Fase 1 — sesión expirada, ConfirmDialog, múltiples incidentes)
+
+Documentado retroactivamente: esta ronda se hizo en la sesión anterior a
+la Ronda 8, pero no se había volcado a estos documentos todavía.
+
+1. **Sesión expirada (401) manejada.** `shared/api/artifacts.api.ts`:
+   `request()` ahora detecta `res.status === 401` → llama
+   `useAuthStore.getState().logout()` + `notify.error(...)`, y lanza
+   `ArtifactsApiError(401, ...)` para cortar el flujo normal de manejo de
+   errores. No hizo falta un evento global ni un listener nuevo en
+   `App.tsx` (a diferencia de lo que se había planeado originalmente):
+   `shared/routing/ProtectedRoute.tsx` ya estaba suscrito a
+   `isAuthenticated` vía `useAuthStore`, así que el `logout()` por sí solo
+   dispara el redirect a `/login` en el próximo render.
+
+2. **`window.confirm()` nativo reemplazado.** Mismo patrón de evento
+   global que ya usaba `shared/api/toast.ts`:
+   - `shared/api/confirm.ts` (nuevo): `askConfirm(message): Promise<boolean>`
+     dispara `CustomEvent('app:confirm', ...)` con un id incremental y
+     resuelve cuando llega el `CustomEvent('app:confirm-response', ...)`
+     con el mismo id. `useConfirm()` es un wrapper fino que devuelve esa
+     función (firma de hook pedida, sin estado propio).
+   - `shared/components/ui/ConfirmDialog.tsx` (nuevo): escucha
+     `app:confirm`, dibuja el modal (mismo estilo inline que
+     `ToastContainer.tsx`), responde con `app:confirm-response` al hacer
+     click en Confirmar/Cancelar o al apretar Escape.
+   - Montado una vez en `main.tsx`, junto a `<ToastContainer />`.
+   - Reemplazados los 3 `window.confirm(...)` (`PersonasPage.tsx`,
+     `JourneyMapPage.tsx`, `MomentosCriticosPage.tsx`) por
+     `await confirm(...)`.
+
+3. **Momentos Críticos: múltiples incidentes por artefacto.**
+   `MomentosCriticosPage.tsx` editaba solo `form.incidentes[0]` pese a que
+   la matriz 3×3 y el schema (`MomentosCriticosSchema`, mínimo 1) siempre
+   soportaron un array completo, y los helpers `addIncidente`/
+   `removeIncidente` (en `momentos-criticos.api.ts`) existían sin uso.
+   Refactor para editar `form.incidentes[]` completo, mismo patrón que
+   `fases[]` en Journey Map: botón "+ Agregar incidente", botón "Quitar
+   incidente" por bloque (deshabilitado si solo queda 1 —
+   `MIN_INCIDENTES`), un input de "acciones sugeridas" por incidente (antes
+   era un único string de estado para el incidente 0). La matriz 3×3 no se
+   tocó — ya soportaba múltiples incidentes por artefacto, el problema
+   estaba solo en que el formulario nunca dejaba crear más de uno.
+
 ## Ronda 6 (Fase 2 — acceso a proyectos consolidado + gestión de miembros)
 
 Foco: cerrar el hueco que dejó F5 (Ronda 5) a propósito — `ProyectoMiembro`

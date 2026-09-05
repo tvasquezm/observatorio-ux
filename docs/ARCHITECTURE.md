@@ -293,3 +293,48 @@ Al mover el chequeo de `ArtifactsService` al servicio compartido, se revisó su 
 - Frontend: pantalla "Miembros del proyecto" (agregar por email) — el backend está listo para consumir, falta la UI en `ProjectDetailLayout.tsx` y el cliente API correspondiente.
 - Sin tests nuevos para `listMembers`/`addMember`/`removeMember` — se acordó backend primero, tests de frontend en fase aparte.
 
+---
+
+## Sprint 7 — Fase 1: sesión expirada, ConfirmDialog, múltiples incidentes
+
+*(Documentado retroactivamente en el Sprint 8 — este trabajo se hizo en una sesión anterior que no se volcó a la documentación en su momento.)*
+
+Foco: los 3 ítems de "UX y robustez de sesión" del plan original de Fase 1, sin tocar el modelo de datos ni el backend.
+
+**Sesión expirada (401):** se evaluó primero la opción del plan original — un `CustomEvent` global más un listener nuevo en `App.tsx` para forzar el redirect a `/login` — y se descartó por innecesaria: `ProtectedRoute.tsx` ya estaba suscrito a `isAuthenticated` vía `useAuthStore` (hook de Zustand), así que alcanza con que `request()` en `artifacts.api.ts` llame `useAuthStore.getState().logout()` en cualquier `401` — el cambio de estado por sí solo dispara un re-render de `ProtectedRoute`, que redirige. Un ejemplo de que vale la pena releer el código real antes de construir la infraestructura que el plan original asumía necesaria.
+
+**`window.confirm()` → `ConfirmDialog`:** en vez de threadear estado de "¿hay un confirm pendiente?" a través de cada página, se replicó el mismo patrón arquitectónico que ya existía para los toasts (`shared/api/toast.ts` + `ToastContainer.tsx`): un módulo con una función imperativa (`askConfirm`) que dispara un `CustomEvent`, y un único componente (`ConfirmDialog`) montado en la raíz de la app que escucha, dibuja el modal, y responde con otro evento. Esto mantiene a las páginas simples (`if (await confirm('...')) { ... }`) sin necesitar Context ni prop drilling.
+
+**Momentos Críticos, múltiples incidentes:** ver `docs/AUDIT_LOG.md` (H1). El hallazgo interesante acá no es el bug en sí, sino el patrón: es la segunda vez (después de F1 en Sprint 4) que se encuentra funcionalidad ya construida en la capa de datos/lógica (ahí, los hooks de lock; acá, `addIncidente`/`removeIncidente`) que nunca llegó a conectarse a la UI. Vale la pena, en auditorías futuras, buscar específicamente funciones exportadas sin ningún caller en el frontend.
+
+---
+
+## Sprint 8 — UI de miembros, Vitest, y cierre de documentación
+
+Foco: los "pendiente real" que el Sprint 6 dejó explícitos (UI de miembros, tests de frontend), más instalar Vitest desde cero (no existía), más ponerse al día con la documentación de la Fase 1 (Sprint 7, arriba).
+
+### UI "Miembros del proyecto"
+
+Sin sorpresas de diseño: el backend (Sprint 6) ya definía la forma exacta de los 3 endpoints, así que el trabajo fue directo — cliente API + hooks react-query (mismo patrón que el resto de `useProjectsQueries.ts`) + una página nueva. La única decisión real fue **dónde** ocultar los controles de administración: se comparan `useAuthStore().user.id`/`.rol` contra `proyecto.creadoPorId` en el cliente, para no mostrar un formulario de "agregar miembro" o un botón "Quitar" que el backend igual va a rechazar con `403`. Esto es UX, no seguridad — el enforcement real sigue siendo `assertOwnerOrAdmin` en el backend; si alguien arma el request a mano igual se lo rechaza.
+
+Se encontró de paso que `projects.api.ts` tenía su propio `request()` (no comparte código con `artifacts.api.ts`) y nunca había recibido el fix de sesión expirada (401) del Sprint 7 — se aplicó el mismo criterio ahí también, por consistencia, no porque se haya encontrado un bug reportado.
+
+### Vitest, instalado por primera vez
+
+El frontend no tenía ninguna infraestructura de testing. Se evaluó no meter Jest (que sí usa el backend) para no arrastrar su config de `ts-jest`/transformadores a un proyecto Vite — Vitest comparte config con Vite de forma nativa (mismo resolutor de módulos, mismo `import.meta.env`), así que fue la opción con menos fricción de configuración.
+
+**Decisión de mockeo:** para los tests de `MomentosCriticosPage`, se mockeó el módulo de **hooks** (`useMomentosCriticosQueries.ts`) en vez del módulo de **api** (`momentos-criticos.api.ts`). Esto deja `addIncidente`/`removeIncidente` (funciones puras) corriendo con su implementación real —tal como las usa el componente— sin necesitar mockear `fetch` para las funciones que sí pegan a la red. Mockear un nivel más arriba (los hooks) es más quirúrgico que mockear `fetch` global, y evita que el test dependa de la forma exacta del JSON que devuelve el backend.
+
+Se agregó un único `data-testid` a la matriz 3×3 (`celda-{impacto}-{frecuencia}`) exclusivamente para poder verificar agrupación desde el test — no cambia el comportamiento visual ni de accesibilidad, es un hook de testing puro.
+
+**Verificado, no solo revisado a mano:** a diferencia de sesiones anteriores donde no fue posible instalar dependencias (ver limitación del Sprint 6), acá sí se pudo — se copió `apps/frontend` fuera del monorepo (para que `npm install` no intentara resolver el protocolo `workspace:` de paquetes hermanos) y se corrió tanto `npx vitest run` (3/3 tests pasan) como `npx tsc --noEmit` (sin errores) sobre el resultado real, no sobre una lectura manual del código. La instalación fue en una copia de trabajo — el repo real necesita su propio `pnpm install` para bajar estas devDependencies nuevas.
+
+### Documentación
+
+Nota agregada (no una decisión tomada): JWT en `localStorage` → cookie `httpOnly` sigue **sin analizarse en profundidad** — se dejó anotado como hueco explícito para cuando se lo aborde, no como algo evaluado y pospuesto con fundamento. El refactor de estilos inline → `theme.css` (Fase 3) tampoco se hizo en este sprint — se documenta como pendiente, no como completado.
+
+**Pendiente real, no cerrado en este sprint:**
+- Fase 3 completa (estilos, JWT→cookie httpOnly analizado de verdad, más tests de backend/frontend además de los 3 agregados acá).
+- Test de integración real (Supertest o similar) para `listMembers`/`addMember`/`removeMember` — lo que hay hoy en frontend son tests de componente con los hooks mockeados, no un E2E contra el backend real.
+
+

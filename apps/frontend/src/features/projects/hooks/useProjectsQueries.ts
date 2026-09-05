@@ -6,13 +6,18 @@ import {
   getProject,
   listProjects,
   updateProject,
+  listMembers,
+  addMember,
+  removeMember,
   ProjectsApiError,
+  type MiembroProyecto,
 } from '../api/projects.api';
 import { notify } from '../../../shared/api/toast';
 
 export const projectsKeys = {
   all: ['projects'] as const,
   detail: (id: string) => ['projects', id] as const,
+  members: (id: string) => ['projects', id, 'miembros'] as const,
 };
 
 export function useProjects() {
@@ -50,6 +55,42 @@ export function useUpdateProject() {
     onSuccess: (p) => {
       qc.setQueryData(projectsKeys.detail(p.id), p);
       qc.invalidateQueries({ queryKey: projectsKeys.all });
+    },
+  });
+}
+
+export function useMembers(proyectoId: string | null) {
+  return useQuery<MiembroProyecto[]>({
+    queryKey: projectsKeys.members(proyectoId ?? ''),
+    queryFn: () => listMembers(proyectoId as string),
+    enabled: !!proyectoId,
+  });
+}
+
+export function useAddMember(proyectoId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (email: string) => addMember(proyectoId, email),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: projectsKeys.members(proyectoId) });
+      notify.success('Miembro agregado.');
+    },
+    onError: (err) => {
+      notify.error(err instanceof ProjectsApiError ? err.message : 'No se pudo agregar al miembro.');
+    },
+  });
+}
+
+export function useRemoveMember(proyectoId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (usuarioId: string) => removeMember(proyectoId, usuarioId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: projectsKeys.members(proyectoId) });
+      notify.success('Miembro quitado.');
+    },
+    onError: (err) => {
+      notify.error(err instanceof ProjectsApiError ? err.message : 'No se pudo quitar al miembro.');
     },
   });
 }

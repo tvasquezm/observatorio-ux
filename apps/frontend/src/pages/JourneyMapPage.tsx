@@ -142,15 +142,15 @@ export function JourneyMapPage() {
       </div>
 
       {mostrarForm && (
-        <div className="panel" style={{ marginBottom: 16 }}>
-          <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 8 }}>
+        <div className="panel mb-16">
+          <form onSubmit={handleSubmit} className="form-grid">
             <h2>{editandoId ? 'Editar Journey Map' : 'Nuevo Journey Map'}</h2>
             {readOnly && (
-              <p style={{ color: 'var(--coral)' }}>
+              <p className="error-text">
                 Este journey map está bloqueado por otro usuario. No puedes editarlo en este momento.
               </p>
             )}
-            <fieldset disabled={readOnly} style={{ border: 0, padding: 0, margin: 0, display: 'contents' }}>
+            <fieldset disabled={readOnly} className="readonly-fieldset">
 
             <div className="form-grid-2">
               <input
@@ -159,34 +159,29 @@ export function JourneyMapPage() {
                 value={form.perfilUsuario.nombre}
                 onChange={(e) => setForm({ ...form, perfilUsuario: { ...form.perfilUsuario, nombre: e.target.value } })}
                 required
-                style={{ padding: 8 }}
+                className="input-sm"
               />
               <input
                 placeholder="Rol"
                 aria-label="Rol"
                 value={form.perfilUsuario.rol}
                 onChange={(e) => setForm({ ...form, perfilUsuario: { ...form.perfilUsuario, rol: e.target.value } })}
-                style={{ padding: 8 }}
+                className="input-sm"
               />
             </div>
 
-            <small style={{ color: 'var(--muted)' }}>Etapas (mínimo {MIN_FASES}):</small>
+            <small className="text-muted">Etapas (mínimo {MIN_FASES}):</small>
             {form.fases.map((fase, i) => (
-              <div key={i} style={{ border: '1px solid var(--line)', borderRadius: 6, padding: 8, display: 'grid', gap: 6 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <small style={{ color: 'var(--muted)' }}>Etapa {i + 1}</small>
+              <div key={i} className="mini-card">
+                <div className="row-between">
+                  <small className="text-muted">Etapa {i + 1}</small>
                   <button
                     type="button"
                     onClick={() => handleQuitarFase(i)}
                     disabled={form.fases.length <= MIN_FASES}
                     title={form.fases.length <= MIN_FASES ? `El journey map debe conservar al menos ${MIN_FASES} etapas` : 'Quitar etapa'}
-                    style={{
-                      cursor: form.fases.length <= MIN_FASES ? 'not-allowed' : 'pointer',
-                      color: form.fases.length <= MIN_FASES ? 'var(--muted)' : 'var(--coral)',
-                      background: 'none',
-                      border: 0,
-                      fontSize: 11,
-                    }}
+                    className={`link-btn ${form.fases.length <= MIN_FASES ? 'text-muted' : 'link-btn--delete'}`}
+                    style={form.fases.length <= MIN_FASES ? { cursor: 'not-allowed' } : undefined}
                   >
                     Quitar etapa
                   </button>
@@ -196,7 +191,7 @@ export function JourneyMapPage() {
                   aria-label={`Nombre de la etapa ${i + 1}`}
                   value={fase.nombre}
                   onChange={(e) => actualizarFase(i, 'nombre', e.target.value)}
-                  style={{ padding: 6 }}
+                  className="input-xs"
                 />
                 <div className="emotion-picker">
                   <span>Estado emocional</span>
@@ -210,42 +205,41 @@ export function JourneyMapPage() {
                       {valor === 'Negativa' ? '−' : valor === 'Neutral' ? '•' : '+'}
                     </button>
                   ))}
-                  <small style={{ color: 'var(--muted)' }}>{fase.emocion}</small>
+                  <small className="text-muted">{fase.emocion}</small>
                 </div>
                 <input
                   placeholder="Touchpoints (separados por coma)"
                   aria-label={`Touchpoints etapa ${i + 1}`}
                   value={fase.touchpoints.join(', ')}
                   onChange={(e) => actualizarFase(i, 'touchpoints', e.target.value)}
-                  style={{ padding: 6 }}
+                  className="input-xs"
                 />
                 <input
                   placeholder="Pensamientos (separados por coma)"
                   aria-label={`Pensamientos etapa ${i + 1}`}
                   value={fase.pensamientos.join(', ')}
                   onChange={(e) => actualizarFase(i, 'pensamientos', e.target.value)}
-                  style={{ padding: 6 }}
+                  className="input-xs"
                 />
                 <input
                   placeholder="Oportunidades (separadas por coma)"
                   aria-label={`Oportunidades etapa ${i + 1}`}
                   value={fase.oportunidades.join(', ')}
                   onChange={(e) => actualizarFase(i, 'oportunidades', e.target.value)}
-                  style={{ padding: 6 }}
+                  className="input-xs"
                 />
               </div>
             ))}
 
             <button
               type="button"
-              className="secondary"
+              className="secondary btn-start"
               onClick={handleAgregarFase}
-              style={{ justifySelf: 'start' }}
             >
               + Agregar etapa
             </button>
 
-            <button type="submit" className="primary" disabled={isPending} style={{ justifySelf: 'start' }}>
+            <button type="submit" className="primary btn-start" disabled={isPending}>
               {isPending ? 'Guardando…' : editandoId ? 'Actualizar journey map' : 'Guardar journey map'}
             </button>
             </fieldset>
@@ -255,7 +249,7 @@ export function JourneyMapPage() {
 
       {isLoading && <p>Cargando…</p>}
       {error && (
-        <p style={{ color: 'var(--coral)' }}>
+        <p className="error-text">
           {isListError ? 'No se pudo cargar los journey maps. ' : ''}
           {(error as Error).message}
         </p>
@@ -270,18 +264,18 @@ export function JourneyMapPage() {
           j.contenido.fases.reduce((acc, f) => acc + (f.emocion === 'Positiva' ? 5 : f.emocion === 'Neutral' ? 3 : 1), 0) /
           j.contenido.fases.length;
         return (
-          <article key={j.id} className="panel journey-board rise" style={{ marginBottom: 16 }}>
+          <article key={j.id} className="panel journey-board rise mb-16">
             <div className="panel-head">
               <div>
                 <span className="kicker">RECORRIDO DE {j.contenido.perfilUsuario.nombre.toUpperCase()}</span>
                 <h2>{j.contenido.perfilUsuario.rol || 'Journey Map'}</h2>
               </div>
-              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+              <div className="row-gap-sm" style={{ gap: 12 }}>
                 <span className="count">Emoción media {avg.toFixed(1)}/5</span>
                 <button
                   type="button"
                   onClick={() => handleIniciarEditar(j)}
-                  style={{ cursor: 'pointer', color: 'var(--teal)', background: 'none', border: 0, fontWeight: 700, fontSize: 11 }}
+                  className="link-btn link-btn--edit"
                 >
                   Editar
                 </button>
@@ -292,7 +286,7 @@ export function JourneyMapPage() {
                       eliminar(j.id);
                     }
                   }}
-                  style={{ cursor: 'pointer', color: 'var(--coral)', background: 'none', border: 0, fontSize: 11 }}
+                  className="link-btn link-btn--delete"
                 >
                   Eliminar
                 </button>

@@ -15,6 +15,7 @@ const SUB_NAV = [
   { to: 'card-sorting', label: 'Card Sorting' },
   { to: 'evaluacion-heuristica', label: 'Evaluación Heurística' },
   { to: 'analitica', label: 'Analítica' },
+  { to: 'miembros', label: 'Miembros' },
 ];
 
 export interface ProjectOutletContext {

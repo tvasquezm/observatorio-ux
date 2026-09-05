@@ -123,21 +123,21 @@ export function PersonasPage() {
       </div>
 
       {mostrarForm && (
-        <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 8, margin: '12px 0', padding: 12, border: '1px solid var(--line)', borderRadius: 8 }}>
+        <form onSubmit={handleSubmit} className="entity-card form">
           <h3>{editandoId ? 'Editar Persona' : 'Nueva Persona'}</h3>
           {readOnly && (
-            <p style={{ color: 'var(--coral)' }}>
+            <p className="error-text">
               Esta persona está bloqueada por otro usuario. No puedes editarla en este momento.
             </p>
           )}
-          <fieldset disabled={readOnly} style={{ border: 0, padding: 0, margin: 0, display: 'contents' }}>
+          <fieldset disabled={readOnly} className="readonly-fieldset">
           <input
             placeholder="Nombre completo *"
             aria-label="Nombre completo"
             value={form.nombreCompleto}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, nombreCompleto: e.target.value })}
             required
-            style={{ padding: 8 }}
+            className="input-sm"
           />
           <div className="form-grid-2">
             <input
@@ -146,14 +146,14 @@ export function PersonasPage() {
               type="number"
               value={form.edad ?? ''}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, edad: e.target.value ? Number(e.target.value) : undefined })}
-              style={{ padding: 8 }}
+              className="input-sm"
             />
             <input
               placeholder="Ocupación"
               aria-label="Ocupación"
               value={form.ocupacion ?? ''}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, ocupacion: e.target.value })}
-              style={{ padding: 8 }}
+              className="input-sm"
             />
           </div>
           <textarea
@@ -161,7 +161,7 @@ export function PersonasPage() {
             aria-label="Acerca de"
             value={form.acercaDe ?? ''}
             onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setForm({ ...form, acercaDe: e.target.value })}
-            style={{ padding: 8, minHeight: 60 }}
+            className="textarea-sm"
           />
           {CAMPOS_LISTA.map((campo) => (
             <input
@@ -170,7 +170,7 @@ export function PersonasPage() {
               aria-label={campo}
               value={listInputs[campo] ?? ''}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setListInputs({ ...listInputs, [campo]: e.target.value })}
-              style={{ padding: 8 }}
+              className="input-sm"
             />
           ))}
           <button type="submit" className="primary" disabled={isPending}>
@@ -182,22 +182,22 @@ export function PersonasPage() {
 
       {isLoading && <p>Cargando…</p>}
       {error && (
-        <p style={{ color: 'var(--coral)' }}>
+        <p className="error-text">
           {isListError ? 'No se pudo cargar las personas. ' : ''}
           {(error as Error).message}
         </p>
       )}
 
-      <div style={{ display: 'grid', gap: 8 }}>
+      <div className="form-grid">
         {personas?.map((p: PersonaArtifact) => (
-          <div key={p.id} style={{ padding: 12, border: '1px solid var(--line)', borderRadius: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div key={p.id} className="entity-card">
+            <div className="row-between">
               <b>{p.contenido.nombreCompleto}</b>
-              <div style={{ display: 'flex', gap: 12 }}>
+              <div className="row-gap-sm">
                 <button
                   type="button"
                   onClick={() => handleIniciarEditar(p)}
-                  style={{ cursor: 'pointer', color: 'var(--teal, #0d9488)', background: 'none', border: 0, fontWeight: 500 }}
+                  className="link-btn link-btn--edit"
                 >
                   Editar
                 </button>
@@ -208,14 +208,14 @@ export function PersonasPage() {
                       eliminar(p.id);
                     }
                   }}
-                  style={{ cursor: 'pointer', color: 'var(--coral)', background: 'none', border: 0 }}
+                  className="link-btn link-btn--delete"
                 >
                   Eliminar
                 </button>
               </div>
             </div>
             {p.contenido.ocupacion && (
-              <small style={{ color: 'var(--muted)' }}>
+              <small className="text-muted">
                 {p.contenido.ocupacion}{p.contenido.edad ? ` · ${p.contenido.edad} años` : ''}
               </small>
             )}

@@ -56,7 +56,7 @@ export function CardSortingPage() {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 10, maxWidth: 480 }}>
+          <form onSubmit={handleSubmit} className="form-grid" style={{ maxWidth: 480 }}>
             <label className="field">
               Tipo de estudio
               <select value={tipo} onChange={(e) => setTipo(e.target.value as TipoCardSorting)}>
@@ -72,7 +72,7 @@ export function CardSortingPage() {
                 value={tarjetasTexto}
                 onChange={(e) => setTarjetasTexto(e.target.value)}
                 required
-                style={{ minHeight: 120 }}
+                className="textarea-lg"
               />
             </label>
 
@@ -83,7 +83,7 @@ export function CardSortingPage() {
                   placeholder={'Información académica\nServicios\nVida universitaria'}
                   value={categoriasTexto}
                   onChange={(e) => setCategoriasTexto(e.target.value)}
-                  style={{ minHeight: 80 }}
+                  className="textarea-md"
                 />
               </label>
             )}
@@ -93,13 +93,13 @@ export function CardSortingPage() {
             </button>
           </form>
 
-          {error && <p style={{ color: 'var(--coral)', marginTop: 10 }}>{(error as Error).message}</p>}
+          {error && <p className="error-text mt-16">{(error as Error).message}</p>}
         </article>
 
         <aside className="panel sort-analysis">
           <span className="kicker">CÓMO FUNCIONA</span>
           <h2>Del estudio a la evidencia</h2>
-          <p style={{ fontSize: 10, color: '#718d97', lineHeight: 1.5 }}>
+          <p className="hint-text">
             Al crear el estudio, cada participante recibe el ID de sesión para unirse y clasificar
             las tarjetas. Los resultados quedan disponibles en la sesión maestra.
           </p>
@@ -121,7 +121,7 @@ export function CardSortingPage() {
       </section>
 
       {sesion && (
-        <section className="sort-layout" style={{ marginTop: 16 }}>
+        <section className="sort-layout mt-16">
           <article className="panel sort-board">
             <div className="panel-head">
               <div>
@@ -162,14 +162,14 @@ export function CardSortingPage() {
           <aside className="panel sort-analysis">
             <span className="kicker">COMPARTIR</span>
             <h2>ID de sesión</h2>
-            <p style={{ fontSize: 10, color: '#718d97' }}>Compartí este ID con cada participante para que se una al estudio.</p>
+            <p className="hint-text">Compartí este ID con cada participante para que se una al estudio.</p>
             <div className="callout" style={{ wordBreak: 'break-all' }}>{sesion.id}</div>
           </aside>
         </section>
       )}
 
       {sesion && (
-        <article className="panel" style={{ marginTop: 16 }}>
+        <article className="panel mt-16">
           <div className="panel-head">
             <div>
               <span className="kicker">ANALÍTICA DEL ESTUDIO</span>
@@ -183,7 +183,7 @@ export function CardSortingPage() {
           {cargandoAnalytics && <p>Calculando…</p>}
 
           {analytics && analytics.participantesCount === 0 && (
-            <p style={{ color: 'var(--muted)', fontSize: 12 }}>
+            <p className="text-muted-sm">
               Todavía no hay participantes que hayan completado el estudio. La analítica se calcula
               en tiempo real a partir de sus resultados.
             </p>
@@ -234,7 +234,7 @@ export function CardSortingPage() {
               )}
 
               {analytics.frecuenciaPorCategoria.length > 0 && (
-                <div style={{ marginTop: 16 }}>
+                <div className="mt-16">
                   {analytics.frecuenciaPorCategoria.map((f) => (
                     <div key={f.nombre} className="frequency-row">
                       <b>{f.nombre}</b>
@@ -246,7 +246,7 @@ export function CardSortingPage() {
               )}
 
               {analytics.clusters.length > 0 && (
-                <div className="clusters" style={{ marginTop: 16 }}>
+                <div className="clusters mt-16">
                   {analytics.clusters.map((c) => (
                     <div key={c.nombre} className="cluster">
                       <h3>{c.nombre}</h3>

@@ -1,5 +1,8 @@
 // apps/frontend/src/features/projects/api/projects.api.ts
 
+import { useAuthStore } from '../../auth/store/useAuthStore';
+import { notify } from '../../../shared/api/toast';
+
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
 
 export interface Proyecto {
@@ -36,6 +39,15 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   } catch {
     throw new ProjectsApiError(0, 'No se pudo conectar con el servidor.');
   }
+  if (res.status === 401) {
+    // Mismo criterio que shared/api/artifacts.api.ts (Fase 1): se
+    // cierra sesión acá y ProtectedRoute redirige solo a /login al
+    // reaccionar al cambio de isAuthenticated.
+    useAuthStore.getState().logout();
+    notify.error('Tu sesión expiró. Vuelve a iniciar sesión.');
+    throw new ProjectsApiError(401, 'Sesión expirada.');
+  }
+
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     const mensaje = Array.isArray(body?.message)
@@ -68,5 +80,35 @@ export function updateProject(
   return request<Proyecto>(`/projects/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(data),
+  });
+}
+
+export interface MiembroProyecto {
+  id: string;
+  proyectoId: string;
+  usuarioId: string;
+  createdAt: string;
+  usuario: {
+    id: string;
+    nombre: string;
+    email: string;
+    rol: string;
+  };
+}
+
+export function listMembers(proyectoId: string): Promise<MiembroProyecto[]> {
+  return request<MiembroProyecto[]>(`/projects/${proyectoId}/miembros`);
+}
+
+export function addMember(proyectoId: string, email: string): Promise<MiembroProyecto> {
+  return request<MiembroProyecto>(`/projects/${proyectoId}/miembros`, {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+}
+
+export function removeMember(proyectoId: string, usuarioId: string): Promise<{ eliminado: boolean }> {
+  return request<{ eliminado: boolean }>(`/projects/${proyectoId}/miembros/${usuarioId}`, {
+    method: 'DELETE',
   });
 }

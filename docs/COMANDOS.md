@@ -50,6 +50,19 @@ que trabajes en el Flujo B (Node/pnpm local, ver `comandos-backend.md`).
 
 ---
 
+## Frontend — tests (Vitest, desde Sprint 8)
+
+| Comando | Cuándo usarlo |
+|---|---|
+| `pnpm --filter frontend test` | Correr la suite de tests del frontend (`vitest run`). |
+| `pnpm --filter frontend exec vitest` | Modo watch, mientras editás un componente. |
+
+Requiere `pnpm install` desde la raíz primero — las devDependencies de
+Vitest/Testing Library son nuevas de este sprint y no están en un
+`pnpm-lock.yaml` viejo.
+
+---
+
 ## Frontend
 
 Siempre ejecutar `pnpm add`/`install` **desde dentro del contenedor**, nunca
