@@ -55,6 +55,23 @@ export async function login(email: string, password: string): Promise<LoginRespo
 }
 
 /**
+ * Verifica la sesión real contra el backend (cookie httpOnly), no contra
+ * nada cacheado en el cliente. Es la única fuente de verdad de
+ * `isAuthenticated` en useAuthStore.checkSession() — el `user` en
+ * localStorage es solo una caché optimista para no mostrar la UI vacía
+ * mientras esta llamada resuelve, nunca un reemplazo de esta validación.
+ */
+export async function me(): Promise<LoginResponse> {
+  const res = await fetch(`${API_BASE}/auth/me`, {
+    credentials: 'include',
+  });
+  if (!res.ok) {
+    throw new AuthApiError(res.status, 'Sesión no válida.');
+  }
+  return (await res.json()) as LoginResponse;
+}
+
+/**
  * Limpia las cookies de sesión (`evaluadorToken`/`csrfToken`) en el
  * backend. Sin body de request — no es una mutación de dominio, así que
  * el middleware CSRF la deja pasar igual que cualquier otra, pero por

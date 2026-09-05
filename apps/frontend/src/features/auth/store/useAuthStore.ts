@@ -2,27 +2,32 @@
 //
 // Alineado a Fase 3 (auth por cookie httpOnly `evaluadorToken`, ver
 // jwt.strategy.ts): el token YA NO vive en localStorage ni en este store
-// — es httpOnly, ni siquiera JS puede leerlo, y no hace falta: el
-// navegador lo reenvía solo en cada fetch con `credentials: 'include'`
-// (ver shared/api/artifacts.api.ts, features/projects/api/projects.api.ts,
-// features/evaluacion-heuristica/api/evaluacion-heuristica.api.ts).
+// — es httpOnly, ni siquiera JS puede leerlo. La fuente de verdad real de
+// `isAuthenticated` es GET /auth/me (ver checkSession), no localStorage.
 //
-// Lo único que este store cachea en localStorage es el `user` (no es
-// secreto, es solo para no mostrar la UI vacía medio segundo en cada
-// recarga) — la fuente de verdad real de la sesión es la cookie del
-// backend, no esta caché.
+// El `user` sí se cachea en localStorage, pero solo como valor optimista
+// para pintar la UI de inmediato en cada recarga mientras checkSession()
+// resuelve — nunca reemplaza esa validación contra el backend. Si la
+// cookie expiró o fue revocada del lado del servidor, checkSession() lo
+// corrige y desloguea, aunque la caché dijera lo contrario.
 
 import { create } from 'zustand';
 import type { EvaluatorUser } from '../api/auth.api';
-import { logout as logoutApi } from '../api/auth.api';
+import { me as fetchMe, logout as logoutApi } from '../api/auth.api';
 
 const USER_KEY = 'evaluadorUser';
 
 interface AuthState {
   user: EvaluatorUser | null;
   isAuthenticated: boolean;
+  /** true mientras checkSession() no resolvió al menos una vez. */
+  isChecking: boolean;
   setSession: (user: EvaluatorUser) => void;
   logout: () => void;
+  /** Valida la sesión real contra /auth/me. Idempotente, sin dedupe de
+   *  llamadas concurrentes — ProtectedRoute la dispara una sola vez por
+   *  montaje, no hace falta más para este alcance. */
+  checkSession: () => Promise<void>;
 }
 
 function leerUserGuardado(): EvaluatorUser | null {
@@ -37,20 +42,37 @@ function leerUserGuardado(): EvaluatorUser | null {
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: leerUserGuardado(),
+  // Optimista: si hay caché, se asume autenticado hasta que checkSession
+  // diga lo contrario — evita un flash a /login en cada recarga mientras
+  // se confirma con el backend.
   isAuthenticated: !!leerUserGuardado(),
+  isChecking: true,
 
   setSession: (user) => {
     localStorage.setItem(USER_KEY, JSON.stringify(user));
-    set({ user, isAuthenticated: true });
+    set({ user, isAuthenticated: true, isChecking: false });
   },
 
   logout: () => {
     localStorage.removeItem(USER_KEY);
-    set({ user: null, isAuthenticated: false });
+    set({ user: null, isAuthenticated: false, isChecking: false });
     // Best-effort: limpia las cookies httpOnly en el backend. No se espera
     // la respuesta — el estado local ya cambió y ProtectedRoute ya va a
     // redirigir a /login; si esta llamada falla (ej. red caída), las
     // cookies igual van a expirar solas por el TTL del JWT.
     logoutApi().catch(() => {});
+  },
+
+  checkSession: async () => {
+    try {
+      const { user } = await fetchMe();
+      localStorage.setItem(USER_KEY, JSON.stringify(user));
+      set({ user, isAuthenticated: true, isChecking: false });
+    } catch {
+      // 401 (cookie ausente/expirada/inválida) o error de red: no hay
+      // sesión real que sostener, sin importar lo que dijera la caché.
+      localStorage.removeItem(USER_KEY);
+      set({ user: null, isAuthenticated: false, isChecking: false });
+    }
   },
 }));
