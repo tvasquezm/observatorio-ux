@@ -14,7 +14,7 @@ Flujo completo: configuración por el evaluador/docente y participación del usu
 **Request Body:**
 ```json
 {
-  "email": "evaluador@ux.utem.cl",
+  "email": "estudiante1@ux.utem.cl",
   "password": "TuPasswordDeDocente"
 }
 ```

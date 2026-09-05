@@ -88,10 +88,9 @@ export class ArtifactsService {
    */
   async softDelete(artefactoId: string, user: AuthenticatedUser) {
     const artifact = await this.findOne(artefactoId, user);
+    const latest = await this.getLatestVersion(artifact.artefactoLogicoId, artifact);
 
-    if (artifact.lockedById && this.isLockActive(artifact.lockedUntil)) {
-      this.assertNotLockedByOther(artifact, user);
-    }
+    this.assertNotLockedByOther(latest, user);
 
     await this.prisma.uxArtifact.updateMany({
       where: { artefactoLogicoId: artifact.artefactoLogicoId },
@@ -155,11 +154,29 @@ export class ArtifactsService {
 
     const ttlMs = this.resolveTtlMs(ttlSegundos);
     const lockedUntil = new Date(Date.now() + ttlMs);
+    const now = new Date();
 
-    return this.prisma.uxArtifact.update({
-      where: { id: latest.id },
+    // updateMany condicional atómico: la condición de "lock libre" se
+    // evalúa y escribe en la misma sentencia SQL, así no queda ventana
+    // entre el chequeo (assertNotLockedByOther) y el update donde otro
+    // request pueda colarse y tomar el lock primero.
+    const result = await this.prisma.uxArtifact.updateMany({
+      where: {
+        id: latest.id,
+        OR: [
+          { lockedUntil: { lt: now } },
+          { lockedById: user.id },
+          { lockedById: null },
+        ],
+      },
       data: { lockedById: user.id, lockedUntil },
     });
+
+    if (result.count === 0) {
+      throw new ConflictException('El artefacto está bloqueado por otro usuario.');
+    }
+
+    return this.prisma.uxArtifact.findUniqueOrThrow({ where: { id: latest.id } });
   }
 
   /**
@@ -235,7 +252,14 @@ export class ArtifactsService {
     });
 
     if (!project) throw new NotFoundException('El proyecto no existe.');
-    if (project.creadoPorId !== user.id && user.rol !== 'ADMIN') {
+    if (project.creadoPorId === user.id || user.rol === 'ADMIN') return;
+
+    const esMiembro = await this.prisma.proyectoMiembro.findUnique({
+      where: { proyectoId_usuarioId: { proyectoId, usuarioId: user.id } },
+      select: { id: true },
+    });
+
+    if (!esMiembro) {
       throw new ForbiddenException('No tienes acceso a este proyecto.');
     }
   }

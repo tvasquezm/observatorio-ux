@@ -22,12 +22,21 @@ automáticamente en cada arranque, sin pasos manuales.
 La API queda disponible en `http://localhost:3000/api` y Swagger en
 `http://localhost:3000/api/docs`. El chequeo básico es `GET /api/health`.
 
-El usuario creado por el seed es:
+El seed crea 3 cuentas de estudiante, miembros del mismo proyecto demo
+(ver `docs/CAMBIOS.md §Ronda 5` — reemplazan la cuenta única
+`evaluador@ux.utem.cl` de versiones anteriores):
 
 ```text
-email: evaluador@ux.utem.cl
-password: Demo1234!
+email: estudiante1@ux.utem.cl
+email: estudiante2@ux.utem.cl
+email: estudiante3@ux.utem.cl
+password: Demo1234! (las 3 comparten la misma)
 ```
+
+Contraseña configurable vía `SEED_PASSWORD` en `.env` si no querés usar el
+default. Las 3 cuentas tienen acceso al mismo proyecto (`ProyectoMiembro`),
+así que sirven para probar edición concurrente y el bloqueo pesimista
+entre usuarios distintos.
 
 El seed también crea un usuario **DOCENTE de prueba** (login simple, pensado
 para QA manual), con un proyecto propio ("Proyecto Demo Profesor") que ya

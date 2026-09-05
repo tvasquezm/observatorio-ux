@@ -19,7 +19,9 @@ cuando hace falta más detalle.
   Swagger en `http://localhost:3000/api/docs`.
 - Alternativa sin Docker (`pnpm --filter backend start:dev`, etc.) →
   ver `docs/comandos-backend.md`.
-- Usuario semilla: `evaluador@ux.utem.cl` / `Demo1234!`.
+- Usuarios semilla (3 cuentas de estudiante, mismo proyecto):
+  `estudiante1@ux.utem.cl` / `estudiante2@ux.utem.cl` / `estudiante3@ux.utem.cl`,
+  todas con `Demo1234!`.
 - Usuario DOCENTE de prueba (login simple para QA manual, con un proyecto
   ya cargado con las 5 técnicas): `profesor@test.com` / `profesor123`.
   Ver `docs/BACKEND.md`.

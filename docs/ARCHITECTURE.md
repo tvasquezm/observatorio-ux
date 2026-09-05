@@ -223,3 +223,35 @@ Ese endpoint **no existe**. `ArtifactsController` solo expone `POST /projects/:p
 - Al cancelar (`resetForm`) o al guardar con éxito (`onSuccess` de la mutación de actualizar), se llama `unlockX.mutate(artefactoId)`.
 
 **Trade-off aceptado:** no se agregó `unlock` en un `useEffect` de desmontaje — si el usuario navega fuera de la página a mitad de una edición sin cancelar ni guardar, el lock queda tomado hasta que expire el TTL (5 min default). Se decidió no complicar el ciclo de vida del componente para ese caso, apoyándose en el TTL como la red de seguridad que ya estaba diseñada para eso (§Sprint 2.3). Detalle completo en `docs/AUDIT_LOG.md` (F1) y `docs/CAMBIOS.md §Ronda 4`.
+
+---
+
+## Sprint 5 — Robustez del lock pesimista + acceso multi-usuario mínimo
+
+Foco del sprint: cerrar los cabos sueltos que dejó F1 (Sprint 4) al conectar el lock a la UI, y resolver el problema de fondo de que el modelo de acceso a proyectos solo soportaba un usuario por proyecto — lo que impedía probar el lock entre usuarios reales distintos.
+
+### Doble unlock, condición de carrera en `acquireLock`, y `softDelete` inconsistente
+
+Al conectar el lock a la UI en el sprint anterior, `onSuccess` de la mutación de actualizar llamaba `unlockX(idAEditar)` y luego `resetForm()` volvía a llamar `unlockX(editandoId)` — dos releases por guardado. Se corrigió dejando `resetForm()` como única fuente de verdad para desbloquear.
+
+Más de fondo: `acquireLock()` en `artifacts.service.ts` hacía "chequear (`assertNotLockedByOther`) y luego actualizar" en dos pasos separados. Bajo concurrencia real (exactamente el escenario que ahora se puede probar con 3 cuentas reales, ver abajo), dos requests podían pasar ambos el chequeo antes de que cualquiera escribiera, y ambos terminar creyendo que tienen el lock. Se reemplazó por un `updateMany` condicional atómico: la condición de "lock libre o propio" y la escritura del nuevo lock ocurren en la misma sentencia SQL (`WHERE id = latest.id AND (lockedUntil < now OR lockedById = user.id OR lockedById IS NULL)`), verificando `result.count` — si es 0, se lanza `409`.
+
+`softDelete()` tenía la misma clase de bug que ya se había cerrado en `createVersion`/`acquireLock` (Sprint 2.3): chequeaba el lock contra la fila que llegó en la URL, no contra la última versión del artefacto lógico. Se alineó al mismo patrón (`getLatestVersion()` antes de `assertNotLockedByOther`).
+
+Detalle en `docs/AUDIT_LOG.md` (F2, F3, F4).
+
+### Modelo de acceso a proyectos: de "un solo dueño" a `ProyectoMiembro`
+
+**Qué se encontró:** `assertProjectAccess` en `artifacts.service.ts` solo reconocía al creador del proyecto (`Proyecto.creadoPorId`) o a un usuario `ADMIN`. El seed traía una sola cuenta de prueba (`evaluador@ux.utem.cl`) — con una sola cuenta, nunca se pudo ejercitar realmente el lock pesimista entre dos usuarios distintos, solo simularlo.
+
+**Decisión:** en vez de agregar un parche temporal (dar rol `ADMIN` a cuentas de prueba, lo que hubiera bypaseado el control de acceso real para todos los proyectos, no solo el de prueba), se adelantó el modelo de datos que de todas formas hacía falta para colaboración multi-usuario: una tabla `ProyectoMiembro` (`proyectoId`, `usuarioId`, `@@unique([proyectoId, usuarioId])`). `assertProjectAccess` ahora acepta: creador, `ADMIN`, o miembro.
+
+**Migración:** `20260904000000_add_proyecto_miembro` crea la tabla y hace backfill — cada proyecto ya existente inserta a su `creadoPorId` como miembro, así ningún proyecto ya creado pierde acceso al migrar.
+
+**Seed:** las 3 cuentas de estudiante (`estudiante1/2/3@ux.utem.cl`) quedan todas como `ProyectoMiembro` del mismo proyecto demo (una de ellas, además, `creadoPorId`) — ahora sí se puede loguear con 2 cuentas distintas, editar artefactos en paralelo, y provocar a propósito el `409` del lock sobre el mismo artefacto.
+
+**Alcance acotado a propósito, pendiente para una Fase 2 completa más adelante:**
+- No se agregaron endpoints (`POST/GET/DELETE .../miembros`) para gestionar la membresía vía API, ni pantalla de UI para eso — por ahora la membresía solo se puede poblar desde el seed o directo en base de datos.
+- `ProjectsService`, `CardSortingService` y `EvaluacionHeuristicaService` siguen con su propio chequeo de acceso por `creadoPorId` — no se tocaron, así que solo el módulo de Artefactos UX (Persona/Journey Map/Momentos Críticos) reconoce a los miembros nuevos por ahora.
+
+Detalle en `docs/AUDIT_LOG.md` (F5) y `docs/CAMBIOS.md` (§Ronda 5).

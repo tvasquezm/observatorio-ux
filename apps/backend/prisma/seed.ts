@@ -12,8 +12,17 @@ import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 const demoPassword = process.env.SEED_PASSWORD || 'Demo1234!';
-const evaluatorId = 'c702fdcf-ff14-4e49-bcdf-620f1738bb04';
 const projectId = '2220b224-865d-4230-a484-19338c66b9e6';
+
+// --- 3 cuentas de estudiante reales, miembros del mismo proyecto ---
+// Reemplaza la única cuenta evaluador@ux.utem.cl: con ProyectoMiembro los
+// 3 pueden acceder y editar en paralelo, y el lock pesimista por fin se
+// puede probar entre usuarios distintos sobre el mismo artefacto.
+const estudiantes = [
+  { id: 'c702fdcf-ff14-4e49-bcdf-620f1738bb01', nombre: 'Estudiante Uno', email: 'estudiante1@ux.utem.cl' },
+  { id: 'c702fdcf-ff14-4e49-bcdf-620f1738bb02', nombre: 'Estudiante Dos', email: 'estudiante2@ux.utem.cl' },
+  { id: 'c702fdcf-ff14-4e49-bcdf-620f1738bb03', nombre: 'Estudiante Tres', email: 'estudiante3@ux.utem.cl' },
+];
 
 // --- Usuario profesor de prueba (login simple para QA manual) ---
 const profesorPassword = process.env.SEED_PROFESOR_PASSWORD || 'profesor123';
@@ -41,21 +50,16 @@ const artifactMomentosCriticosId = 'f1e1b6a1-0030-4a11-9c00-000000000032';
 async function main() {
   const passwordHash = await bcrypt.hash(demoPassword, 12);
 
-  const evaluator = await prisma.usuario.upsert({
-    where: { email: 'evaluador@ux.utem.cl' },
-    update: {
-      nombre: 'Investigador UX Principal',
-      rol: Rol.DOCENTE,
-      passwordHash,
-    },
-    create: {
-      id: evaluatorId,
-      nombre: 'Investigador UX Principal',
-      email: 'evaluador@ux.utem.cl',
-      rol: Rol.DOCENTE,
-      passwordHash,
-    },
-  });
+  const [estudiante1, estudiante2, estudiante3] = await Promise.all(
+    estudiantes.map((e) =>
+      prisma.usuario.upsert({
+        where: { email: e.email },
+        update: { nombre: e.nombre, rol: Rol.ESTUDIANTE, passwordHash },
+        create: { id: e.id, nombre: e.nombre, email: e.email, rol: Rol.ESTUDIANTE, passwordHash },
+      }),
+    ),
+  );
+  const evaluator = estudiante1;
 
   const project = await prisma.proyecto.upsert({
     where: { id: projectId },
@@ -71,6 +75,16 @@ async function main() {
       creadoPorId: evaluator.id,
     },
   });
+
+  // Los 3 quedan como miembros del proyecto (incluido el creador, por
+  // consistencia): así assertProjectAccess los reconoce a todos por igual.
+  for (const est of [estudiante1, estudiante2, estudiante3]) {
+    await prisma.proyectoMiembro.upsert({
+      where: { proyectoId_usuarioId: { proyectoId: project.id, usuarioId: est.id } },
+      update: {},
+      create: { proyectoId: project.id, usuarioId: est.id },
+    });
+  }
 
   for (let i = 1; i <= 5; i += 1) {
     const participantId = `62848df5-2560-4a28-a303-43b0af2b65a${i}`;
@@ -378,7 +392,8 @@ async function main() {
     },
   });
 
-  console.log(`Seed listo. Usuario: ${evaluator.email}`);
+  console.log('Seed listo. Estudiantes (mismo proyecto, contraseña demo):');
+  [estudiante1, estudiante2, estudiante3].forEach((e) => console.log(`  - ${e.email}`));
   console.log(`Contraseña demo: ${demoPassword}`);
   console.log(`Proyecto demo: ${project.id}`);
   console.log('---');

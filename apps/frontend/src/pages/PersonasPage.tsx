@@ -12,6 +12,7 @@ import {
 import type { PersonaContenido, PersonaArtifact } from '../features/persona/api/persona.api';
 import { ArtifactsApiError } from '../shared/api/artifacts.api';
 import { notify } from '../shared/api/toast';
+import { useConfirm } from '../shared/api/confirm';
 
 const CAMPOS_LISTA: (keyof PersonaContenido)[] = [
   'hobbies', 'habilidades', 'objetivos', 'necesidades',
@@ -38,6 +39,7 @@ export function PersonasPage() {
   const { mutate: eliminar, error: deleteError } = useDeletePersona(proyectoId);
   const { mutate: lockPersona } = useLockPersona(proyectoId);
   const { mutate: unlockPersona } = useUnlockPersona(proyectoId);
+  const confirm = useConfirm();
   const error = listError ?? createError ?? updateError ?? deleteError;
 
   const [form, setForm] = useState<PersonaContenido>(vacio());
@@ -99,10 +101,7 @@ export function PersonasPage() {
       actualizar(
         { artefactoId: idAEditar, contenido: payload },
         {
-          onSuccess: () => {
-            unlockPersona(idAEditar);
-            resetForm();
-          },
+          onSuccess: resetForm,
         }
       );
     } else {
@@ -134,6 +133,7 @@ export function PersonasPage() {
           <fieldset disabled={readOnly} style={{ border: 0, padding: 0, margin: 0, display: 'contents' }}>
           <input
             placeholder="Nombre completo *"
+            aria-label="Nombre completo"
             value={form.nombreCompleto}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, nombreCompleto: e.target.value })}
             required
@@ -142,6 +142,7 @@ export function PersonasPage() {
           <div className="form-grid-2">
             <input
               placeholder="Edad"
+              aria-label="Edad"
               type="number"
               value={form.edad ?? ''}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, edad: e.target.value ? Number(e.target.value) : undefined })}
@@ -149,6 +150,7 @@ export function PersonasPage() {
             />
             <input
               placeholder="Ocupación"
+              aria-label="Ocupación"
               value={form.ocupacion ?? ''}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, ocupacion: e.target.value })}
               style={{ padding: 8 }}
@@ -156,6 +158,7 @@ export function PersonasPage() {
           </div>
           <textarea
             placeholder="Acerca de..."
+            aria-label="Acerca de"
             value={form.acercaDe ?? ''}
             onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setForm({ ...form, acercaDe: e.target.value })}
             style={{ padding: 8, minHeight: 60 }}
@@ -164,6 +167,7 @@ export function PersonasPage() {
             <input
               key={campo}
               placeholder={`${campo} (separados por coma)`}
+              aria-label={campo}
               value={listInputs[campo] ?? ''}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setListInputs({ ...listInputs, [campo]: e.target.value })}
               style={{ padding: 8 }}
@@ -199,8 +203,8 @@ export function PersonasPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    if (window.confirm('¿Estás seguro de eliminar esta versión?')) {
+                  onClick={async () => {
+                    if (await confirm('¿Estás seguro de eliminar esta versión?')) {
                       eliminar(p.id);
                     }
                   }}

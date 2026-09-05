@@ -6,6 +6,7 @@ import { BrowserRouter } from 'react-router-dom';
 import './styles/theme.css';
 import App from './App';
 import { ToastContainer } from './shared/components/ToastContainer';
+import { ConfirmDialog } from './shared/components/ui/ConfirmDialog';
 
 // Instancia única de TanStack Query para toda la app. Si en algún punto
 // necesitas configurar retry/staleTime globales, es acá.
@@ -25,6 +26,7 @@ createRoot(document.getElementById('root')!).render(
           que renderice el router adentro de <App />.
         */}
         <ToastContainer />
+        <ConfirmDialog />
       </BrowserRouter>
     </QueryClientProvider>
   </StrictMode>,

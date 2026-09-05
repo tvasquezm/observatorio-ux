@@ -21,6 +21,7 @@ import {
 } from '../features/journey-map/api/journey-map.api';
 import { ArtifactsApiError } from '../shared/api/artifacts.api';
 import { notify } from '../shared/api/toast';
+import { useConfirm } from '../shared/api/confirm';
 
 const MIN_FASES = 3;
 
@@ -43,6 +44,7 @@ export function JourneyMapPage() {
   const { mutate: eliminar, error: deleteError } = useDeleteJourney(proyectoId);
   const { mutate: lockJourney } = useLockJourney(proyectoId);
   const { mutate: unlockJourney } = useUnlockJourney(proyectoId);
+  const confirm = useConfirm();
   const error = listError ?? createError ?? updateError ?? deleteError;
 
   const [form, setForm] = useState<JourneyMapContenido>(contenidoVacio());
@@ -110,10 +112,7 @@ export function JourneyMapPage() {
       actualizar(
         { artefactoId: idAEditar, contenido: form },
         {
-          onSuccess: () => {
-            unlockJourney(idAEditar);
-            resetForm();
-          },
+          onSuccess: resetForm,
         }
       );
     } else {
@@ -156,6 +155,7 @@ export function JourneyMapPage() {
             <div className="form-grid-2">
               <input
                 placeholder="Nombre del perfil de usuario *"
+                aria-label="Nombre del perfil de usuario"
                 value={form.perfilUsuario.nombre}
                 onChange={(e) => setForm({ ...form, perfilUsuario: { ...form.perfilUsuario, nombre: e.target.value } })}
                 required
@@ -163,6 +163,7 @@ export function JourneyMapPage() {
               />
               <input
                 placeholder="Rol"
+                aria-label="Rol"
                 value={form.perfilUsuario.rol}
                 onChange={(e) => setForm({ ...form, perfilUsuario: { ...form.perfilUsuario, rol: e.target.value } })}
                 style={{ padding: 8 }}
@@ -192,6 +193,7 @@ export function JourneyMapPage() {
                 </div>
                 <input
                   placeholder="Nombre de la etapa"
+                  aria-label={`Nombre de la etapa ${i + 1}`}
                   value={fase.nombre}
                   onChange={(e) => actualizarFase(i, 'nombre', e.target.value)}
                   style={{ padding: 6 }}
@@ -212,18 +214,21 @@ export function JourneyMapPage() {
                 </div>
                 <input
                   placeholder="Touchpoints (separados por coma)"
+                  aria-label={`Touchpoints etapa ${i + 1}`}
                   value={fase.touchpoints.join(', ')}
                   onChange={(e) => actualizarFase(i, 'touchpoints', e.target.value)}
                   style={{ padding: 6 }}
                 />
                 <input
                   placeholder="Pensamientos (separados por coma)"
+                  aria-label={`Pensamientos etapa ${i + 1}`}
                   value={fase.pensamientos.join(', ')}
                   onChange={(e) => actualizarFase(i, 'pensamientos', e.target.value)}
                   style={{ padding: 6 }}
                 />
                 <input
                   placeholder="Oportunidades (separadas por coma)"
+                  aria-label={`Oportunidades etapa ${i + 1}`}
                   value={fase.oportunidades.join(', ')}
                   onChange={(e) => actualizarFase(i, 'oportunidades', e.target.value)}
                   style={{ padding: 6 }}
@@ -282,8 +287,8 @@ export function JourneyMapPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    if (window.confirm('¿Estás seguro de eliminar este journey map?')) {
+                  onClick={async () => {
+                    if (await confirm('¿Estás seguro de eliminar este journey map?')) {
                       eliminar(j.id);
                     }
                   }}

@@ -61,8 +61,21 @@ model Proyecto {
   sesiones   ResearchSession[]
   artefactos UxArtifact[]
   whitelist  ParticipanteWhitelist[]
+  miembros   ProyectoMiembro[]
 
   @@map("proyectos")
+}
+
+model ProyectoMiembro {
+  id         String   @id @default(uuid())
+  proyecto   Proyecto @relation(fields: [proyectoId], references: [id])
+  proyectoId String
+  usuario    Usuario  @relation(fields: [usuarioId], references: [id])
+  usuarioId  String
+  createdAt  DateTime @default(now())
+
+  @@unique([proyectoId, usuarioId])
+  @@map("proyecto_miembros")
 }
 
 model Usuario {
@@ -77,6 +90,7 @@ model Usuario {
   sesionesEvaluador ResearchSession[] @relation("SesionesComoEvaluador")
   artefactosAutor   UxArtifact[]      @relation("ArtefactosComoAutor")
   whitelistCreada   ParticipanteWhitelist[]
+  proyectosMiembro  ProyectoMiembro[]
   @@map("usuarios")
 }
 

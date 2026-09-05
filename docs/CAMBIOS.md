@@ -62,6 +62,48 @@ y quirúrgicas. No hay archivos inventados desde cero salvo los indicados.
    (`UX-Observatory-Presentacion.html`). Aplicado a Login, sidebar/topbar
    (`AppLayout`) y Dashboard. Importado una vez en `main.tsx`.
 
+## Ronda 5 (Fase 0 de robustez + acceso multi-usuario mínimo)
+
+1. **Doble unlock al guardar, corregido.** `resetForm()` es ahora la única
+   fuente de verdad para desbloquear un artefacto en las 3 páginas; se
+   quitó el `unlockX(idAEditar)` suelto del `onSuccess` de `actualizar(...)`.
+   Ver `docs/AUDIT_LOG.md` F2.
+
+2. **`softDelete` y `acquireLock` en `artifacts.service.ts`, endurecidos.**
+   `softDelete` ahora chequea el lock contra la última versión del
+   artefacto lógico (antes lo hacía contra la fila de la URL). `acquireLock`
+   pasa de "chequear-luego-actualizar" a un `updateMany` condicional
+   atómico, cerrando una condición de carrera real bajo concurrencia. Ver
+   `docs/AUDIT_LOG.md` F3 y F4.
+
+3. **Accesibilidad: `aria-label` en los 3 formularios.** `PersonasPage.tsx`,
+   `JourneyMapPage.tsx` y `MomentosCriticosPage.tsx` dependían solo de
+   `placeholder` (que un lector de pantalla no trata como label). Cada
+   input/textarea/select relevante ahora tiene `aria-label` explícito.
+
+4. **Modelo `ProyectoMiembro` (acceso multi-usuario mínimo).** Nueva tabla
+   (`proyectoId`, `usuarioId`, `@@unique([proyectoId, usuarioId])`) +
+   migración `20260904000000_add_proyecto_miembro` con backfill (cada
+   proyecto existente conserva a su creador como miembro, nadie pierde
+   acceso). `assertProjectAccess` en `artifacts.service.ts` ahora acepta
+   creador, ADMIN o miembro — antes solo creador/ADMIN. Ver
+   `docs/AUDIT_LOG.md` F5.
+
+   **Alcance acotado a propósito:** no se agregaron endpoints para
+   gestionar miembros (agregar/quitar por email) ni pantalla de UI para
+   eso — queda pendiente si se retoma la Fase 2 completa. Tampoco se tocó
+   el control de acceso de `ProjectsService`, `CardSortingService` ni
+   `EvaluacionHeuristicaService`, que siguen chequeando solo `creadoPorId`.
+
+5. **Seed: reemplazadas las cuentas de prueba.** `evaluador@ux.utem.cl`
+   (cuenta única) fue reemplazada por 3 cuentas de estudiante reales
+   (`estudiante1@ux.utem.cl`, `estudiante2@ux.utem.cl`,
+   `estudiante3@ux.utem.cl`, contraseña `Demo1234!` o `SEED_PASSWORD`),
+   las 3 como `ProyectoMiembro` del mismo proyecto demo (una de ellas,
+   además, `creadoPorId`). Esto permite finalmente probar el lock
+   pesimista entre usuarios distintos sobre el mismo artefacto. El usuario
+   DOCENTE de prueba (`profesor@test.com`, Ronda 4) no cambió.
+
 ## Ronda 4 (frontend — lock conectado en las 3 páginas de artefactos)
 
 1. **Bloqueo pesimista conectado a la UI.** `PersonasPage.tsx`,

@@ -9,13 +9,18 @@ import {
   useLockCriticalMoment,
   useUnlockCriticalMoment,
 } from '../features/momentos-criticos/hooks/useMomentosCriticosQueries';
-import type {
-  IncidenteCritico,
-  MomentosCriticosContenido,
-  MomentosCriticosArtifact,
+import {
+  addIncidente,
+  removeIncidente,
+  type IncidenteCritico,
+  type MomentosCriticosContenido,
+  type MomentosCriticosArtifact,
 } from '../features/momentos-criticos/api/momentos-criticos.api';
 import { ArtifactsApiError } from '../shared/api/artifacts.api';
 import { notify } from '../shared/api/toast';
+import { useConfirm } from '../shared/api/confirm';
+
+const MIN_INCIDENTES = 1; // MomentosCriticosSchema exige mínimo 1
 
 function incidenteVacio(): IncidenteCritico {
   return {
@@ -44,10 +49,14 @@ export function MomentosCriticosPage() {
   const { mutate: eliminar, error: deleteError } = useDeleteCriticalMoment(proyectoId);
   const { mutate: lockCriticalMoment } = useLockCriticalMoment(proyectoId);
   const { mutate: unlockCriticalMoment } = useUnlockCriticalMoment(proyectoId);
+  const confirm = useConfirm();
   const error = listError ?? createError ?? updateError ?? deleteError;
 
   const [form, setForm] = useState<MomentosCriticosContenido>(contenidoVacio());
-  const [accionesInput, setAccionesInput] = useState('');
+  // Un input de "acciones sugeridas" por incidente, mismo índice que
+  // form.incidentes — se mantienen en paralelo porque en el form ese campo
+  // se edita como texto separado por coma, no como array directo.
+  const [accionesInputs, setAccionesInputs] = useState<string[]>(['']);
   const [mostrarForm, setMostrarForm] = useState(false);
   const [vistaMatriz, setVistaMatriz] = useState(false);
   const [editandoArtefactoId, setEditandoArtefactoId] = useState<string | null>(null);
@@ -56,7 +65,7 @@ export function MomentosCriticosPage() {
   function resetForm() {
     if (editandoArtefactoId) unlockCriticalMoment(editandoArtefactoId);
     setForm(contenidoVacio());
-    setAccionesInput('');
+    setAccionesInputs(['']);
     setEditandoArtefactoId(null);
     setMostrarForm(false);
     setReadOnly(false);
@@ -64,10 +73,11 @@ export function MomentosCriticosPage() {
 
   function handleStartEdit(m: MomentosCriticosArtifact) {
     const artefactoId = m.artefactoLogicoId || m.id;
-    const primerIncidente = m.contenido.incidentes[0] || incidenteVacio();
     setEditandoArtefactoId(artefactoId);
     setForm(m.contenido);
-    setAccionesInput(primerIncidente.accionesSugeridas ? primerIncidente.accionesSugeridas.join(', ') : '');
+    setAccionesInputs(
+      m.contenido.incidentes.map((inc) => (inc.accionesSugeridas ? inc.accionesSugeridas.join(', ') : '')),
+    );
     setMostrarForm(true);
     setReadOnly(false);
 
@@ -85,28 +95,43 @@ export function MomentosCriticosPage() {
     );
   }
 
-  function actualizarIncidente(campo: keyof IncidenteCritico, valor: string) {
-    const incidente = { ...form.incidentes[0] };
+  function actualizarIncidente(index: number, campo: keyof IncidenteCritico, valor: string) {
     if (campo === 'accionesSugeridas') {
-      setAccionesInput(valor);
-    } else {
-      (incidente as Record<string, unknown>)[campo] = valor;
-      setForm({ ...form, incidentes: [incidente] });
+      const siguiente = [...accionesInputs];
+      siguiente[index] = valor;
+      setAccionesInputs(siguiente);
+      return;
     }
+    const incidentes = [...form.incidentes];
+    incidentes[index] = { ...incidentes[index], [campo]: valor };
+    setForm({ ...form, incidentes });
+  }
+
+  function handleAgregarIncidente() {
+    setForm(addIncidente(form, incidenteVacio()));
+    setAccionesInputs([...accionesInputs, '']);
+  }
+
+  function handleQuitarIncidente(index: number) {
+    if (form.incidentes.length <= MIN_INCIDENTES) return;
+    setForm(removeIncidente(form, index));
+    setAccionesInputs(accionesInputs.filter((_, i) => i !== index));
   }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!form.perfilUsuario.nombre.trim() || !form.incidentes[0].nombre.trim()) return;
+    const perfilValido = form.perfilUsuario.nombre.trim();
+    const incidentesValidos = form.incidentes.every((inc) => inc.nombre.trim());
+    if (!perfilValido || !incidentesValidos) return;
 
-    const incidenteFinal: IncidenteCritico = {
-      ...form.incidentes[0],
-      accionesSugeridas: accionesInput.split(',').map((s: string) => s.trim()).filter(Boolean),
-    };
+    const incidentesFinal: IncidenteCritico[] = form.incidentes.map((inc, i) => ({
+      ...inc,
+      accionesSugeridas: (accionesInputs[i] || '').split(',').map((s: string) => s.trim()).filter(Boolean),
+    }));
 
     const payload: MomentosCriticosContenido = {
       ...form,
-      incidentes: [incidenteFinal],
+      incidentes: incidentesFinal,
     };
 
     if (editandoArtefactoId) {
@@ -114,10 +139,7 @@ export function MomentosCriticosPage() {
       actualizar(
         { artefactoId: idAEditar, contenido: payload },
         {
-          onSuccess: () => {
-            unlockCriticalMoment(idAEditar);
-            resetForm();
-          },
+          onSuccess: resetForm,
         }
       );
     } else {
@@ -176,6 +198,7 @@ export function MomentosCriticosPage() {
           <div className="form-grid-2">
             <input
               placeholder="Nombre del perfil de usuario *"
+              aria-label="Nombre del perfil de usuario"
               value={form.perfilUsuario.nombre}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, perfilUsuario: { ...form.perfilUsuario, nombre: e.target.value } })}
               required
@@ -183,55 +206,92 @@ export function MomentosCriticosPage() {
             />
             <input
               placeholder="Rol"
+              aria-label="Rol"
               value={form.perfilUsuario.rol}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, perfilUsuario: { ...form.perfilUsuario, rol: e.target.value } })}
               style={{ padding: 8 }}
             />
           </div>
 
-          <input
-            placeholder="Nombre del incidente *"
-            value={form.incidentes[0].nombre}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => actualizarIncidente('nombre', e.target.value)}
-            required
-            style={{ padding: 8 }}
-          />
-          <textarea
-            placeholder="Descripción"
-            value={form.incidentes[0].descripcion}
-            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => actualizarIncidente('descripcion', e.target.value)}
-            style={{ padding: 8, minHeight: 50 }}
-          />
-          <div className="form-grid-3">
-            <select value={form.incidentes[0].tipo} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => actualizarIncidente('tipo', e.target.value)} style={{ padding: 8 }}>
-              <option value="Positivo">Positivo</option>
-              <option value="Negativo">Negativo</option>
-            </select>
-            <select value={form.incidentes[0].impacto} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => actualizarIncidente('impacto', e.target.value)} style={{ padding: 8 }}>
-              <option value="Alto">Impacto Alto</option>
-              <option value="Medio">Impacto Medio</option>
-              <option value="Bajo">Impacto Bajo</option>
-            </select>
-            <select value={form.incidentes[0].frecuencia} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => actualizarIncidente('frecuencia', e.target.value)} style={{ padding: 8 }}>
-              <option value="Alta">Frecuencia Alta</option>
-              <option value="Media">Frecuencia Media</option>
-              <option value="Baja">Frecuencia Baja</option>
-            </select>
-          </div>
-          <input
-            placeholder="Causa"
-            value={form.incidentes[0].causa}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => actualizarIncidente('causa', e.target.value)}
-            style={{ padding: 8 }}
-          />
-          <input
-            placeholder="Acciones sugeridas (separadas por coma)"
-            value={accionesInput}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => actualizarIncidente('accionesSugeridas', e.target.value)}
-            style={{ padding: 8 }}
-          />
+          <small style={{ color: 'var(--muted)' }}>Incidentes (mínimo {MIN_INCIDENTES}):</small>
+          {form.incidentes.map((incidente, i) => (
+            <div key={i} style={{ border: '1px solid var(--line)', borderRadius: 6, padding: 8, display: 'grid', gap: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <small style={{ color: 'var(--muted)' }}>Incidente {i + 1}</small>
+                <button
+                  type="button"
+                  onClick={() => handleQuitarIncidente(i)}
+                  disabled={form.incidentes.length <= MIN_INCIDENTES}
+                  title={form.incidentes.length <= MIN_INCIDENTES ? `Debes conservar al menos ${MIN_INCIDENTES} incidente(s)` : 'Quitar incidente'}
+                  style={{
+                    cursor: form.incidentes.length <= MIN_INCIDENTES ? 'not-allowed' : 'pointer',
+                    color: form.incidentes.length <= MIN_INCIDENTES ? 'var(--muted)' : 'var(--coral)',
+                    background: 'none',
+                    border: 0,
+                    fontSize: 11,
+                  }}
+                >
+                  Quitar incidente
+                </button>
+              </div>
+              <input
+                placeholder="Nombre del incidente *"
+                aria-label={`Nombre del incidente ${i + 1}`}
+                value={incidente.nombre}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => actualizarIncidente(i, 'nombre', e.target.value)}
+                required
+                style={{ padding: 8 }}
+              />
+              <textarea
+                placeholder="Descripción"
+                aria-label={`Descripción incidente ${i + 1}`}
+                value={incidente.descripcion}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => actualizarIncidente(i, 'descripcion', e.target.value)}
+                style={{ padding: 8, minHeight: 50 }}
+              />
+              <div className="form-grid-3">
+                <select aria-label={`Tipo incidente ${i + 1}`} value={incidente.tipo} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => actualizarIncidente(i, 'tipo', e.target.value)} style={{ padding: 8 }}>
+                  <option value="Positivo">Positivo</option>
+                  <option value="Negativo">Negativo</option>
+                </select>
+                <select aria-label={`Impacto incidente ${i + 1}`} value={incidente.impacto} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => actualizarIncidente(i, 'impacto', e.target.value)} style={{ padding: 8 }}>
+                  <option value="Alto">Impacto Alto</option>
+                  <option value="Medio">Impacto Medio</option>
+                  <option value="Bajo">Impacto Bajo</option>
+                </select>
+                <select aria-label={`Frecuencia incidente ${i + 1}`} value={incidente.frecuencia} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => actualizarIncidente(i, 'frecuencia', e.target.value)} style={{ padding: 8 }}>
+                  <option value="Alta">Frecuencia Alta</option>
+                  <option value="Media">Frecuencia Media</option>
+                  <option value="Baja">Frecuencia Baja</option>
+                </select>
+              </div>
+              <input
+                placeholder="Causa"
+                aria-label={`Causa incidente ${i + 1}`}
+                value={incidente.causa}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => actualizarIncidente(i, 'causa', e.target.value)}
+                style={{ padding: 8 }}
+              />
+              <input
+                placeholder="Acciones sugeridas (separadas por coma)"
+                aria-label={`Acciones sugeridas incidente ${i + 1}`}
+                value={accionesInputs[i] ?? ''}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => actualizarIncidente(i, 'accionesSugeridas', e.target.value)}
+                style={{ padding: 8 }}
+              />
+            </div>
+          ))}
 
-          <button type="submit" className="primary" disabled={isSaving}>
+          <button
+            type="button"
+            className="secondary"
+            onClick={handleAgregarIncidente}
+            style={{ justifySelf: 'start' }}
+          >
+            + Agregar incidente
+          </button>
+
+          <button type="submit" className="primary" disabled={isSaving} style={{ justifySelf: 'start' }}>
             {isSaving ? 'Guardando…' : editandoArtefactoId ? 'Actualizar momento crítico' : 'Guardar momento crítico'}
           </button>
           </fieldset>
@@ -320,8 +380,8 @@ export function MomentosCriticosPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      if (window.confirm('¿Estás seguro de eliminar este momento crítico?')) {
+                    onClick={async () => {
+                      if (await confirm('¿Estás seguro de eliminar este momento crítico?')) {
                         eliminar(m.id);
                       }
                     }}

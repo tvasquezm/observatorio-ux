@@ -8,6 +8,9 @@
 // El store de autenticación del evaluador y este cliente comparten la llave
 // `evaluadorToken` en localStorage.
 
+import { useAuthStore } from '../../features/auth/store/useAuthStore';
+import { notify } from './toast';
+
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
 
 export type TipoArtefacto = 'PERSONA' | 'JOURNEY_MAP' | 'MOMENTOS_CRITICOS';
@@ -73,6 +76,17 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     });
   } catch {
     throw new ArtifactsApiError(0, 'No se pudo conectar con el servidor.');
+  }
+
+  if (res.status === 401) {
+    // Sesión expirada o token inválido: no tiene sentido reintentar ni
+    // mostrar el body del error crudo — se cierra sesión (limpia el token
+    // de useAuthStore/localStorage) y se avisa. ProtectedRoute ya está
+    // suscrito a `isAuthenticated`, así que el logout por sí solo dispara
+    // el redirect a /login sin necesitar un evento global aparte.
+    useAuthStore.getState().logout();
+    notify.error('Tu sesión expiró. Vuelve a iniciar sesión.');
+    throw new ArtifactsApiError(401, 'Sesión expirada.');
   }
 
   if (!res.ok) {
