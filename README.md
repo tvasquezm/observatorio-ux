@@ -39,7 +39,7 @@ Monorepo con **arquitectura de slices verticales** (bajo acoplamiento, alta cohe
 
 La interfaz usa un sistema de diseño propio, **Academic Minimalism**: paleta monocromática en grises + un "Azul Académico" (Indigo) reservado para acciones transaccionales.
 
-> Toda la API usa **un solo idioma para las rutas: inglés** (`/api/projects`, `/api/projects/:id/artifacts`, etc.). `EvaluacionHeuristicaController` es la única excepción pendiente de migrar (sigue en español, `/api/proyectos/.../evaluacion-heuristica/...`) — ver `docs/ARCHITECTURE.md` §5.
+> Toda la API usa **un solo idioma para las rutas: inglés** (`/api/projects`, `/api/projects/:id/artifacts` y `/api/projects/:id/evaluacion-heuristica/...`). Ver `docs/ARCHITECTURE.md` §5.
 
 ## Stack tecnológico
 

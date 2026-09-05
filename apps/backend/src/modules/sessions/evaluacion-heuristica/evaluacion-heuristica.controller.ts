@@ -21,7 +21,7 @@ import { EvaluacionHeuristicaService } from './evaluacion-heuristica.service';
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ESTUDIANTE', 'DOCENTE', 'ADMIN')
-@Controller('proyectos/:proyectoId/evaluacion-heuristica/sesiones')
+@Controller('projects/:proyectoId/evaluacion-heuristica/sesiones')
 export class EvaluacionHeuristicaController {
   constructor(private readonly service: EvaluacionHeuristicaService) {}
 
@@ -67,7 +67,7 @@ export class EvaluacionHeuristicaController {
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ESTUDIANTE', 'DOCENTE', 'ADMIN')
-@Controller('proyectos/:proyectoId/evaluacion-heuristica/analytics')
+@Controller('projects/:proyectoId/evaluacion-heuristica/analytics')
 export class EvaluacionHeuristicaAnalyticsController {
   constructor(private readonly service: EvaluacionHeuristicaService) {}
 

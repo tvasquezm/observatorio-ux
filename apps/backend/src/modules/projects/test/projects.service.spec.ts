@@ -118,7 +118,7 @@ describe('ProjectsService', () => {
     });
   });
 
-  describe('update (PATCH /proyectos/:id)', () => {
+  describe('update (PATCH /projects/:id)', () => {
     it('el dueño puede editar su proyecto', async () => {
       prisma.proyecto.findUnique.mockResolvedValue(proyectoDeEjemplo);
       prisma.proyecto.update.mockResolvedValue({

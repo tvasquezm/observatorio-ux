@@ -30,11 +30,9 @@ cuando hace falta más detalle.
   **`evaluadorToken`**. Todos los clientes HTTP del frontend
   (`projects.api.ts`, `artifacts.api.ts`, `evaluacion-heuristica.api.ts`)
   lo leen igual: `localStorage.getItem('evaluadorToken')`.
-- **Ojo:** `shared/api/artifacts.api.ts` deja explícito en un comentario que
-  esto es un placeholder — no hay un authStore real de evaluador todavía
-  (Zustand u otro). El de participante sí existe (`api-client.ts`, clave
-  `participanteToken`). Si armás ese authStore, hay que actualizar los 3
-  archivos de arriba para leer de ahí en vez de `localStorage` directo.
+- El authStore del evaluador ya existe y comparte la clave `evaluadorToken`
+  con los tres clientes HTTP; no hay que reemplazar este acceso por un
+  placeholder de participante.
 
 ## 3. Estructura de carpetas (patrón a seguir)
 
@@ -118,13 +116,12 @@ catch (err) {
 un input específico para ese caso. No es un bug del frontend, es una
 limitación de origen.
 
-## 6. Rutas — no todas están en el mismo idioma (todavía)
+## 6. Rutas — idioma único de la API
 
 - ✅ `/api/projects/*` y `/api/projects/:proyectoId/artifacts/*` — **inglés**,
   consolidado (el alias en español se eliminó).
-- ⚠️ `/api/proyectos/:proyectoId/evaluacion-heuristica/sesiones/*` — sigue
-  en **español**, sin alias en inglés. No lo migres sin coordinar con el
-  equipo (`ARCHITECTURE.md §5` lo deja pendiente a propósito).
+- ✅ `/api/projects/:proyectoId/evaluacion-heuristica/sesiones/*` — **inglés**,
+  unificado con el resto de la API.
 
 ## 7. Estilo — `theme.css`
 

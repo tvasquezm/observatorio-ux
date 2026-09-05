@@ -5,12 +5,8 @@
 // journey-map, momentos-criticos. Sin estado, sin hooks — solo fetch + tipos,
 // mismo criterio que features/card-sorting/api/card-sorting.api.ts.
 //
-// NOTA / TODO: el dump del repo no incluye ningún store ni servicio de auth
-// de EVALUADOR (solo el de PARTICIPANTE, en shared/api/api-client.ts, que
-// lee 'participanteToken'). ArtifactsController exige JwtAuthGuard con roles
-// ESTUDIANTE/DOCENTE/ADMIN, o sea token de evaluador. getAuthToken() de abajo
-// es un placeholder — reemplazar por la fuente real (ej. un authStore de
-// Zustand) en cuanto exista esa feature.
+// El store de autenticación del evaluador y este cliente comparten la llave
+// `evaluadorToken` en localStorage.
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
 
@@ -58,7 +54,6 @@ function normalizarDetalles(message: unknown): DetalleValidacion[] | undefined {
   return undefined;
 }
 
-// TODO: reemplazar por el authStore real de evaluador cuando exista.
 function getAuthToken(): string | null {
   return localStorage.getItem('evaluadorToken');
 }

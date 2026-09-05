@@ -3,7 +3,7 @@
 // Analítica agregada del proyecto. A diferencia del mockup de referencia,
 // NO incluye SUS score ni NPS: esas métricas no existen en el modelo de
 // datos (no hay ninguna sesión de encuesta que las produzca). Lo que se
-// muestra acá sale de GET /proyectos/:id/evaluacion-heuristica/analytics,
+// muestra acá sale de GET /projects/:id/evaluacion-heuristica/analytics,
 // calculado sobre hallazgos reales.
 
 import { useOutletContext } from 'react-router-dom';

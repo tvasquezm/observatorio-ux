@@ -84,7 +84,7 @@ El encabezado de `schema.prisma` referencia un **ADR Master** ("Refleja el ADR M
 
 **Decisión:** el equipo decidió quedarse con **un solo idioma para toda la API: inglés**. Se quitó el alias en español de `ProjectsController` (`@Controller('projects')`) y `ArtifactsController` (`@Controller('projects/:proyectoId/artifacts')`). Rutas afectadas — dejan de existir `/api/proyectos/*` y `/api/proyectos/:proyectoId/artefactos/*`; siguen existiendo `/api/projects/*` y `/api/projects/:proyectoId/artifacts/*` (incluyendo `/lock` de B4/B9/B14).
 
-**Pendiente para el equipo:** `EvaluacionHeuristicaController` (`proyectos/:proyectoId/evaluacion-heuristica/sesiones`) sigue en español y no tiene alias en inglés — no se tocó porque no era parte de la duplicación reportada, pero para consistencia con la decisión de este ítem, valdría la pena migrarlo también en un cambio aparte (afecta más superficie de API, conviene coordinarlo con quien consuma esas rutas).
+**Resolución:** `EvaluacionHeuristicaController` y su controlador de analítica fueron migrados a `projects/:proyectoId/evaluacion-heuristica/...`. El frontend y la documentación se actualizaron en conjunto, por lo que toda la API mantiene ahora la convención de rutas en inglés.
 
 ### 6. Helmet + rate limiting
 

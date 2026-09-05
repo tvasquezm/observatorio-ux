@@ -1,10 +1,10 @@
 // apps/frontend/src/features/evaluacion-heuristica/api/evaluacion-heuristica.api.ts
 //
 // Rutas reales (EvaluacionHeuristicaController, prefijo global 'api'):
-//   POST  /api/proyectos/:proyectoId/evaluacion-heuristica/sesiones
-//   PATCH /api/proyectos/:proyectoId/evaluacion-heuristica/sesiones/:sesionId/hallazgos
-//   POST  /api/proyectos/:proyectoId/evaluacion-heuristica/sesiones/:sesionId/finalizar
-//   GET   /api/proyectos/:proyectoId/evaluacion-heuristica/sesiones/:sesionId
+//   POST  /api/projects/:proyectoId/evaluacion-heuristica/sesiones
+//   PATCH /api/projects/:proyectoId/evaluacion-heuristica/sesiones/:sesionId/hallazgos
+//   POST  /api/projects/:proyectoId/evaluacion-heuristica/sesiones/:sesionId/finalizar
+//   GET   /api/projects/:proyectoId/evaluacion-heuristica/sesiones/:sesionId
 //
 // Forma confirmada contra HeuristicaDto real (apps/backend/.../dto/heuristica.dto.ts).
 
@@ -75,7 +75,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export function crearSesionHeuristica(proyectoId: string): Promise<EvaluacionHeuristicaSesion> {
-  return request(`/proyectos/${proyectoId}/evaluacion-heuristica/sesiones`, { method: 'POST' });
+  return request(`/projects/${proyectoId}/evaluacion-heuristica/sesiones`, { method: 'POST' });
 }
 
 export async function registrarHallazgo(
@@ -90,7 +90,7 @@ export async function registrarHallazgo(
     mensaje: string;
     hallazgo: HallazgoHeuristica;
     sesion: EvaluacionHeuristicaSesion;
-  }>(`/proyectos/${proyectoId}/evaluacion-heuristica/sesiones/${sesionId}/hallazgos`, {
+  }>(`/projects/${proyectoId}/evaluacion-heuristica/sesiones/${sesionId}/hallazgos`, {
     method: 'PATCH',
     body: JSON.stringify(hallazgo),
   });
@@ -101,7 +101,7 @@ export function finalizarSesionHeuristica(
   proyectoId: string,
   sesionId: string,
 ): Promise<EvaluacionHeuristicaSesion> {
-  return request(`/proyectos/${proyectoId}/evaluacion-heuristica/sesiones/${sesionId}/finalizar`, {
+  return request(`/projects/${proyectoId}/evaluacion-heuristica/sesiones/${sesionId}/finalizar`, {
     method: 'POST',
   });
 }
@@ -110,7 +110,7 @@ export function obtenerSesionHeuristica(
   proyectoId: string,
   sesionId: string,
 ): Promise<EvaluacionHeuristicaSesion> {
-  return request(`/proyectos/${proyectoId}/evaluacion-heuristica/sesiones/${sesionId}`);
+  return request(`/projects/${proyectoId}/evaluacion-heuristica/sesiones/${sesionId}`);
 }
 
 export interface AnaliticaSeveridad {
@@ -127,5 +127,5 @@ export interface AnaliticaHeuristica {
 }
 
 export function obtenerAnaliticaHeuristica(proyectoId: string): Promise<AnaliticaHeuristica> {
-  return request(`/proyectos/${proyectoId}/evaluacion-heuristica/analytics`);
+  return request(`/projects/${proyectoId}/evaluacion-heuristica/analytics`);
 }

@@ -79,10 +79,10 @@ Para probar el flujo completo en Postman puedes importar
 Las rutas son:
 
 ```text
-POST  /api/proyectos/:proyectoId/evaluacion-heuristica/sesiones
-PATCH /api/proyectos/:proyectoId/evaluacion-heuristica/sesiones/:sesionId/hallazgos
-GET   /api/proyectos/:proyectoId/evaluacion-heuristica/sesiones/:sesionId
-POST  /api/proyectos/:proyectoId/evaluacion-heuristica/sesiones/:sesionId/finalizar
+POST  /api/projects/:proyectoId/evaluacion-heuristica/sesiones
+PATCH /api/projects/:proyectoId/evaluacion-heuristica/sesiones/:sesionId/hallazgos
+GET   /api/projects/:proyectoId/evaluacion-heuristica/sesiones/:sesionId
+POST  /api/projects/:proyectoId/evaluacion-heuristica/sesiones/:sesionId/finalizar
 ```
 
 Solo el evaluador dueño del proyecto puede modificar o finalizar sus sesiones,
