@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## Unreleased
+
+### BREAKING CHANGE
+
+* **auth:** nueva env var obligatoria `JWT_PARTICIPANTE_SECRET` (Regla de
+  negocio: Segregación de Auth — evaluadorToken y participanteToken ya no
+  comparten secreto de firma). El backend no arranca sin ella. Agregarla a tu
+  `.env` (y `apps/backend/.env` si no usás Docker) — ver `env.example`.
+
 ## 1.0.0 (2026-08-03)
 
 ### Features
