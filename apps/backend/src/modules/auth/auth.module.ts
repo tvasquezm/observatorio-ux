@@ -4,6 +4,8 @@ import { JwtModule, JwtSignOptions } from '@nestjs/jwt';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
+import { JwtParticipanteStrategy } from './jwt-participante.strategy';
+import { ParticipanteJwtService } from './participante-jwt.service';
 import { ParticipanteTokenService } from './participante-token.service';
 
 @Module({
@@ -20,7 +22,13 @@ import { ParticipanteTokenService } from './participante-token.service';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, ParticipanteTokenService],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    JwtParticipanteStrategy,
+    ParticipanteJwtService,
+    ParticipanteTokenService,
+  ],
   exports: [AuthService, JwtModule],
 })
 export class AuthModule {}

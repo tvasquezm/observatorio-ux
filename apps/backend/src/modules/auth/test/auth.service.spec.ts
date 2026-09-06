@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { AuthService } from '../auth.service';
 import { PrismaService } from '../../../core/database/prisma.service';
+import { ParticipanteJwtService } from '../participante-jwt.service';
 
 describe('AuthService.registerParticipant', () => {
   let service: AuthService;
@@ -60,6 +61,7 @@ describe('AuthService.registerParticipant', () => {
         AuthService,
         { provide: PrismaService, useValue: prisma },
         { provide: JwtService, useValue: { signAsync: jest.fn() } },
+        { provide: ParticipanteJwtService, useValue: { sign: jest.fn(), verify: jest.fn() } },
         { provide: ConfigService, useValue: { get: jest.fn() } },
       ],
     }).compile();

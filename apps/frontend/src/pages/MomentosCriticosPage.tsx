@@ -19,6 +19,8 @@ import {
 import { ArtifactsApiError } from '../shared/api/artifacts.api';
 import { notify } from '../shared/api/toast';
 import { useConfirm } from '../shared/api/confirm';
+import { useAuthStore } from '../features/auth/store/useAuthStore';
+import { puedeEditarArtefactos } from '../shared/auth/permisos';
 
 const MIN_INCIDENTES = 1; // MomentosCriticosSchema exige mínimo 1
 
@@ -50,6 +52,7 @@ export function MomentosCriticosPage() {
   const { mutate: lockCriticalMoment } = useLockCriticalMoment(proyectoId);
   const { mutate: unlockCriticalMoment } = useUnlockCriticalMoment(proyectoId);
   const confirm = useConfirm();
+  const puedeEditar = puedeEditarArtefactos(useAuthStore((s) => s.user));
   const error = listError ?? createError ?? updateError ?? deleteError;
 
   const [form, setForm] = useState<MomentosCriticosContenido>(contenidoVacio());
@@ -170,23 +173,25 @@ export function MomentosCriticosPage() {
           <button className="secondary" type="button" onClick={() => setVistaMatriz((v: boolean) => !v)}>
             {vistaMatriz ? 'Ver Lista' : 'Ver Matriz 3x3'}
           </button>
-          <button
-            className="primary"
-            type="button"
-            onClick={() => {
-              if (mostrarForm) {
-                resetForm();
-              } else {
-                setMostrarForm(true);
-              }
-            }}
-          >
-            {mostrarForm ? 'Cancelar' : '+ Nuevo momento crítico'}
-          </button>
+          {puedeEditar && (
+            <button
+              className="primary"
+              type="button"
+              onClick={() => {
+                if (mostrarForm) {
+                  resetForm();
+                } else {
+                  setMostrarForm(true);
+                }
+              }}
+            >
+              {mostrarForm ? 'Cancelar' : '+ Nuevo momento crítico'}
+            </button>
+          )}
         </div>
       </div>
 
-      {mostrarForm && (
+      {puedeEditar && mostrarForm && (
         <form onSubmit={handleSubmit} className="entity-card form">
           <h3>{editandoArtefactoId ? 'Editar Momento Crítico' : 'Nuevo Momento Crítico'}</h3>
           {readOnly && (
@@ -346,24 +351,28 @@ export function MomentosCriticosPage() {
               <div className="row-between">
                 <b>{m.contenido.perfilUsuario.nombre}</b>
                 <div className="row-gap-md">
-                  <button
-                    type="button"
-                    onClick={() => handleStartEdit(m)}
-                    className="link-btn link-btn--edit"
-                  >
-                    Editar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (await confirm('¿Estás seguro de eliminar este momento crítico?')) {
-                        eliminar(m.id);
-                      }
-                    }}
-                    className="link-btn link-btn--delete"
-                  >
-                    Eliminar
-                  </button>
+                  {puedeEditar && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleStartEdit(m)}
+                        className="link-btn link-btn--edit"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (await confirm('¿Estás seguro de eliminar este momento crítico?')) {
+                            eliminar(m.id);
+                          }
+                        }}
+                        className="link-btn link-btn--delete"
+                      >
+                        Eliminar
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
               <small className="text-muted">{m.contenido.incidentes.length} incidente(s)</small>

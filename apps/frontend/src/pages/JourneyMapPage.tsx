@@ -22,6 +22,8 @@ import {
 import { ArtifactsApiError } from '../shared/api/artifacts.api';
 import { notify } from '../shared/api/toast';
 import { useConfirm } from '../shared/api/confirm';
+import { useAuthStore } from '../features/auth/store/useAuthStore';
+import { puedeEditarArtefactos } from '../shared/auth/permisos';
 
 const MIN_FASES = 3;
 
@@ -45,6 +47,7 @@ export function JourneyMapPage() {
   const { mutate: lockJourney } = useLockJourney(proyectoId);
   const { mutate: unlockJourney } = useUnlockJourney(proyectoId);
   const confirm = useConfirm();
+  const puedeEditar = puedeEditarArtefactos(useAuthStore((s) => s.user));
   const error = listError ?? createError ?? updateError ?? deleteError;
 
   const [form, setForm] = useState<JourneyMapContenido>(contenidoVacio());
@@ -130,18 +133,20 @@ export function JourneyMapPage() {
           <h1>Journey Maps</h1>
           <p>Visualiza el recorrido completo y encuentra el momento en que la experiencia pierde confianza.</p>
         </div>
-        <button
-          className="primary"
-          onClick={() => {
-            if (mostrarForm) resetForm();
-            else setMostrarForm(true);
-          }}
-        >
-          {mostrarForm ? 'Cancelar' : '+ Nuevo journey map'}
-        </button>
+        {puedeEditar && (
+          <button
+            className="primary"
+            onClick={() => {
+              if (mostrarForm) resetForm();
+              else setMostrarForm(true);
+            }}
+          >
+            {mostrarForm ? 'Cancelar' : '+ Nuevo journey map'}
+          </button>
+        )}
       </div>
 
-      {mostrarForm && (
+      {puedeEditar && mostrarForm && (
         <div className="panel mb-16">
           <form onSubmit={handleSubmit} className="form-grid">
             <h2>{editandoId ? 'Editar Journey Map' : 'Nuevo Journey Map'}</h2>
@@ -272,24 +277,28 @@ export function JourneyMapPage() {
               </div>
               <div className="row-gap-md">
                 <span className="count">Emoción media {avg.toFixed(1)}/5</span>
-                <button
-                  type="button"
-                  onClick={() => handleIniciarEditar(j)}
-                  className="link-btn link-btn--edit"
-                >
-                  Editar
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (await confirm('¿Estás seguro de eliminar este journey map?')) {
-                      eliminar(j.id);
-                    }
-                  }}
-                  className="link-btn link-btn--delete"
-                >
-                  Eliminar
-                </button>
+                {puedeEditar && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleIniciarEditar(j)}
+                      className="link-btn link-btn--edit"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (await confirm('¿Estás seguro de eliminar este journey map?')) {
+                          eliminar(j.id);
+                        }
+                      }}
+                      className="link-btn link-btn--delete"
+                    >
+                      Eliminar
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 

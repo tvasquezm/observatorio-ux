@@ -5,11 +5,12 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import type { Request } from 'express';
 import { AuthService } from './auth.service';
 
-// EVALUADOR pasa a autenticarse por cookie httpOnly `evaluadorToken`
-// (Fase 3 — ver docs/ARCHITECTURE.md). PARTICIPANTE sigue con Bearer
-// token (lib/api-client.ts en el frontend, flujo de encuestas). El mismo
-// secreto firma ambos, así que un solo extractor combinado alcanza: si no
-// hay cookie, cae al header Authorization de siempre.
+// EVALUADOR se autentica exclusivamente por cookie httpOnly `evaluadorToken`
+// (Fase 3 — ver docs/ARCHITECTURE.md), firmada con jwt.secret. PARTICIPANTE
+// usa su propia estrategia (JwtParticipanteStrategy, jwt.participanteSecret)
+// — ya no comparten secreto ni extractor (Regla de negocio: Segregación de
+// Auth). Se mantiene el fallback a Authorization Bearer solo para clientes
+// evaluador que aún no migraron a cookie (Swagger, tests).
 function cookieExtractor(req: Request): string | null {
   return (req as any)?.cookies?.evaluadorToken ?? null;
 }

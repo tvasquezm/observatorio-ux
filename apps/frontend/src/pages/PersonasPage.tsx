@@ -13,6 +13,8 @@ import type { PersonaContenido, PersonaArtifact } from '../features/persona/api/
 import { ArtifactsApiError } from '../shared/api/artifacts.api';
 import { notify } from '../shared/api/toast';
 import { useConfirm } from '../shared/api/confirm';
+import { useAuthStore } from '../features/auth/store/useAuthStore';
+import { puedeEditarArtefactos } from '../shared/auth/permisos';
 
 const CAMPOS_LISTA: (keyof PersonaContenido)[] = [
   'hobbies', 'habilidades', 'objetivos', 'necesidades',
@@ -40,6 +42,7 @@ export function PersonasPage() {
   const { mutate: lockPersona } = useLockPersona(proyectoId);
   const { mutate: unlockPersona } = useUnlockPersona(proyectoId);
   const confirm = useConfirm();
+  const puedeEditar = puedeEditarArtefactos(useAuthStore((s) => s.user));
   const error = listError ?? createError ?? updateError ?? deleteError;
 
   const [form, setForm] = useState<PersonaContenido>(vacio());
@@ -117,12 +120,14 @@ export function PersonasPage() {
     <div className="panel">
       <div className="panel-head">
         <h2>Personas</h2>
-        <button className="secondary" onClick={() => { if (mostrarForm) resetForm(); else setMostrarForm(true); }}>
-          {mostrarForm ? 'Cancelar' : '+ Nueva persona'}
-        </button>
+        {puedeEditar && (
+          <button className="secondary" onClick={() => { if (mostrarForm) resetForm(); else setMostrarForm(true); }}>
+            {mostrarForm ? 'Cancelar' : '+ Nueva persona'}
+          </button>
+        )}
       </div>
 
-      {mostrarForm && (
+      {puedeEditar && mostrarForm && (
         <form onSubmit={handleSubmit} className="entity-card form">
           <h3>{editandoId ? 'Editar Persona' : 'Nueva Persona'}</h3>
           {readOnly && (
@@ -193,26 +198,28 @@ export function PersonasPage() {
           <div key={p.id} className="entity-card">
             <div className="row-between">
               <b>{p.contenido.nombreCompleto}</b>
-              <div className="row-gap-sm">
-                <button
-                  type="button"
-                  onClick={() => handleIniciarEditar(p)}
-                  className="link-btn link-btn--edit"
-                >
-                  Editar
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (await confirm('¿Estás seguro de eliminar esta versión?')) {
-                      eliminar(p.id);
-                    }
-                  }}
-                  className="link-btn link-btn--delete"
-                >
-                  Eliminar
-                </button>
-              </div>
+              {puedeEditar && (
+                <div className="row-gap-sm">
+                  <button
+                    type="button"
+                    onClick={() => handleIniciarEditar(p)}
+                    className="link-btn link-btn--edit"
+                  >
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (await confirm('¿Estás seguro de eliminar esta versión?')) {
+                        eliminar(p.id);
+                      }
+                    }}
+                    className="link-btn link-btn--delete"
+                  >
+                    Eliminar
+                  </button>
+                </div>
+              )}
             </div>
             {p.contenido.ocupacion && (
               <small className="text-muted">

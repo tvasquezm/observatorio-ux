@@ -10,12 +10,14 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../core/database/prisma.service';
 import { AuthenticatedUser } from './types/authenticated-user.interface';
+import { ParticipanteJwtService } from './participante-jwt.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
+    private readonly participanteJwt: ParticipanteJwtService,
     private readonly config: ConfigService,
   ) {}
   /**
@@ -185,7 +187,7 @@ export class AuthService {
       );
     }
 
-    const accessToken = await this.jwt.signAsync({
+    const accessToken = await this.participanteJwt.sign({
       sub: participante.id,
       actor: 'PARTICIPANTE',
       rol: 'PARTICIPANTE',
