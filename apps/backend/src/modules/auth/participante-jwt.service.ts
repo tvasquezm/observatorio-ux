@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
+import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 
 /**
  * Firma/verifica participanteToken con JWT_PARTICIPANTE_SECRET — nunca el
@@ -17,7 +17,7 @@ export class ParticipanteJwtService {
     this.jwt = new JwtService({
       secret: config.getOrThrow<string>('jwt.participanteSecret'),
       signOptions: {
-        expiresIn: config.get<string>('jwt.participanteExpiresIn', '4h'),
+        expiresIn: config.get<string>('jwt.participanteExpiresIn', '4h') as JwtSignOptions['expiresIn'],
       },
     });
   }

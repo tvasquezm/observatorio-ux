@@ -14,7 +14,16 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MomentosCriticosPage } from '../MomentosCriticosPage';
 import { ArtifactsApiError } from '../../shared/api/artifacts.api';
 import type { MomentosCriticosArtifact } from '../../features/momentos-criticos/api/momentos-criticos.api';
-import { useAuthStore } from '../../features/auth/store/useAuthStore';
+
+// Se mockea el módulo completo (no useAuthStore.setState) porque el store
+// real ejecuta localStorage.getItem al importarse (leerUserGuardado), y el
+// entorno de test no siempre trae un localStorage utilizable. Los tests de
+// esta página no auditan permisos — solo necesitan un rol que pueda editar
+// (ESTUDIANTE) para no quedar bloqueados por el gating de la Regla 2.
+vi.mock('../../features/auth/store/useAuthStore', () => ({
+  useAuthStore: (selector: (state: { user: { rol: string } }) => unknown) =>
+    selector({ user: { rol: 'ESTUDIANTE' } }),
+}));
 
 const hooks = vi.hoisted(() => ({
   useCriticalMoments: vi.fn(),
@@ -77,15 +86,6 @@ function momentoDePrueba(overrides: Partial<MomentosCriticosArtifact> = {}): Mom
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // Los tests ejercitan Editar/+Nuevo, botones ahora gateados por rol
-  // (Regla de negocio: "la visibilidad no implica permiso para modificar" —
-  // DOCENTE no edita artefactos). Se fija un ESTUDIANTE para no acoplar
-  // estos casos, que no auditan permisos, a ese comportamiento.
-  useAuthStore.setState({
-    user: { id: 'u1', nombre: 'Estudiante de prueba', email: 'e@test.cl', rol: 'ESTUDIANTE' },
-    isAuthenticated: true,
-    isChecking: false,
-  });
   hooks.useCriticalMoments.mockReturnValue({ data: [], isLoading: false, isError: false, error: null });
   hooks.useCreateCriticalMoment.mockReturnValue(mutationStub());
   hooks.useUpdateCriticalMoment.mockReturnValue(mutationStub());
