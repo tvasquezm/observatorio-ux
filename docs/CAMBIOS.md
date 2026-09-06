@@ -3,6 +3,79 @@
 Todo acá parte de TUS archivos reales que subiste, con ediciones mínimas
 y quirúrgicas. No hay archivos inventados desde cero salvo los indicados.
 
+## Ronda 9 (auditoría Flujos de Usuario maestro — roles y segregación de Auth)
+
+Corresponde al Sprint 4 real del equipo. Se documenta como "Sesión de
+trabajo" en `docs/ARCHITECTURE.md` (no "Sprint N") siguiendo
+`docs/sprints/GUIA-IA-DOCUMENTACION.md` — "Sprint" queda reservado
+exclusivamente para los 13 sprints oficiales del Trabajo de Título.
+
+Foco: cruzar 3 reglas de negocio del documento maestro (centralización por
+proyecto, separación de 4 roles, segregación evaluadorToken/participanteToken)
+contra el código de Sprint 4. Ver `docs/AUDIT_LOG.md` J1/J2 y
+`docs/ARCHITECTURE.md §Sesión de trabajo — Auditoría...` para el detalle de cada hallazgo.
+
+1. **DOCENTE bloqueado de editar artefactos (J1).**
+   - `apps/backend/src/modules/artifacts/artifacts.controller.ts`:
+     `@Roles(...)` movido de nivel-controller a nivel-método. `findAll`/
+     `findOne` mantienen `ESTUDIANTE, DOCENTE, ADMIN`; `create`/
+     `createVersion`/`acquireLock`/`releaseLock`/`remove` quedan en
+     `ESTUDIANTE, ADMIN` — DOCENTE pierde escritura.
+   - `apps/frontend/src/shared/auth/permisos.ts` (nuevo):
+     `puedeEditarArtefactos(user)`.
+   - `pages/PersonasPage.tsx`, `pages/JourneyMapPage.tsx`,
+     `pages/MomentosCriticosPage.tsx`: botones "Editar"/"Eliminar"/
+     "+ Nuevo ..." y el formulario de alta condicionados a
+     `puedeEditarArtefactos`. Mismo criterio que Sprint 8 usó para
+     ocultar controles de miembros que el backend igual iba a rechazar.
+   - `pages/__tests__/MomentosCriticosPage.test.tsx`: se mockea
+     `features/auth/store/useAuthStore` (en vez de usar el store real)
+     fijando un ESTUDIANTE — el store real dispara `localStorage.getItem`
+     al importarse y el entorno de test no siempre trae uno utilizable;
+     estos tests no auditan permisos, solo necesitaban no quedar
+     bloqueados por el gating nuevo.
+
+2. **Secreto de firma separado para participanteToken (J2).**
+   - `apps/backend/src/core/config/jwt.config.ts`: nuevas claves
+     `participanteSecret`/`participanteExpiresIn`.
+   - `apps/backend/src/core/config/env.validation.ts`: `JWT_PARTICIPANTE_SECRET`
+     (Joi `.required()`, mismo criterio que ya usan con `NODE_ENV` — no
+     arrancar silencioso en modo inseguro) y `JWT_PARTICIPANTE_EXPIRES_IN`.
+   - `apps/backend/src/modules/auth/participante-jwt.service.ts` (nuevo):
+     instancia propia de `JwtService` con ese secreto.
+   - `apps/backend/src/modules/auth/jwt-participante.strategy.ts` (nuevo):
+     estrategia Passport `'jwt-participante'`, valida solo Bearer contra
+     ese secreto.
+   - `apps/backend/src/core/guards/jwt-participante.guard.ts`: migrado de
+     `AuthGuard('jwt')` a `AuthGuard('jwt-participante')`.
+   - `apps/backend/src/modules/auth/jwt.strategy.ts`: comentario
+     actualizado (ya no dice "el mismo secreto firma ambos" — sigue
+     validando evaluador por cookie/Bearer contra `jwt.secret` únicamente).
+   - `apps/backend/src/modules/auth/auth.service.ts`:
+     `issueParticipantToken` firma con `ParticipanteJwtService` en vez del
+     `JwtService` compartido.
+   - `apps/backend/src/modules/auth/auth.module.ts`: registra
+     `JwtParticipanteStrategy` y `ParticipanteJwtService`.
+   - `apps/backend/src/modules/auth/test/auth.service.spec.ts`: mock de
+     `ParticipanteJwtService` agregado (constructor de `AuthService` cambió).
+   - **Breaking change:** `JWT_PARTICIPANTE_SECRET` sin default — quien
+     actualice necesita agregarla a su `.env` (local o raíz para Docker) o
+     el backend no arranca. Documentado en `CHANGELOG.md` y
+     `docs/sprints/sprint4-auth-roles.md`.
+
+3. **Docs.** `env.example` (raíz) con la nueva var;
+   `apps/backend/.env.example` ídem; `CHANGELOG.md` con entrada
+   "Unreleased / BREAKING CHANGE"; `docs/sprints/sprint4-auth-roles.md`
+   (nuevo) con los comandos de actualización paso a paso.
+
+**Pendiente real, no cerrado en esta ronda:**
+- No se auditó Card Sorting/Evaluación Heurística contra la misma regla de
+  DOCENTE-solo-lectura — se acotó a los 3 artefactos versionados
+  (`UxArtifact`), que es donde el documento maestro habla de "lienzos".
+- Verificación manual end-to-end (login DOCENTE/ESTUDIANTE + Postman con
+  token de DOCENTE contra endpoints de escritura) quedó como checklist en
+  `docs/sprints/sprint4-auth-roles.md`, no ejecutada en esta sesión.
+
 ## Ronda 8 (UI de miembros + Vitest + cierre de documentación)
 
 Foco: terminar el "pendiente real, no cerrado" que dejó explícito el Sprint

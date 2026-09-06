@@ -160,9 +160,24 @@ paso está ahí mismo.
 
 ## Documentación adicional
 
+**Logs maestros** (ver `docs/sprints/GUIA-IA-DOCUMENTACION.md` para el criterio de cuándo actualizar cada uno):
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — decisiones de arquitectura por sprint, mecanismos (versionado append-only, bloqueo pesimista), y hallazgos/correcciones de auditoría técnica
+- [`docs/AUDIT_LOG.md`](docs/AUDIT_LOG.md) — tabla de hallazgos de auditoría/bugs y su corrección
+- [`docs/CAMBIOS.md`](docs/CAMBIOS.md) — changelog granular, archivo por archivo modificado
+
+**Guías de referencia:**
 - [`docs/BACKEND.md`](docs/BACKEND.md) — guía de arranque del backend y flujo completo de autenticación/artefactos
-- [`docs/deuda-tecnica-heuristica.md`](docs/deuda-tecnica-heuristica.md) — registro histórico de deuda técnica detectada en el módulo de Evaluación Heurística (03/08/2026) — la mayoría de esos ítems ya están resueltos, revisar `ARCHITECTURE.md` para el estado vigente
+- [`docs/ONBOARDING-FRONTEND.md`](docs/ONBOARDING-FRONTEND.md) — guía de arranque para `apps/frontend`
+- [`docs/COMANDOS.md`](docs/COMANDOS.md) — referencia rápida de todos los comandos del proyecto
+- [`docs/comandos-backend.md`](docs/comandos-backend.md) — flujo de backend sin Docker (Node/pnpm local)
+- [`docs/Guia_Prueba_E2E_Card_Sorting_Participantes.md`](docs/Guia_Prueba_E2E_Card_Sorting_Participantes.md) — prueba E2E de Card Sorting con participantes
+- [`docs/deuda-tecnica-heuristica.md`](docs/deuda-tecnica-heuristica.md) — registro histórico de deuda técnica del módulo de Evaluación Heurística (03/08/2026) — la mayoría de esos ítems ya están resueltos, revisar `ARCHITECTURE.md` para el estado vigente
+
+**Registros por sprint** (`docs/sprints/`):
+- [`docs/sprints/GUIA-IA-DOCUMENTACION.md`](docs/sprints/GUIA-IA-DOCUMENTACION.md) — convenciones para asistentes de IA (nomenclatura, vocabulario técnico, qué doc actualizar)
+- [`docs/sprints/sprint3-herramientas-ux.md`](docs/sprints/sprint3-herramientas-ux.md) — Sprint 3, Persona/Journey Map/Momentos Críticos
+- [`docs/sprints/sprint4-auth-roles.md`](docs/sprints/sprint4-auth-roles.md) — Sprint 4, roles + segregación de auth
+
 - [`postman/`](postman/) — colecciones Postman por módulo (token de prueba vía `/auth/test-token`, deshabilitado automáticamente cuando `NODE_ENV=production`)
 
 ## Licencia

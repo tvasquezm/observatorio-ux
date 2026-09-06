@@ -80,6 +80,12 @@ En desarrollo también existen `GET /api/auth/test-token` y
 `GET /api/auth/test-participant-token`, que generan tokens a partir de los datos
 creados por el seed. Esos endpoints quedan deshabilitados en producción.
 
+**Segregación de secretos:** `evaluadorToken` y `participanteToken` se
+firman con secretos distintos (`JWT_SECRET` y `JWT_PARTICIPANTE_SECRET`
+respectivamente, cada uno con su propia estrategia Passport). Ambas env
+vars son obligatorias — el backend no arranca sin `JWT_PARTICIPANTE_SECRET`
+seteada (ver `docs/sprints/sprint4-auth-roles.md`).
+
 Para probar el flujo completo en Postman puedes importar
 `postman/backend-functional.postman_collection.json`.
 
@@ -122,6 +128,15 @@ Los valores admitidos para `tipo` son `PERSONA`, `JOURNEY_MAP` y
 conserve su estructura específica. Las nuevas versiones se almacenan como
 registros append-only asociados al mismo `artefactoLogicoId`.
 
+**Permisos por rol:** `ESTUDIANTE` y `ADMIN` pueden crear/editar/bloquear/
+eliminar artefactos. `DOCENTE` solo tiene acceso de lectura (`GET`) — no
+puede modificar el trabajo de un estudiante aunque sea miembro o creador
+del proyecto ("la visibilidad no implica permiso para modificar", ver
+`docs/AUDIT_LOG.md` J1). Enforcement real es `@Roles(...)` por método en
+`ArtifactsController`; el frontend además oculta los controles de edición
+para DOCENTE (`shared/auth/permisos.ts`) para no mostrar algo que el
+backend igual rechazaría con `403`.
+
 Antes de editar un artefacto, adquirir el bloqueo con `POST .../lock`
 (TTL configurable vía `ttlSegundos` en el body, default 5 min) y liberarlo
 con `DELETE .../lock` al terminar. Ver `docs/ARCHITECTURE.md` §Sprint 2.3.
@@ -159,7 +174,7 @@ formulario resalte el input exacto que falló.
 Implementado en `GlobalExceptionFilter`
 (`apps/backend/src/common/filters/global-exception.filter.ts`), registrado
 globalmente en `main.ts`. Ver `docs/ARCHITECTURE.md §Sprint 3` para el
-detalle de decisiones y `docs/SESION-CLAUDE-sprint3.md §9` para el registro
+detalle de decisiones y `docs/sprints/sprint3-herramientas-ux.md §9` para el registro
 de la sesión que lo implementó (incluye un bug real encontrado y corregido:
 el filtro inicialmente ignoraba el array estructurado que ya armaba
 `artifacts.service.ts`).

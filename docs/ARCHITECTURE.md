@@ -159,14 +159,14 @@ Foco del sprint: antes de construir las interfaces de las tres técnicas UX, dej
 - `ErrorBoundary.tsx` y `NotFound.tsx` se generaron como componentes standalone, pero no se confirmó que estén efectivamente envolviendo las features (`<ErrorBoundary><PersonaFeature /></ErrorBoundary>`) ni que la ruta comodín (`<Route path="*" element={<NotFound />} />`) esté agregada al router real — quedó como instrucción, no como cambio verificado en archivo.
 - El fallback de campo vacío (punto 2) sigue abierto para cualquier `throw` manual futuro que no pase por `ValidationPipe` ni por la validación Zod del service.
 
-**⚠️ Conflicto de arquitectura sin resolver (crítico, bloquea merge):** `main.tsx`, `NotFound.tsx` y `ErrorBoundary.tsx` de este sprint asumen `react-router-dom` (`BrowserRouter`, `<Link>`). Una sesión de trabajo distinta, en paralelo, tomó la decisión deliberada de **no** agregar `react-router-dom` y usar routing por `location.hash` en su lugar (`useHashRoute.ts`), específicamente para no sumar una dependencia nueva a mitad de sprint sin acuerdo del equipo. Ambos supuestos no pueden convivir tal cual. Detalle completo, con los archivos exactos de cada lado, en `docs/SESION-CLAUDE-sprint3.md §8.1` y `§9.1` — resolver ahí antes de fusionar cualquier rama que toque `main.tsx`, `App.tsx` o el router.
+**⚠️ Conflicto de arquitectura sin resolver (crítico, bloquea merge):** `main.tsx`, `NotFound.tsx` y `ErrorBoundary.tsx` de este sprint asumen `react-router-dom` (`BrowserRouter`, `<Link>`). Una sesión de trabajo distinta, en paralelo, tomó la decisión deliberada de **no** agregar `react-router-dom` y usar routing por `location.hash` en su lugar (`useHashRoute.ts`), específicamente para no sumar una dependencia nueva a mitad de sprint sin acuerdo del equipo. Ambos supuestos no pueden convivir tal cual. Detalle completo, con los archivos exactos de cada lado, en `docs/sprints/sprint3-herramientas-ux.md §8.1` y `§9.1` — resolver ahí antes de fusionar cualquier rama que toque `main.tsx`, `App.tsx` o el router.
 ---
 
 ## Sprint 3 (continuación) — Cierre del conflicto de routing (C4) + frontend funcional end-to-end
 
 **Resolución de C4:** al retomar el proyecto en una sesión posterior, `main.tsx` y `App.tsx` ya reflejaban la decisión a favor de `react-router-dom` (`BrowserRouter`, no `useHashRoute`) — la reconstrucción de `§9.2` del log de sesión había prevalecido. Se cerró la brecha real que quedaba abierta: la dependencia nunca se había agregado a `package.json` pese a que el código ya la importaba. Agregada (`react-router-dom@7.18.3`) y construido `App.tsx` con rutas anidadas: `/login` pública, resto protegido por `ProtectedRoute` (redirige si no hay `evaluadorToken`), `/proyectos/:proyectoId` como layout con sub-navegación a cada técnica UX (Personas, Journey Map, Momentos Críticos, Card Sorting, Evaluación Heurística).
 
-**Auth de evaluador implementada:** cerrando el placeholder que `§7.3` de `SESION-CLAUDE-sprint3.md` dejaba pendiente para "Sprint 4", se construyó `features/auth/` (api + store Zustand + página de login) contra `POST /api/auth/login` real. El store escribe en la misma llave `localStorage.getItem('evaluadorToken')` que `shared/api/artifacts.api.ts` ya leía como TODO — sin necesidad de tocar ese archivo.
+**Auth de evaluador implementada:** cerrando el placeholder que `§7.3` de `sprint3-herramientas-ux.md` dejaba pendiente para "Sprint 4", se construyó `features/auth/` (api + store Zustand + página de login) contra `POST /api/auth/login` real. El store escribe en la misma llave `localStorage.getItem('evaluadorToken')` que `shared/api/artifacts.api.ts` ya leía como TODO — sin necesidad de tocar ese archivo.
 
 **Páginas conectadas a los hooks ya existentes:** las páginas de Persona, Journey Map y Momentos Críticos consumen directamente los hooks de TanStack Query que ya existían (`usePersonaQueries.ts`, etc., escritos en la sesión de `§4`) — no se tocó esa capa, solo se construyó la UI encima. Card Sorting (evaluador crea el estudio maestro) usa `useCardSortingQueries.ts` ya existente. Evaluación Heurística no tenía capa `api/`/`hooks/` todavía (solo `.gitkeep`) — se construyó siguiendo el mismo patrón que el resto de las features, contra las rutas documentadas en `docs/BACKEND.md §Evaluación heurística`.
 
@@ -336,5 +336,30 @@ Nota agregada (no una decisión tomada): JWT en `localStorage` → cookie `httpO
 **Pendiente real, no cerrado en este sprint:**
 - Fase 3 completa (estilos, JWT→cookie httpOnly analizado de verdad, más tests de backend/frontend además de los 3 agregados acá).
 - Test de integración real (Supertest o similar) para `listMembers`/`addMember`/`removeMember` — lo que hay hoy en frontend son tests de componente con los hooks mockeados, no un E2E contra el backend real.
+
+---
+
+## Sesión de trabajo — Auditoría contra el documento maestro de Flujos de Usuario (roles y segregación de Auth)
+
+> Corresponde al **Sprint 4** real del equipo ("Frontend transversal
+> integrado: login, dashboard y navegación"). Este archivo numeraba las
+> secciones anteriores como "Sprint N" usando un contador interno propio
+> — no los sprints oficiales del Trabajo de Título — lo cual generó
+> confusión (ver `docs/sprints/GUIA-IA-DOCUMENTACION.md` regla 1). A partir
+> de esta sesión, las entradas nuevas de este archivo usan "Sesión de
+> trabajo", reservando "Sprint" únicamente para los 13 sprints oficiales.
+
+Foco: cruzar 3 reglas de negocio del documento maestro contra el código real de Sprint 4 (frontend transversal: login, dashboard, navegación) — no features nuevas, cierre de brechas encontradas.
+
+**Regla 1 (Centralización por `proyectoId`):** cumplía sin cambios — `App.tsx` anida las 5 técnicas + analítica/miembros/participantes bajo `/proyectos/:proyectoId`, `ProjectDetailLayout` inyecta `proyectoId` vía `useOutletContext`, todas las páginas hijas lo consumen de ahí. Sin brecha, sin código nuevo.
+
+**Regla 2 (DOCENTE no edita artefactos de estudiante — "la visibilidad no implica permiso"):** ver `docs/AUDIT_LOG.md` J1. `ArtifactsController` daba a DOCENTE los mismos permisos de escritura que a ESTUDIANTE sobre `create`/`createVersion`/`acquireLock`/`releaseLock`/`remove` — solo `assertAccess` (dueño/ADMIN/miembro) filtraba, sin distinguir rol. Cerrado acotando `@Roles(...)` por método (DOCENTE queda solo en los `GET`) y agregando el mismo gating en frontend (`shared/auth/permisos.ts` + `PersonasPage`/`JourneyMapPage`/`MomentosCriticosPage`) para no mostrar controles que el backend igual iba a rechazar — mismo criterio ya usado en Sprint 8 para miembros de proyecto.
+
+**Regla 3 (evaluadorToken y participanteToken "estrictamente separados"):** ver `docs/AUDIT_LOG.md` J2. En frontend ya cumplía (`api-client.ts` solo participante/Bearer/localStorage, `artifacts.api.ts` solo evaluador/cookie httpOnly+CSRF). En backend, `JwtStrategy` firmaba y validaba ambos tipos de token con el mismo `jwt.secret` — el propio comentario del archivo decía "el mismo secreto firma ambos". La única barrera real entre uno y otro era el claim `actor`, no dos mecanismos de firma independientes. Cerrado con secreto y estrategia Passport separados (`JWT_PARTICIPANTE_SECRET`, `JwtParticipanteStrategy`, `ParticipanteJwtService`) — nueva env var **obligatoria**, documentado como *breaking change* en `CHANGELOG.md` y en `docs/sprints/sprint4-auth-roles.md`.
+
+**Pendiente real, no cerrado en este sprint:**
+- No se auditaron con el mismo detalle Card Sorting ni Evaluación Heurística contra la Regla 2 — el hallazgo se acotó a los 3 artefactos versionados (`UxArtifact`: persona/journey-map/momentos-críticos), que es donde el documento maestro habla explícitamente de "lienzos" de estudiante.
+- No se corrió el flujo manual completo (login DOCENTE/ESTUDIANTE + intento de escritura con Postman) al cierre de esta sesión — quedó como checklist en `docs/sprints/sprint4-auth-roles.md`, no verificado end-to-end acá.
+
 
 
