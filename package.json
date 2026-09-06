@@ -9,10 +9,10 @@
     "packages/*"
   ],
   "scripts": {
-    "dev:frontend": "npm run dev --workspace=apps/frontend",
-    "dev:backend": "npm run start:dev --workspace=apps/backend",
-    "build:shared": "npm run build --workspace=packages/shared-types",
-    "build:all": "npm run build --workspaces",
+    "dev:frontend": "pnpm --filter frontend dev",
+    "dev:backend": "pnpm --filter backend start:dev",
+    "build:shared": "pnpm --filter @observatorio-ux/shared-types build",
+    "build:all": "pnpm --recursive build",
     "release": "commit-and-tag-version",
     "release:minor": "commit-and-tag-version --release-as minor",
     "release:patch": "commit-and-tag-version --release-as patch"

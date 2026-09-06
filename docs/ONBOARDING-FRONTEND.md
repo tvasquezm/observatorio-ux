@@ -28,13 +28,36 @@ cuando hace falta más detalle.
 
 ## 2. Autenticación en el frontend
 
-- El token del evaluador se guarda en `localStorage` bajo la clave
-  **`evaluadorToken`**. Todos los clientes HTTP del frontend
-  (`projects.api.ts`, `artifacts.api.ts`, `evaluacion-heuristica.api.ts`)
-  lo leen igual: `localStorage.getItem('evaluadorToken')`.
-- El authStore del evaluador ya existe y comparte la clave `evaluadorToken`
-  con los tres clientes HTTP; no hay que reemplazar este acceso por un
-  placeholder de participante.
+- **Cookie `httpOnly`, no `localStorage`.** El evaluador se autentica con
+  la cookie `evaluadorToken` que el backend setea en `POST /auth/login`
+  (`res.cookie(...)`, ver `auth.controller.ts`) — el frontend nunca la ve
+  ni la guarda, es `httpOnly` a propósito. Si alguna vez ves código nuevo
+  leyendo `localStorage.getItem('evaluadorToken')`, es un regreso al bug
+  viejo (ver `docs/AUDIT_LOG.md`) — bórralo.
+- **`credentials: 'include'` en todo fetch del evaluador.** Sin eso, un
+  fetch cross-origin (dev: `5173` → `3000`) ni guarda la cookie que llega
+  en el login ni la reenvía después — todo termina en 401. Los 4 clientes
+  HTTP del evaluador ya lo tienen: `features/auth/api/auth.api.ts`,
+  `features/projects/api/projects.api.ts`, `shared/api/artifacts.api.ts`,
+  `features/evaluacion-heuristica/api/evaluacion-heuristica.api.ts`
+  (+ la mutación de evaluador en `features/card-sorting/api/card-sorting.api.ts`).
+- **CSRF (double-submit cookie).** El backend también setea una cookie
+  `csrfToken` (NO `httpOnly`, para que el JS la pueda leer) y exige que
+  todo método mutante (`POST`/`PUT`/`PATCH`/`DELETE`) con sesión de
+  evaluador mande el mismo valor en el header `X-CSRF-Token` — si no
+  calzan, `403`. `shared/api/csrf.ts` expone `csrfHeaders(method)` para
+  esto; los mismos 4-5 clientes de arriba ya lo usan. Si agregás un
+  cliente HTTP nuevo para el evaluador, tiene que sumarlo también.
+- **`useAuthStore` valida contra `/auth/me`, no contra caché.** El
+  `user` sí se cachea en `localStorage` (solo para pintar la UI rápido en
+  cada recarga), pero la fuente de verdad de `isAuthenticated` es
+  `checkSession()` (`GET /auth/me`), disparado por `ProtectedRoute` al
+  montar. Si la cookie expiró o fue revocada, `checkSession()` corrige el
+  estado aunque la caché diga lo contrario.
+- El flujo de **PARTICIPANTE** (`shared/api/api-client.ts`) es aparte y
+  sigue con Bearer token en `localStorage` (`participanteToken`) — eso no
+  cambió, es un diseño distinto a propósito (ver comentario en ese
+  archivo). No mezclar los dos patrones.
 
 ## 3. Estructura de carpetas (patrón a seguir)
 
