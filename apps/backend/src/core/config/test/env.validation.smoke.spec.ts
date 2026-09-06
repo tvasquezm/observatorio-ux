@@ -5,6 +5,7 @@ describe('envValidationSchema (A4 fix smoke test)', () => {
     PORT: 3000,
     DATABASE_URL: 'postgresql://x',
     JWT_SECRET: '0123456789abcdef',
+    JWT_PARTICIPANTE_SECRET: 'secret-participante',
   };
 
   it('RECHAZA arrancar si NODE_ENV no está seteado (antes: defaulteaba a development)', () => {

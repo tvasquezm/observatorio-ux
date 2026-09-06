@@ -39,16 +39,44 @@ que trabajes en el Flujo B (Node/pnpm local, ver `comandos-backend.md`).
 
 ---
 
-## Backend — tests
+## Ejecución de pruebas
 
-| Comando | Cuándo usarlo |
-|---|---|
-| `pnpm --filter backend test` | Correr toda la suite de tests del backend antes de dar por cerrado un cambio. |
-| `pnpm --filter backend test artifacts.service.spec.ts` | Correr solo un archivo de test puntual, mientras trabajás en ese módulo. |
-| `pnpm --filter backend test:watch` | Dejar los tests corriendo en watch mode mientras editás código. |
-| `pnpm --filter backend test:cov` | Ver el reporte de cobertura de tests. |
+### Ejecutar toda la suite de pruebas
 
----
+```bash
+pnpm --filter backend test
+```
+
+### Ejecutar un módulo específico
+
+```bash
+pnpm --filter backend test auth.service.spec.ts
+pnpm --filter backend test projects.service.spec.ts
+pnpm --filter backend test card-sorting.service.spec.ts
+pnpm --filter backend test evaluacion-heuristica.service.spec.ts
+pnpm --filter backend test artifacts.service.spec.ts
+pnpm --filter backend test env.validation.smoke.spec.ts
+```
+
+### Ejecutar las pruebas en modo Watch
+
+```bash
+pnpm --filter backend test:watch
+```
+
+### Generar reporte de cobertura
+
+```bash
+pnpm --filter backend test:cov
+```
+
+Al momento de la entrega, la suite de pruebas presenta los siguientes resultados:
+
+- **Test Suites:** 6 passed, 6 total
+- **Tests:** 64 passed, 64 total
+- **Snapshots:** 0 total
+
+El comando `test:cov` genera además un reporte de cobertura en la carpeta `coverage/` del backend, permitiendo analizar el porcentaje de código cubierto por las pruebas automatizadas.
 
 ## Frontend — tests (Vitest, desde Sprint 8)
 
