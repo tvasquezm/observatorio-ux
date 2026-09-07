@@ -8,11 +8,13 @@ import { exportarResumenPdf } from '../shared/utils/pdf';
 const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', icon: '◆', end: true },
   { to: '/proyectos', label: 'Proyectos', icon: '✣', end: false },
+  { to: '/salas', label: 'Salas', icon: '▣', end: false },
 ];
 
 const CRUMB_LABELS: Record<string, string> = {
   '/': 'Dashboard',
   '/proyectos': 'Proyectos',
+  '/salas': 'Salas',
 };
 
 export function AppLayout() {

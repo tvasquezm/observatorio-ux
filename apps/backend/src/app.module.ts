@@ -14,6 +14,7 @@ import { ArtifactsModule } from './modules/artifacts/artifacts.module';
 import { ProjectsModule } from './modules/projects/projects.module';
 import { SessionsModule } from './modules/sessions/sessions.module';
 import { HealthController } from './health.controller';
+import { SalasModule } from './modules/salas/salas.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { HealthController } from './health.controller';
     ArtifactsModule,
     ProjectsModule,
     SessionsModule,
+    SalasModule,
   ],
   providers: [
     RolesGuard,

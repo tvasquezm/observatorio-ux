@@ -66,8 +66,12 @@ async function bootstrap() {
 
   app.useGlobalFilters(new GlobalExceptionFilter());
   app.use(helmet());
+  
+  // ORDEN CORRECTO: cookieParser debe ir ANTES de cualquier middleware
+  // que necesite leer las cookies (como csrfProtection).
   app.use(cookieParser());
   app.use(csrfProtection);
+
   app.setGlobalPrefix('api');
   app.enableCors({
     origin: config.getOrThrow<string>('app.corsOrigin'),
@@ -96,7 +100,7 @@ async function bootstrap() {
         'API para estudios de investigación UX.',
         '',
         '### Cómo autenticarte acá (2 pasos, solo una vez por sesión de navegador)',
-        '1. Abrí `GET /auth/test-token` más abajo, click **Try it out** → **Execute**, y copiá el valor de `access_token` de la respuesta (solo funciona con `NODE_ENV != production`, usa el usuario del seed).',
+        '1. Abrí `GET /auth/test-test-token` más abajo, click **Try it out** → **Execute**, y copiá el valor de `access_token` de la respuesta (solo funciona con `NODE_ENV != production`, usa el usuario del seed).',
         '2. Click en el botón **Authorize** 🔓 arriba a la derecha, pegá el token (sin la palabra "Bearer", Swagger la agrega sola) y confirmá.',
         '',
         'A partir de ahí, todos los endpoints protegidos ya salen con el candado cerrado — no hace falta repetirlo por cada uno. Si recargás la página, el token queda guardado y no hay que autenticarse de nuevo.',

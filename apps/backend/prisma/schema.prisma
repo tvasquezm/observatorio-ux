@@ -62,6 +62,8 @@ model Proyecto {
   artefactos UxArtifact[]
   whitelist  ParticipanteWhitelist[]
   miembros   ProyectoMiembro[]
+  salaId String?
+  sala   Sala?   @relation(fields: [salaId], references: [id])
 
   @@map("proyectos")
 }
@@ -91,7 +93,9 @@ model Usuario {
   artefactosAutor   UxArtifact[]      @relation("ArtefactosComoAutor")
   whitelistCreada   ParticipanteWhitelist[]
   proyectosMiembro  ProyectoMiembro[]
+  salas Sala[]
   @@map("usuarios")
+
 }
 
 model Participante {
@@ -138,7 +142,17 @@ model Consentimiento {
 
   @@map("consentimientos")
 }
-
+model Sala {
+  id            String     @id @default(uuid())
+  nombre        String
+  periodo       String
+  instrucciones String?
+  profesorId    String
+  profesor      Usuario    @relation(fields: [profesorId], references: [id])
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  proyectos     Proyecto[]
+}
 // ------------------------------------------------------------
 // GRUPO A — ResearchSession (transaccional)
 // ------------------------------------------------------------

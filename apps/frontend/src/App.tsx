@@ -16,6 +16,7 @@ import { EvaluacionHeuristicaPage } from './pages/EvaluacionHeuristicaPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { ProjectMembersPage } from './pages/ProjectMembersPage';
 import { ProjectParticipantsPage } from './pages/ProjectParticipantsPage';
+import { ProfesorSalasPage } from './features/salas/pages/ProfesorSalasPage';
 
 export default function App() {
   return (
@@ -26,6 +27,9 @@ export default function App() {
         <Route element={<AppLayout />}>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/proyectos" element={<ProjectsPage />} />
+          
+          {/* Nueva ruta para la gestión de salas del profesor */}
+          <Route path="/salas" element={<ProfesorSalasPage />} />
 
           <Route path="/proyectos/:proyectoId" element={<ProjectDetailLayout />}>
             <Route index element={<ProjectOverviewPage />} />
