@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Post, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { randomBytes } from 'crypto';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 import { AuthService } from './auth.service';
@@ -34,6 +35,16 @@ export class AuthController {
     private readonly config: ConfigService,
   ) {}
 
+  // Compartido por login() y el callback de Google — mismas cookies
+  // httpOnly (evaluadorToken/csrfToken), mismo mecanismo de sesión sin
+  // importar el método de autenticación.
+  private setSessionCookies(res: Response, accessToken: string) {
+    const nodeEnv = this.config.get<string>('app.nodeEnv', 'development');
+    const csrfToken = randomBytes(32).toString('hex');
+    res.cookie('evaluadorToken', accessToken, cookieOptions(nodeEnv, true));
+    res.cookie('csrfToken', csrfToken, cookieOptions(nodeEnv, false));
+  }
+
   // Límite estricto: es el blanco más obvio de fuerza bruta (probar
   // contraseñas contra un email conocido). 5 intentos / minuto por IP,
   // contra el default global de 60/min del resto de la API.
@@ -47,13 +58,36 @@ export class AuthController {
       dto.email,
       dto.password,
     );
-    const nodeEnv = this.config.get<string>('app.nodeEnv', 'development');
-    const csrfToken = randomBytes(32).toString('hex');
-
-    res.cookie('evaluadorToken', access_token, cookieOptions(nodeEnv, true));
-    res.cookie('csrfToken', csrfToken, cookieOptions(nodeEnv, false));
-
+    this.setSessionCookies(res, access_token);
     return { user };
+  }
+
+  // Paso 1: redirige al consentimiento de Google. AuthGuard('google') hace
+  // todo el trabajo (arma la URL con clientId/scope/redirectUri); esta
+  // función nunca se ejecuta, Nest la reemplaza por el redirect.
+  @Get('google')
+  @UseGuards(AuthGuard('google'))
+  googleAuth() {}
+
+  // Paso 2: Google redirige acá con el código, AuthGuard('google') ya
+  // resolvió el intercambio y puso {email, nombre} en req.user (ver
+  // GoogleStrategy.validate). Login/creación de Usuario + mismas cookies
+  // httpOnly que el login por password, después redirige al frontend.
+  @Get('google/callback')
+  @UseGuards(AuthGuard('google'))
+  async googleAuthCallback(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const profile = req.user as { email: string; nombre?: string };
+    const { access_token } = await this.authService.loginOrCreateFromGoogle(
+      profile.email,
+      profile.nombre,
+    );
+    this.setSessionCookies(res, access_token);
+
+    const frontendUrl = this.config.getOrThrow<string>('app.corsOrigin');
+    res.redirect(frontendUrl);
   }
 
   @Post('logout')

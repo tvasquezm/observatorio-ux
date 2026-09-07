@@ -5,6 +5,16 @@ import { Navigate } from 'react-router-dom';
 import { useLogin } from '../hooks/useAuthMutations';
 import { useAuthStore } from '../store/useAuthStore';
 
+const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
+
+// Navegación real (no fetch): el flujo OAuth necesita que el navegador
+// vaya a Google y vuelva; el backend setea las mismas cookies httpOnly
+// que el login por password y redirige a '/' — checkSession() ya
+// existente en useAuthStore detecta la sesión al montar la app de vuelta.
+function loginWithGoogle() {
+  window.location.href = `${API_BASE}/auth/google`;
+}
+
 export function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -58,6 +68,16 @@ export function LoginPage() {
             {isPending ? 'Ingresando…' : 'Ingresar'}
           </button>
         </form>
+
+        <div className="login-divider">o</div>
+
+        <button
+          type="button"
+          className="login-google-btn"
+          onClick={loginWithGoogle}
+        >
+          Ingresar con Google
+        </button>
 
         <small className="login-note">Plataforma de investigación UX · uso académico</small>
       </section>

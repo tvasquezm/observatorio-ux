@@ -7,6 +7,7 @@ import { ProjectAccessModule } from './core/access/project-access.module';
 import appConfig from './core/config/app.config';
 import databaseConfig from './core/config/database.config';
 import { envValidationSchema } from './core/config/env.validation';
+import googleConfig from './core/config/google.config';
 import jwtConfig from './core/config/jwt.config';
 import { RolesGuard } from './core/guards/roles.guard';
 import { AuthModule } from './modules/auth/auth.module';
@@ -19,7 +20,7 @@ import { HealthController } from './health.controller';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, databaseConfig, jwtConfig],
+      load: [appConfig, databaseConfig, jwtConfig, googleConfig],
       validationSchema: envValidationSchema,
       cache: true,
     }),

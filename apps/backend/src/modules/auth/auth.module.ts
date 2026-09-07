@@ -5,6 +5,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
 import { JwtParticipanteStrategy } from './jwt-participante.strategy';
+import { GoogleStrategy } from './google.strategy';
 import { ParticipanteJwtService } from './participante-jwt.service';
 import { ParticipanteTokenService } from './participante-token.service';
 
@@ -26,6 +27,7 @@ import { ParticipanteTokenService } from './participante-token.service';
     AuthService,
     JwtStrategy,
     JwtParticipanteStrategy,
+    GoogleStrategy,
     ParticipanteJwtService,
     ParticipanteTokenService,
   ],

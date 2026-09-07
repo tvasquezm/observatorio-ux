@@ -126,6 +126,55 @@ export class AuthService {
       data: { participanteId, proyectoId, aceptado, version },
     });
   }
+  /**
+   * Login de EVALUADOR vía Google OAuth. Si el email no tiene Usuario
+   * registrado, lo crea automáticamente con rol ESTUDIANTE.
+   *
+   * Reglas de negocio (no relajar sin aprobación explícita):
+   * 1. Aislamiento por proyecto: el `create` de abajo NO debe tocar
+   *    ninguna relación (proyectosCreados, proyectosMiembro, etc.). El
+   *    usuario nuevo nace sin proyectos asociados — no ve ni edita nada
+   *    hasta que un DOCENTE/ADMIN lo enrole explícitamente en un Proyecto.
+   * 2. Sin auto-promoción de rol: el rol de un usuario nuevo por Google
+   *    es SIEMPRE 'ESTUDIANTE', sin excepción ni heurística por dominio
+   *    de email. Pasar a DOCENTE/ADMIN es un cambio manual en la BD (o
+   *    desde el panel admin del Sprint 5) — este flujo nunca escribe el
+   *    campo `rol` de un usuario ya existente.
+   */
+  async loginOrCreateFromGoogle(emailCrudo: string, nombreCrudo?: string) {
+    const email = emailCrudo.trim().toLowerCase();
+
+    let user = await this.prisma.usuario.findUnique({ where: { email } });
+
+    if (!user) {
+      user = await this.prisma.usuario.create({
+        data: {
+          email,
+          nombre: nombreCrudo?.trim() || email,
+          rol: 'ESTUDIANTE',
+          // Sin passwordHash: esta cuenta solo puede entrar por Google.
+        },
+      });
+    }
+
+    const accessToken = await this.signEvaluatorToken({
+      id: user.id,
+      email: user.email,
+      rol: user.rol,
+      actor: 'EVALUADOR',
+    });
+
+    return {
+      access_token: accessToken,
+      user: {
+        id: user.id,
+        nombre: user.nombre,
+        email: user.email,
+        rol: user.rol,
+      },
+    };
+  }
+
   async login(email: string, password: string) {
     const user = await this.prisma.usuario.findUnique({ where: { email } });
 

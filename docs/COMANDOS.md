@@ -133,3 +133,9 @@ públicos, visibles en este mismo repositorio.
 Las passwords son configurables vía `.env`: `SEED_PASSWORD` (las 3 cuentas
 de estudiante comparten esa misma variable) y `SEED_PROFESOR_PASSWORD`, si
 no querés usar el default.
+
+
+
+### comandos para agregar usuarios de manera visual por emdio de prisma 
+cd apps/backend
+pnpm exec prisma studio

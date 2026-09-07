@@ -19,4 +19,9 @@ export const envValidationSchema = Joi.object({
   JWT_PARTICIPANTE_SECRET: Joi.string().min(16).required(),
   JWT_PARTICIPANTE_EXPIRES_IN: Joi.string().default('4h'),
   CORS_ORIGIN: Joi.string().default('http://localhost:5173'),
+
+  // ==== Google OAuth (login de EVALUADOR) ====
+  GOOGLE_CLIENT_ID: Joi.string().required(),
+  GOOGLE_CLIENT_SECRET: Joi.string().required(),
+  GOOGLE_CALLBACK_URL: Joi.string().uri().required(),
 });

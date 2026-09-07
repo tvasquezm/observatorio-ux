@@ -86,6 +86,19 @@ button { cursor: pointer; }
 .secondary { background: #fff; border-color: #bfd7df; color: #356277; }
 .secondary:hover { background: #eaf5f7; }
 .login-submit { width: 100%; margin-top: 6px; }
+.login-divider { text-align: center; color: #91a4aa; font-size: 10px; text-transform: uppercase; letter-spacing: .04em; margin: 16px 0; }
+.login-google-btn {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #d7dee2;
+  border-radius: 8px;
+  background: #fff;
+  color: #3c4149;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+.login-google-btn:hover { background: #f6f8f9; }
 .login-note { display: block; text-align: center; color: #91a4aa; font-size: 10px; margin-top: 15px; }
 .login-error { color: #b3431e; font-size: 11px; margin: -6px 0 10px; }
 .login-art {
