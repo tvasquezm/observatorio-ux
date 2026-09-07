@@ -152,6 +152,23 @@ model Sala {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
   proyectos     Proyecto[]
+  estudiantes   SalaEstudiante[]
+}
+
+// Registro liviano de estudiante inscrito en una sala. No es un Usuario
+// (sin login/password) — solo los datos que el profesor carga para hacer
+// seguimiento dentro de la sala.
+model SalaEstudiante {
+  id        String   @id @default(uuid())
+  sala      Sala     @relation(fields: [salaId], references: [id])
+  salaId    String
+  nombre    String?
+  email     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([salaId, email])
+  @@map("sala_estudiantes")
 }
 // ------------------------------------------------------------
 // GRUPO A — ResearchSession (transaccional)

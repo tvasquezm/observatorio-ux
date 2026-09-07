@@ -12,6 +12,7 @@ export interface Proyecto {
   descripcion: string | null;
   creadoPorId: string;
   createdAt: string;
+  salaId?: string | null;
 }
 
 export class ProjectsApiError extends Error {

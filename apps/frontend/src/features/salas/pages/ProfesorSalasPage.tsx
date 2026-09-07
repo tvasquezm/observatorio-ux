@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { getSalas, createSala, Sala } from '../api/salas.api';
 
 export const ProfesorSalasPage: React.FC = () => {
@@ -113,8 +114,9 @@ export const ProfesorSalasPage: React.FC = () => {
                   {sala.instrucciones || 'Sin instrucciones adicionales.'}
                 </p>
               </div>
-              <div style={{ marginTop: '16px', fontSize: '12px', color: 'var(--muted)', borderTop: '1px solid var(--border)', paddingTop: '8px' }}>
-                Creada el {new Date(sala.createdAt).toLocaleDateString()}
+              <div style={{ marginTop: '16px', fontSize: '12px', color: 'var(--muted)', borderTop: '1px solid var(--border)', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>Creada el {new Date(sala.createdAt).toLocaleDateString()}</span>
+                <Link to={`/salas/${sala.id}`}>Ver detalle →</Link>
               </div>
             </div>
           ))}

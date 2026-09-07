@@ -17,6 +17,7 @@ import { AnalyticsPage } from './pages/AnalyticsPage';
 import { ProjectMembersPage } from './pages/ProjectMembersPage';
 import { ProjectParticipantsPage } from './pages/ProjectParticipantsPage';
 import { ProfesorSalasPage } from './features/salas/pages/ProfesorSalasPage';
+import { SalaDetallePage } from './features/salas/pages/SalaDetallePage';
 
 export default function App() {
   return (
@@ -30,6 +31,7 @@ export default function App() {
           
           {/* Nueva ruta para la gestión de salas del profesor */}
           <Route path="/salas" element={<ProfesorSalasPage />} />
+          <Route path="/salas/:salaId" element={<SalaDetallePage />} />
 
           <Route path="/proyectos/:proyectoId" element={<ProjectDetailLayout />}>
             <Route index element={<ProjectOverviewPage />} />
