@@ -49,10 +49,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # El Dockerfile del backend fija pnpm@9 vía corepack — se replica acá
+      # El Dockerfile del backend fija pnpm@10.34.5 vía corepack — se replica acá
       # para que CI use exactamente la misma versión que local/Docker.
       - name: Habilitar pnpm (misma versión que apps/backend/Dockerfile)
-        run: corepack enable && corepack prepare pnpm@9 --activate
+        run: corepack enable && corepack prepare pnpm@10.34.5 --activate
 
       - name: Setup Node
         uses: actions/setup-node@v4

@@ -1,7 +1,7 @@
 FROM node:20-alpine AS development
 
-# Habilitar pnpm nativo de Node 20, fijando la versión que exige tu lockfile (9.0)
-RUN corepack enable && corepack prepare pnpm@9 --activate
+# Usar la misma versión de pnpm fijada en el package.json del workspace
+RUN corepack enable && corepack prepare pnpm@10.34.5 --activate
 WORKDIR /app
 
 # Copiar archivos de configuración del workspace
