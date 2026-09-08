@@ -162,7 +162,7 @@ export function CardSortingPage() {
           <aside className="panel sort-analysis">
             <span className="kicker">COMPARTIR</span>
             <h2>ID de sesión</h2>
-            <p className="hint-text">Compartí este ID con cada participante para que se una al estudio.</p>
+            <p className="hint-text">Comparte este ID con cada participante para que se una al estudio.</p>
             <div className="callout" style={{ wordBreak: 'break-all' }}>{sesion.id}</div>
           </aside>
         </section>

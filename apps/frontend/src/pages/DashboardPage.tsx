@@ -37,7 +37,7 @@ export function DashboardPage() {
           <p>
             {activo
               ? <>Centraliza la evidencia de <b>{activo.nombre}</b> y conecta cada técnica con una decisión de diseño.</>
-              : 'Creá tu primer proyecto para empezar a centralizar la evidencia de investigación.'}
+              : 'Crea tu primer proyecto para comenzar a centralizar la evidencia de investigación.'}
           </p>
         </div>
         <div className="welcome-visual">
@@ -70,7 +70,7 @@ export function DashboardPage() {
         <article className="metric rise">
           <small>Proyecto activo</small>
           <strong className="stat-value">{activo?.nombre ?? 'Ninguno'}</strong>
-          <p>{activo ? 'Abrí una técnica para trabajar' : 'Creá uno desde "Proyectos"'}</p>
+          <p>{activo ? 'Abre una técnica para trabajar' : 'Crea uno desde "Proyectos"'}</p>
         </article>
       </section>
 
@@ -118,13 +118,13 @@ export function DashboardPage() {
             </Link>
           ))}
           {!isLoading && recientes.length === 0 && (
-            <p>Todavía no tenés proyectos — creá el primero desde "Proyectos".</p>
+            <p>Todavía no tienes proyectos — crea el primero desde "Proyectos".</p>
           )}
         </article>
         <article className="panel decision">
           <span className="kicker">CÓMO USAR EL OBSERVATORIO</span>
           <h2>Cada técnica alimenta la misma decisión.</h2>
-          <p>Registrá evidencia en persona, journey map, momentos críticos, card sorting y evaluación heurística — y conectalas para argumentar un cambio de diseño.</p>
+          <p>Registra evidencia en persona, journey map, momentos críticos, card sorting y evaluación heurística, y conéctalas para argumentar un cambio de diseño.</p>
           {activo && <Link to={`/proyectos/${activo.id.replace(/^\//, '')}`} className="secondary">Abrir proyecto →</Link>}
         </article>
       </section>

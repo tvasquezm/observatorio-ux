@@ -26,8 +26,8 @@ export function LoginPage() {
           src="/brand/uxlab-observatorio.png"
           alt="UXLab Observatorio · Experiencia usuaria"
         />
-        <h1>Ingresá a tu cuenta</h1>
-        <p>Accedé para gestionar tus proyectos de investigación UX.</p>
+        <h1>Ingresa a tu cuenta</h1>
+        <p>Accede para gestionar tus proyectos de investigación UX.</p>
 
         <form onSubmit={handleSubmit}>
           <label className="field">
@@ -71,7 +71,7 @@ export function LoginPage() {
             src="/brand/uxlab-observatorio-white.png"
             alt="UXLab Observatorio"
           />
-          <strong>Diseñá con evidencia.</strong>
+          <strong>Diseña con evidencia.</strong>
           <p>
             Personas, journey maps, momentos críticos, card sorting y evaluación
             heurística — todo en un solo lugar de trabajo.

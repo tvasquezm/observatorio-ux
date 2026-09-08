@@ -62,7 +62,7 @@ export function ProjectParticipantsPage() {
 
       <p className="hint-block">
         Solo las personas en esta lista pueden autorregistrarse y unirse a los estudios de este
-        proyecto (card sorting, evaluación heurística, etc). Sin agregarlas acá, el registro del
+        proyecto (card sorting, evaluación heurística, etc.). Sin agregarlas aquí, el registro del
         participante devuelve error de autorización.
       </p>
 
