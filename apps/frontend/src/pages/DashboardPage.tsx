@@ -3,6 +3,7 @@
 import { Link } from 'react-router-dom';
 import { useProjects } from '../features/projects/hooks/useProjectsQueries';
 import { useAuthStore } from '../features/auth/store/useAuthStore';
+import { PERSPECTIVE_LABELS, resolvePerspective } from '../shared/auth/perspectivas';
 
 const DOT_COLORS = ['blue', 'green', 'orange'] as const;
 
@@ -21,7 +22,8 @@ function fechaHoy() {
 
 export function DashboardPage() {
   const { data: proyectos, isLoading } = useProjects();
-  const user = useAuthStore((s) => s.user);
+  const { user, perspectiveRole } = useAuthStore();
+  const activeRole = user ? resolvePerspective(user.rol, perspectiveRole) : null;
   const total = proyectos?.length ?? 0;
   const recientes = proyectos?.slice(0, 5) ?? [];
   const activo = proyectos?.[0] ?? null;
@@ -61,9 +63,9 @@ export function DashboardPage() {
           <p>Persona, journey, momentos, sorting, heurística</p>
         </article>
         <article className="metric rise">
-          <small>Rol</small>
-          <strong className="stat-value">{user?.rol ?? '—'}</strong>
-          <p>{user?.nombre}</p>
+          <small>Perspectiva activa</small>
+          <strong className="stat-value">{activeRole ? PERSPECTIVE_LABELS[activeRole] : '—'}</strong>
+          <p>{user?.nombre} · cuenta {user?.rol?.toLowerCase()}</p>
         </article>
         <article className="metric rise">
           <small>Proyecto activo</small>

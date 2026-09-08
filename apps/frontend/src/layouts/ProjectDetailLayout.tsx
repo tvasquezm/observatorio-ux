@@ -5,7 +5,9 @@
 // cada página individual).
 
 import { NavLink, Outlet, useParams } from 'react-router-dom';
+import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { useProject } from '../features/projects/hooks/useProjectsQueries';
+import { canViewAnalytics, resolvePerspective } from '../shared/auth/perspectivas';
 
 const SUB_NAV = [
   { to: '', label: 'Resumen', end: true },
@@ -26,6 +28,9 @@ export interface ProjectOutletContext {
 export function ProjectDetailLayout() {
   const { proyectoId } = useParams<{ proyectoId: string }>();
   const { data: proyecto } = useProject(proyectoId ?? null);
+  const { user, perspectiveRole } = useAuthStore();
+  const activeRole = user ? resolvePerspective(user.rol, perspectiveRole) : null;
+  const visibleItems = SUB_NAV.filter((item) => item.to !== 'analitica' || (activeRole && canViewAnalytics(activeRole)));
 
   if (!proyectoId) return <p>Proyecto no especificado.</p>;
 
@@ -40,7 +45,7 @@ export function ProjectDetailLayout() {
       </div>
 
       <nav style={{ display: 'flex', gap: 6, borderBottom: '1px solid var(--line)', margin: '0 0 16px', flexWrap: 'wrap' }}>
-        {SUB_NAV.map((item) => (
+        {visibleItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}

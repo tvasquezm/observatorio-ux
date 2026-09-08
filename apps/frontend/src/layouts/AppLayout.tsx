@@ -1,8 +1,10 @@
 // apps/frontend/src/layouts/AppLayout.tsx
 
 import { useEffect, useState } from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../features/auth/store/useAuthStore';
+import { canViewAnalytics, canViewSalas, resolvePerspective } from '../shared/auth/perspectivas';
+import { ProfilePerspectiveSwitcher } from '../shared/components/ProfilePerspectiveSwitcher';
 import { exportarResumenPdf } from '../shared/utils/pdf';
 
 const NAV_ITEMS = [
@@ -18,13 +20,16 @@ const CRUMB_LABELS: Record<string, string> = {
 };
 
 export function AppLayout() {
-  const { user, logout } = useAuthStore();
+  const { user, perspectiveRole, setPerspective, logout } = useAuthStore();
   const location = useLocation();
+  const navigate = useNavigate();
   const [darkMode, setDarkMode] = useState(() => {
     const savedTheme = window.localStorage.getItem('observatorio-ux-theme');
     return savedTheme === 'dark' || (savedTheme === null && window.matchMedia('(prefers-color-scheme: dark)').matches);
   });
   const crumb = CRUMB_LABELS[location.pathname] ?? 'Proyecto';
+  const activeRole = user ? resolvePerspective(user.rol, perspectiveRole) : null;
+  const visibleNavItems = NAV_ITEMS.filter((item) => item.to !== '/salas' || (activeRole && canViewSalas(activeRole)));
 
   useEffect(() => {
     document.documentElement.dataset.theme = darkMode ? 'dark' : 'light';
@@ -37,6 +42,19 @@ export function AppLayout() {
     .slice(0, 2)
     .join('')
     .toUpperCase();
+
+  function changePerspective(role: NonNullable<typeof activeRole>) {
+    setPerspective(role);
+
+    if (!canViewSalas(role) && location.pathname.startsWith('/salas')) {
+      navigate('/');
+      return;
+    }
+
+    if (!canViewAnalytics(role) && location.pathname.endsWith('/analitica')) {
+      navigate(location.pathname.replace(/\/analitica$/, ''));
+    }
+  }
 
   return (
     <div className="app">
@@ -51,7 +69,7 @@ export function AppLayout() {
 
         <span className="side-label">NAVEGACIÓN</span>
         <nav className="side-nav">
-          {NAV_ITEMS.map((item) => (
+          {visibleNavItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -82,7 +100,13 @@ export function AppLayout() {
             Observatorio UX <b>›</b> <strong>{crumb}</strong>
           </span>
           <div className="top-actions">
-            <span className="role">{user?.rol?.toUpperCase()}</span>
+            {user && activeRole && (
+              <ProfilePerspectiveSwitcher
+                accountRole={user.rol}
+                activeRole={activeRole}
+                onChange={changePerspective}
+              />
+            )}
             <button
               type="button"
               className="theme-toggle"
@@ -98,7 +122,8 @@ export function AppLayout() {
               onClick={() =>
                 exportarResumenPdf(crumb, [
                   `Usuario: ${user?.nombre ?? ''}`,
-                  `Rol: ${user?.rol ?? ''}`,
+                  `Rol de la cuenta: ${user?.rol ?? ''}`,
+                  `Perspectiva activa: ${activeRole ?? ''}`,
                   `Vista: ${crumb}`,
                   '',
                   'Exportado desde Observatorio UX',
