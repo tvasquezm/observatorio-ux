@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { createHash, timingSafeEqual } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../core/database/prisma.service';
 import { AuthenticatedUser } from './types/authenticated-user.interface';
@@ -20,6 +21,14 @@ export class AuthService {
     private readonly participanteJwt: ParticipanteJwtService,
     private readonly config: ConfigService,
   ) {}
+
+  private assertInvitationCode(codigo: string, esperado?: string | null) {
+    const recibido = createHash('sha256').update(codigo).digest();
+    const esperadoBuffer = esperado ? Buffer.from(esperado, 'hex') : Buffer.alloc(recibido.length);
+    if (!esperado || esperadoBuffer.length !== recibido.length || !timingSafeEqual(recibido, esperadoBuffer)) {
+      throw new ForbiddenException('El código de invitación no es válido.');
+    }
+  }
   /**
    * Autorregistro de un participante. Solo funciona si su email está en
    * la whitelist cargada por el docente/evaluador para ese proyecto.
@@ -30,6 +39,7 @@ export class AuthService {
     proyectoId: string,
     emailCrudo: string,
     nombre?: string,
+    codigoInvitacion?: string,
   ) {
     const email = emailCrudo.trim().toLowerCase();
 
@@ -44,6 +54,8 @@ export class AuthService {
             'Pídele al docente que lo agregue a la lista.',
         );
       }
+
+      this.assertInvitationCode(codigoInvitacion ?? '', entry.codigoInvitacionHash);
 
       if (entry.participanteId) {
         return { participanteId: entry.participanteId, yaRegistrado: true };
@@ -91,6 +103,7 @@ export class AuthService {
     proyectoId: string,
     aceptado: boolean,
     version: string,
+    codigoInvitacion?: string,
   ) {
     const participante = await this.prisma.participante.findUnique({
       where: { id: participanteId },
@@ -109,6 +122,8 @@ export class AuthService {
         'El participante no está autorizado para este proyecto.',
       );
     }
+
+    this.assertInvitationCode(codigoInvitacion ?? '', whitelistEntry.codigoInvitacionHash);
 
     const latestConsent = await this.prisma.consentimiento.findFirst({
       where: { participanteId, proyectoId },
@@ -154,6 +169,7 @@ export class AuthService {
   async issueParticipantToken(
     participanteId: string,
     proyectoId: string,
+    codigoInvitacion?: string,
     allowUnlisted = false,
   ) {
     const participante = await this.prisma.participante.findUnique({
@@ -174,6 +190,7 @@ export class AuthService {
           'El participante no está autorizado para este proyecto.',
         );
       }
+      this.assertInvitationCode(codigoInvitacion ?? '', whitelistEntry.codigoInvitacionHash);
     }
 
     const consentimiento = await this.prisma.consentimiento.findFirst({
@@ -246,6 +263,7 @@ export class AuthService {
     return this.issueParticipantToken(
       consent.participanteId,
       consent.proyectoId,
+      undefined,
       true,
     );
   }

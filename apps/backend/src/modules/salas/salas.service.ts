@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -19,9 +20,15 @@ import {
 export class SalasService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll() {
+  async findAll(user: AuthenticatedUser) {
     return this.prisma.sala.findMany({
-      include: { profesor: true },
+      where: user.rol === 'ADMIN' ? undefined : { profesorId: user.id },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        profesor: {
+          select: { id: true, nombre: true, email: true, rol: true },
+        },
+      },
     });
   }
 
@@ -30,11 +37,19 @@ export class SalasService {
       throw new UnauthorizedException('No se encontró el usuario autenticado para crear la sala.');
     }
 
+    const fechaInicio = new Date(createSalaDto.fechaInicio);
+    const fechaFin = new Date(createSalaDto.fechaFin);
+    if (fechaFin <= fechaInicio) {
+      throw new BadRequestException('La fecha de término debe ser posterior a la fecha de inicio.');
+    }
+
     return this.prisma.sala.create({
       data: {
         nombre: createSalaDto.nombre,
         periodo: createSalaDto.periodo,
         instrucciones: createSalaDto.instrucciones,
+        fechaInicio,
+        fechaFin,
         profesor: {
           connect: { id: userId },
         },

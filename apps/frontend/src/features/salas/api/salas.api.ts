@@ -11,6 +11,8 @@ export interface Sala {
   nombre: string;
   periodo: string;
   instrucciones?: string;
+  fechaInicio?: string | null;
+  fechaFin?: string | null;
   createdAt: string;
 }
 
@@ -18,6 +20,8 @@ export interface CreateSalaDto {
   nombre: string;
   periodo: string;
   instrucciones?: string;
+  fechaInicio: string;
+  fechaFin: string;
 }
 
 export class SalasApiError extends Error {

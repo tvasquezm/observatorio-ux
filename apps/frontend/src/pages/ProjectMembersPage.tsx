@@ -12,6 +12,7 @@ import { useProject } from '../features/projects/hooks/useProjectsQueries';
 import { useMembers, useAddMember, useRemoveMember } from '../features/projects/hooks/useProjectsQueries';
 import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { useConfirm } from '../shared/api/confirm';
+import { useActivePerspective } from '../shared/auth/useActivePerspective';
 
 export function ProjectMembersPage() {
   const { proyectoId } = useOutletContext<ProjectOutletContext>();
@@ -21,11 +22,12 @@ export function ProjectMembersPage() {
   const { mutate: quitar } = useRemoveMember(proyectoId);
   const confirm = useConfirm();
   const currentUser = useAuthStore((s) => s.user);
+  const activeRole = useActivePerspective();
 
   const [email, setEmail] = useState('');
 
   const esCreadorOAdmin =
-    !!currentUser && (currentUser.rol === 'ADMIN' || currentUser.id === proyecto?.creadoPorId);
+    !!currentUser && (activeRole === 'ADMIN' || currentUser.id === proyecto?.creadoPorId);
 
   function handleAgregar(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

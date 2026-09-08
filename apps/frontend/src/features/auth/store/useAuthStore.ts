@@ -17,11 +17,13 @@ import { me as fetchMe, logout as logoutApi } from '../api/auth.api';
 import {
   canUsePerspective,
   clearStoredPerspective,
+  isEvaluatorRole,
   readStoredPerspective,
   storePerspective,
 } from '../../../shared/auth/perspectivas';
 
 const USER_KEY = 'evaluadorUser';
+let sessionCheckPromise: Promise<void> | null = null;
 
 interface AuthState {
   user: EvaluatorUser | null;
@@ -33,9 +35,8 @@ interface AuthState {
   setSession: (user: EvaluatorUser) => void;
   setPerspective: (role: EvaluatorRole) => void;
   logout: () => void;
-  /** Valida la sesión real contra /auth/me. Idempotente, sin dedupe de
-   *  llamadas concurrentes — ProtectedRoute la dispara una sola vez por
-   *  montaje, no hace falta más para este alcance. */
+  /** Valida la sesión real contra /auth/me y reutiliza la misma promesa
+   *  cuando React StrictMode monta el árbol dos veces en desarrollo. */
   checkSession: () => Promise<void>;
 }
 
@@ -43,7 +44,17 @@ function leerUserGuardado(): EvaluatorUser | null {
   const raw = localStorage.getItem(USER_KEY);
   if (!raw) return null;
   try {
-    return JSON.parse(raw) as EvaluatorUser;
+    const parsed = JSON.parse(raw) as Partial<EvaluatorUser>;
+    if (
+      typeof parsed.id !== 'string' ||
+      typeof parsed.nombre !== 'string' ||
+      typeof parsed.email !== 'string' ||
+      !isEvaluatorRole(parsed.rol)
+    ) {
+      localStorage.removeItem(USER_KEY);
+      return null;
+    }
+    return parsed as EvaluatorUser;
   } catch {
     return null;
   }
@@ -51,7 +62,7 @@ function leerUserGuardado(): EvaluatorUser | null {
 
 const cachedUser = leerUserGuardado();
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: cachedUser,
   perspectiveRole: cachedUser ? readStoredPerspective(cachedUser, sessionStorage) : null,
   // Optimista: si hay caché, se asume autenticado hasta que checkSession
@@ -85,22 +96,31 @@ export const useAuthStore = create<AuthState>((set) => ({
     logoutApi().catch(() => {});
   },
 
-  checkSession: async () => {
-    try {
-      const { user } = await fetchMe();
-      localStorage.setItem(USER_KEY, JSON.stringify(user));
-      set({
-        user,
-        perspectiveRole: readStoredPerspective(user, sessionStorage),
-        isAuthenticated: true,
-        isChecking: false,
-      });
-    } catch {
-      // 401 (cookie ausente/expirada/inválida) o error de red: no hay
-      // sesión real que sostener, sin importar lo que dijera la caché.
-      localStorage.removeItem(USER_KEY);
-      clearStoredPerspective(sessionStorage);
-      set({ user: null, perspectiveRole: null, isAuthenticated: false, isChecking: false });
-    }
+  checkSession: () => {
+    if (!get().isChecking) return Promise.resolve();
+    if (sessionCheckPromise) return sessionCheckPromise;
+
+    sessionCheckPromise = (async () => {
+      try {
+        const { user } = await fetchMe();
+        localStorage.setItem(USER_KEY, JSON.stringify(user));
+        set({
+          user,
+          perspectiveRole: readStoredPerspective(user, sessionStorage),
+          isAuthenticated: true,
+          isChecking: false,
+        });
+      } catch {
+        // 401 (cookie ausente/expirada/inválida) o error de red: no hay
+        // sesión real que sostener, sin importar lo que dijera la caché.
+        localStorage.removeItem(USER_KEY);
+        clearStoredPerspective(sessionStorage);
+        set({ user: null, perspectiveRole: null, isAuthenticated: false, isChecking: false });
+      } finally {
+        sessionCheckPromise = null;
+      }
+    })();
+
+    return sessionCheckPromise;
   },
 }));

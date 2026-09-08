@@ -12,6 +12,7 @@ import { AuthenticatedUser } from '../../auth/types/authenticated-user.interface
 describe('ProjectsService', () => {
   let service: ProjectsService;
   let prisma: {
+    $transaction: jest.Mock;
     proyecto: {
       create: jest.Mock;
       findMany: jest.Mock;
@@ -20,6 +21,11 @@ describe('ProjectsService', () => {
     };
     proyectoMiembro: {
       findUnique: jest.Mock;
+    };
+    participanteWhitelist: {
+      findUnique: jest.Mock;
+      create: jest.Mock;
+      update: jest.Mock;
     };
   };
 
@@ -39,6 +45,7 @@ describe('ProjectsService', () => {
 
   beforeEach(async () => {
     prisma = {
+      $transaction: jest.fn((callback) => callback(prisma)),
       proyecto: {
         create: jest.fn(),
         findMany: jest.fn(),
@@ -47,6 +54,11 @@ describe('ProjectsService', () => {
       },
       proyectoMiembro: {
         findUnique: jest.fn(),
+      },
+      participanteWhitelist: {
+        findUnique: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
       },
     };
 
@@ -74,13 +86,20 @@ describe('ProjectsService', () => {
   });
 
   describe('findAll', () => {
-    it('un usuario normal solo ve SUS proyectos (filtra por creadoPorId)', async () => {
+    it('un usuario normal ve proyectos propios y proyectos donde es miembro', async () => {
       prisma.proyecto.findMany.mockResolvedValue([proyectoDeEjemplo]);
 
       await service.findAll(userDueño);
 
       expect(prisma.proyecto.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { creadoPorId: DUEÑO_ID } }),
+        expect.objectContaining({
+          where: {
+            OR: [
+              { creadoPorId: DUEÑO_ID },
+              { miembros: { some: { usuarioId: DUEÑO_ID } } },
+            ],
+          },
+        }),
       );
     });
 
@@ -126,6 +145,28 @@ describe('ProjectsService', () => {
       await expect(service.findOne('no-existe', userDueño)).rejects.toBeInstanceOf(
         NotFoundException,
       );
+    });
+  });
+
+  describe('invitaciones de participantes', () => {
+    it('devuelve el código una sola vez y almacena únicamente su hash', async () => {
+      prisma.proyecto.findUnique.mockResolvedValue(proyectoDeEjemplo);
+      prisma.participanteWhitelist.findUnique.mockResolvedValue(null);
+      prisma.participanteWhitelist.create.mockResolvedValue({ id: 'invitacion-1' });
+
+      const result = await service.addToWhitelist(
+        PROYECTO_ID,
+        { participantes: [{ email: ' Persona@Ejemplo.cl ' }] },
+        userDueño,
+      );
+
+      expect(result.agregados).toBe(1);
+      expect(result.invitaciones[0].email).toBe('persona@ejemplo.cl');
+      expect(result.invitaciones[0].codigoInvitacion.length).toBeGreaterThanOrEqual(16);
+
+      const data = prisma.participanteWhitelist.create.mock.calls[0][0].data;
+      expect(data.codigoInvitacionHash).toMatch(/^[a-f0-9]{64}$/);
+      expect(data.codigoInvitacionHash).not.toBe(result.invitaciones[0].codigoInvitacion);
     });
   });
 

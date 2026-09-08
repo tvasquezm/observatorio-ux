@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { EvaluatorRole, EvaluatorUser } from '../../../features/auth/api/auth.api';
 import {
   canUsePerspective,
+  isEvaluatorRole,
   readStoredPerspective,
   resolvePerspective,
   storePerspective,
@@ -49,5 +50,11 @@ describe('política de perspectivas', () => {
     );
 
     expect(readStoredPerspective(user('DOCENTE'), sessionStorage)).toBe('DOCENTE');
+  });
+
+  it('rechaza roles desconocidos antes de leer la caché', () => {
+    expect(isEvaluatorRole('ADMIN')).toBe(true);
+    expect(isEvaluatorRole('SUPERADMIN')).toBe(false);
+    expect(canUsePerspective('SUPERADMIN' as EvaluatorRole, 'ADMIN')).toBe(false);
   });
 });

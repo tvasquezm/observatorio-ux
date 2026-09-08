@@ -29,9 +29,9 @@ export class SalasController {
   constructor(private readonly salasService: SalasService) {}
 
   @Get()
-  @Roles('DOCENTE', 'ADMIN', 'ESTUDIANTE')
-  async findAll() {
-    return this.salasService.findAll();
+  @Roles('DOCENTE', 'ADMIN')
+  async findAll(@CurrentUser() user: AuthenticatedUser) {
+    return this.salasService.findAll(user);
   }
 
   @Post()

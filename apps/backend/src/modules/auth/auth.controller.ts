@@ -82,6 +82,7 @@ export class AuthController {
       dto.proyectoId,
       dto.email,
       dto.nombre,
+      dto.codigoInvitacion,
     );
   }
 
@@ -93,6 +94,7 @@ export class AuthController {
       dto.proyectoId,
       dto.aceptado,
       dto.version,
+      dto.codigoInvitacion,
     );
   }
 
@@ -102,6 +104,7 @@ export class AuthController {
     return this.authService.issueParticipantToken(
       dto.participanteId,
       dto.proyectoId,
+      dto.codigoInvitacion,
     );
   }
 

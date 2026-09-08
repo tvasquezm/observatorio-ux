@@ -3,6 +3,7 @@
 import { Routes, Route } from 'react-router-dom';
 import { LoginPage } from './features/auth/pages/LoginPage';
 import { ProtectedRoute } from './shared/routing/ProtectedRoute';
+import { PerspectiveRoute } from './shared/routing/PerspectiveRoute';
 import { AppLayout } from './layouts/AppLayout';
 import { ProjectDetailLayout } from './layouts/ProjectDetailLayout';
 import { DashboardPage } from './pages/DashboardPage';
@@ -30,8 +31,10 @@ export default function App() {
           <Route path="/proyectos" element={<ProjectsPage />} />
           
           {/* Nueva ruta para la gestión de salas del profesor */}
-          <Route path="/salas" element={<ProfesorSalasPage />} />
-          <Route path="/salas/:salaId" element={<SalaDetallePage />} />
+          <Route element={<PerspectiveRoute allowed={['DOCENTE', 'ADMIN']} />}>
+            <Route path="/salas" element={<ProfesorSalasPage />} />
+            <Route path="/salas/:salaId" element={<SalaDetallePage />} />
+          </Route>
 
           <Route path="/proyectos/:proyectoId" element={<ProjectDetailLayout />}>
             <Route index element={<ProjectOverviewPage />} />
@@ -40,7 +43,9 @@ export default function App() {
             <Route path="momentos-criticos" element={<MomentosCriticosPage />} />
             <Route path="card-sorting" element={<CardSortingPage />} />
             <Route path="evaluacion-heuristica" element={<EvaluacionHeuristicaPage />} />
-            <Route path="analitica" element={<AnalyticsPage />} />
+            <Route element={<PerspectiveRoute allowed={['DOCENTE', 'ADMIN']} />}>
+              <Route path="analitica" element={<AnalyticsPage />} />
+            </Route>
             <Route path="miembros" element={<ProjectMembersPage />} />
             <Route path="participantes" element={<ProjectParticipantsPage />} />
           </Route>

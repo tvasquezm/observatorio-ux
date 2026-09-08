@@ -24,6 +24,8 @@ cuando hace falta más detalle.
   todas con `Demo1234!`.
 - Usuario DOCENTE de prueba (login simple para QA manual, con un proyecto
   ya cargado con las 5 técnicas): `profesor@test.com` / `profesor123`.
+- Cuenta administradora (permite probar las tres perspectivas):
+  `admin@test.com` / `admin1234`.
   Ver `docs/BACKEND.md`.
 
 ## 2. Autenticación en el frontend

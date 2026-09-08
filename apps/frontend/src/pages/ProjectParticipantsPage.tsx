@@ -14,25 +14,37 @@ import React, { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import type { ProjectOutletContext } from '../layouts/ProjectDetailLayout';
 import { useWhitelist, useAddToWhitelist } from '../features/projects/hooks/useProjectsQueries';
+import type { InvitationCredential } from '../features/projects/api/projects.api';
+import { useProject } from '../features/projects/hooks/useProjectsQueries';
+import { useAuthStore } from '../features/auth/store/useAuthStore';
+import { useActivePerspective } from '../shared/auth/useActivePerspective';
 
 export function ProjectParticipantsPage() {
   const { proyectoId } = useOutletContext<ProjectOutletContext>();
-  const { data: participantes, isLoading, isError, error } = useWhitelist(proyectoId);
+  const { data: proyecto } = useProject(proyectoId);
+  const user = useAuthStore((state) => state.user);
+  const activeRole = useActivePerspective();
+  const canManage = !!user && (activeRole === 'ADMIN' || user.id === proyecto?.creadoPorId);
+  const { data: participantes, isLoading, isError, error } = useWhitelist(
+    canManage ? proyectoId : null,
+  );
   const { mutate: agregar, isPending: isAdding } = useAddToWhitelist(proyectoId);
 
   const [email, setEmail] = useState('');
   const [nombre, setNombre] = useState('');
   const [bulkTexto, setBulkTexto] = useState('');
   const [modo, setModo] = useState<'individual' | 'bulk'>('individual');
+  const [invitaciones, setInvitaciones] = useState<InvitationCredential[]>([]);
 
   function handleAgregarIndividual(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const limpio = email.trim();
     if (!limpio) return;
     agregar([{ email: limpio, nombre: nombre.trim() || undefined }], {
-      onSuccess: () => {
+      onSuccess: (result) => {
         setEmail('');
         setNombre('');
+        setInvitaciones(result.invitaciones);
       },
     });
   }
@@ -51,7 +63,12 @@ export function ProjectParticipantsPage() {
       .filter((p) => p.email.length > 0);
 
     if (entradas.length === 0) return;
-    agregar(entradas, { onSuccess: () => setBulkTexto('') });
+    agregar(entradas, {
+      onSuccess: (result) => {
+        setBulkTexto('');
+        setInvitaciones(result.invitaciones);
+      },
+    });
   }
 
   return (
@@ -60,13 +77,34 @@ export function ProjectParticipantsPage() {
         <h2>Participantes autorizados</h2>
       </div>
 
-      <p className="hint-block">
+      {!canManage && (
+        <p className="hint-block">
+          Solo el creador del proyecto o un administrador pueden gestionar invitaciones.
+        </p>
+      )}
+
+      {canManage && <p className="hint-block">
         Solo las personas en esta lista pueden autorregistrarse y unirse a los estudios de este
         proyecto (card sorting, evaluación heurística, etc.). Sin agregarlas aquí, el registro del
         participante devuelve error de autorización.
-      </p>
+      </p>}
 
-      <div className="form-row-inline" style={{ marginBottom: 12 }}>
+      {canManage && invitaciones.length > 0 && (
+        <section className="hint-block" aria-labelledby="invitation-codes-title">
+          <h3 id="invitation-codes-title">Códigos de invitación</h3>
+          <p>Compártelos de forma privada. Por seguridad, estos códigos se muestran una sola vez.</p>
+          <ul>
+            {invitaciones.map((invitacion) => (
+              <li key={invitacion.email}>
+                <strong>{invitacion.email}:</strong>{' '}
+                <code>{invitacion.codigoInvitacion}</code>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {canManage && <div className="form-row-inline" style={{ marginBottom: 12 }}>
         <button
           type="button"
           className={modo === 'individual' ? 'primary' : 'secondary'}
@@ -81,9 +119,9 @@ export function ProjectParticipantsPage() {
         >
           Agregar varios
         </button>
-      </div>
+      </div>}
 
-      {modo === 'individual' && (
+      {canManage && modo === 'individual' && (
         <form onSubmit={handleAgregarIndividual} className="form-row-inline">
           <input
             type="email"
@@ -108,7 +146,7 @@ export function ProjectParticipantsPage() {
         </form>
       )}
 
-      {modo === 'bulk' && (
+      {canManage && modo === 'bulk' && (
         <form onSubmit={handleAgregarBulk} className="form-grid" style={{ maxWidth: 480 }}>
           <label className="field">
             Un participante por línea — <code>email</code> o <code>email, nombre</code>
@@ -129,7 +167,7 @@ export function ProjectParticipantsPage() {
       {isLoading && <p>Cargando…</p>}
       {isError && <p className="error-text">{(error as Error).message}</p>}
 
-      <div className="list-stack mt-16">
+      {canManage && <div className="list-stack mt-16">
         {participantes?.map((p) => (
           <div key={p.id} className="entity-card row-between">
             <div>
@@ -144,7 +182,7 @@ export function ProjectParticipantsPage() {
         {participantes && participantes.length === 0 && (
           <p>Todavía no hay participantes autorizados para este proyecto.</p>
         )}
-      </div>
+      </div>}
     </div>
   );
 }

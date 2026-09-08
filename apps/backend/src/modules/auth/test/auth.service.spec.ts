@@ -10,6 +10,7 @@ import { JwtService } from '@nestjs/jwt';
 import { AuthService } from '../auth.service';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { ParticipanteJwtService } from '../participante-jwt.service';
+import { createHash } from 'crypto';
 
 describe('AuthService.registerParticipant', () => {
   let service: AuthService;
@@ -35,6 +36,8 @@ describe('AuthService.registerParticipant', () => {
   const PROYECTO_ID = 'proyecto-1';
   const EMAIL_AUTORIZADO = 'estudiante.autorizado@utem.cl';
   const EMAIL_NO_AUTORIZADO = 'intruso@gmail.com';
+  const CODIGO_INVITACION = 'codigo-seguro-de-prueba-123';
+  const CODIGO_HASH = createHash('sha256').update(CODIGO_INVITACION).digest('hex');
 
   beforeEach(async () => {
     prisma = {
@@ -86,11 +89,17 @@ describe('AuthService.registerParticipant', () => {
       email: EMAIL_AUTORIZADO,
       usado: false,
       participanteId: null,
+      codigoInvitacionHash: CODIGO_HASH,
     });
     prisma.participante.create.mockResolvedValue({ id: 'participante-nuevo' });
     prisma.participanteWhitelist.updateMany.mockResolvedValue({ count: 1 });
 
-    const result = await service.registerParticipant(PROYECTO_ID, EMAIL_AUTORIZADO);
+    const result = await service.registerParticipant(
+      PROYECTO_ID,
+      EMAIL_AUTORIZADO,
+      undefined,
+      CODIGO_INVITACION,
+    );
 
     expect(result).toEqual({ participanteId: 'participante-nuevo', yaRegistrado: false });
     expect(prisma.participanteWhitelist.updateMany).toHaveBeenCalledWith({
@@ -106,9 +115,15 @@ describe('AuthService.registerParticipant', () => {
       email: EMAIL_AUTORIZADO,
       usado: true,
       participanteId: 'participante-existente',
+      codigoInvitacionHash: CODIGO_HASH,
     });
 
-    const result = await service.registerParticipant(PROYECTO_ID, EMAIL_AUTORIZADO);
+    const result = await service.registerParticipant(
+      PROYECTO_ID,
+      EMAIL_AUTORIZADO,
+      undefined,
+      CODIGO_INVITACION,
+    );
 
     expect(result).toEqual({ participanteId: 'participante-existente', yaRegistrado: true });
     expect(prisma.participante.create).not.toHaveBeenCalled();
@@ -139,6 +154,7 @@ describe('AuthService.registerParticipant', () => {
         email: EMAIL_AUTORIZADO,
         usado: false,
         participanteId: null,
+        codigoInvitacionHash: CODIGO_HASH,
       })
       .mockResolvedValueOnce({
         id: 'entry-1',
@@ -146,12 +162,13 @@ describe('AuthService.registerParticipant', () => {
         email: EMAIL_AUTORIZADO,
         usado: true,
         participanteId: 'participante-ganador',
+        codigoInvitacionHash: CODIGO_HASH,
       });
     prisma.participante.create.mockResolvedValue({ id: 'participante-perdedor' });
     prisma.participanteWhitelist.updateMany.mockResolvedValue({ count: 0 });
 
     await expect(
-      service.registerParticipant(PROYECTO_ID, EMAIL_AUTORIZADO),
+      service.registerParticipant(PROYECTO_ID, EMAIL_AUTORIZADO, undefined, CODIGO_INVITACION),
     ).resolves.toEqual({
       participanteId: 'participante-ganador',
       yaRegistrado: true,
@@ -167,6 +184,7 @@ describe('AuthService.registerParticipant', () => {
       id: 'entry-1',
       usado: true,
       participanteId: 'participante-1',
+      codigoInvitacionHash: CODIGO_HASH,
     });
     prisma.consentimiento.findFirst.mockResolvedValue(null);
     prisma.consentimiento.create.mockResolvedValue({ id: 'consent-1' });
@@ -177,6 +195,7 @@ describe('AuthService.registerParticipant', () => {
         PROYECTO_ID,
         true,
         '1.0',
+        CODIGO_INVITACION,
       ),
     ).resolves.toEqual({ id: 'consent-1' });
 
@@ -195,7 +214,7 @@ describe('AuthService.registerParticipant', () => {
     prisma.participanteWhitelist.findFirst.mockResolvedValue(null);
 
     await expect(
-      service.issueParticipantToken('participante-1', PROYECTO_ID),
+      service.issueParticipantToken('participante-1', PROYECTO_ID, CODIGO_INVITACION),
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(prisma.consentimiento.findFirst).not.toHaveBeenCalled();
   });
@@ -206,6 +225,7 @@ describe('AuthService.registerParticipant', () => {
       id: 'entry-1',
       usado: true,
       participanteId: 'participante-1',
+      codigoInvitacionHash: CODIGO_HASH,
     });
     prisma.consentimiento.findFirst.mockResolvedValue({
       id: 'consent-2',
@@ -213,7 +233,23 @@ describe('AuthService.registerParticipant', () => {
     });
 
     await expect(
-      service.issueParticipantToken('participante-1', PROYECTO_ID),
+      service.issueParticipantToken('participante-1', PROYECTO_ID, CODIGO_INVITACION),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('rechaza reclamar una invitación con un código incorrecto', async () => {
+    prisma.participanteWhitelist.findUnique.mockResolvedValue({
+      id: 'entry-1',
+      proyectoId: PROYECTO_ID,
+      email: EMAIL_AUTORIZADO,
+      usado: false,
+      participanteId: null,
+      codigoInvitacionHash: CODIGO_HASH,
+    });
+
+    await expect(
+      service.registerParticipant(PROYECTO_ID, EMAIL_AUTORIZADO, undefined, 'codigo-incorrecto-largo'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.participante.create).not.toHaveBeenCalled();
   });
 });

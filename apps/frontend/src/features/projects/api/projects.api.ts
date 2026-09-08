@@ -137,6 +137,17 @@ export interface WhitelistEntradaInput {
   nombre?: string;
 }
 
+export interface InvitationCredential {
+  email: string;
+  codigoInvitacion: string;
+}
+
+export interface AddToWhitelistResult {
+  agregados: number;
+  enviados: number;
+  invitaciones: InvitationCredential[];
+}
+
 export function listWhitelist(proyectoId: string): Promise<WhitelistEntry[]> {
   return request<WhitelistEntry[]>(`/projects/${proyectoId}/participantes`);
 }
@@ -144,8 +155,8 @@ export function listWhitelist(proyectoId: string): Promise<WhitelistEntry[]> {
 export function addToWhitelist(
   proyectoId: string,
   participantes: WhitelistEntradaInput[],
-): Promise<{ agregados: number; enviados: number }> {
-  return request<{ agregados: number; enviados: number }>(
+): Promise<AddToWhitelistResult> {
+  return request<AddToWhitelistResult>(
     `/projects/${proyectoId}/participantes`,
     {
       method: 'POST',

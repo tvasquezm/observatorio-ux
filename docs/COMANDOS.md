@@ -129,6 +129,7 @@ públicos, visibles en este mismo repositorio.
 | Estudiante 2 | `estudiante2@ux.utem.cl` | `Demo1234!` | Miembro del mismo proyecto demo — sirve para probar acceso/lock concurrente con Estudiante 1 y 3. |
 | Estudiante 3 | `estudiante3@ux.utem.cl` | `Demo1234!` | Miembro del mismo proyecto demo — mismo propósito que arriba. |
 | Docente (profesor) | `profesor@test.com` | `profesor123` | Pensado para QA manual — trae un proyecto propio con las 5 técnicas UX ya cargadas (Card Sorting, Evaluación Heurística, Persona, Journey Map, Momentos Críticos). |
+| Administrador | `admin@test.com` | `admin1234` | Permite probar las perspectivas Estudiante, Docente y Administrador. Configurable con `SEED_ADMIN_PASSWORD`. |
 
 Las passwords son configurables vía `.env`: `SEED_PASSWORD` (las 3 cuentas
 de estudiante comparten esa misma variable) y `SEED_PROFESOR_PASSWORD`, si

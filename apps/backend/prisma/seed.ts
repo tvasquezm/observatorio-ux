@@ -29,6 +29,9 @@ const profesorPassword = process.env.SEED_PROFESOR_PASSWORD || 'profesor123';
 const profesorId = 'f1e1b6a1-0000-4a11-9c00-000000000001';
 const profesorEmail = 'profesor@test.com';
 const profesorProjectId = 'f1e1b6a1-0001-4a11-9c00-000000000002';
+const adminId = 'a1e1b6a1-0000-4a11-9c00-000000000001';
+const adminEmail = 'admin@test.com';
+const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'admin1234';
 const cardSortingEstudioId = 'f1e1b6a1-0002-4a11-9c00-000000000003';
 const cardSortingParticipanteSesionId = 'f1e1b6a1-0003-4a11-9c00-000000000004';
 const heuristicaSesionId = 'f1e1b6a1-0004-4a11-9c00-000000000005';
@@ -122,6 +125,19 @@ async function main() {
   // Usuario profesor de prueba + proyecto con las 5 técnicas UX
   // ------------------------------------------------------------
   const profesorPasswordHash = await bcrypt.hash(profesorPassword, 12);
+
+  const adminPasswordHash = await bcrypt.hash(adminPassword, 12);
+  await prisma.usuario.upsert({
+    where: { email: adminEmail },
+    update: { nombre: 'Administrador de Prueba', rol: Rol.ADMIN, passwordHash: adminPasswordHash },
+    create: {
+      id: adminId,
+      nombre: 'Administrador de Prueba',
+      email: adminEmail,
+      rol: Rol.ADMIN,
+      passwordHash: adminPasswordHash,
+    },
+  });
 
   const profesor = await prisma.usuario.upsert({
     where: { email: profesorEmail },
@@ -399,6 +415,8 @@ async function main() {
   console.log('---');
   console.log(`Usuario profesor (prueba): ${profesor.email}`);
   console.log(`Contraseña profesor: ${profesorPassword}`);
+  console.log(`Usuario administrador (prueba): ${adminEmail}`);
+  console.log(`Contraseña administrador: ${adminPassword}`);
   console.log(`Proyecto profesor: ${profesorProject.id}`);
 }
 

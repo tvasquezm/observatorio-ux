@@ -22,6 +22,10 @@ export class ParticipantTokenDto {
 
   @IsUUID()
   proyectoId!: string;
+
+  @IsString()
+  @MinLength(16)
+  codigoInvitacion!: string;
 }
 
 export class RegisterParticipantDto {
@@ -34,6 +38,10 @@ export class RegisterParticipantDto {
   @IsOptional()
   @IsString()
   nombre?: string;
+
+  @IsString()
+  @MinLength(16)
+  codigoInvitacion!: string;
 }
 
 export class RegisterParticipantConsentDto {
@@ -49,4 +57,8 @@ export class RegisterParticipantConsentDto {
   @IsString()
   @MinLength(1)
   version!: string;
+
+  @IsString()
+  @MinLength(16)
+  codigoInvitacion!: string;
 }

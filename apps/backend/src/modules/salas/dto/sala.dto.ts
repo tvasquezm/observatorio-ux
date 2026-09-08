@@ -2,6 +2,7 @@ import {
   ArrayMinSize,
   IsArray,
   IsEmail,
+  IsISO8601,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -22,6 +23,12 @@ export class CreateSalaDto {
   @IsString()
   @IsOptional()
   instrucciones?: string;
+
+  @IsISO8601()
+  fechaInicio!: string;
+
+  @IsISO8601()
+  fechaFin!: string;
 }
 
 export class CreateSalaEstudianteDto {

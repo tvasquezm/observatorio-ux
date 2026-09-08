@@ -22,8 +22,8 @@ import {
 import { ArtifactsApiError } from '../shared/api/artifacts.api';
 import { notify } from '../shared/api/toast';
 import { useConfirm } from '../shared/api/confirm';
-import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { puedeEditarArtefactos } from '../shared/auth/permisos';
+import { useActivePerspective } from '../shared/auth/useActivePerspective';
 
 const MIN_FASES = 3;
 
@@ -47,7 +47,7 @@ export function JourneyMapPage() {
   const { mutate: lockJourney } = useLockJourney(proyectoId);
   const { mutate: unlockJourney } = useUnlockJourney(proyectoId);
   const confirm = useConfirm();
-  const puedeEditar = puedeEditarArtefactos(useAuthStore((s) => s.user));
+  const puedeEditar = puedeEditarArtefactos(useActivePerspective());
   const error = listError ?? createError ?? updateError ?? deleteError;
 
   const [form, setForm] = useState<JourneyMapContenido>(contenidoVacio());

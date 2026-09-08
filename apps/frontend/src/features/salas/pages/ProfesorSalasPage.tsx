@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { getSalas, createSala, Sala } from '../api/salas.api';
 
@@ -7,6 +7,8 @@ export const ProfesorSalasPage: React.FC = () => {
   const [busqueda, setBusqueda] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const modalRef = useRef<HTMLDialogElement>(null);
 
   // Estados del formulario
   const [nombre, setNombre] = useState('');
@@ -20,13 +22,21 @@ export const ProfesorSalasPage: React.FC = () => {
     cargarSalas();
   }, []);
 
+  useEffect(() => {
+    const dialog = modalRef.current;
+    if (!dialog || !isModalOpen) return;
+    dialog.showModal();
+    return () => dialog.close();
+  }, [isModalOpen]);
+
   const cargarSalas = async () => {
     try {
       setLoading(true);
+      setLoadError('');
       const data = await getSalas();
       setSalas(data);
-    } catch (err) {
-      console.error('Error al cargar las salas:', err);
+    } catch (err: any) {
+      setLoadError(err?.message || 'No se pudieron cargar las salas. Inténtalo nuevamente.');
     } finally {
       setLoading(false);
     }
@@ -35,24 +45,17 @@ export const ProfesorSalasPage: React.FC = () => {
   const handleCrearSala = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (new Date(fechaFin) <= new Date(fechaInicio)) {
+      setError('La fecha de término debe ser posterior a la fecha de inicio.');
+      return;
+    }
     try {
-      // Formateamos las fechas al orden Día/Mes/Año Hora:min para que quede claro visualmente
-      const formatearFechaLocal = (isoStr: string) => {
-        if (!isoStr) return '';
-        const [datePart, timePart] = isoStr.split('T');
-        const [yyyy, mm, dd] = datePart.split('-');
-        return `${dd}/${mm}/${yyyy} ${timePart}`;
-      };
-
-      const inicioFmt = formatearFechaLocal(fechaInicio);
-      const finFmt = formatearFechaLocal(fechaFin);
-
-      const instruccionesCompletas = `Inicio: ${inicioFmt} | Término: ${finFmt}\n\n${instrucciones}`;
-      
       await createSala({ 
         nombre, 
         periodo, 
-        instrucciones: instruccionesCompletas 
+        instrucciones: instrucciones.trim() || undefined,
+        fechaInicio: new Date(fechaInicio).toISOString(),
+        fechaFin: new Date(fechaFin).toISOString(),
       });
 
       setNombre('');
@@ -88,7 +91,9 @@ export const ProfesorSalasPage: React.FC = () => {
       </div>
 
       <div style={{ marginBottom: '24px' }}>
+        <label className="sr-only" htmlFor="buscar-sala">Buscar sala</label>
         <input
+          id="buscar-sala"
           type="text"
           placeholder="Buscar sala por nombre o período..."
           value={busqueda}
@@ -97,7 +102,12 @@ export const ProfesorSalasPage: React.FC = () => {
         />
       </div>
 
-      {loading ? (
+      {loadError ? (
+        <div className="error-text" role="alert">
+          <p>{loadError}</p>
+          <button type="button" className="secondary" onClick={cargarSalas}>Reintentar</button>
+        </div>
+      ) : loading ? (
         <p style={{ color: 'var(--muted)' }}>Cargando salas...</p>
       ) : salasFiltradas.length > 0 ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
@@ -113,6 +123,11 @@ export const ProfesorSalasPage: React.FC = () => {
                 <p style={{ fontSize: '14px', color: 'var(--muted)', whiteSpace: 'pre-line', marginTop: '8px' }}>
                   {sala.instrucciones || 'Sin instrucciones adicionales.'}
                 </p>
+                {sala.fechaInicio && sala.fechaFin && (
+                  <p className="text-muted-sm">
+                    {new Date(sala.fechaInicio).toLocaleString()} – {new Date(sala.fechaFin).toLocaleString()}
+                  </p>
+                )}
               </div>
               <div style={{ marginTop: '16px', fontSize: '12px', color: 'var(--muted)', borderTop: '1px solid var(--border)', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span>Creada el {new Date(sala.createdAt).toLocaleDateString()}</span>
@@ -130,22 +145,27 @@ export const ProfesorSalasPage: React.FC = () => {
 
       {/* Modal de Creación */}
       {isModalOpen && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
-        }}>
-          <div className="card" style={{ width: '100%', maxWidth: '520px', padding: '24px', background: 'var(--bg-card, #ffffff)' }}>
-            <h3 style={{ marginBottom: '16px' }}>Crear Nueva Sala con Rango Horario</h3>
+        <dialog
+          ref={modalRef}
+          className="card sala-modal"
+          aria-labelledby="crear-sala-title"
+          onCancel={() => setIsModalOpen(false)}
+        >
+            <h3 id="crear-sala-title" style={{ marginBottom: '16px' }}>Crear nueva sala</h3>
 
             {error && (
-              <div style={{ marginBottom: '16px', padding: '10px', background: '#fee2e2', color: '#991b1b', borderRadius: '6px', fontSize: '14px' }}>
+              <div role="alert" style={{ marginBottom: '16px', padding: '10px', background: '#fee2e2', color: '#991b1b', borderRadius: '6px', fontSize: '14px' }}>
                 {error}
               </div>
             )}
 
             <form onSubmit={handleCrearSala} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Nombre de la Sala</label>
+                <label htmlFor="sala-nombre" style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Nombre de la sala</label>
                 <input
+                  id="sala-nombre"
+                  name="nombre"
+                  autoFocus
                   type="text"
                   required
                   value={nombre}
@@ -156,8 +176,10 @@ export const ProfesorSalasPage: React.FC = () => {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Período Académico</label>
+                <label htmlFor="sala-periodo" style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Período académico</label>
                 <input
+                  id="sala-periodo"
+                  name="periodo"
                   type="text"
                   required
                   value={periodo}
@@ -167,10 +189,12 @@ export const ProfesorSalasPage: React.FC = () => {
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <div className="sala-date-grid">
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Inicio (Día / Mes / Año y Hora)</label>
+                  <label htmlFor="sala-inicio" style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Inicio</label>
                   <input
+                    id="sala-inicio"
+                    name="fechaInicio"
                     type="datetime-local"
                     required
                     value={fechaInicio}
@@ -179,8 +203,10 @@ export const ProfesorSalasPage: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Término (Día / Mes / Año y Hora)</label>
+                  <label htmlFor="sala-fin" style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Término</label>
                   <input
+                    id="sala-fin"
+                    name="fechaFin"
                     type="datetime-local"
                     required
                     value={fechaFin}
@@ -191,8 +217,10 @@ export const ProfesorSalasPage: React.FC = () => {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Instrucciones / Descripción</label>
+                <label htmlFor="sala-instrucciones" style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Instrucciones o descripción</label>
                 <textarea
+                  id="sala-instrucciones"
+                  name="instrucciones"
                   value={instrucciones}
                   onChange={(e) => setInstrucciones(e.target.value)}
                   rows={3}
@@ -214,8 +242,7 @@ export const ProfesorSalasPage: React.FC = () => {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+        </dialog>
       )}
     </div>
   );

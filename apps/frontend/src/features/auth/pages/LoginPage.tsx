@@ -34,6 +34,8 @@ export function LoginPage() {
             Email
             <input
               type="email"
+              name="email"
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -44,6 +46,8 @@ export function LoginPage() {
             Contraseña
             <input
               type="password"
+              name="password"
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -52,7 +56,7 @@ export function LoginPage() {
             />
           </label>
 
-          {error && <p className="login-error">{(error as Error).message}</p>}
+          {error && <p className="login-error" role="alert">{(error as Error).message}</p>}
 
           <button type="submit" className="primary login-submit" disabled={isPending}>
             {isPending ? 'Ingresando…' : 'Ingresar'}

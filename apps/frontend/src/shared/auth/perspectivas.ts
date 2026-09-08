@@ -1,6 +1,6 @@
 import type { EvaluatorRole, EvaluatorUser } from '../../features/auth/api/auth.api';
 
-export const PERSPECTIVE_ROLES: EvaluatorRole[] = ['ESTUDIANTE', 'DOCENTE', 'ADMIN'];
+export const PERSPECTIVE_ROLES: readonly EvaluatorRole[] = ['ESTUDIANTE', 'DOCENTE', 'ADMIN'];
 
 export const PERSPECTIVE_LABELS: Record<EvaluatorRole, string> = {
   ESTUDIANTE: 'Estudiante',
@@ -11,7 +11,7 @@ export const PERSPECTIVE_LABELS: Record<EvaluatorRole, string> = {
 const ALLOWED_PERSPECTIVES: Record<EvaluatorRole, EvaluatorRole[]> = {
   ESTUDIANTE: ['ESTUDIANTE'],
   DOCENTE: ['ESTUDIANTE', 'DOCENTE'],
-  ADMIN: PERSPECTIVE_ROLES,
+  ADMIN: [...PERSPECTIVE_ROLES],
 };
 
 const STORAGE_KEY = 'observatorio-ux-perspective:v1';
@@ -22,7 +22,11 @@ interface StoredPerspective {
 }
 
 export function canUsePerspective(accountRole: EvaluatorRole, perspectiveRole: EvaluatorRole) {
-  return ALLOWED_PERSPECTIVES[accountRole].includes(perspectiveRole);
+  return ALLOWED_PERSPECTIVES[accountRole]?.includes(perspectiveRole) ?? false;
+}
+
+export function isEvaluatorRole(value: unknown): value is EvaluatorRole {
+  return typeof value === 'string' && PERSPECTIVE_ROLES.includes(value as EvaluatorRole);
 }
 
 export function resolvePerspective(

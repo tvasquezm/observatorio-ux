@@ -30,7 +30,13 @@ export function ProjectDetailLayout() {
   const { data: proyecto } = useProject(proyectoId ?? null);
   const { user, perspectiveRole } = useAuthStore();
   const activeRole = user ? resolvePerspective(user.rol, perspectiveRole) : null;
-  const visibleItems = SUB_NAV.filter((item) => item.to !== 'analitica' || (activeRole && canViewAnalytics(activeRole)));
+  const canManageParticipants =
+    !!user && (activeRole === 'ADMIN' || user.id === proyecto?.creadoPorId);
+  const visibleItems = SUB_NAV.filter((item) => {
+    if (item.to === 'analitica') return !!activeRole && canViewAnalytics(activeRole);
+    if (item.to === 'participantes') return canManageParticipants;
+    return true;
+  });
 
   if (!proyectoId) return <p>Proyecto no especificado.</p>;
 

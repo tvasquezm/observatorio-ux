@@ -6,6 +6,11 @@ set -e
 echo "==> Aplicando migraciones de Prisma..."
 pnpm --filter backend exec prisma migrate deploy
 
+# El volumen de node_modules de desarrollo puede sobrevivir a una imagen nueva.
+# Regenerar aquí mantiene el cliente sincronizado con schema.prisma en cada arranque.
+echo "==> Generando cliente de Prisma..."
+pnpm --filter backend exec prisma generate
+
 # El seed usa upsert() con una password hardcodeada (Demo1234!) — es correcto
 # y seguro re-ejecutarlo en cada arranque DE DESARROLLO, pero jamás debe
 # correr contra una base de producción: resetearía silenciosamente la

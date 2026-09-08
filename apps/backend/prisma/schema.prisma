@@ -116,6 +116,7 @@ model ParticipanteWhitelist {
   email      String
   nombre     String?
   usado      Boolean  @default(false)
+  codigoInvitacionHash String?
 
   participante   Participante? @relation(fields: [participanteId], references: [id])
   participanteId String?
@@ -147,6 +148,8 @@ model Sala {
   nombre        String
   periodo       String
   instrucciones String?
+  fechaInicio   DateTime?
+  fechaFin      DateTime?
   profesorId    String
   profesor      Usuario    @relation(fields: [profesorId], references: [id])
   createdAt     DateTime   @default(now())

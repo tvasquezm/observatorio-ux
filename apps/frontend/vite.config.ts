@@ -1,14 +1,18 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 
-export default defineConfig({
-  server: {
-    host: true,
-    port: 5173,
-    proxy: {
-      '/api': {
-        target: 'http://backend:3000',
-        changeOrigin: true,
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+
+  return {
+    server: {
+      host: true,
+      port: 5173,
+      proxy: {
+        '/api': {
+          target: env.VITE_DEV_API_PROXY_TARGET || 'http://localhost:3000',
+          changeOrigin: true,
+        },
       },
     },
-  },
+  };
 });

@@ -93,18 +93,27 @@ Flujo completo: configuración por el evaluador/docente y participación del usu
 **Request Body:**
 ```json
 {
-  "email": "participante.estudio2026@ux.utem.cl"
+  "participantes": [
+    { "email": "participante.estudio2026@ux.utem.cl" }
+  ]
 }
 ```
 
 **Respuesta Esperada (201 Created):**
 ```json
 {
-  "id": "fc2a8cd7-9772-495e-94fa-9dfb20bd2ccd",
-  "email": "participante.estudio2026@ux.utem.cl",
-  "usado": false
+  "agregados": 1,
+  "enviados": 1,
+  "invitaciones": [
+    {
+      "email": "participante.estudio2026@ux.utem.cl",
+      "codigoInvitacion": "CODIGO_ALEATORIO_MOSTRADO_UNA_VEZ"
+    }
+  ]
 }
 ```
+
+👉 Guarda el CODIGO_INVITACION y entrégalo de forma privada al participante.
 
 ---
 
@@ -119,7 +128,8 @@ Flujo completo: configuración por el evaluador/docente y participación del usu
 ```json
 {
   "proyectoId": "c58d6894-51f4-4f8c-b72b-ee2ee748fcfb",
-  "email": "participante.estudio2026@ux.utem.cl"
+  "email": "participante.estudio2026@ux.utem.cl",
+  "codigoInvitacion": "CODIGO_ALEATORIO_MOSTRADO_UNA_VEZ"
 }
 ```
 
@@ -135,7 +145,27 @@ Flujo completo: configuración por el evaluador/docente y participación del usu
 
 ---
 
-### Paso 6: Generar Token Inicial del Participante
+### Paso 6: Registrar Consentimiento Informado
+
+- **Rol:** Participante
+- **Endpoint:** `POST /api/auth/participants/consent`
+
+**Request Body:**
+```json
+{
+  "proyectoId": "c58d6894-51f4-4f8c-b72b-ee2ee748fcfb",
+  "participanteId": "e2073ab0-cf10-4a02-8ccb-905fd454265b",
+  "aceptado": true,
+  "version": "1.0",
+  "codigoInvitacion": "CODIGO_ALEATORIO_MOSTRADO_UNA_VEZ"
+}
+```
+
+**Respuesta Esperada:** 200 OK o 201 Created.
+
+---
+
+### Paso 7: Generar Token del Participante
 
 - **Rol:** Participante
 - **Endpoint:** `POST /api/auth/participants/token`
@@ -144,7 +174,8 @@ Flujo completo: configuración por el evaluador/docente y participación del usu
 ```json
 {
   "proyectoId": "c58d6894-51f4-4f8c-b72b-ee2ee748fcfb",
-  "participanteId": "e2073ab0-cf10-4a02-8ccb-905fd454265b"
+  "participanteId": "e2073ab0-cf10-4a02-8ccb-905fd454265b",
+  "codigoInvitacion": "CODIGO_ALEATORIO_MOSTRADO_UNA_VEZ"
 }
 ```
 
@@ -152,37 +183,7 @@ Flujo completo: configuración por el evaluador/docente y participación del usu
 
 ---
 
-### Paso 7: Registrar Consentimiento Informado
-
-- **Rol:** Participante
-- **Endpoint:** `POST /api/auth/participants/consent`
-
-**Request Body:** (Nota: la propiedad `version` es obligatoria)
-```json
-{
-  "proyectoId": "c58d6894-51f4-4f8c-b72b-ee2ee748fcfb",
-  "participanteId": "e2073ab0-cf10-4a02-8ccb-905fd454265b",
-  "aceptado": true,
-  "version": "1.0"
-}
-```
-
-**Respuesta Esperada:** 200 OK o 201 Created.
-
----
-
-### Paso 8: Actualizar Token con Consentimiento Aceptado
-
-- **Rol:** Participante
-- **Endpoint:** `POST /api/auth/participants/token`
-
-**Request Body:** Reutiliza el payload del Paso 6.
-
-**Acción:** Copia el nuevo `access_token` emitido y actualiza la sección Authorize en Swagger.
-
----
-
-### Paso 9: Unirse al Estudio (/join)
+### Paso 8: Unirse al Estudio (/join)
 
 - **Rol:** Participante
 - **Endpoint:** `POST /api/card-sorting/sessions/{id}/join`
@@ -212,7 +213,7 @@ Flujo completo: configuración por el evaluador/docente y participación del usu
 
 ---
 
-### Paso 10: Enviar Resultados (/results)
+### Paso 9: Enviar Resultados (/results)
 
 - **Rol:** Participante
 - **Endpoint:** `POST /api/card-sorting/sessions/{id}/results`
@@ -248,7 +249,8 @@ Flujo completo: configuración por el evaluador/docente y participación del usu
 | ID / Parámetro | Se obtiene en... | Se usa en... |
 |---|---|---|
 | PROYECTO_ID | Paso 2 (POST /api/projects) | Pasos 3, 4, 5, 6 y 7 |
-| ESTUDIO_ID | Paso 3 (POST /api/card-sorting/sessions) | Paso 9 (/join en URL) |
+| ESTUDIO_ID | Paso 3 (POST /api/card-sorting/sessions) | Paso 8 (/join en URL) |
 | PARTICIPANTE_ID | Paso 5 (POST /api/auth/participants/register) | Pasos 6 y 7 |
-| TARJETA_IDs | Paso 3 o Paso 9 (cardsDefinidas) | Paso 10 (cardIds) |
-| SESION_PARTICIPANTE_ID | Paso 9 (POST /join) | Paso 10 (/results en URL) |
+| CODIGO_INVITACION | Paso 4 (POST /api/projects/:id/participantes) | Pasos 5, 6 y 7 |
+| TARJETA_IDs | Paso 3 o Paso 8 (cardsDefinidas) | Paso 9 (cardIds) |
+| SESION_PARTICIPANTE_ID | Paso 8 (POST /join) | Paso 9 (/results en URL) |

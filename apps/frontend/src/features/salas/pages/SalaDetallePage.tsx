@@ -17,6 +17,7 @@ import {
   useVincularProyecto,
   useDesvincularProyecto,
 } from '../hooks/useSalasQueries';
+import { useConfirm } from '../../../shared/api/confirm';
 
 type Tab = 'proyectos' | 'estudiantes';
 
@@ -57,7 +58,8 @@ export function SalaDetallePage() {
 // ---------------------------------------------------------------
 
 function ProyectosDeSala({ salaId }: { salaId: string }) {
-  const { data: proyectosSala, isLoading } = useProyectosDeSala(salaId);
+  const confirm = useConfirm();
+  const { data: proyectosSala, isLoading, isError, error, refetch } = useProyectosDeSala(salaId);
   const { data: todosLosProyectos } = useProjects();
   const { mutate: crear, isPending: creando } = useCreateProyectoEnSala(salaId);
   const { mutate: vincular, isPending: vinculando } = useVincularProyecto(salaId);
@@ -87,9 +89,15 @@ function ProyectosDeSala({ salaId }: { salaId: string }) {
     vincular(proyectoAVincular, { onSuccess: () => setProyectoAVincular('') });
   }
 
+  async function handleDesvincular(id: string, nombreProyecto: string) {
+    if (await confirm(`¿Desvincular el proyecto “${nombreProyecto}” de esta sala?`)) {
+      desvincular(id);
+    }
+  }
+
   return (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 24 }}>
+      <div className="sala-management-grid">
         <form onSubmit={handleCrear} className="form-grid">
           <label className="field">
             Crear proyecto nuevo en esta sala
@@ -135,6 +143,12 @@ function ProyectosDeSala({ salaId }: { salaId: string }) {
       </div>
 
       {isLoading && <p>Cargando proyectos…</p>}
+      {isError && (
+        <div className="error-text" role="alert">
+          <p>{(error as Error).message}</p>
+          <button type="button" className="secondary" onClick={() => refetch()}>Reintentar</button>
+        </div>
+      )}
 
       <div className="list-stack">
         {proyectosSala?.map((p) => (
@@ -143,7 +157,11 @@ function ProyectosDeSala({ salaId }: { salaId: string }) {
               <b>{p.nombre}</b>
               {p.descripcion && <div className="text-muted-sm">{p.descripcion}</div>}
             </div>
-            <button type="button" className="secondary" onClick={() => desvincular(p.id)}>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => handleDesvincular(p.id, p.nombre)}
+            >
               Desvincular
             </button>
           </div>
@@ -161,7 +179,8 @@ function ProyectosDeSala({ salaId }: { salaId: string }) {
 // ---------------------------------------------------------------
 
 function EstudiantesDeSala({ salaId }: { salaId: string }) {
-  const { data: estudiantes, isLoading } = useEstudiantes(salaId);
+  const confirm = useConfirm();
+  const { data: estudiantes, isLoading, isError, error, refetch } = useEstudiantes(salaId);
   const { mutate: agregar, isPending: agregando } = useAddEstudiante(salaId);
   const { mutate: agregarBulk, isPending: agregandoBulk } = useAddEstudiantesBulk(salaId);
   const { mutate: eliminar } = useRemoveEstudiante(salaId);
@@ -198,6 +217,10 @@ function EstudiantesDeSala({ salaId }: { salaId: string }) {
     agregarBulk(entradas, { onSuccess: () => setBulkTexto('') });
   }
 
+  async function handleEliminar(id: string, nombreVisible: string) {
+    if (await confirm(`¿Quitar a “${nombreVisible}” de esta sala?`)) eliminar(id);
+  }
+
   return (
     <div>
       <div className="form-row-inline" style={{ marginBottom: 12 }}>
@@ -221,6 +244,7 @@ function EstudiantesDeSala({ salaId }: { salaId: string }) {
         <form onSubmit={handleAgregarIndividual} className="form-row-inline">
           <input
             type="email"
+            aria-label="Email del estudiante"
             placeholder="Email del estudiante"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -229,6 +253,7 @@ function EstudiantesDeSala({ salaId }: { salaId: string }) {
           />
           <input
             type="text"
+            aria-label="Nombre del estudiante"
             placeholder="Nombre (opcional)"
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
@@ -247,6 +272,7 @@ function EstudiantesDeSala({ salaId }: { salaId: string }) {
             <textarea
               placeholder={'ana@utem.cl\nbruno@utem.cl, Bruno Soto'}
               value={bulkTexto}
+              aria-label="Lista de estudiantes"
               onChange={(e) => setBulkTexto(e.target.value)}
               className="textarea-md"
             />
@@ -258,6 +284,12 @@ function EstudiantesDeSala({ salaId }: { salaId: string }) {
       )}
 
       {isLoading && <p>Cargando…</p>}
+      {isError && (
+        <div className="error-text" role="alert">
+          <p>{(error as Error).message}</p>
+          <button type="button" className="secondary" onClick={() => refetch()}>Reintentar</button>
+        </div>
+      )}
 
       <div className="list-stack mt-16">
         {estudiantes?.map((e) => (
@@ -266,7 +298,11 @@ function EstudiantesDeSala({ salaId }: { salaId: string }) {
               <b>{e.nombre ?? e.email}</b>
               {e.nombre && <div className="text-muted-sm">{e.email}</div>}
             </div>
-            <button type="button" className="secondary" onClick={() => eliminar(e.id)}>
+            <button
+              type="button"
+              className="secondary danger"
+              onClick={() => handleEliminar(e.id, e.nombre ?? e.email)}
+            >
               Quitar
             </button>
           </div>

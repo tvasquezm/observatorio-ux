@@ -48,6 +48,13 @@ email: profesor@test.com
 password: profesor123
 ```
 
+Cuenta administradora para comprobar las tres perspectivas:
+
+```text
+email: admin@test.com
+password: admin1234
+```
+
 Contraseña configurable vía `SEED_PROFESOR_PASSWORD` en `.env` si no querés
 usar el default. Ver `apps/backend/prisma/seed.ts`.
 
@@ -62,19 +69,21 @@ usar el default. Ver `apps/backend/prisma/seed.ts`.
 3. Crear o consultar proyectos desde `/api/projects`.
 4. Cargar participantes autorizados con `POST /api/projects/:id/participantes`.
    El cuerpo tiene la forma `{ "participantes": [{ "email": "...", "nombre": "..." }] }`.
+   La respuesta incluye un `codigoInvitacion` aleatorio por cada entrada nueva; se muestra
+   una sola vez y debe compartirse de forma privada con la persona correspondiente.
 5. Crear una sesión Card Sorting desde `POST /api/card-sorting/sessions`.
-6. El participante se registra con `POST /api/auth/participants/register`.
+6. El participante se registra con `POST /api/auth/participants/register`, incluyendo su
+   `codigoInvitacion`.
 7. Registrar su consentimiento con `POST /api/auth/participants/consent` usando
-   `participanteId`, `proyectoId`, `aceptado` y `version`.
+   `participanteId`, `proyectoId`, `aceptado`, `version` y `codigoInvitacion`.
 8. Solicitar `POST /api/auth/participants/token` con `participanteId` y
-   `proyectoId`.
+   `proyectoId` y `codigoInvitacion`.
 9. Usar ese token en `POST /api/card-sorting/sessions/:id/join`.
 10. Enviar los resultados con `POST /api/card-sorting/sessions/:id/results`.
 
-El registro exige que el email esté en la whitelist y la emisión del token
-vuelve a comprobar esa autorización. La verificación de que la persona controla
-el email requiere añadir un mecanismo de invitación o verificación por correo;
-el endpoint actual no envía emails por sí solo.
+El registro exige que el email esté en la whitelist y que el código de invitación
+coincida con su hash almacenado. El consentimiento y la emisión del token vuelven
+a comprobar ambos datos; el código en texto plano nunca se guarda en la base de datos.
 
 En desarrollo también existen `GET /api/auth/test-token` y
 `GET /api/auth/test-participant-token`, que generan tokens a partir de los datos
