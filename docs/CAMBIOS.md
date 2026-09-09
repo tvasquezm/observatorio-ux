@@ -3,6 +3,21 @@
 Todo acá parte de TUS archivos reales que subiste, con ediciones mínimas
 y quirúrgicas. No hay archivos inventados desde cero salvo los indicados.
 
+## Ronda 11 (Sesión — Sprint 4, fix de test de `useAuthStore`)
+
+1. **`leerUserGuardado()` explotaba al importar el módulo en test.**
+   `useAuthStore.ts` corre `leerUserGuardado()` a nivel de módulo (fuera de
+   cualquier acción del store), y esa función llamaba `localStorage.getItem`
+   directo. En el entorno de `PerspectiveRoute.test.tsx` (que usa el store
+   REAL, no mockeado, a diferencia de `MomentosCriticosPage.test.tsx`)
+   `localStorage` no estaba garantizado como funcional en el instante del
+   `import`, lo que rompía la suite con `TypeError: localStorage.getItem is
+   not a function`. Se agregó un guard (`typeof localStorage === 'undefined'
+   || typeof localStorage.getItem !== 'function'` → `null`) antes de leer,
+   sin cambiar el comportamiento en runtime real (el navegador siempre tiene
+   `localStorage` funcional). Ver `docs/AUDIT_LOG.md` K1.
+   - `apps/frontend/src/features/auth/store/useAuthStore.ts`
+
 ## Ronda 10 (cierre verificable del Sprint 4 oficial)
 
 1. **D2 — dashboard conectado a sesiones reales.** El contrato `Proyecto`

@@ -41,9 +41,12 @@ interface AuthState {
 }
 
 function leerUserGuardado(): EvaluatorUser | null {
-  const raw = localStorage.getItem(USER_KEY);
-  if (!raw) return null;
+  if (typeof localStorage === 'undefined' || typeof localStorage.getItem !== 'function') {
+    return null;
+  }
   try {
+    const raw = localStorage.getItem(USER_KEY);
+    if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<EvaluatorUser>;
     if (
       typeof parsed.id !== 'string' ||
