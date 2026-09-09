@@ -13,6 +13,10 @@ export interface Proyecto {
   creadoPorId: string;
   createdAt: string;
   salaId?: string | null;
+  _count?: {
+    sesiones: number;
+    artefactos: number;
+  };
 }
 
 export class ProjectsApiError extends Error {

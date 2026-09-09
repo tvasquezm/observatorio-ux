@@ -19,6 +19,7 @@ import {
 import { ArtifactsApiError } from '../shared/api/artifacts.api';
 import { notify } from '../shared/api/toast';
 import { useConfirm } from '../shared/api/confirm';
+import { TechniquePageHeader } from '../shared/components/TechniquePageHeader';
 import { puedeEditarArtefactos } from '../shared/auth/permisos';
 import { useActivePerspective } from '../shared/auth/useActivePerspective';
 
@@ -165,7 +166,12 @@ export function MomentosCriticosPage() {
 
   return (
     <div className="artifact-page">
-      <div className="page-head"><div><span className="eyebrow">TÉCNICA DE INVESTIGACIÓN</span><h1>Momentos críticos</h1><p>Prioriza los incidentes que más afectan la experiencia de tus usuarios.</p></div><span className="status-pill">Matriz de impacto</span></div>
+      <TechniquePageHeader
+        label="TÉCNICA DE INVESTIGACIÓN"
+        title="Momentos críticos"
+        description="Prioriza los incidentes que más afectan la experiencia de tus usuarios."
+        action={<span className="status-pill">Matriz de impacto</span>}
+      />
     <div className="panel">
       <div className="panel-head">
         <h2>Momentos Críticos</h2>

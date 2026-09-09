@@ -24,6 +24,7 @@ import { notify } from '../shared/api/toast';
 import { useConfirm } from '../shared/api/confirm';
 import { puedeEditarArtefactos } from '../shared/auth/permisos';
 import { useActivePerspective } from '../shared/auth/useActivePerspective';
+import { TechniquePageHeader } from '../shared/components/TechniquePageHeader';
 
 const MIN_FASES = 3;
 
@@ -127,13 +128,12 @@ export function JourneyMapPage() {
 
   return (
     <div className="fade">
-      <div className="page-head">
-        <div>
-          <span className="kicker">EXPERIENCIA DE PRINCIPIO A FIN</span>
-          <h1>Journey Maps</h1>
-          <p>Visualiza el recorrido completo y encuentra el momento en que la experiencia pierde confianza.</p>
-        </div>
-        {puedeEditar && (
+      <TechniquePageHeader
+        label="EXPERIENCIA DE PRINCIPIO A FIN"
+        labelVariant="kicker"
+        title="Journey Maps"
+        description="Visualiza el recorrido completo y encuentra el momento en que la experiencia pierde confianza."
+        action={puedeEditar ? (
           <button
             className="primary"
             onClick={() => {
@@ -143,8 +143,8 @@ export function JourneyMapPage() {
           >
             {mostrarForm ? 'Cancelar' : '+ Nuevo journey map'}
           </button>
-        )}
-      </div>
+        ) : undefined}
+      />
 
       {puedeEditar && mostrarForm && (
         <div className="panel mb-16">

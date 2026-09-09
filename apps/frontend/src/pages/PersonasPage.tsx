@@ -15,6 +15,7 @@ import { notify } from '../shared/api/toast';
 import { useConfirm } from '../shared/api/confirm';
 import { puedeEditarArtefactos } from '../shared/auth/permisos';
 import { useActivePerspective } from '../shared/auth/useActivePerspective';
+import { TechniquePageHeader } from '../shared/components/TechniquePageHeader';
 
 const CAMPOS_LISTA: (keyof PersonaContenido)[] = [
   'hobbies', 'habilidades', 'objetivos', 'necesidades',
@@ -116,7 +117,12 @@ export function PersonasPage() {
 
   return (
     <div className="artifact-page">
-      <div className="page-head"><div><span className="eyebrow">TÉCNICA DE INVESTIGACIÓN</span><h1>Personas</h1><p>Construye perfiles claros para diseñar con las necesidades reales en mente.</p></div><span className="status-pill">Artefactos versionados</span></div>
+      <TechniquePageHeader
+        label="TÉCNICA DE INVESTIGACIÓN"
+        title="Personas"
+        description="Construye perfiles claros para diseñar con las necesidades reales en mente."
+        action={<span className="status-pill">Artefactos versionados</span>}
+      />
     <div className="panel">
       <div className="panel-head">
         <h2>Personas</h2>

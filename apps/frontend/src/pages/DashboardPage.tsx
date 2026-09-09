@@ -25,6 +25,7 @@ export function DashboardPage() {
   const { user, perspectiveRole } = useAuthStore();
   const activeRole = user ? resolvePerspective(user.rol, perspectiveRole) : null;
   const total = proyectos?.length ?? 0;
+  const totalSesiones = proyectos?.reduce((suma, proyecto) => suma + (proyecto._count?.sesiones ?? 0), 0) ?? 0;
   const recientes = proyectos?.slice(0, 5) ?? [];
   const activo = proyectos?.[0] ?? null;
 
@@ -58,9 +59,9 @@ export function DashboardPage() {
           <p>Proyectos de investigación activos</p>
         </article>
         <article className="metric rise">
-          <small>Técnicas disponibles</small>
-          <strong>05</strong>
-          <p>Persona, journey, momentos, sorting, heurística</p>
+          <small>Sesiones</small>
+          <strong>{isLoading ? '—' : String(totalSesiones).padStart(2, '0')}</strong>
+          <p>Sesiones registradas en tus proyectos</p>
         </article>
         <article className="metric rise">
           <small>Perspectiva activa</small>
@@ -114,6 +115,9 @@ export function DashboardPage() {
               <div>
                 <b>{p.nombre}</b>
                 {p.descripcion && <small>{p.descripcion}</small>}
+                <small>
+                  {p._count?.sesiones ?? 0} {(p._count?.sesiones ?? 0) === 1 ? 'sesión registrada' : 'sesiones registradas'}
+                </small>
               </div>
             </Link>
           ))}
