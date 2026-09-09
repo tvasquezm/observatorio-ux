@@ -3,6 +3,29 @@
 Todo acá parte de TUS archivos reales que subiste, con ediciones mínimas
 y quirúrgicas. No hay archivos inventados desde cero salvo los indicados.
 
+## Ronda 10 (cierre verificable del Sprint 4 oficial)
+
+1. **D2 — dashboard conectado a sesiones reales.** El contrato `Proyecto`
+   ahora incluye `_count.sesiones`/`_count.artefactos`, datos que el backend
+   ya devolvía. El dashboard suma y muestra las sesiones por proyecto; se
+   agregó una prueba de regresión con dos proyectos.
+2. **D4 — componente compartido sin rediseño.** Se extrajo
+   `TechniquePageHeader` y se reutiliza en Personas, Journey Map y Momentos
+   Críticos conservando las mismas clases, colores, textos y acciones.
+3. **D5 — arranque y validación transversal.** `.gitattributes` obliga LF en
+   scripts de shell y evita que Windows rompa `entrypoint.sh`. CI ahora ejecuta
+   tests de frontend y bloquea vulnerabilidades altas o críticas.
+4. **Dependencias.** Vitest se actualizó a una versión corregida y se fijaron
+   versiones transitivas seguras de `fast-uri`, `multer` y `brace-expansion`.
+   Resultado local: 69/69 tests de backend, 13/13 tests de frontend, builds de
+   backend/frontend/shared-types y `pnpm audit` sin vulnerabilidades conocidas.
+5. **Trazabilidad.** Los antiguos hallazgos de auditoría D1–D5 pasan a llamarse
+   AUD-D1–AUD-D5 para no colisionar con los entregables D1–D8 del backlog.
+
+Permanecen pendientes D7 (referencias del capítulo 2) y R4 (acta con profesor):
+no existe evidencia fuente suficiente en los archivos disponibles y no se
+inventaron referencias ni reuniones.
+
 ## Ronda 9 (auditoría Flujos de Usuario maestro — roles y segregación de Auth)
 
 Corresponde al Sprint 4 real del equipo. Se documenta como "Sesión de

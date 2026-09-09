@@ -15,13 +15,13 @@ pnpm install
 Agregar `JWT_PARTICIPANTE_SECRET` (nunca igual a `JWT_SECRET`, mínimo 16
 caracteres).
 
-**Si corrés local (sin Docker)** — editar `apps/backend/.env`:
+**Si ejecutas el proyecto localmente (sin Docker)** — edita `apps/backend/.env`:
 
 ```
 echo JWT_PARTICIPANTE_SECRET=dev_only_change_me_participante_min_16 >> apps/backend/.env
 ```
 
-**Si corrés con Docker** — editar el `.env` de la raíz del repo:
+**Si ejecutas el proyecto con Docker** — edita el `.env` de la raíz del repositorio:
 
 ```
 echo JWT_PARTICIPANTE_SECRET=dev_only_change_me_participante_min_16 >> .env
@@ -48,9 +48,12 @@ pnpm --filter backend test auth.service
 pnpm --filter frontend test MomentosCriticosPage
 ```
 
-## 5. Sin migraciones
+## 5. Migraciones
 
-No hay cambios de schema de Prisma — no correr `prisma migrate`.
+La segregación de tokens no agregó una migración propia. Sin embargo, el
+repositorio actual sí contiene migraciones posteriores. En una instalación
+nueva ejecuta `pnpm --filter backend exec prisma migrate deploy`; con Docker,
+`entrypoint.sh` lo hace automáticamente al iniciar el backend.
 
 ## Qué cambió (por si el test falla por otra razón)
 

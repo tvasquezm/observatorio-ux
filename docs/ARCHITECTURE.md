@@ -361,5 +361,36 @@ Foco: cruzar 3 reglas de negocio del documento maestro contra el código real de
 - No se auditaron con el mismo detalle Card Sorting ni Evaluación Heurística contra la Regla 2 — el hallazgo se acotó a los 3 artefactos versionados (`UxArtifact`: persona/journey-map/momentos-críticos), que es donde el documento maestro habla explícitamente de "lienzos" de estudiante.
 - No se corrió el flujo manual completo (login DOCENTE/ESTUDIANTE + intento de escritura con Postman) al cierre de esta sesión — quedó como checklist en `docs/sprints/sprint4-auth-roles.md`, no verificado end-to-end acá.
 
+---
+
+## Sesión de trabajo — cierre verificable del Sprint 4 oficial
+
+Se contrastaron los entregables D1–D8 del backlog con el repositorio actual.
+No había un conflicto de Git en D2/D5: la confusión provenía de que el Audit
+Log reutilizaba esos identificadores para hallazgos del Sprint 3. Las entradas
+históricas ahora se llaman AUD-D1–AUD-D5.
+
+**D2 (dashboard):** `ProjectsService` ya entregaba `_count.sesiones`, pero el
+tipo `Proyecto` del frontend descartaba esa parte del contrato y el dashboard
+mostraba un contador fijo de técnicas. El tipo y la interfaz ahora consumen el
+conteo real, tanto en el resumen como en la actividad reciente, con prueba de
+regresión.
+
+**D4 (componentes comunes):** se extrajo `TechniquePageHeader` como una frontera
+pequeña y reutilizable por Personas, Journey Map y Momentos Críticos. Conserva
+el DOM, las clases y las acciones preexistentes; no introduce colores ni un
+diseño visual nuevo.
+
+**D5 (integración):** los checkout de Windows convertían `entrypoint.sh` a CRLF
+y `/bin/sh` fallaba antes de ejecutar migraciones. `.gitattributes` fija LF para
+todos los scripts `.sh`. La CI suma tests del frontend y auditoría de
+dependencias altas/críticas; las dependencias vulnerables detectadas fueron
+actualizadas o fijadas mediante overrides del workspace.
+
+**Verificación local:** 69 tests de backend, 13 tests de frontend y los builds
+de backend, frontend y `shared-types` pasan. `pnpm audit` informa cero
+vulnerabilidades conocidas. D7 y R4 siguen pendientes porque no se encontró el
+capítulo 2 ni un acta fuente que permita completarlos sin fabricar evidencia.
+
 
 
