@@ -9,6 +9,9 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 # Si se pushean varios commits seguidos a la misma rama/PR, cancela la
 # corrida anterior en vez de dejarlas todas corriendo en paralelo.
 concurrency:
@@ -47,7 +50,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # El Dockerfile del backend fija pnpm@10.34.5 vía corepack — se replica acá
       # para que CI use exactamente la misma versión que local/Docker.
@@ -55,7 +58,7 @@ jobs:
         run: corepack enable && corepack prepare pnpm@10.34.5 --activate
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '20'
           cache: 'pnpm'

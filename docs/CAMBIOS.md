@@ -14,7 +14,8 @@ y quirúrgicas. No hay archivos inventados desde cero salvo los indicados.
    Críticos conservando las mismas clases, colores, textos y acciones.
 3. **D5 — arranque y validación transversal.** `.gitattributes` obliga LF en
    scripts de shell y evita que Windows rompa `entrypoint.sh`. CI ahora ejecuta
-   tests de frontend y bloquea vulnerabilidades altas o críticas.
+   tests de frontend, bloquea vulnerabilidades altas o críticas y usa las
+   acciones oficiales actuales sobre runtime Node 24.
 4. **Dependencias.** Vitest se actualizó a una versión corregida y se fijaron
    versiones transitivas seguras de `fast-uri`, `multer` y `brace-expansion`.
    Resultado local: 69/69 tests de backend, 13/13 tests de frontend, builds de
