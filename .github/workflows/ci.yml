@@ -1,9 +1,9 @@
 name: CI
 
 # Corre en cada push y en cada Pull Request. El objetivo es simple: si algo
-# rompe pnpm --filter backend test, el build de shared-types, o el build del
-# frontend, que se vea en rojo en el PR — no que alguien lo descubra días
-# después al clonar de cero.
+# rompe una prueba, un build, el script de arranque o introduce una dependencia
+# de severidad alta/crítica, que se vea en rojo en el PR — no que alguien lo
+# descubra días después al clonar de cero.
 on:
   push:
     branches: [main]
@@ -72,8 +72,17 @@ jobs:
       - name: Aplicar migraciones (contra el Postgres del job)
         run: pnpm --filter backend exec prisma migrate deploy
 
+      - name: Validar script de arranque del backend
+        run: sh -n apps/backend/entrypoint.sh
+
       - name: Tests del backend
         run: pnpm --filter backend test
 
+      - name: Tests del frontend
+        run: pnpm --filter frontend test
+
       - name: Build del frontend (tsc --noEmit + vite build)
         run: pnpm --filter frontend build
+
+      - name: Auditar dependencias de severidad alta o crítica
+        run: pnpm audit --audit-level high

@@ -1,5 +1,6 @@
 #!/bin/sh
 set -e
+# Este archivo debe conservar finales de línea LF; `.gitattributes` lo garantiza.
 # db ya está garantizado healthy por "depends_on: condition: service_healthy"
 # en docker-compose.yml, así que no hace falta esperar aquí.
 
