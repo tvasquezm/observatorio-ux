@@ -24,6 +24,8 @@ import { notify } from '../shared/api/toast';
 import { useConfirm } from '../shared/api/confirm';
 import { puedeEditarArtefactos } from '../shared/auth/permisos';
 import { useActivePerspective } from '../shared/auth/useActivePerspective';
+import { useAuthStore } from '../features/auth/store/useAuthStore';
+import { useProject } from '../features/projects/hooks/useProjectsQueries';
 import { TechniquePageHeader } from '../shared/components/TechniquePageHeader';
 
 const MIN_FASES = 3;
@@ -48,7 +50,9 @@ export function JourneyMapPage() {
   const { mutate: lockJourney } = useLockJourney(proyectoId);
   const { mutate: unlockJourney } = useUnlockJourney(proyectoId);
   const confirm = useConfirm();
-  const puedeEditar = puedeEditarArtefactos(useActivePerspective());
+  const user = useAuthStore((state) => state.user);
+  const { data: proyecto } = useProject(proyectoId);
+  const puedeEditar = puedeEditarArtefactos(useActivePerspective(), user?.id, proyecto?.creadoPorId);
   const error = listError ?? createError ?? updateError ?? deleteError;
 
   const [form, setForm] = useState<JourneyMapContenido>(contenidoVacio());

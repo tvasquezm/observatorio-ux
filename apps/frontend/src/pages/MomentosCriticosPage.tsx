@@ -22,6 +22,8 @@ import { useConfirm } from '../shared/api/confirm';
 import { TechniquePageHeader } from '../shared/components/TechniquePageHeader';
 import { puedeEditarArtefactos } from '../shared/auth/permisos';
 import { useActivePerspective } from '../shared/auth/useActivePerspective';
+import { useAuthStore } from '../features/auth/store/useAuthStore';
+import { useProject } from '../features/projects/hooks/useProjectsQueries';
 
 const MIN_INCIDENTES = 1; // MomentosCriticosSchema exige mínimo 1
 
@@ -53,7 +55,9 @@ export function MomentosCriticosPage() {
   const { mutate: lockCriticalMoment } = useLockCriticalMoment(proyectoId);
   const { mutate: unlockCriticalMoment } = useUnlockCriticalMoment(proyectoId);
   const confirm = useConfirm();
-  const puedeEditar = puedeEditarArtefactos(useActivePerspective());
+  const user = useAuthStore((state) => state.user);
+  const { data: proyecto } = useProject(proyectoId);
+  const puedeEditar = puedeEditarArtefactos(useActivePerspective(), user?.id, proyecto?.creadoPorId);
   const error = listError ?? createError ?? updateError ?? deleteError;
 
   const [form, setForm] = useState<MomentosCriticosContenido>(contenidoVacio());
