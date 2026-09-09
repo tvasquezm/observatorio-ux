@@ -5,6 +5,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { canViewAnalytics, canViewSalas, resolvePerspective } from '../shared/auth/perspectivas';
 import { ProfilePerspectiveSwitcher } from '../shared/components/ProfilePerspectiveSwitcher';
+import { PerspectivePreviewNotice } from '../shared/components/PerspectivePreviewNotice';
 import { exportarResumenPdf } from '../shared/utils/pdf';
 
 const NAV_ITEMS = [
@@ -57,7 +58,7 @@ export function AppLayout() {
   }
 
   return (
-    <div className="app">
+    <div className="app" data-perspective={activeRole?.toLowerCase()}>
       <aside className="side">
         <div className="brand">
           <img className="brand-isotipo" src="/brand/uxlab-isotipo-white.png" alt="UXLab" />
@@ -134,6 +135,14 @@ export function AppLayout() {
             </button>
           </div>
         </div>
+        {user && activeRole ? (
+          <PerspectivePreviewNotice
+            key={activeRole}
+            accountRole={user.rol}
+            activeRole={activeRole}
+            onRestore={() => changePerspective(user.rol)}
+          />
+        ) : null}
         <div className="content">
           <Outlet />
         </div>

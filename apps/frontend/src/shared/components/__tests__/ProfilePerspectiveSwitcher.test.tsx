@@ -13,6 +13,13 @@ describe('ProfilePerspectiveSwitcher', () => {
     expect(screen.getByRole('button', { name: 'Ver como Estudiante' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Ver como Docente' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Ver como Administrador' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Ver como Administrador' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(
+      screen.getByRole('button', { name: 'Ver como Administrador' }).querySelector('.perspective-check'),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Ver como Estudiante' }));
     expect(onChange).toHaveBeenCalledWith('ESTUDIANTE');

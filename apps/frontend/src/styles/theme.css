@@ -108,7 +108,27 @@ button { cursor: pointer; }
 .orbit.two { width: 290px; height: 170px; right: 8%; top: 33%; border-color: #58c8b280; }
 
 /* ---------- App shell ---------- */
-.app { min-height: 100vh; display: grid; grid-template-columns: 254px 1fr; }
+.app {
+  --perspective-accent: var(--navy);
+  --perspective-soft: #edf0f5;
+  --perspective-text: var(--navy);
+  min-height: 100vh; display: grid; grid-template-columns: 254px 1fr;
+}
+.app[data-perspective='estudiante'] {
+  --perspective-accent: var(--mint);
+  --perspective-soft: #f1f5e2;
+  --perspective-text: #4d5f0c;
+}
+.app[data-perspective='docente'] {
+  --perspective-accent: var(--teal);
+  --perspective-soft: #edf0fb;
+  --perspective-text: #293d8d;
+}
+.app[data-perspective='admin'] {
+  --perspective-accent: var(--navy);
+  --perspective-soft: #edf0f5;
+  --perspective-text: var(--navy);
+}
 .side { background: linear-gradient(180deg, var(--navy), var(--navy-2)); color: #d0e2e4; padding: 20px 10px; display: flex; flex-direction: column; }
 .side-nav { display: grid; gap: 4px; }
 .brand { display: flex; align-items: center; gap: 9px; padding: 0 8px 20px; }
@@ -138,14 +158,21 @@ button { cursor: pointer; }
   height: 64px; display: flex; align-items: center; gap: 16px; padding: 0 28px;
   border-bottom: 1px solid var(--line); background: #f4f7fbef; position: sticky; top: 0; z-index: 4;
   backdrop-filter: blur(10px);
+  box-shadow: inset 0 -2px var(--perspective-accent);
+  transition: box-shadow 180ms ease;
 }
 .crumb { font-size: 11px; color: #75909e; }
 .crumb strong { color: var(--navy); }
 .top-actions { margin-left: auto; display: flex; align-items: center; gap: 9px; }
 .role { background: #dff4ef; border: 1px solid #b9e5db; border-radius: 999px; color: #14706f; font-size: 9px; font-weight: 800; padding: 6px 8px; letter-spacing: .08em; }
-.perspective-switcher { display: flex; align-items: center; gap: 10px; }
+.perspective-switcher {
+  display: flex; align-items: center; gap: 10px; padding: 3px 5px 3px 8px;
+  border: 1px solid color-mix(in srgb, var(--perspective-accent) 24%, var(--line));
+  border-radius: 11px; background: color-mix(in srgb, var(--perspective-soft) 75%, transparent);
+  transition: background-color 180ms ease, border-color 180ms ease;
+}
 .perspective-status { color: var(--muted); font-size: 10px; line-height: 1.15; white-space: nowrap; }
-.perspective-status b { display: block; color: var(--ink); font-size: 11px; }
+.perspective-status b { display: block; color: var(--perspective-text); font-size: 11px; }
 .perspective-options { display: flex; align-items: center; gap: 5px; }
 .perspective-option {
   min-width: 60px; padding: 3px 4px; border: 0; border-radius: 8px; background: transparent;
@@ -157,15 +184,45 @@ button { cursor: pointer; }
 .perspective-option:disabled { cursor: not-allowed; opacity: .34; }
 .perspective-avatar {
   width: 28px; height: 28px; border: 1px solid var(--line); border-radius: 50%; background: var(--surface);
-  color: var(--muted); display: grid; place-items: center; box-shadow: 0 2px 6px #1f2d4a12;
+  color: var(--muted); display: grid; place-items: center; position: relative; box-shadow: 0 2px 6px #1f2d4a12;
   transition: transform 180ms ease, background-color 180ms ease, border-color 180ms ease, color 180ms ease, box-shadow 180ms ease;
 }
 .perspective-avatar svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
-.perspective-option.active { color: var(--ink); }
+.perspective-option.active { color: var(--perspective-text); background: color-mix(in srgb, var(--perspective-accent) 10%, transparent); }
 .perspective-option.active .perspective-avatar { transform: translateY(-2px) scale(1.08); color: #fff; box-shadow: 0 4px 10px #1f2d4a2e; }
 .perspective-estudiante.active .perspective-avatar { background: var(--mint); border-color: var(--mint); color: var(--navy-2); }
 .perspective-docente.active .perspective-avatar { background: var(--teal); border-color: var(--teal); }
 .perspective-admin.active .perspective-avatar { background: var(--navy); border-color: var(--navy); }
+.perspective-check {
+  position: absolute; top: -4px; right: -4px; width: 13px; height: 13px;
+  display: grid; place-items: center; border: 1px solid var(--perspective-accent);
+  border-radius: 50%; background: var(--surface); color: var(--perspective-text);
+  font-size: 8px; font-weight: 900; line-height: 1;
+}
+.perspective-preview {
+  min-height: 44px; display: flex; align-items: center; gap: 10px; padding: 7px 28px;
+  border-bottom: 1px solid color-mix(in srgb, var(--perspective-accent) 34%, var(--line));
+  background: var(--perspective-soft); color: var(--perspective-text);
+  animation: perspective-preview-in 180ms cubic-bezier(.23, 1, .32, 1) both;
+}
+.perspective-preview-dot {
+  width: 8px; height: 8px; flex: 0 0 8px; border-radius: 50%; background: var(--perspective-accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--perspective-accent) 18%, transparent);
+}
+.perspective-preview-copy { min-width: 0; display: flex; align-items: baseline; gap: 8px; }
+.perspective-preview-copy strong { font-size: 11px; }
+.perspective-preview-copy span { color: color-mix(in srgb, var(--perspective-text) 78%, var(--muted)); font-size: 10px; }
+.perspective-preview button {
+  margin-left: auto; padding: 6px 9px; border: 1px solid color-mix(in srgb, var(--perspective-accent) 52%, var(--line));
+  border-radius: 7px; background: var(--surface); color: var(--perspective-text); font-size: 10px; font-weight: 800;
+  transition: background-color 180ms ease, border-color 180ms ease, transform 180ms cubic-bezier(.23, 1, .32, 1);
+}
+.perspective-preview button:hover { background: color-mix(in srgb, var(--perspective-accent) 9%, var(--surface)); transform: translateY(-1px); }
+.perspective-preview button:focus-visible { outline: 3px solid color-mix(in srgb, var(--perspective-accent) 35%, transparent); outline-offset: 2px; }
+@keyframes perspective-preview-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 .content { padding: 30px 30px 48px; max-width: 1440px; margin: auto; }
 
 .page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; margin-bottom: 21px; }
@@ -459,6 +516,9 @@ button { cursor: pointer; }
   .top-actions { width: 100%; margin-left: 0; flex-wrap: wrap; }
   .perspective-switcher { flex: 1 1 100%; justify-content: space-between; }
   .perspective-option { min-width: 56px; }
+  .perspective-preview { padding: 8px 14px; flex-wrap: wrap; }
+  .perspective-preview-copy { flex: 1 1 calc(100% - 28px); flex-wrap: wrap; gap: 2px 8px; }
+  .perspective-preview button { margin-left: 18px; }
   .content { padding: 16px 14px 32px; }
 
   .metrics { grid-template-columns: repeat(2, 1fr); }
@@ -476,8 +536,13 @@ button { cursor: pointer; }
 
 @media (prefers-reduced-motion: reduce) {
   .perspective-option,
-  .perspective-avatar { transition: none; }
+  .perspective-avatar,
+  .perspective-switcher,
+  .perspective-preview button,
+  .top { transition: none; }
   .perspective-option.active .perspective-avatar { transform: none; }
+  .perspective-preview { animation: none; }
+  .perspective-preview button:hover { transform: none; }
 }
 
 /* ---------- Tema sobrio y modo oscuro ---------- */
@@ -549,6 +614,21 @@ button { cursor: pointer; }
 :root[data-theme='dark'] .login-card { box-shadow: 0 22px 62px #00000052; }
 :root[data-theme='dark'] .login-art { background: radial-gradient(circle at 30% 35%, #b1c83d20, transparent 25%), linear-gradient(145deg, #0c1325, #203e58); }
 :root[data-theme='dark'] .top { background: #101726ed; border-color: var(--line); }
+:root[data-theme='dark'] .app[data-perspective='estudiante'] {
+  --perspective-accent: #b6cf45;
+  --perspective-soft: #252c17;
+  --perspective-text: #dbe8a3;
+}
+:root[data-theme='dark'] .app[data-perspective='docente'] {
+  --perspective-accent: #8298ee;
+  --perspective-soft: #171e35;
+  --perspective-text: #d2d9fb;
+}
+:root[data-theme='dark'] .app[data-perspective='admin'] {
+  --perspective-accent: #91a6ce;
+  --perspective-soft: #172033;
+  --perspective-text: #d6deed;
+}
 :root[data-theme='dark'] .side { background: linear-gradient(180deg, #182746, var(--navy-2)); }
 :root[data-theme='dark'] .crumb { color: #9eabc0; }
 :root[data-theme='dark'] .crumb strong,

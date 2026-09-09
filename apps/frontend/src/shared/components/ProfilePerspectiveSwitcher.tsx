@@ -47,7 +47,10 @@ export function ProfilePerspectiveSwitcher({
               title={allowed ? `Cambiar a la perspectiva de ${label}` : 'Tu cuenta no tiene acceso a esta perspectiva'}
               onClick={() => onChange(role)}
             >
-              <span className="perspective-avatar"><PersonIcon /></span>
+              <span className="perspective-avatar">
+                <PersonIcon />
+                {active ? <span className="perspective-check" aria-hidden="true">✓</span> : null}
+              </span>
               <span>{label}</span>
             </button>
           );
