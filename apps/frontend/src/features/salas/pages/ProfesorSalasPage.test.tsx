@@ -10,7 +10,22 @@ const api = vi.hoisted(() => ({
   updateSala: vi.fn(),
 }));
 
+const auth = vi.hoisted(() => ({
+  state: {
+    user: {
+      id: 'docente-1',
+      nombre: 'Docente de prueba',
+      email: 'docente@ux.cl',
+      rol: 'DOCENTE' as 'ESTUDIANTE' | 'DOCENTE' | 'ADMIN',
+    },
+    perspectiveRole: null as 'ESTUDIANTE' | 'DOCENTE' | 'ADMIN' | null,
+  },
+}));
+
 vi.mock('../api/salas.api', () => api);
+vi.mock('../../auth/store/useAuthStore', () => ({
+  useAuthStore: () => auth.state,
+}));
 
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function showModal() {
@@ -23,6 +38,15 @@ beforeAll(() => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  auth.state = {
+    user: {
+      id: 'docente-1',
+      nombre: 'Docente de prueba',
+      email: 'docente@ux.cl',
+      rol: 'DOCENTE',
+    },
+    perspectiveRole: null,
+  };
   api.getSalas.mockResolvedValue([
     {
       id: 'sala-1',
@@ -32,6 +56,7 @@ beforeEach(() => {
       fechaInicio: '2026-09-10T12:00:00.000Z',
       fechaFin: '2026-12-10T12:00:00.000Z',
       createdAt: '2026-09-01T12:00:00.000Z',
+      profesor: { id: 'docente-1', nombre: 'Docente de prueba', email: 'docente@ux.cl', rol: 'DOCENTE' },
     },
   ]);
   api.updateSala.mockResolvedValue({ id: 'sala-1' });
@@ -46,6 +71,12 @@ describe('ProfesorSalasPage — edición de sala', () => {
     );
 
     await userEvent.click(await screen.findByRole('button', { name: 'Editar sala Sala 4' }));
+
+    expect(screen.getByRole('link', { name: /administrar sala/i })).toHaveAttribute(
+      'href',
+      '/salas/sala-1',
+    );
+    expect(screen.queryByRole('link', { name: /unirse a la sala/i })).not.toBeInTheDocument();
 
     expect(screen.getByRole('heading', { name: 'Editar sala' })).toBeInTheDocument();
     expect(screen.getByLabelText('Nombre de la sala')).toHaveValue('Sala 4');
@@ -68,5 +99,32 @@ describe('ProfesorSalasPage — edición de sala', () => {
       });
     });
     expect(api.createSala).not.toHaveBeenCalled();
+  });
+
+  it('ofrece al estudiante unirse solo a sus salas invitadas sin mostrar controles de gestión', async () => {
+    auth.state = {
+      user: {
+        id: 'estudiante-1',
+        nombre: 'Estudiante Uno',
+        email: 'estudiante1@ux.utem.cl',
+        rol: 'ESTUDIANTE',
+      },
+      perspectiveRole: null,
+    };
+
+    render(
+      <MemoryRouter>
+        <ProfesorSalasPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Mis salas' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /crear sala/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /editar sala/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /unirse a la sala/i })).toHaveAttribute(
+      'href',
+      '/salas/sala-1',
+    );
+    expect(screen.queryByRole('link', { name: /administrar sala/i })).not.toBeInTheDocument();
   });
 });

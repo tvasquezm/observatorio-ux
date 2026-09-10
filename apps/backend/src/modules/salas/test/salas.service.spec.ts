@@ -13,10 +13,22 @@ describe('SalasService', () => {
       create: jest.Mock;
       update: jest.Mock;
     };
+    salaEstudiante: {
+      findUnique: jest.Mock;
+    };
+    proyecto: {
+      findMany: jest.Mock;
+    };
   };
 
   const docente = { id: 'docente-1', rol: 'DOCENTE', actor: 'EVALUADOR' } as AuthenticatedUser;
   const admin = { id: 'admin-1', rol: 'ADMIN', actor: 'EVALUADOR' } as AuthenticatedUser;
+  const estudiante = {
+    id: 'estudiante-1',
+    email: 'Estudiante1@UX.UTEM.CL',
+    rol: 'ESTUDIANTE',
+    actor: 'EVALUADOR',
+  } as AuthenticatedUser;
 
   beforeEach(async () => {
     prisma = {
@@ -25,6 +37,12 @@ describe('SalasService', () => {
         findUnique: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+      },
+      salaEstudiante: {
+        findUnique: jest.fn(),
+      },
+      proyecto: {
+        findMany: jest.fn(),
       },
     };
     const moduleRef = await Test.createTestingModule({
@@ -66,6 +84,56 @@ describe('SalasService', () => {
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.sala.create).not.toHaveBeenCalled();
+  });
+
+  it('muestra al estudiante solo las salas donde está registrado por correo', async () => {
+    prisma.sala.findMany.mockResolvedValue([]);
+    await service.findAll(estudiante);
+    expect(prisma.sala.findMany).toHaveBeenCalledWith({
+      where: {
+        estudiantes: {
+          some: { email: 'estudiante1@ux.utem.cl' },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        profesor: { select: { id: true, nombre: true, email: true, rol: true } },
+      },
+    });
+  });
+
+  it('permite al estudiante entrar a una sala donde está registrado', async () => {
+    const sala = {
+      id: 'sala-1',
+      profesorId: docente.id,
+      profesor: { id: docente.id, nombre: 'Docente', email: 'docente@ux.cl', rol: 'DOCENTE' },
+    };
+    prisma.sala.findUnique.mockResolvedValue(sala);
+    prisma.salaEstudiante.findUnique.mockResolvedValue({ id: 'inscripcion-1' });
+
+    await expect(service.findOne('sala-1', estudiante)).resolves.toEqual(sala);
+    expect(prisma.salaEstudiante.findUnique).toHaveBeenCalledWith({
+      where: {
+        salaId_email: {
+          salaId: 'sala-1',
+          email: 'estudiante1@ux.utem.cl',
+        },
+      },
+      select: { id: true },
+    });
+  });
+
+  it('impide que el estudiante entre a una sala donde no está registrado', async () => {
+    prisma.sala.findUnique.mockResolvedValue({
+      id: 'sala-ajena',
+      profesorId: docente.id,
+      profesor: { id: docente.id },
+    });
+    prisma.salaEstudiante.findUnique.mockResolvedValue(null);
+
+    await expect(service.findOne('sala-ajena', estudiante)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
   });
 
   it('permite al docente dueño actualizar las fechas y datos de su sala', async () => {
