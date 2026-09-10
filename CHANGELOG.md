@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file. See [commit
 
 ## Unreleased
 
+### Features
+
+* **e2e:** incorpora Playwright para validar login, proyecto, las cinco
+  técnicas UX, restricciones por rol y responsive en escritorio/móvil.
+* **responsive:** reorganiza navegación, formularios y acciones para pantallas
+  táctiles, con targets mínimos de 44 px y soporte de safe areas.
+
+### Fixes
+
+* **artifacts:** libera locks de edición al cancelar, cambiar de artefacto o
+  abandonar la ruta, incluso si la adquisición termina de forma tardía.
+* **shared-types:** centraliza contratos de autenticación y Card Sorting; el
+  formulario de Card Sorting ahora envía tarjetas/categorías con el shape que
+  valida el backend.
+
 ### BREAKING CHANGE
 
 * **auth:** nueva env var obligatoria `JWT_PARTICIPANTE_SECRET` (Regla de

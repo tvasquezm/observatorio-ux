@@ -359,7 +359,11 @@ Foco: cruzar 3 reglas de negocio del documento maestro contra el código real de
 
 **Pendiente real, no cerrado en este sprint:**
 - No se auditaron con el mismo detalle Card Sorting ni Evaluación Heurística contra la Regla 2 — el hallazgo se acotó a los 3 artefactos versionados (`UxArtifact`: persona/journey-map/momentos-críticos), que es donde el documento maestro habla explícitamente de "lienzos" de estudiante.
-- No se corrió el flujo manual completo (login DOCENTE/ESTUDIANTE + intento de escritura con Postman) al cierre de esta sesión — quedó como checklist en `docs/sprints/sprint4-auth-roles.md`, no verificado end-to-end acá.
+- ~~No existía una comprobación repetible del flujo completo por rol.~~ Cerrado
+  el 10-09-2026 con Playwright: login DOCENTE/ESTUDIANTE, recorrido por
+  proyecto y las cinco técnicas, acceso a Analítica para DOCENTE y redirección
+  de ESTUDIANTE. La misma suite se ejecuta en escritorio (1440×900) y móvil
+  táctil (390×844), comprobando que la página no produzca overflow horizontal.
 
 ---
 
