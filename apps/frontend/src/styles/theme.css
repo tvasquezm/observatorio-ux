@@ -14,6 +14,11 @@
   --surface: #ffffff;
   --surface-alt: #f8fafc;
   --surface-muted: #edf1f6;
+  --surface-subtle: #f1f5f9;
+  --critical-surface: #fff1f2;
+  --critical-line: #fecdd3;
+  --critical-ink: #881337;
+  --danger-text: #9f3f38;
   --coral: #be665b;
   --lav: #7770b4;
   --shadow: 0 10px 28px rgba(31, 45, 74, 0.08);
@@ -30,10 +35,49 @@ html, body, #root {
 button, input, textarea, select { font: inherit; }
 button { cursor: pointer; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
-.sala-modal { width: min(520px, calc(100% - 28px)); max-height: calc(100vh - 32px); overflow: auto; padding: 24px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+.salas-page { max-width: 1200px; margin: 0 auto; padding: 24px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+.salas-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
+.salas-header h2 { margin: 0; color: var(--ink); }
+.salas-header p { margin: 4px 0 0; color: var(--muted); }
+.salas-search { margin-bottom: 24px; }
+.salas-search-input { width: min(100%, 400px); padding: 10px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-alt); color: var(--ink); }
+.salas-search-input::placeholder, .sala-field input::placeholder, .sala-field textarea::placeholder { color: var(--muted); }
+.salas-list { display: grid; gap: 16px; }
+.sala-card { display: flex; align-items: center; gap: 24px; width: 100%; padding: 20px 24px; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+.sala-card-icon { width: 80px; height: 80px; min-width: 80px; display: flex; flex-direction: column; justify-content: center; align-items: center; border-radius: 18px; background: #d9f99d; color: #14532d; font-weight: 800; }
+.sala-card-icon > div { font-size: 26px; line-height: 1.1; }
+.sala-card-icon > span { margin-top: 2px; font-size: 16px; opacity: .8; }
+.sala-card-content { flex: 1; min-width: 0; display: grid; gap: 14px; }
+.sala-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.sala-card-heading h3 { margin: 0; color: var(--ink); font-size: 20px; font-weight: 700; }
+.sala-card-heading a { color: inherit; text-decoration: none; }
+.sala-card-heading a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.sala-card-actions { display: flex; align-items: center; gap: 8px; }
+.sala-periodo { padding: 6px 14px; border: 1px solid color-mix(in srgb, var(--teal) 35%, var(--line)); border-radius: 8px; background: color-mix(in srgb, var(--teal) 10%, var(--surface)); color: var(--teal); font-size: 13px; font-weight: 700; white-space: nowrap; }
+.sala-edit-button { padding: 7px 11px; }
+.sala-dates { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+.sala-date-item { display: flex; align-items: center; gap: 10px; }
+.sala-date-item > span { font-size: 22px; }
+.sala-date-item > div { display: flex; flex-direction: column; }
+.sala-date-item > div > span { color: var(--muted); font-size: 12px; }
+.sala-date-item strong { color: var(--ink); font-size: 13px; }
+.sala-date-arrow { color: var(--muted); font-size: 16px; }
+.sala-date-separator { width: 1px; height: 28px; background: var(--line); }
+.salas-empty { padding: 32px; border: 1px dashed var(--line); border-radius: 12px; color: var(--muted); text-align: center; }
+.sala-modal { width: min(520px, calc(100% - 28px)); max-height: calc(100vh - 32px); overflow: auto; padding: 24px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
 .sala-modal::backdrop { background: rgba(0, 0, 0, .5); }
+.sala-modal h3 { margin: 0 0 16px; color: var(--ink); }
+.sala-form { display: flex; flex-direction: column; gap: 14px; }
+.sala-field label { display: block; margin-bottom: 4px; color: var(--ink); font-size: 12px; font-weight: 700; }
+.sala-field input, .sala-field textarea { width: 100%; padding: 9px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-alt); color: var(--ink); }
+.sala-field textarea { resize: vertical; }
+.sala-form-error { margin-bottom: 16px; padding: 10px; border: 1px solid var(--critical-line); border-radius: 6px; background: var(--critical-surface); color: var(--critical-ink); font-size: 14px; }
+.sala-form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
 .sala-date-grid, .sala-management-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .sala-management-grid { gap: 24px; margin-bottom: 24px; }
+.project-subnav { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 16px; border-bottom: 1px solid var(--line); }
+.project-subnav-link { padding: 8px 12px; border-bottom: 2px solid transparent; color: var(--muted); font-size: 13px; font-weight: 400; text-decoration: none; }
+.project-subnav-link.active { border-color: var(--teal); color: var(--teal); font-weight: 700; }
 
 /* ---------- Login ---------- */
 .login {
@@ -523,6 +567,14 @@ button { cursor: pointer; }
 
   .metrics { grid-template-columns: repeat(2, 1fr); }
   .sala-date-grid, .sala-management-grid { grid-template-columns: 1fr; }
+  .salas-header, .sala-card-heading { align-items: stretch; flex-direction: column; }
+  .salas-header .primary { align-self: flex-start; }
+  .sala-card { align-items: flex-start; gap: 14px; padding: 16px; }
+  .sala-card-icon { width: 56px; height: 56px; min-width: 56px; border-radius: 14px; }
+  .sala-card-icon > div { font-size: 20px; }
+  .sala-card-actions { flex-wrap: wrap; }
+  .sala-dates { align-items: flex-start; flex-direction: column; gap: 12px; }
+  .sala-date-arrow, .sala-date-separator { display: none; }
   .form-grid-2, .form-grid-3 { grid-template-columns: 1fr; }
   .persona-layout, .journey-layout, .matrix-layout { grid-template-columns: 1fr; }
   .facts, .persona-sections, .finding-grid, .analysis-stats { grid-template-columns: 1fr; }
@@ -586,6 +638,11 @@ button { cursor: pointer; }
   --surface: #19243a;
   --surface-alt: #202d45;
   --surface-muted: #26334b;
+  --surface-subtle: #26344c;
+  --critical-surface: #44232b;
+  --critical-line: #7f3545;
+  --critical-ink: #ffd9df;
+  --danger-text: #ffaaa2;
   --coral: #d17a70;
   --lav: #9b96d2;
   --shadow: 0 12px 30px rgba(0, 0, 0, .22);
@@ -782,6 +839,13 @@ button { cursor: pointer; }
    porcentaje calculado, un ancho de barra, etc.) va inline — solo lo
    estático y repetido entre componentes se mueve a clase. */
 .input-sm { padding: 8px; }
+.input-sm, .textarea-desc {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-alt);
+  color: var(--ink);
+}
+.input-sm::placeholder, .textarea-desc::placeholder { color: var(--muted); }
 .input-xs { padding: 6px; }
 .textarea-sm { padding: 8px; min-height: 60px; }
 .textarea-md { padding: 8px; min-height: 80px; }
@@ -790,7 +854,7 @@ button { cursor: pointer; }
 .textarea-lg { padding: 8px; min-height: 120px; }
 .text-muted { color: var(--muted); }
 .text-muted-sm { color: var(--muted); font-size: 12px; }
-.error-text { color: var(--coral); }
+.error-text { color: var(--danger-text); }
 .hint-text { font-size: 10px; color: #718d97; line-height: 1.5; }
 .mt-16 { margin-top: 16px; }
 .mb-16 { margin-bottom: 16px; }
@@ -805,23 +869,24 @@ button { cursor: pointer; }
 .mini-card { border: 1px solid var(--line); border-radius: 6px; padding: 8px; display: grid; gap: 6px; }
 .link-btn { cursor: pointer; background: none; border: 0; font-size: 11px; }
 .link-btn--edit { color: var(--teal); font-weight: 600; }
-.link-btn--delete { color: var(--coral); }
+.link-btn--delete { color: var(--danger-text); }
 .matrix-cell-head {
   font-weight: bold;
   font-size: 12px;
   padding: 8px;
-  background: var(--surface-subtle, #f1f5f9);
+  background: var(--surface-subtle);
+  color: var(--ink);
   border-radius: 4px;
 }
 .matrix-cell-head--center { display: flex; align-items: center; justify-content: center; }
-.matrix-corner { font-weight: bold; font-size: 12px; padding: 8px; }
+.matrix-corner { color: var(--ink); font-weight: bold; font-size: 12px; padding: 8px; }
 .status-dot-active { color: #24a77c; }
 .stat-value { font-size: 16px; }
 .text-success { color: #2F6846; }
 
 /* ---------- Fase 3 — más utilidades (reemplazan style={{}} de MomentosCriticosPage/ProjectMembersPage) ---------- */
 .text-muted-xs { color: var(--muted); font-size: 10px; }
-.link-btn--warn { color: var(--coral); font-size: 11px; }
+.link-btn--warn { color: var(--danger-text); font-size: 11px; }
 .link-btn:disabled { cursor: not-allowed; color: var(--muted); }
 .list-stack { display: grid; gap: 8px; margin-top: 12px; }
 .row-gap-md { display: flex; gap: 12px; align-items: center; }
@@ -832,8 +897,14 @@ button { cursor: pointer; }
 .matrix-wrap { margin-top: 16px; overflow-x: auto; }
 .matrix-grid { display: grid; grid-template-columns: 100px repeat(3, 1fr); gap: 6px; min-width: 600px; text-align: center; }
 .matrix-cell { min-height: 90px; padding: 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); display: flex; flex-direction: column; gap: 4px; text-align: left; }
-.matrix-cell--critical { background: #fff1f2; }
-.matrix-incident { padding: 6px; background: #fff; border: 1px solid var(--line); border-radius: 4px; font-size: 11px; }
+.matrix-cell--critical { background: var(--critical-surface); border-color: var(--critical-line); color: var(--critical-ink); }
+.matrix-incident { padding: 6px; background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 4px; font-size: 11px; }
+
+.salas-page :is(a, button, input, textarea):focus-visible,
+.artifact-page :is(button, input, textarea, select):focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--teal) 45%, transparent);
+  outline-offset: 2px;
+}
 
 /* ---------- ConfirmDialog / ToastContainer (antes 100% style={{}} inline) ---------- */
 .confirm-overlay {
@@ -880,8 +951,3 @@ button { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   .toast-item { animation: none !important; }
 }
-
-/* ---------- Sub-nav de proyecto (ProjectDetailLayout, antes inline) ---------- */
-.project-subnav { display: flex; gap: 6px; border-bottom: 1px solid var(--line); margin: 0 0 16px; flex-wrap: wrap; }
-.project-subnav a { padding: 8px 12px; text-decoration: none; color: #557582; border-bottom: 2px solid transparent; font-weight: 400; font-size: 13px; }
-.project-subnav a.active { color: var(--teal); border-bottom-color: var(--teal); font-weight: 700; }

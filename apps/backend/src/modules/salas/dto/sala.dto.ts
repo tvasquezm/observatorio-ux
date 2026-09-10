@@ -31,6 +31,30 @@ export class CreateSalaDto {
   fechaFin!: string;
 }
 
+export class UpdateSalaDto {
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  nombre?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  periodo?: string;
+
+  @IsOptional()
+  @IsString()
+  instrucciones?: string;
+
+  @IsOptional()
+  @IsISO8601()
+  fechaInicio?: string;
+
+  @IsOptional()
+  @IsISO8601()
+  fechaFin?: string;
+}
+
 export class CreateSalaEstudianteDto {
   @IsEmail()
   email!: string;

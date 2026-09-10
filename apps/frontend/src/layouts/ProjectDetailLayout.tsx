@@ -50,20 +50,13 @@ export function ProjectDetailLayout() {
         </div>
       </div>
 
-      <nav style={{ display: 'flex', gap: 6, borderBottom: '1px solid var(--line)', margin: '0 0 16px', flexWrap: 'wrap' }}>
+      <nav className="project-subnav" aria-label="Secciones del proyecto">
         {visibleItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
             end={item.end}
-            style={({ isActive }) => ({
-              padding: '8px 12px',
-              textDecoration: 'none',
-              color: isActive ? 'var(--teal)' : '#557582',
-              borderBottom: isActive ? '2px solid var(--teal)' : '2px solid transparent',
-              fontWeight: isActive ? 700 : 400,
-              fontSize: 13,
-            })}
+            className={({ isActive }) => `project-subnav-link${isActive ? ' active' : ''}`}
           >
             {item.label}
           </NavLink>

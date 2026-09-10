@@ -13,6 +13,7 @@ import {
   CreateProyectoEnSalaDto,
   CreateSalaDto,
   CreateSalaEstudianteDto,
+  UpdateSalaDto,
   UpdateSalaEstudianteDto,
 } from './dto/sala.dto';
 
@@ -53,6 +54,33 @@ export class SalasService {
         profesor: {
           connect: { id: userId },
         },
+      },
+    });
+  }
+
+  async update(salaId: string, dto: UpdateSalaDto, user: AuthenticatedUser) {
+    const sala = await this.assertOwnerOrAdmin(salaId, user);
+    const fechaInicio = dto.fechaInicio !== undefined
+      ? new Date(dto.fechaInicio)
+      : sala.fechaInicio;
+    const fechaFin = dto.fechaFin !== undefined
+      ? new Date(dto.fechaFin)
+      : sala.fechaFin;
+
+    if (fechaInicio && fechaFin && fechaFin <= fechaInicio) {
+      throw new BadRequestException('La fecha de término debe ser posterior a la fecha de inicio.');
+    }
+
+    return this.prisma.sala.update({
+      where: { id: salaId },
+      data: {
+        ...(dto.nombre !== undefined ? { nombre: dto.nombre.trim() } : {}),
+        ...(dto.periodo !== undefined ? { periodo: dto.periodo.trim() } : {}),
+        ...(dto.instrucciones !== undefined
+          ? { instrucciones: dto.instrucciones.trim() || null }
+          : {}),
+        ...(dto.fechaInicio !== undefined ? { fechaInicio } : {}),
+        ...(dto.fechaFin !== undefined ? { fechaFin } : {}),
       },
     });
   }

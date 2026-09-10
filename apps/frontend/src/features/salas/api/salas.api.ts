@@ -24,6 +24,8 @@ export interface CreateSalaDto {
   fechaFin: string;
 }
 
+export type UpdateSalaDto = Partial<CreateSalaDto>;
+
 export class SalasApiError extends Error {
   constructor(public readonly status: number, message: string) {
     super(message);
@@ -71,6 +73,13 @@ export function getSalas(): Promise<Sala[]> {
 export function createSala(data: CreateSalaDto): Promise<Sala> {
   return request<Sala>('/salas', {
     method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function updateSala(salaId: string, data: UpdateSalaDto): Promise<Sala> {
+  return request<Sala>(`/salas/${salaId}`, {
+    method: 'PATCH',
     body: JSON.stringify(data),
   });
 }

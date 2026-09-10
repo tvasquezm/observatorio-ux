@@ -3,6 +3,37 @@
 Todo acá parte de TUS archivos reales que subiste, con ediciones mínimas
 y quirúrgicas. No hay archivos inventados desde cero salvo los indicados.
 
+## Ronda 12 (Sesión — contraste de temas y edición de Salas)
+
+1. **Momentos Críticos legible en claro y oscuro.** Se reemplazaron los
+   colores fijos de la matriz 3x3, las incidencias y la subnavegación del
+   proyecto por tokens semánticos con variantes para ambos temas. También se
+   ajustó el color de peligro y el foco visible para conservar contraste en
+   botones, enlaces y controles.
+   - `apps/frontend/src/styles/theme.css`
+   - `apps/frontend/src/layouts/ProjectDetailLayout.tsx`
+
+2. **Edición de Salas desde el listado del docente.** Cada sala ahora expone
+   una acción `Editar` que reutiliza el formulario y permite modificar nombre,
+   período, instrucciones, fecha de inicio y fecha de término. Las fechas se
+   precargan en hora local y se envían al backend en formato ISO.
+   - `apps/frontend/src/features/salas/pages/ProfesorSalasPage.tsx`
+   - `apps/frontend/src/features/salas/api/salas.api.ts`
+
+3. **Endpoint de actualización con autorización y validación.** Se agregó
+   `PATCH /salas/:id`, restringido al docente propietario o a un administrador.
+   Las actualizaciones parciales validan el rango completo, incluyendo la fecha
+   ya guardada cuando solo se modifica uno de los extremos.
+   - `apps/backend/src/modules/salas/dto/sala.dto.ts`
+   - `apps/backend/src/modules/salas/salas.controller.ts`
+   - `apps/backend/src/modules/salas/salas.service.ts`
+
+4. **Pruebas de regresión.** Se cubrió la precarga y envío de fechas desde la
+   interfaz, la actualización del propietario, la validación de fechas
+   parciales y el rechazo de un docente ajeno.
+   - `apps/frontend/src/features/salas/pages/ProfesorSalasPage.test.tsx`
+   - `apps/backend/src/modules/salas/test/salas.service.spec.ts`
+
 ## Ronda 11 (Sesión — Sprint 4, fix de test de `useAuthStore`)
 
 1. **`leerUserGuardado()` explotaba al importar el módulo en test.**

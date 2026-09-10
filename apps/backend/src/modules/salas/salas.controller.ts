@@ -15,6 +15,7 @@ import {
   CreateProyectoEnSalaDto,
   CreateSalaDto,
   CreateSalaEstudianteDto,
+  UpdateSalaDto,
   UpdateSalaEstudianteDto,
 } from './dto/sala.dto';
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
@@ -38,6 +39,16 @@ export class SalasController {
   @Roles('DOCENTE', 'ADMIN')
   async create(@Body() createSalaDto: CreateSalaDto, @CurrentUser() user: AuthenticatedUser) {
     return this.salasService.create(createSalaDto, user.id);
+  }
+
+  @Patch(':id')
+  @Roles('DOCENTE', 'ADMIN')
+  async update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateSalaDto: UpdateSalaDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.salasService.update(id, updateSalaDto, user);
   }
 
   // ---------------------------------------------------------------
