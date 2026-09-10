@@ -392,5 +392,36 @@ de backend, frontend y `shared-types` pasan. `pnpm audit` informa cero
 vulnerabilidades conocidas. D7 y R4 siguen pendientes porque no se encontró el
 capítulo 2 ni un acta fuente que permita completarlos sin fabricar evidencia.
 
+---
+
+## Sesión de trabajo — acceso estudiantil de solo lectura a Salas
+
+`SalaEstudiante` continúa siendo un registro liviano, sin una relación directa
+con `Usuario`. Para que una cuenta ESTUDIANTE pueda reconocer sus salas sin
+migrar datos ni duplicar identidades, la autorización cruza en tiempo de
+consulta el correo normalizado de la sesión autenticada con la restricción
+única `SalaEstudiante(salaId, email)`.
+
+Esta asociación concede únicamente lectura de la sala y del listado de
+proyectos alojados. Crear o editar salas, administrar estudiantes y
+crear/vincular/desvincular proyectos sigue exigiendo DOCENTE o ADMIN en el
+backend. El frontend replica esa separación para no mostrar acciones que la API
+rechazaría, pero la frontera de seguridad permanece en `SalasController` y
+`SalasService`.
+
+### Creación centralizada y semántica de unión
+
+La creación de un proyecto tiene un único punto de entrada en `/proyectos`.
+El Dashboard solo navega hacia el listado y una Sala únicamente permite
+vincular un proyecto ya existente. Esto evita formularios equivalentes con
+comportamientos divergentes y mantiene una sola mutación de creación expuesta
+por la interfaz.
+
+`Unirse a la sala` es una acción exclusiva de la vista ESTUDIANTE. No descubre
+salas públicas: se muestra sobre el resultado ya filtrado por el correo
+autenticado y el detalle vuelve a comprobar la invitación. DOCENTE y ADMIN usan
+la acción distinta `Administrar sala`; la diferencia visual no sustituye los
+controles de autorización del backend.
+
 
 

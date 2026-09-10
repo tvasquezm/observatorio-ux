@@ -3,6 +3,69 @@
 Todo acá parte de TUS archivos reales que subiste, con ediciones mínimas
 y quirúrgicas. No hay archivos inventados desde cero salvo los indicados.
 
+## Ronda 14 (Sesión — creación centralizada y acceso por invitación)
+
+1. **Un único punto para crear proyectos.** Se retiraron las acciones repetidas
+   del Dashboard y el formulario duplicado dentro del detalle de Sala. La
+   pantalla `Proyectos` conserva una sola acción `Nuevo proyecto`, que revela
+   un formulario compacto únicamente cuando se solicita. En las Salas solo se
+   vinculan proyectos existentes.
+   - `apps/frontend/src/pages/DashboardPage.tsx`
+   - `apps/frontend/src/pages/ProjectsPage.tsx`
+   - `apps/frontend/src/features/salas/pages/SalaDetallePage.tsx`
+
+2. **Acciones de Sala diferenciadas por rol.** Una cuenta ESTUDIANTE ve
+   `Unirse a la sala` solo sobre las salas donde su correo fue invitado. El
+   docente o administrador ve `Administrar sala`; no se presenta la acción de
+   unión como si fuera estudiante.
+   - `apps/frontend/src/features/salas/pages/ProfesorSalasPage.tsx`
+
+3. **Restricción verificada en la API y la interfaz.** El listado estudiantil
+   continúa filtrado por `SalaEstudiante.email`, y el detalle vuelve a validar
+   esa inscripción: conocer o pegar la URL de otra sala no concede acceso.
+   Se agregaron pruebas para el formulario único y para las etiquetas por rol.
+   - `apps/backend/src/modules/salas/salas.service.ts`
+   - `apps/frontend/src/pages/__tests__/ProjectsPage.test.tsx`
+   - `apps/frontend/src/features/salas/pages/ProfesorSalasPage.test.tsx`
+
+## Ronda 13 (Sesión — Analítica oscura y acceso estudiantil a Salas)
+
+1. **Analítica general corregida en modo oscuro.** Las tarjetas KPI, sus
+   etiquetas, valores, estados y pistas de las barras dejaron de usar fondos y
+   textos claros fijos. Ahora consumen los tokens semánticos de superficie,
+   texto, estado positivo y borde de cada tema.
+   - `apps/frontend/src/styles/theme.css`
+
+2. **Salas visibles para estudiantes, sin permisos de gestión.** La navegación
+   y las rutas aceptan la perspectiva ESTUDIANTE. El listado cambia su texto y
+   oculta por completo `Crear sala` y `Editar`; cada tarjeta presenta una acción
+   explícita `Unirse a la sala`.
+   - `apps/frontend/src/App.tsx`
+   - `apps/frontend/src/shared/auth/perspectivas.ts`
+   - `apps/frontend/src/features/salas/pages/ProfesorSalasPage.tsx`
+
+3. **Detalle de sala de solo lectura.** Al entrar, el estudiante ve nombre,
+   período, docente, fechas, instrucciones y proyectos asignados. No se montan
+   formularios para crear/vincular proyectos ni controles sobre estudiantes.
+   El detalle y los formularios docentes también usan superficies e inputs
+   compatibles con modo claro y oscuro.
+   - `apps/frontend/src/features/salas/pages/SalaDetallePage.tsx`
+   - `apps/frontend/src/features/salas/api/salas.api.ts`
+   - `apps/frontend/src/features/salas/hooks/useSalasQueries.ts`
+
+4. **Autorización por inscripción.** `GET /salas` devuelve a un estudiante solo
+   las salas donde su correo autenticado aparece registrado. `GET /salas/:id`
+   y `GET /salas/:id/proyectos` aplican el mismo control; las mutaciones siguen
+   restringidas a DOCENTE/ADMIN.
+   - `apps/backend/src/modules/salas/salas.controller.ts`
+   - `apps/backend/src/modules/salas/salas.service.ts`
+
+5. **Pruebas de regresión.** Se cubrieron filtro por correo, acceso autorizado
+   y denegado al detalle, además de la ausencia de controles de creación y
+   edición en la vista del estudiante.
+   - `apps/backend/src/modules/salas/test/salas.service.spec.ts`
+   - `apps/frontend/src/features/salas/pages/ProfesorSalasPage.test.tsx`
+
 ## Ronda 12 (Sesión — contraste de temas y edición de Salas)
 
 1. **Momentos Críticos legible en claro y oscuro.** Se reemplazaron los
