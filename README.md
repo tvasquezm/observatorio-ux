@@ -172,6 +172,7 @@ paso está ahí mismo.
 - [`docs/comandos-backend.md`](docs/comandos-backend.md) — flujo de backend sin Docker (Node/pnpm local)
 - [`docs/Guia_Prueba_E2E_Card_Sorting_Participantes.md`](docs/Guia_Prueba_E2E_Card_Sorting_Participantes.md) — prueba E2E de Card Sorting con participantes
 - [`docs/deuda-tecnica-heuristica.md`](docs/deuda-tecnica-heuristica.md) — registro histórico de deuda técnica del módulo de Evaluación Heurística (03/08/2026) — la mayoría de esos ítems ya están resueltos, revisar `ARCHITECTURE.md` para el estado vigente
+- [`docs/dudas-profesor.md`](docs/dudas-profesor.md) — dudas y pendientes que dependen de información que solo puede confirmar el profesor (incluye D7 y R4)
 
 **Registros por sprint** (`docs/sprints/`):
 - [`docs/sprints/GUIA-IA-DOCUMENTACION.md`](docs/sprints/GUIA-IA-DOCUMENTACION.md) — convenciones para asistentes de IA (nomenclatura, vocabulario técnico, qué doc actualizar)
