@@ -30,8 +30,7 @@ export default function App() {
           <Route path="/" element={<DashboardPage />} />
           <Route path="/proyectos" element={<ProjectsPage />} />
           
-          {/* Nueva ruta para la gestión de salas del profesor */}
-          <Route element={<PerspectiveRoute allowed={['DOCENTE', 'ADMIN']} />}>
+          <Route element={<PerspectiveRoute allowed={['ESTUDIANTE', 'DOCENTE', 'ADMIN']} />}>
             <Route path="/salas" element={<ProfesorSalasPage />} />
             <Route path="/salas/:salaId" element={<SalaDetallePage />} />
           </Route>

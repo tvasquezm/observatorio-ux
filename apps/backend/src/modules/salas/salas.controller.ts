@@ -30,9 +30,18 @@ export class SalasController {
   constructor(private readonly salasService: SalasService) {}
 
   @Get()
-  @Roles('DOCENTE', 'ADMIN')
+  @Roles('ESTUDIANTE', 'DOCENTE', 'ADMIN')
   async findAll(@CurrentUser() user: AuthenticatedUser) {
     return this.salasService.findAll(user);
+  }
+
+  @Get(':id')
+  @Roles('ESTUDIANTE', 'DOCENTE', 'ADMIN')
+  async findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.salasService.findOne(id, user);
   }
 
   @Post()
@@ -110,7 +119,7 @@ export class SalasController {
   // ---------------------------------------------------------------
 
   @Get(':id/proyectos')
-  @Roles('DOCENTE', 'ADMIN')
+  @Roles('ESTUDIANTE', 'DOCENTE', 'ADMIN')
   listProyectos(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthenticatedUser,

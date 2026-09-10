@@ -22,8 +22,16 @@ export class SalasService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(user: AuthenticatedUser) {
+    if (user.rol === 'ESTUDIANTE' && !user.email) {
+      throw new ForbiddenException('No se pudo identificar el correo del estudiante.');
+    }
+
     return this.prisma.sala.findMany({
-      where: user.rol === 'ADMIN' ? undefined : { profesorId: user.id },
+      where: user.rol === 'ADMIN'
+        ? undefined
+        : user.rol === 'ESTUDIANTE'
+          ? { estudiantes: { some: { email: user.email!.trim().toLowerCase() } } }
+          : { profesorId: user.id },
       orderBy: { createdAt: 'desc' },
       include: {
         profesor: {
@@ -56,6 +64,10 @@ export class SalasService {
         },
       },
     });
+  }
+
+  async findOne(salaId: string, user: AuthenticatedUser) {
+    return this.assertCanViewSala(salaId, user);
   }
 
   async update(salaId: string, dto: UpdateSalaDto, user: AuthenticatedUser) {
@@ -101,6 +113,35 @@ export class SalasService {
     }
 
     return sala;
+  }
+
+  private async assertCanViewSala(salaId: string, user: AuthenticatedUser) {
+    const sala = await this.prisma.sala.findUnique({
+      where: { id: salaId },
+      include: {
+        profesor: {
+          select: { id: true, nombre: true, email: true, rol: true },
+        },
+      },
+    });
+
+    if (!sala) throw new NotFoundException('La sala no existe.');
+    if (user.rol === 'ADMIN' || sala.profesorId === user.id) return sala;
+
+    if (user.rol === 'ESTUDIANTE' && user.email) {
+      const inscripcion = await this.prisma.salaEstudiante.findUnique({
+        where: {
+          salaId_email: {
+            salaId,
+            email: user.email.trim().toLowerCase(),
+          },
+        },
+        select: { id: true },
+      });
+      if (inscripcion) return sala;
+    }
+
+    throw new ForbiddenException('No tienes acceso a esta sala.');
   }
 
   // ---------------------------------------------------------------
@@ -216,7 +257,7 @@ export class SalasService {
   // ---------------------------------------------------------------
 
   async listProyectos(salaId: string, user: AuthenticatedUser) {
-    await this.assertOwnerOrAdmin(salaId, user);
+    await this.assertCanViewSala(salaId, user);
 
     return this.prisma.proyecto.findMany({
       where: { salaId },

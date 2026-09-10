@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { getSalas, createSala, updateSala, type Sala } from '../api/salas.api';
+import { useAuthStore } from '../../auth/store/useAuthStore';
+import { resolvePerspective } from '../../../shared/auth/perspectivas';
 
 function fechaParaInput(fechaRaw?: string | null) {
   if (!fechaRaw) return '';
@@ -11,6 +13,9 @@ function fechaParaInput(fechaRaw?: string | null) {
 }
 
 export const ProfesorSalasPage: React.FC = () => {
+  const { user, perspectiveRole } = useAuthStore();
+  const activeRole = user ? resolvePerspective(user.rol, perspectiveRole) : null;
+  const puedeGestionar = activeRole === 'DOCENTE' || activeRole === 'ADMIN';
   const [salas, setSalas] = useState<Sala[]>([]);
   const [busqueda, setBusqueda] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -150,16 +155,23 @@ export const ProfesorSalasPage: React.FC = () => {
     <div className="card salas-page">
       <div className="salas-header">
         <div>
-          <h2>Salas de Proyecto UX</h2>
-          <p>Gestiona las salas de tus estudiantes y supervisa su avance temporal.</p>
+          <span className="kicker">ESPACIOS DE TRABAJO</span>
+          <h1>{puedeGestionar ? 'Salas de Proyecto UX' : 'Mis salas'}</h1>
+          <p>
+            {puedeGestionar
+              ? 'Gestiona las salas de tus estudiantes y supervisa su avance temporal.'
+              : 'Aquí aparecen las salas en las que tu docente te ha registrado.'}
+          </p>
         </div>
-        <button 
-          type="button" 
-          onClick={abrirCrearSala}
-          className="primary"
-        >
-          + Crear Sala
-        </button>
+        {puedeGestionar && (
+          <button
+            type="button"
+            onClick={abrirCrearSala}
+            className="primary"
+          >
+            + Crear sala
+          </button>
+        )}
       </div>
 
       <div className="salas-search">
@@ -205,21 +217,27 @@ export const ProfesorSalasPage: React.FC = () => {
 
                 <div className="sala-card-content">
                   <div className="sala-card-heading">
-                    <h3>
-                      <Link to={`/salas/${sala.id}`}>
-                        {sala.nombre}
-                      </Link>
-                    </h3>
+                    <div>
+                      <h2>{sala.nombre}</h2>
+                      {sala.profesor?.nombre && (
+                        <p className="sala-profesor">Docente: {sala.profesor.nombre}</p>
+                      )}
+                    </div>
                     <div className="sala-card-actions">
                       <span className="sala-periodo">{sala.periodo}</span>
-                      <button
-                        type="button"
-                        className="secondary sala-edit-button"
-                        onClick={() => abrirEditarSala(sala)}
-                        aria-label={`Editar sala ${sala.nombre}`}
-                      >
-                        Editar
-                      </button>
+                      {puedeGestionar && (
+                        <button
+                          type="button"
+                          className="secondary sala-edit-button"
+                          onClick={() => abrirEditarSala(sala)}
+                          aria-label={`Editar sala ${sala.nombre}`}
+                        >
+                          Editar
+                        </button>
+                      )}
+                      <Link className="primary sala-enter-link" to={`/salas/${sala.id}`}>
+                        {puedeGestionar ? 'Administrar sala' : 'Unirse a la sala'} <span aria-hidden="true">→</span>
+                      </Link>
                     </div>
                   </div>
 
@@ -259,8 +277,14 @@ export const ProfesorSalasPage: React.FC = () => {
         </div>
       ) : (
         <div className="card salas-empty">
-          <p>No se encontraron salas registradas.</p>
-          <small>Intenta crear una nueva sala utilizando el botón superior.</small>
+          <p>{busqueda ? 'No hay salas que coincidan con la búsqueda.' : 'Todavía no tienes salas.'}</p>
+          <small>
+            {busqueda
+              ? 'Prueba con otro nombre o período.'
+              : puedeGestionar
+                ? 'Crea una sala para comenzar a organizar a tus estudiantes.'
+                : 'Cuando un docente registre tu correo en una sala, aparecerá aquí automáticamente.'}
+          </small>
         </div>
       )}
 

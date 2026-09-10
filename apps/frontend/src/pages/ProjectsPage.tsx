@@ -11,6 +11,7 @@ export function ProjectsPage() {
   const { mutate: actualizar, isPending: isUpdating } = useUpdateProject();
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
+  const [mostrandoCreacion, setMostrandoCreacion] = useState(false);
   const [busqueda, setBusqueda] = useState('');
   const [editando, setEditando] = useState<string | null>(null);
   const [edicion, setEdicion] = useState({ nombre: '', descripcion: '' });
@@ -20,8 +21,20 @@ export function ProjectsPage() {
     if (!nombre.trim()) return;
     crear(
       { nombre: nombre.trim(), descripcion: descripcion.trim() || undefined },
-      { onSuccess: () => { setNombre(''); setDescripcion(''); } },
+      {
+        onSuccess: () => {
+          setNombre('');
+          setDescripcion('');
+          setMostrandoCreacion(false);
+        },
+      },
     );
+  }
+
+  function cancelarCreacion() {
+    setNombre('');
+    setDescripcion('');
+    setMostrandoCreacion(false);
   }
 
   function iniciarEdicion(project: Proyecto) {
@@ -41,30 +54,51 @@ export function ProjectsPage() {
     <div>
       <div className="page-head">
         <div><span className="eyebrow">ESPACIOS DE TRABAJO</span><h1>Proyectos</h1><p>Organiza tus investigaciones y accede a todas sus técnicas.</p></div>
-        <span className="count">{proyectos?.length ?? 0} en total</span>
+        <div className="page-head-actions">
+          <span className="count">{proyectos?.length ?? 0} en total</span>
+          <button
+            type="button"
+            className="primary"
+            aria-expanded={mostrandoCreacion}
+            aria-controls="crear-proyecto"
+            onClick={() => setMostrandoCreacion((visible) => !visible)}
+          >
+            Nuevo proyecto
+          </button>
+        </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="create-project panel">
-        <div><span className="eyebrow">NUEVO PROYECTO</span><h2>Comienza una investigación</h2></div>
-        <div className="form-row">
-        <input
-          placeholder="Nombre del proyecto"
-          value={nombre}
-          onChange={(e) => setNombre(e.target.value)}
-          required
-          className="text-input"
-        />
-        <input
-          placeholder="Descripción (opcional)"
-          value={descripcion}
-          onChange={(e) => setDescripcion(e.target.value)}
-          className="text-input"
-        />
-        <button type="submit" className="primary" disabled={isPending}>
-          {isPending ? 'Creando…' : '+ Nuevo proyecto'}
-        </button>
-        </div>
-      </form>
+      {mostrandoCreacion && (
+        <form id="crear-proyecto" onSubmit={handleSubmit} className="create-project panel">
+          <div><span className="eyebrow">DATOS BÁSICOS</span><h2>Crear proyecto</h2></div>
+          <div className="form-row">
+            <label className="sr-only" htmlFor="nuevo-proyecto-nombre">Nombre del proyecto</label>
+            <input
+              id="nuevo-proyecto-nombre"
+              placeholder="Nombre del proyecto"
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              required
+              autoFocus
+              className="text-input"
+            />
+            <label className="sr-only" htmlFor="nuevo-proyecto-descripcion">Descripción del proyecto</label>
+            <input
+              id="nuevo-proyecto-descripcion"
+              placeholder="Descripción (opcional)"
+              value={descripcion}
+              onChange={(e) => setDescripcion(e.target.value)}
+              className="text-input"
+            />
+            <div className="form-actions project-create-actions">
+              <button type="button" className="secondary" onClick={cancelarCreacion}>Cancelar</button>
+              <button type="submit" className="primary" disabled={isPending}>
+                {isPending ? 'Creando…' : 'Crear'}
+              </button>
+            </div>
+          </div>
+        </form>
+      )}
 
       <div className="toolbar"><div><h2>Todos tus proyectos</h2><span className="muted">Selecciona uno para ver sus técnicas.</span></div><input className="search-input" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar proyecto…" /></div>
 

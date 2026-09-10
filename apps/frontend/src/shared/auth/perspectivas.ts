@@ -71,7 +71,7 @@ export function clearStoredPerspective(storage: Storage) {
 }
 
 export function canViewSalas(role: EvaluatorRole) {
-  return role !== 'ESTUDIANTE';
+  return PERSPECTIVE_ROLES.includes(role);
 }
 
 export function canViewAnalytics(role: EvaluatorRole) {
