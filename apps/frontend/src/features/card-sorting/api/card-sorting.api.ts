@@ -12,12 +12,23 @@
 //   POST /api/card-sorting/sessions/:id/results
 
 import { csrfHeaders } from '../../../shared/api/csrf';
+import type {
+  CreateCardSortingSessionPayload,
+  SubmitCardSortingGrupo,
+  SubmitCardSortingResultPayload,
+  TipoCardSorting,
+} from '@observatorio-ux/shared-types';
+
+export type {
+  CreateCardSortingSessionPayload,
+  SubmitCardSortingGrupo,
+  SubmitCardSortingResultPayload,
+  TipoCardSorting,
+};
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
 
 // --- Tipos que reflejan las entidades reales del schema.prisma ---
-
-export type TipoCardSorting = 'ABIERTO' | 'CERRADO';
 
 export interface Card {
   id: string;
@@ -63,25 +74,6 @@ export interface CardSortingSession {
   agrupaciones: CardGrouping[];
   createdAt: string;
   completadoAt: string | null;
-}
-
-// --- Payloads de entrada, espejo de los DTOs Zod del backend ---
-
-export interface CreateCardSortingSessionPayload {
-  proyectoId: string;
-  tipo: TipoCardSorting;
-  tarjetas: string[];
-  categorias?: string[];
-}
-
-export interface SubmitCardSortingGrupo {
-  categoriaId?: string;
-  categoriaNombre?: string;
-  cardIds: string[];
-}
-
-export interface SubmitCardSortingResultPayload {
-  grupos: SubmitCardSortingGrupo[];
 }
 
 // --- Manejo de errores ---

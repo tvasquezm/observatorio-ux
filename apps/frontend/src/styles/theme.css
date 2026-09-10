@@ -997,3 +997,143 @@ button { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   .toast-item { animation: none !important; }
 }
+
+/* ---------- Responsive reforzado: móvil táctil y tablet ---------- */
+@media (max-width: 768px) {
+  html, body { overflow-x: hidden; }
+
+  .login {
+    grid-template-columns: 1fr;
+    min-height: 100dvh;
+    padding: max(20px, env(safe-area-inset-top)) 14px max(20px, env(safe-area-inset-bottom));
+  }
+  .login-card {
+    align-self: center;
+    justify-self: center;
+    width: min(100%, 430px);
+    padding: 26px 22px;
+  }
+  .login-art { display: none; }
+
+  .side {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 9px 12px;
+    padding: max(10px, env(safe-area-inset-top)) 12px 10px;
+    overflow: visible;
+  }
+  .brand {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+    padding: 0;
+  }
+  .brand-isotipo { width: 34px; height: 34px; flex-basis: 34px; }
+  .brand b { font-size: 11px; }
+  .brand small { font-size: 8px; }
+  .side-nav {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+    width: 100%;
+    gap: 6px;
+  }
+  .nav-btn {
+    justify-content: center;
+    min-width: 0;
+    min-height: 44px;
+    padding: 9px 6px;
+    white-space: nowrap;
+  }
+  .side-bottom { grid-column: 2; grid-row: 1; margin: 0; }
+  .side-user { gap: 5px; margin: 0; padding: 0; }
+  .side-user div { display: none; }
+  .side-user > span { width: 34px; height: 34px; }
+  .side-user button { min-height: 44px; padding: 0 8px; }
+
+  .top {
+    padding: 10px 14px;
+    padding-left: max(14px, env(safe-area-inset-left));
+    padding-right: max(14px, env(safe-area-inset-right));
+  }
+  .top-actions > .secondary,
+  .theme-toggle { min-height: 44px; }
+
+  .content {
+    padding-left: max(14px, env(safe-area-inset-left));
+    padding-right: max(14px, env(safe-area-inset-right));
+    padding-bottom: max(32px, env(safe-area-inset-bottom));
+  }
+  .salas-page { padding: 18px; }
+
+  .page-head,
+  .panel-head,
+  .section-title,
+  .sala-section-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .page-head-actions { align-items: stretch; }
+  .page-head-actions .primary { width: 100%; }
+  .page-head > :is(.status-pill, .count) { align-self: flex-start; }
+
+  .project-subnav {
+    flex-wrap: nowrap;
+    gap: 4px;
+    margin-left: -14px;
+    margin-right: -14px;
+    padding: 0 14px;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: inline proximity;
+    scrollbar-width: thin;
+  }
+  .project-subnav-link {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    min-height: 44px;
+    scroll-snap-align: start;
+  }
+
+  .form-row-inline {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .form-row-inline > :is(input, select, button),
+  .sala-form-actions > button { width: 100%; }
+  .sala-form-actions { flex-direction: column-reverse; }
+  .sala-tabs { overflow-x: auto; scroll-snap-type: inline proximity; }
+  .sala-tabs button { flex: 0 0 auto; min-height: 44px; scroll-snap-align: start; }
+  .sala-card-actions > :is(a, button) { min-height: 44px; }
+  .sala-card-actions .sala-enter-link { flex: 1 1 auto; }
+  .entity-card > .row-between { align-items: flex-start; gap: 10px; }
+  .entity-card > .row-between > :last-child { flex-wrap: wrap; justify-content: flex-end; }
+  .frequency-row { grid-template-columns: minmax(90px, 1fr) minmax(80px, 2fr) 35px; gap: 8px; }
+  .toast-stack {
+    left: 12px;
+    right: 12px;
+    bottom: max(12px, env(safe-area-inset-bottom));
+    max-width: none;
+  }
+
+  /* Evita el zoom automático de Safari al enfocar formularios. */
+  input, textarea, select { font-size: 16px !important; }
+}
+
+@media (min-width: 520px) and (max-width: 768px) {
+  .side-user div { display: block; }
+}
+
+@media (pointer: coarse) {
+  .primary,
+  .secondary,
+  .ghost,
+  .link-btn,
+  .text-button,
+  .tabs button,
+  .confirm-btn,
+  .toast-close { min-height: 44px; }
+}

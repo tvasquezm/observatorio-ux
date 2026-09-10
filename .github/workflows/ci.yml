@@ -44,6 +44,7 @@ jobs:
       NODE_ENV: test
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/observatorio_ux
       JWT_SECRET: ci_only_secret_not_for_real_use
+      JWT_PARTICIPANTE_SECRET: ci_only_participant_secret_not_for_real_use
       JWT_EXPIRES_IN: 1h
       PORT: 3000
       CORS_ORIGIN: http://localhost:5173
@@ -86,6 +87,22 @@ jobs:
 
       - name: Build del frontend (tsc --noEmit + vite build)
         run: pnpm --filter frontend build
+
+      - name: Instalar Chromium para pruebas E2E
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Flujo E2E y responsive (escritorio + móvil)
+        run: pnpm test:e2e
+
+      - name: Guardar evidencia de Playwright si falla
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidencia-playwright
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
 
       - name: Auditar dependencias de severidad alta o crítica
         run: pnpm audit --audit-level high

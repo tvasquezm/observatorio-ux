@@ -8,8 +8,6 @@ import {
   useUpdateJourney,
   useDeleteJourney,
   useJourneys,
-  useLockJourney,
-  useUnlockJourney,
 } from '../features/journey-map/hooks/useJourneyMapQueries';
 import {
   addPhase,
@@ -27,6 +25,7 @@ import { useActivePerspective } from '../shared/auth/useActivePerspective';
 import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { useProject } from '../features/projects/hooks/useProjectsQueries';
 import { TechniquePageHeader } from '../shared/components/TechniquePageHeader';
+import { useArtifactEditLock } from '../shared/hooks/useArtifactEditLock';
 
 const MIN_FASES = 3;
 
@@ -47,8 +46,7 @@ export function JourneyMapPage() {
   const { mutate: crear, isPending: isCreating, error: createError } = useCreateJourney(proyectoId);
   const { mutate: actualizar, isPending: isUpdating, error: updateError } = useUpdateJourney(proyectoId);
   const { mutate: eliminar, error: deleteError } = useDeleteJourney(proyectoId);
-  const { mutate: lockJourney } = useLockJourney(proyectoId);
-  const { mutate: unlockJourney } = useUnlockJourney(proyectoId);
+  const editLock = useArtifactEditLock(proyectoId);
   const confirm = useConfirm();
   const user = useAuthStore((state) => state.user);
   const { data: proyecto } = useProject(proyectoId);
@@ -61,7 +59,7 @@ export function JourneyMapPage() {
   const [readOnly, setReadOnly] = useState(false);
 
   function resetForm() {
-    if (editandoId) unlockJourney(editandoId);
+    editLock.release();
     setForm(contenidoVacio());
     setEditandoId(null);
     setMostrarForm(false);
@@ -76,18 +74,13 @@ export function JourneyMapPage() {
     setMostrarForm(true);
     setReadOnly(false);
 
-    lockJourney(
-      { artefactoId },
-      {
-        onError: (err) => {
-          const msg = err instanceof ArtifactsApiError && err.status === 409
-            ? 'Otro usuario está editando este journey map ahora mismo.'
-            : 'No se pudo bloquear el journey map para editar.';
-          notify.error(msg);
-          setReadOnly(true);
-        },
-      },
-    );
+    void editLock.acquire(artefactoId).catch((err) => {
+      const msg = err instanceof ArtifactsApiError && err.status === 409
+        ? 'Otro usuario está editando este journey map ahora mismo.'
+        : 'No se pudo bloquear el journey map para editar.';
+      notify.error(msg);
+      setReadOnly(true);
+    });
   }
 
   function actualizarFase(index: number, campo: keyof Phase, valor: string) {

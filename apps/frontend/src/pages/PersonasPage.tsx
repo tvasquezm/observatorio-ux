@@ -6,8 +6,6 @@ import {
   useUpdatePersona,
   useDeletePersona,
   usePersonas,
-  useLockPersona,
-  useUnlockPersona,
 } from '../features/persona/hooks/usePersonaQueries';
 import type { PersonaContenido, PersonaArtifact } from '../features/persona/api/persona.api';
 import { ArtifactsApiError } from '../shared/api/artifacts.api';
@@ -18,6 +16,7 @@ import { useActivePerspective } from '../shared/auth/useActivePerspective';
 import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { useProject } from '../features/projects/hooks/useProjectsQueries';
 import { TechniquePageHeader } from '../shared/components/TechniquePageHeader';
+import { useArtifactEditLock } from '../shared/hooks/useArtifactEditLock';
 
 const CAMPOS_LISTA: (keyof PersonaContenido)[] = [
   'hobbies', 'habilidades', 'objetivos', 'necesidades',
@@ -42,8 +41,7 @@ export function PersonasPage() {
   const { mutate: crear, isPending: isCreating, error: createError } = useCreatePersona(proyectoId);
   const { mutate: actualizar, isPending: isUpdating, error: updateError } = useUpdatePersona(proyectoId);
   const { mutate: eliminar, error: deleteError } = useDeletePersona(proyectoId);
-  const { mutate: lockPersona } = useLockPersona(proyectoId);
-  const { mutate: unlockPersona } = useUnlockPersona(proyectoId);
+  const editLock = useArtifactEditLock(proyectoId);
   const confirm = useConfirm();
   const user = useAuthStore((state) => state.user);
   const { data: proyecto } = useProject(proyectoId);
@@ -57,7 +55,7 @@ export function PersonasPage() {
   const [readOnly, setReadOnly] = useState(false);
 
   function resetForm() {
-    if (editandoId) unlockPersona(editandoId);
+    editLock.release();
     setForm(vacio());
     setListInputs(vacioListInputs());
     setEditandoId(null);
@@ -79,18 +77,13 @@ export function PersonasPage() {
     setMostrarForm(true);
     setReadOnly(false);
 
-    lockPersona(
-      { artefactoId },
-      {
-        onError: (err) => {
-          const msg = err instanceof ArtifactsApiError && err.status === 409
-            ? 'Otro usuario está editando esta persona ahora mismo.'
-            : 'No se pudo bloquear la persona para editar.';
-          notify.error(msg);
-          setReadOnly(true);
-        },
-      },
-    );
+    void editLock.acquire(artefactoId).catch((err) => {
+      const msg = err instanceof ArtifactsApiError && err.status === 409
+        ? 'Otro usuario está editando esta persona ahora mismo.'
+        : 'No se pudo bloquear la persona para editar.';
+      notify.error(msg);
+      setReadOnly(true);
+    });
   }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {

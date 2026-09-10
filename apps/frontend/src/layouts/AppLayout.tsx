@@ -59,7 +59,7 @@ export function AppLayout() {
 
   return (
     <div className="app" data-perspective={activeRole?.toLowerCase()}>
-      <aside className="side">
+      <aside className="side" aria-label="Navegación principal">
         <div className="brand">
           <img className="brand-isotipo" src="/brand/uxlab-isotipo-white.png" alt="UXLab" />
           <div>
@@ -69,7 +69,7 @@ export function AppLayout() {
         </div>
 
         <span className="side-label">NAVEGACIÓN</span>
-        <nav className="side-nav">
+        <nav className="side-nav" aria-label="Secciones principales">
           {visibleNavItems.map((item) => (
             <NavLink
               key={item.to}

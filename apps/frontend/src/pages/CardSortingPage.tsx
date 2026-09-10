@@ -26,9 +26,17 @@ export function CardSortingPage() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const tarjetas = tarjetasTexto.split('\n').map((s) => s.trim()).filter(Boolean);
+    const tarjetas = tarjetasTexto
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((etiqueta) => ({ etiqueta }));
     if (tarjetas.length === 0) return;
-    const categorias = categoriasTexto.split('\n').map((s) => s.trim()).filter(Boolean);
+    const categorias = categoriasTexto
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((nombre) => ({ nombre }));
     crear({
       proyectoId,
       tipo,

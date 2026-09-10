@@ -6,8 +6,6 @@ import {
   useUpdateCriticalMoment,
   useDeleteCriticalMoment,
   useCriticalMoments,
-  useLockCriticalMoment,
-  useUnlockCriticalMoment,
 } from '../features/momentos-criticos/hooks/useMomentosCriticosQueries';
 import {
   addIncidente,
@@ -24,6 +22,7 @@ import { puedeEditarArtefactos } from '../shared/auth/permisos';
 import { useActivePerspective } from '../shared/auth/useActivePerspective';
 import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { useProject } from '../features/projects/hooks/useProjectsQueries';
+import { useArtifactEditLock } from '../shared/hooks/useArtifactEditLock';
 
 const MIN_INCIDENTES = 1; // MomentosCriticosSchema exige mínimo 1
 
@@ -52,8 +51,7 @@ export function MomentosCriticosPage() {
   const { mutate: crear, isPending: isCreating, error: createError } = useCreateCriticalMoment(proyectoId);
   const { mutate: actualizar, isPending: isUpdating, error: updateError } = useUpdateCriticalMoment(proyectoId);
   const { mutate: eliminar, error: deleteError } = useDeleteCriticalMoment(proyectoId);
-  const { mutate: lockCriticalMoment } = useLockCriticalMoment(proyectoId);
-  const { mutate: unlockCriticalMoment } = useUnlockCriticalMoment(proyectoId);
+  const editLock = useArtifactEditLock(proyectoId);
   const confirm = useConfirm();
   const user = useAuthStore((state) => state.user);
   const { data: proyecto } = useProject(proyectoId);
@@ -71,7 +69,7 @@ export function MomentosCriticosPage() {
   const [readOnly, setReadOnly] = useState(false);
 
   function resetForm() {
-    if (editandoArtefactoId) unlockCriticalMoment(editandoArtefactoId);
+    editLock.release();
     setForm(contenidoVacio());
     setAccionesInputs(['']);
     setEditandoArtefactoId(null);
@@ -89,18 +87,13 @@ export function MomentosCriticosPage() {
     setMostrarForm(true);
     setReadOnly(false);
 
-    lockCriticalMoment(
-      { artefactoId },
-      {
-        onError: (err) => {
-          const msg = err instanceof ArtifactsApiError && err.status === 409
-            ? 'Otro usuario está editando este momento crítico ahora mismo.'
-            : 'No se pudo bloquear el momento crítico para editar.';
-          notify.error(msg);
-          setReadOnly(true);
-        },
-      },
-    );
+    void editLock.acquire(artefactoId).catch((err) => {
+      const msg = err instanceof ArtifactsApiError && err.status === 409
+        ? 'Otro usuario está editando este momento crítico ahora mismo.'
+        : 'No se pudo bloquear el momento crítico para editar.';
+      notify.error(msg);
+      setReadOnly(true);
+    });
   }
 
   function actualizarIncidente(index: number, campo: keyof IncidenteCritico, valor: string) {
