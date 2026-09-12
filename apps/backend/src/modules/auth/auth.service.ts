@@ -191,6 +191,10 @@ export class AuthService {
       throw new UnauthorizedException('Correo o contraseña incorrectos.');
     }
 
+    if (user.rol === 'ESTUDIANTE') {
+      await this.assertEstudianteTieneSalaActiva(user.email);
+    }
+
     const accessToken = await this.signEvaluatorToken({
       id: user.id,
       email: user.email,
@@ -368,6 +372,32 @@ export class AuthService {
       email: user.email,
       rol: user.rol,
     };
+  }
+
+  /**
+   * Fase 5: ESTUDIANTE solo puede loguearse si está inscrito en al menos
+   * una Sala activa (no eliminada y, si tiene fechaFin, no vencida). Se
+   * revalida en cada login, no solo una vez.
+   */
+  private async assertEstudianteTieneSalaActiva(email: string) {
+    const emailNormalizado = email.trim().toLowerCase();
+    const ahora = new Date();
+
+    const salaActiva = await this.prisma.salaEstudiante.findFirst({
+      where: {
+        email: emailNormalizado,
+        sala: {
+          deletedAt: null,
+          OR: [{ fechaFin: null }, { fechaFin: { gte: ahora } }],
+        },
+      },
+    });
+
+    if (!salaActiva) {
+      throw new ForbiddenException(
+        'No tienes acceso al sistema: no estás inscrito en ninguna sala activa.',
+      );
+    }
   }
 
   private signEvaluatorToken(user: AuthenticatedUser) {

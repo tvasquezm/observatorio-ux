@@ -172,6 +172,10 @@ model Sala {
   permiteCreacionEquipos  Boolean @default(false)
   limiteIntegrantesEquipo Int?
 
+  // Fase 5: toggle de creación de proyectos por ESTUDIANTE (mismo patrón que
+  // permiteCreacionEquipos). DOCENTE dueño/ADMIN no dependen de este flag.
+  permiteCreacionProyectos Boolean @default(false)
+
   // Soft delete con ventana de recuperación de 20 días (ver SalasService).
   // Al eliminarse, cascada lógica a los Proyecto de la sala.
   deletedAt DateTime?

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -21,12 +22,17 @@ export class ProjectsService {
     private readonly projectAccess: ProjectAccessService,
   ) {}
 
-  create(user: AuthenticatedUser, dto: CreateProjectDto) {
+  async create(user: AuthenticatedUser, dto: CreateProjectDto) {
+    if (user.rol === 'ESTUDIANTE') {
+      await this.assertEstudiantePuedeCrearProyecto(dto.salaId, user);
+    }
+
     return this.prisma.proyecto.create({
       data: {
         nombre: dto.nombre.trim(),
         descripcion: dto.descripcion?.trim(),
         creadoPorId: user.id,
+        ...(dto.salaId ? { salaId: dto.salaId } : {}),
       },
     });
   }
@@ -66,6 +72,19 @@ export class ProjectsService {
 
   async update(id: string, dto: UpdateProjectDto, user: AuthenticatedUser) {
     await this.findOne(id, user);
+
+    if (user.rol === 'DOCENTE') {
+      const proyecto = await this.prisma.proyecto.findUnique({
+        where: { id },
+        select: { creadoPor: { select: { rol: true } } },
+      });
+
+      if (proyecto?.creadoPor.rol === 'ESTUDIANTE') {
+        throw new ForbiddenException(
+          'Un docente no puede editar un proyecto creado por un estudiante.',
+        );
+      }
+    }
 
     return this.prisma.proyecto.update({
       where: { id },
@@ -218,5 +237,42 @@ export class ProjectsService {
     await this.prisma.proyectoMiembro.delete({ where: { id: membresia.id } });
 
     return { eliminado: true };
+  }
+
+  /**
+   * Fase 5: ESTUDIANTE solo crea proyecto si la sala lo permite
+   * (`permiteCreacionProyectos`) y está inscrito en ella. Mismo patrón que
+   * EquiposService.assertPuedeCrear / assertEsEstudianteDeSala.
+   */
+  private async assertEstudiantePuedeCrearProyecto(
+    salaId: string | undefined,
+    user: AuthenticatedUser,
+  ) {
+    if (!salaId) {
+      throw new ForbiddenException(
+        'Los estudiantes solo pueden crear proyectos dentro de una sala que lo permita.',
+      );
+    }
+
+    const sala = await this.prisma.sala.findUnique({ where: { id: salaId } });
+    if (!sala || sala.deletedAt) {
+      throw new NotFoundException('La sala no existe.');
+    }
+
+    if (!sala.permiteCreacionProyectos) {
+      throw new ForbiddenException('Esta sala no permite que los estudiantes creen proyectos.');
+    }
+
+    if (!user.email) {
+      throw new ForbiddenException('No se pudo identificar el correo del estudiante.');
+    }
+
+    const inscrito = await this.prisma.salaEstudiante.findUnique({
+      where: { salaId_email: { salaId, email: user.email.trim().toLowerCase() } },
+    });
+
+    if (!inscrito) {
+      throw new ForbiddenException('El estudiante no pertenece a esta sala.');
+    }
   }
 }

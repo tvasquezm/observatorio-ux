@@ -87,10 +87,9 @@ Modelo `Comentario`: `proyectoId` obligatorio, `artefactoLogicoId` opcional (ref
 
 Entidades `Equipo`/`EquipoMiembro` + `Sala.permiteCreacionEquipos` (toggle) + `Sala.limiteIntegrantesEquipo` (límite), ambos editables solo por DOCENTE dueño/ADMIN vía el `PATCH /salas/:id` existente. Crear equipo: DOCENTE dueño/ADMIN siempre, ESTUDIANTE solo con el toggle activo y estando inscrito en la sala. Gestión (editar/eliminar/miembros): creador del equipo, DOCENTE dueño, o ADMIN. Salir del equipo no requiere ser gestor. Hard delete real (no soft delete). Sin frontend. Detalle completo en `docs/ARCHITECTURE.md §Fase 4` y `docs/BACKEND.md §Equipos (Fase 4)`.
 
-## FASE 5 — Permisos de Proyecto (pendiente, no iniciada)
+## FASE 5 — Permisos de Proyecto + login condicionado (backend hecho, sin verificar en sandbox)
 
-- Restringir `ProjectsService.create()`: ESTUDIANTE solo crea proyecto si sala lo permite o la materia lo requiere.
-- Bloquear `PATCH /projects/:id` cuando `user.rol === 'DOCENTE'` y el proyecto fue creado por un ESTUDIANTE (salvo ADMIN).
+Restricción de creación/edición de Proyecto vía toggle `Sala.permiteCreacionProyectos` (mismo patrón que Fase 4) + bloqueo de `PATCH` de DOCENTE sobre proyecto creado por ESTUDIANTE + login de ESTUDIANTE condicionado a tener una Sala activa. Alcance definido en conversación con el usuario (el titular original era ambiguo). Detalle completo en `docs/ARCHITECTURE.md §Fase 5` y `docs/BACKEND.md §Proyectos — permisos (Fase 5)`.
 
 ## FASE 6 — Dashboard: sala del estudiante (pendiente, no iniciada)
 
@@ -118,3 +117,4 @@ Todas las fases con frontend (Fase 1 onboarding, Fase 6 Dashboard, Fase 7 Admin)
 ## Bitácora
 
 - [Fecha de hoy] — Plan creado. Arrancando Fase 1 y Fase 2 en paralelo (aprobadas por el usuario).
+- 2026-09-12 — Fase 5 implementada (permisos de Proyecto + login condicionado a sala activa). Sin verificar en sandbox (sin acceso a `pnpm`/red de Prisma).

@@ -507,3 +507,37 @@ entorno con esa red disponible.
 
 
 
+## Fase 5 (Plan de ajustes) — Permisos de Proyecto + login condicionado
+
+Alcance acotado en conversación con el usuario antes de codear (el titular
+del plan en `docs/PLAN_AJUSTES.md` era ambiguo sobre cómo se asocia la
+sala al crear el proyecto y qué significa "sala activa"):
+
+- Nuevo campo `Sala.permiteCreacionProyectos` (toggle), mismo patrón que
+  `permiteCreacionEquipos` — editable vía el `PATCH /salas/:id` existente,
+  no un endpoint nuevo.
+- `CreateProjectDto` suma `salaId` opcional. DOCENTE/ADMIN sin cambio de
+  comportamiento. `ESTUDIANTE` debe enviar `salaId`; se valida sala activa
+  (no soft-deleted), toggle activo, e inscripción del estudiante en la
+  sala (mismo chequeo por email que Equipos) — si falta algo, `403`/`404`.
+- `ProjectsService.update()`: `DOCENTE` no puede editar un proyecto cuyo
+  `creadoPor.rol === 'ESTUDIANTE'`, salvo que también sea `ADMIN`. No
+  depende de si el DOCENTE es dueño de la sala del proyecto — el titular
+  del plan no distinguía eso.
+- "La materia lo requiere" (texto original del plan): descartado, no
+  existe entidad Materia en el schema.
+- Extra pedido por el usuario en la misma fase: `AuthService.login()`
+  rechaza a un `ESTUDIANTE` si no está inscrito en ninguna Sala "activa"
+  (`deletedAt: null` y, si tiene `fechaFin`, no vencida; sin `fechaFin` =
+  siempre activa). Se revalida en cada login.
+- Sin frontend en esta fase (no estaba en el alcance pedido).
+
+Detalle de endpoints y permisos en
+`docs/BACKEND.md §Proyectos — permisos de creación/edición (Fase 5)`.
+
+**No verificado en el sandbox:** mismo bloqueo de red que Fase 3/4
+(no se pudo instalar el monorepo con `pnpm`; `npm` no resuelve los
+`workspace:*` del `package.json`). Revisado manualmente contra los
+patrones existentes (Equipos/Fase 4). Verificar con
+`pnpm --filter backend prisma generate` + `pnpm --filter backend build`
++ tests de `projects` y `auth` en un entorno con esa red disponible.

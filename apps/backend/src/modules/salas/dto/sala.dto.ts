@@ -66,6 +66,11 @@ export class UpdateSalaDto {
   @IsInt()
   @Min(1)
   limiteIntegrantesEquipo?: number;
+
+  // Fase 5 — Proyectos.
+  @IsOptional()
+  @IsBoolean()
+  permiteCreacionProyectos?: boolean;
 }
 
 export class CreateSalaEstudianteDto {

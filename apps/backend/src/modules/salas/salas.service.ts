@@ -107,6 +107,9 @@ export class SalasService {
         ...(dto.limiteIntegrantesEquipo !== undefined
           ? { limiteIntegrantesEquipo: dto.limiteIntegrantesEquipo }
           : {}),
+        ...(dto.permiteCreacionProyectos !== undefined
+          ? { permiteCreacionProyectos: dto.permiteCreacionProyectos }
+          : {}),
       },
     });
   }

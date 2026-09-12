@@ -220,6 +220,31 @@ usuario). Ver `docs/ARCHITECTURE.md` §Sprint 4.
 Para probar estos endpoints se puede importar
 `postman/ux-artifacts.postman_collection.json`.
 
+## Proyectos — permisos de creación/edición (Fase 5)
+
+`Sala` suma `permiteCreacionProyectos` (boolean, toggle), configurable solo
+por el DOCENTE dueño o `ADMIN` vía el `PATCH /api/salas/:id` existente
+(mismo patrón que `permiteCreacionEquipos` de Fase 4).
+
+**Crear proyecto (`POST /api/projects`):**
+- DOCENTE dueño de cualquier sala y `ADMIN` siempre pueden, con o sin
+  `salaId` en el body.
+- `ESTUDIANTE` debe enviar `salaId` en el body. Se rechaza (`403`) si la
+  sala no tiene `permiteCreacionProyectos === true`, o si el estudiante no
+  está inscrito en ella (mismo chequeo por email contra `SalaEstudiante`
+  que usa Equipos). El proyecto queda creado con ese `salaId`.
+
+**Editar proyecto (`PATCH /api/projects/:id`):** un `DOCENTE` no puede
+editar un proyecto cuyo creador (`creadoPor`) tiene `rol === 'ESTUDIANTE'`
+(`403`), salvo que el `DOCENTE` sea además `ADMIN`. No depende de si el
+DOCENTE es dueño de la sala del proyecto.
+
+**Login de ESTUDIANTE (`POST /api/auth/login`):** se rechaza (`403`) si el
+estudiante no está inscrito (por email, `SalaEstudiante`) en ninguna sala
+"activa": no eliminada (`deletedAt: null`) y, si tiene `fechaFin`, todavía
+no vencida (`fechaFin >= ahora`). Una sala sin `fechaFin` se considera
+siempre activa. Se revalida en cada login, no solo la primera vez.
+
 ## Comentarios
 
 ```text

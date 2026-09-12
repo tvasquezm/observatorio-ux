@@ -69,3 +69,45 @@
 ## Siguiente paso sugerido
 - Correr los comandos de arriba y confirmar 0 errores + tests en verde (mismo flujo que se hizo para Fase 3).
 - Definir si se avanza a Fase 5 (Permisos de Proyecto) o se hace frontend de Equipos/Comentarios primero.
+
+# SESSION LOG — 2026-09-12 (Fase 5)
+
+## Hecho
+- Migración: `Sala.permiteCreacionProyectos` (toggle, default false).
+- `CreateProjectDto.salaId` (opcional).
+- `ProjectsService.create()`: ESTUDIANTE requiere `salaId` + toggle activo + inscripción en la sala (403/404 si falta algo). DOCENTE/ADMIN sin cambio.
+- `ProjectsService.update()`: DOCENTE no puede editar proyecto creado por ESTUDIANTE (403), salvo ADMIN.
+- `UpdateSalaDto`/`SalasService.update()`: suman `permiteCreacionProyectos` al PATCH existente.
+- `AuthService.login()`: ESTUDIANTE rechazado (403) si no tiene ninguna Sala activa (`deletedAt: null`, `fechaFin` null o no vencida). Se revalida en cada login.
+- Docs actualizados: `docs/BACKEND.md` (nueva sección Fase 5), `docs/ARCHITECTURE.md` (nueva sección Fase 5), `docs/PLAN_AJUSTES.md` (marcado como hecho + bitácora).
+
+## Archivos modificados
+- `apps/backend/prisma/schema.prisma`
+- `apps/backend/prisma/migrations/20260912220000_add_permite_creacion_proyectos/migration.sql`
+- `apps/backend/src/modules/projects/projects.dto.ts`
+- `apps/backend/src/modules/projects/projects.service.ts`
+- `apps/backend/src/modules/salas/dto/sala.dto.ts`
+- `apps/backend/src/modules/salas/salas.service.ts`
+- `apps/backend/src/modules/auth/auth.service.ts`
+- `docs/BACKEND.md`, `docs/ARCHITECTURE.md`, `docs/PLAN_AJUSTES.md`
+
+## Decisiones tomadas
+- Alcance de "sala lo permite" definido con el usuario en el chat: mismo patrón toggle que Fase 4 (Equipos), no un mecanismo nuevo.
+- "La materia lo requiere" (texto original del plan): descartado, no existe entidad Materia.
+- "Sala activa" para login: `deletedAt: null` + (`fechaFin` null o `>= ahora`); sin `fechaFin` = siempre activa (asumido, confirmar si no es correcto).
+
+## Pendiente
+- No se pudo correr `prisma generate`/build/tests en el sandbox: sin `pnpm` disponible y `npm` no resuelve `workspace:*`. Revisado manualmente contra el patrón de Equipos (Fase 4). Verificar en entorno real:
+  ```bash
+  pnpm install
+  pnpm --filter shared-types build
+  pnpm --filter backend run prisma:generate
+  pnpm --filter backend run prisma:deploy
+  pnpm --filter backend build
+  pnpm --filter backend test projects auth
+  ```
+- Sin frontend en esta fase (no pedido).
+
+## Siguiente paso sugerido
+- Correr los comandos de arriba y confirmar 0 errores + tests en verde.
+- Definir si se avanza a Fase 6 (Dashboard sala del estudiante) o Fase 7 (Módulo Admin).
