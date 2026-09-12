@@ -451,6 +451,15 @@ sin resumen previo disponible (ver `docs/PLAN_AJUSTES.md §FASE 3`):
 - Sin frontend en esta fase — no estaba definido en el plan original; el
   plan solo marca frontend explícito para Fases 1, 6 y 7.
 
+**Actualización (frontend):** agregado en sesión posterior. Tab
+"Comentarios" en `ProjectDetailLayout` → `features/comments/` +
+`pages/ProjectCommentsPage.tsx`, mismo patrón que `features/projects/`.
+Requirió un cambio chico en el backend: `CommentsService.findAll` ahora
+incluye `autor: { id, nombre, email }` (antes solo `autorId`, insuficiente
+para mostrar quién comentó). No se implementó filtro por
+`artefactoLogicoId` en la UI — queda para cuando exista una vista que
+comente sobre un artefacto puntual.
+
 **No verificado en este entorno:** no fue posible correr `prisma generate`
 ni compilar (`tsc`) porque el dominio de descarga de engines de Prisma
 (`binaries.prisma.sh`) está bloqueado por la configuración de red del
@@ -504,6 +513,18 @@ límite de integrantes, gestión vs. autogestión, hard delete).
 existentes. Verificar con `pnpm --filter backend prisma generate` +
 `pnpm --filter backend build` + `pnpm --filter backend test equipos` en un
 entorno con esa red disponible.
+
+**Actualización (frontend):** agregado en sesión posterior, junto con el
+frontend de Comentarios (Fase 3). Tab "Equipos" en `SalaDetallePage` +
+`features/equipos/`. Requirió un cambio de contrato en el backend:
+`AddMiembroEquipoDto` pasó de `{ usuarioId }` (UUID) a `{ email }` — el
+frontend no tenía forma de conocer el UUID de un estudiante, y el
+endpoint no tenía consumidores todavía, así que el cambio fue seguro
+(mismo patrón que `ProjectsService.addMember`). Se actualizaron los 4
+tests de `addMiembro` en `equipos.service.spec.ts` para reflejar el nuevo
+contrato (sin cambios en lo que verifican, solo en el input). También se
+reestructuró la rama ESTUDIANTE de `SalaDetallePage` (antes solo lectura
+sin tabs) para agregar la tab de Equipos junto a la de Proyectos.
 
 
 

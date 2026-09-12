@@ -1,14 +1,18 @@
 // apps/frontend/src/features/salas/pages/SalaDetallePage.tsx
 //
-// Detalle de una sala: tab "Proyectos" (crear uno nuevo alojado en la sala
-// o vincular uno ya existente del profesor) y tab "Estudiantes" (registro
-// liviano, sin cuenta — alta individual o masiva pegando una lista).
+// Detalle de una sala. DOCENTE dueño/ADMIN: tabs "Proyectos" (crear uno
+// nuevo alojado en la sala o vincular uno ya existente), "Estudiantes"
+// (registro liviano, sin cuenta) y "Equipos" (Fase 4 — toggle +
+// CRUD de equipos). ESTUDIANTE: tabs "Proyectos" (solo lectura) y
+// "Equipos" (ve los equipos de la sala; si el toggle está activo puede
+// crear uno propio y salir del suyo).
 
 import React, { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useProjects } from '../../projects/hooks/useProjectsQueries';
 import {
   useSala,
+  useUpdateSala,
   useEstudiantes,
   useAddEstudiante,
   useAddEstudiantesBulk,
@@ -17,15 +21,27 @@ import {
   useVincularProyecto,
   useDesvincularProyecto,
 } from '../hooks/useSalasQueries';
+import {
+  useEquipos,
+  useCreateEquipo,
+  useUpdateEquipo,
+  useRemoveEquipo,
+  useAddMiembroEquipo,
+  useRemoveMiembroEquipo,
+} from '../../equipos/hooks/useEquiposQueries';
+import type { Equipo } from '../../equipos/api/equipos.api';
+import type { Sala } from '../api/salas.api';
 import { useConfirm } from '../../../shared/api/confirm';
 import { useAuthStore } from '../../auth/store/useAuthStore';
 import { resolvePerspective } from '../../../shared/auth/perspectivas';
 
-type Tab = 'proyectos' | 'estudiantes';
+type Tab = 'proyectos' | 'estudiantes' | 'equipos';
+type TabEstudiante = 'proyectos' | 'equipos';
 
 export function SalaDetallePage() {
   const { salaId } = useParams<{ salaId: string }>();
   const [tab, setTab] = useState<Tab>('proyectos');
+  const [tabEstudiante, setTabEstudiante] = useState<TabEstudiante>('proyectos');
   const { user, perspectiveRole } = useAuthStore();
   const activeRole = user ? resolvePerspective(user.rol, perspectiveRole) : null;
   const esEstudiante = activeRole === 'ESTUDIANTE';
@@ -62,7 +78,31 @@ export function SalaDetallePage() {
           </header>
 
           {esEstudiante ? (
-            <ProyectosDeSalaLectura salaId={salaId} />
+            <section className="sala-management-panel" aria-labelledby="gestion-sala-title">
+              <h2 id="gestion-sala-title" className="sr-only">Contenido de la sala</h2>
+              <div className="sala-tabs" role="group" aria-label="Contenido de la sala">
+                <button
+                  type="button"
+                  aria-pressed={tabEstudiante === 'proyectos'}
+                  className={tabEstudiante === 'proyectos' ? 'primary' : 'secondary'}
+                  onClick={() => setTabEstudiante('proyectos')}
+                >
+                  Proyectos
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={tabEstudiante === 'equipos'}
+                  className={tabEstudiante === 'equipos' ? 'primary' : 'secondary'}
+                  onClick={() => setTabEstudiante('equipos')}
+                >
+                  Equipos
+                </button>
+              </div>
+
+              {tabEstudiante === 'proyectos'
+                ? <ProyectosDeSalaLectura salaId={salaId} />
+                : <EquiposDeSalaEstudiante salaId={salaId} sala={sala} />}
+            </section>
           ) : (
             <section className="sala-management-panel" aria-labelledby="gestion-sala-title">
               <h2 id="gestion-sala-title" className="sr-only">Gestión de la sala</h2>
@@ -83,11 +123,19 @@ export function SalaDetallePage() {
                 >
                   Estudiantes
                 </button>
+                <button
+                  type="button"
+                  aria-pressed={tab === 'equipos'}
+                  className={tab === 'equipos' ? 'primary' : 'secondary'}
+                  onClick={() => setTab('equipos')}
+                >
+                  Equipos
+                </button>
               </div>
 
-              {tab === 'proyectos'
-                ? <ProyectosDeSala salaId={salaId} />
-                : <EstudiantesDeSala salaId={salaId} />}
+              {tab === 'proyectos' && <ProyectosDeSala salaId={salaId} />}
+              {tab === 'estudiantes' && <EstudiantesDeSala salaId={salaId} />}
+              {tab === 'equipos' && <EquiposDeSalaDocente salaId={salaId} sala={sala} />}
             </section>
           )}
         </>
@@ -380,5 +428,310 @@ function EstudiantesDeSala({ salaId }: { salaId: string }) {
         )}
       </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------
+// Tab Equipos — DOCENTE dueño / ADMIN
+// ---------------------------------------------------------------
+
+function EquiposDeSalaDocente({ salaId, sala }: { salaId: string; sala: Sala }) {
+  const confirm = useConfirm();
+  const { data: equipos, isLoading, isError, error, refetch } = useEquipos(salaId);
+  const { mutate: actualizarSala, isPending: guardandoToggle } = useUpdateSala(salaId);
+  const { mutate: crearEquipo, isPending: creando } = useCreateEquipo(salaId);
+  const { mutate: renombrarEquipo } = useUpdateEquipo(salaId);
+  const { mutate: eliminarEquipo } = useRemoveEquipo(salaId);
+  const { mutate: agregarMiembro } = useAddMiembroEquipo(salaId);
+  const { mutate: quitarMiembro } = useRemoveMiembroEquipo(salaId);
+
+  const [permiteCreacion, setPermiteCreacion] = useState(sala.permiteCreacionEquipos);
+  const [limite, setLimite] = useState(
+    sala.limiteIntegrantesEquipo != null ? String(sala.limiteIntegrantesEquipo) : '',
+  );
+  const [nombreEquipo, setNombreEquipo] = useState('');
+  const [equipoRenombrando, setEquipoRenombrando] = useState<string | null>(null);
+  const [nombreRenombrado, setNombreRenombrado] = useState('');
+  const [emailPorEquipo, setEmailPorEquipo] = useState<Record<string, string>>({});
+
+  function handleGuardarToggle(e: React.FormEvent) {
+    e.preventDefault();
+    const limiteNum = limite.trim() ? Number(limite) : undefined;
+    actualizarSala({
+      permiteCreacionEquipos: permiteCreacion,
+      ...(limiteNum !== undefined ? { limiteIntegrantesEquipo: limiteNum } : {}),
+    });
+  }
+
+  function handleCrearEquipo(e: React.FormEvent) {
+    e.preventDefault();
+    const limpio = nombreEquipo.trim();
+    if (!limpio) return;
+    crearEquipo(limpio, { onSuccess: () => setNombreEquipo('') });
+  }
+
+  function iniciarRenombrar(equipo: Equipo) {
+    setEquipoRenombrando(equipo.id);
+    setNombreRenombrado(equipo.nombre);
+  }
+
+  function guardarRenombrar(equipoId: string) {
+    const limpio = nombreRenombrado.trim();
+    if (!limpio) return;
+    renombrarEquipo(
+      { equipoId, nombre: limpio },
+      { onSuccess: () => setEquipoRenombrando(null) },
+    );
+  }
+
+  async function handleEliminarEquipo(equipoId: string, nombre: string) {
+    if (await confirm(`¿Eliminar el equipo "${nombre}"? Esto no se puede deshacer.`)) {
+      eliminarEquipo(equipoId);
+    }
+  }
+
+  function handleAgregarMiembro(e: React.FormEvent, equipoId: string) {
+    e.preventDefault();
+    const email = (emailPorEquipo[equipoId] ?? '').trim();
+    if (!email) return;
+    agregarMiembro(
+      { equipoId, email },
+      { onSuccess: () => setEmailPorEquipo((prev) => ({ ...prev, [equipoId]: '' })) },
+    );
+  }
+
+  async function handleQuitarMiembro(equipoId: string, usuarioId: string, nombre: string) {
+    if (await confirm(`¿Quitar a "${nombre}" del equipo?`)) {
+      quitarMiembro({ equipoId, usuarioId });
+    }
+  }
+
+  return (
+    <div>
+      <form onSubmit={handleGuardarToggle} className="form-row-inline" style={{ marginBottom: 16 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <input
+            type="checkbox"
+            checked={permiteCreacion}
+            onChange={(e) => setPermiteCreacion(e.target.checked)}
+          />
+          Permitir que los estudiantes creen sus propios equipos
+        </label>
+        <label className="field">
+          Límite de integrantes (vacío = sin límite)
+          <input
+            type="number"
+            min={1}
+            value={limite}
+            onChange={(e) => setLimite(e.target.value)}
+            className="input-flex"
+            style={{ maxWidth: 120 }}
+          />
+        </label>
+        <button type="submit" className="primary" disabled={guardandoToggle}>
+          {guardandoToggle ? 'Guardando…' : 'Guardar configuración'}
+        </button>
+      </form>
+
+      <form onSubmit={handleCrearEquipo} className="form-row-inline">
+        <input
+          type="text"
+          placeholder="Nombre del nuevo equipo"
+          aria-label="Nombre del nuevo equipo"
+          value={nombreEquipo}
+          onChange={(e) => setNombreEquipo(e.target.value)}
+          required
+          className="input-flex"
+        />
+        <button type="submit" className="primary" disabled={creando}>
+          {creando ? 'Creando…' : '+ Crear equipo'}
+        </button>
+      </form>
+
+      {isLoading && <p>Cargando equipos…</p>}
+      {isError && (
+        <div className="error-text" role="alert">
+          <p>{(error as Error).message}</p>
+          <button type="button" className="secondary" onClick={() => refetch()}>Reintentar</button>
+        </div>
+      )}
+
+      <div className="list-stack mt-16">
+        {equipos?.map((equipo) => (
+          <div key={equipo.id} className="entity-card">
+            <div style={{ width: '100%' }}>
+              {equipoRenombrando === equipo.id ? (
+                <div className="form-row-inline">
+                  <input
+                    type="text"
+                    aria-label="Renombrar equipo"
+                    value={nombreRenombrado}
+                    onChange={(e) => setNombreRenombrado(e.target.value)}
+                    className="input-flex"
+                  />
+                  <button type="button" className="primary" onClick={() => guardarRenombrar(equipo.id)}>
+                    Guardar
+                  </button>
+                  <button type="button" className="secondary" onClick={() => setEquipoRenombrando(null)}>
+                    Cancelar
+                  </button>
+                </div>
+              ) : (
+                <div className="row-between">
+                  <b>{equipo.nombre}</b>
+                  <div className="form-row-inline">
+                    <button type="button" className="link-btn link-btn--edit" onClick={() => iniciarRenombrar(equipo)}>
+                      Renombrar
+                    </button>
+                    <button
+                      type="button"
+                      className="link-btn link-btn--delete"
+                      onClick={() => handleEliminarEquipo(equipo.id, equipo.nombre)}
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="list-stack mt-16">
+                {equipo.miembros.map((m) => (
+                  <div key={m.usuarioId} className="row-between text-muted-sm">
+                    <span>{m.usuario.nombre} ({m.usuario.email})</span>
+                    <button
+                      type="button"
+                      className="link-btn link-btn--delete"
+                      onClick={() => handleQuitarMiembro(equipo.id, m.usuarioId, m.usuario.nombre)}
+                    >
+                      Quitar
+                    </button>
+                  </div>
+                ))}
+                {equipo.miembros.length === 0 && <p className="text-muted-sm">Sin integrantes todavía.</p>}
+              </div>
+
+              <form
+                onSubmit={(e) => handleAgregarMiembro(e, equipo.id)}
+                className="form-row-inline mt-16"
+              >
+                <input
+                  type="email"
+                  placeholder="Email del estudiante a agregar"
+                  aria-label="Email del estudiante a agregar"
+                  value={emailPorEquipo[equipo.id] ?? ''}
+                  onChange={(e) =>
+                    setEmailPorEquipo((prev) => ({ ...prev, [equipo.id]: e.target.value }))
+                  }
+                  required
+                  className="input-flex"
+                />
+                <button type="submit" className="secondary">+ Agregar integrante</button>
+              </form>
+            </div>
+          </div>
+        ))}
+        {equipos && equipos.length === 0 && <p>Todavía no hay equipos en esta sala.</p>}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------
+// Tab Equipos — ESTUDIANTE
+// ---------------------------------------------------------------
+
+function EquiposDeSalaEstudiante({ salaId, sala }: { salaId: string; sala: Sala }) {
+  const confirm = useConfirm();
+  const currentUser = useAuthStore((s) => s.user);
+  const { data: equipos, isLoading, isError, error, refetch } = useEquipos(salaId);
+  const { mutate: crearEquipo, isPending: creando } = useCreateEquipo(salaId);
+  const { mutate: quitarMiembro } = useRemoveMiembroEquipo(salaId);
+
+  const [nombreEquipo, setNombreEquipo] = useState('');
+
+  const miEquipo = equipos?.find((eq) =>
+    eq.miembros.some((m) => m.usuarioId === currentUser?.id),
+  );
+
+  function handleCrearEquipo(e: React.FormEvent) {
+    e.preventDefault();
+    const limpio = nombreEquipo.trim();
+    if (!limpio) return;
+    crearEquipo(limpio, { onSuccess: () => setNombreEquipo('') });
+  }
+
+  async function handleSalir(equipoId: string) {
+    if (!currentUser) return;
+    if (await confirm('¿Salir de este equipo?')) {
+      quitarMiembro({ equipoId, usuarioId: currentUser.id });
+    }
+  }
+
+  return (
+    <section className="sala-student-panel" aria-labelledby="equipos-sala-title">
+      <div className="sala-section-head">
+        <div>
+          <span className="kicker">CONTENIDO</span>
+          <h2 id="equipos-sala-title">Equipos de la sala</h2>
+        </div>
+        <span className="count">{equipos?.length ?? 0} en total</span>
+      </div>
+
+      {!miEquipo && sala.permiteCreacionEquipos && (
+        <form onSubmit={handleCrearEquipo} className="form-row-inline">
+          <input
+            type="text"
+            placeholder="Nombre de tu nuevo equipo"
+            aria-label="Nombre de tu nuevo equipo"
+            value={nombreEquipo}
+            onChange={(e) => setNombreEquipo(e.target.value)}
+            required
+            className="input-flex"
+          />
+          <button type="submit" className="primary" disabled={creando}>
+            {creando ? 'Creando…' : '+ Crear mi equipo'}
+          </button>
+        </form>
+      )}
+      {!miEquipo && !sala.permiteCreacionEquipos && (
+        <p className="text-muted-sm">Tu docente todavía no habilitó la creación de equipos por estudiantes.</p>
+      )}
+
+      {isLoading && <p>Cargando equipos…</p>}
+      {isError && (
+        <div className="error-text" role="alert">
+          <p>{(error as Error).message}</p>
+          <button type="button" className="secondary" onClick={() => refetch()}>Reintentar</button>
+        </div>
+      )}
+
+      <div className="list-stack mt-16">
+        {equipos?.map((equipo) => {
+          const esMiEquipo = equipo.id === miEquipo?.id;
+          return (
+            <article key={equipo.id} className="entity-card">
+              <div style={{ width: '100%' }}>
+                <div className="row-between">
+                  <b>{equipo.nombre}</b>
+                  {esMiEquipo && (
+                    <button type="button" className="link-btn link-btn--delete" onClick={() => handleSalir(equipo.id)}>
+                      Salir del equipo
+                    </button>
+                  )}
+                </div>
+                <div className="text-muted-sm">
+                  {equipo.miembros.map((m) => m.usuario.nombre).join(', ') || 'Sin integrantes todavía.'}
+                </div>
+              </div>
+            </article>
+          );
+        })}
+        {equipos && equipos.length === 0 && (
+          <div className="salas-empty">
+            <p>Esta sala todavía no tiene equipos.</p>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }

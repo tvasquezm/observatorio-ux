@@ -20,6 +20,10 @@ export interface Sala {
     email: string;
     rol: string;
   };
+  // Fase 4 — toggle de creación de equipos por ESTUDIANTE. limiteIntegrantesEquipo
+  // nulo = sin límite.
+  permiteCreacionEquipos: boolean;
+  limiteIntegrantesEquipo: number | null;
 }
 
 export interface CreateSalaDto {
@@ -30,7 +34,10 @@ export interface CreateSalaDto {
   fechaFin: string;
 }
 
-export type UpdateSalaDto = Partial<CreateSalaDto>;
+export type UpdateSalaDto = Partial<CreateSalaDto> & {
+  permiteCreacionEquipos?: boolean;
+  limiteIntegrantesEquipo?: number;
+};
 
 export class SalasApiError extends Error {
   constructor(public readonly status: number, message: string) {

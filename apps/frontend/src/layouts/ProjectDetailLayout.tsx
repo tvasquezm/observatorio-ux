@@ -16,6 +16,7 @@ const SUB_NAV = [
   { to: 'momentos-criticos', label: 'Momentos Críticos' },
   { to: 'card-sorting', label: 'Card Sorting' },
   { to: 'evaluacion-heuristica', label: 'Evaluación Heurística' },
+  { to: 'comentarios', label: 'Comentarios' },
   { to: 'analitica', label: 'Analítica' },
   { to: 'miembros', label: 'Miembros' },
   { to: 'participantes', label: 'Participantes' },

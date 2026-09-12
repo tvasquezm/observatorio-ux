@@ -17,6 +17,7 @@ import { CardSortingPage } from './pages/CardSortingPage';
 import { EvaluacionHeuristicaPage } from './pages/EvaluacionHeuristicaPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { ProjectMembersPage } from './pages/ProjectMembersPage';
+import { ProjectCommentsPage } from './pages/ProjectCommentsPage';
 import { ProjectParticipantsPage } from './pages/ProjectParticipantsPage';
 import { ProfesorSalasPage } from './features/salas/pages/ProfesorSalasPage';
 import { SalaDetallePage } from './features/salas/pages/SalaDetallePage';
@@ -45,6 +46,7 @@ export default function App() {
             <Route path="momentos-criticos" element={<MomentosCriticosPage />} />
             <Route path="card-sorting" element={<CardSortingPage />} />
             <Route path="evaluacion-heuristica" element={<EvaluacionHeuristicaPage />} />
+            <Route path="comentarios" element={<ProjectCommentsPage />} />
             <Route element={<PerspectiveRoute allowed={['DOCENTE', 'ADMIN']} />}>
               <Route path="analitica" element={<AnalyticsPage />} />
             </Route>

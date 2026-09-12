@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsUUID, MinLength } from 'class-validator';
+import { IsEmail, IsString, MinLength } from 'class-validator';
 
 export class CreateEquipoDto {
   @IsString()
@@ -13,7 +13,6 @@ export class UpdateEquipoDto {
 }
 
 export class AddMiembroEquipoDto {
-  @IsUUID()
-  @IsNotEmpty()
-  usuarioId!: string;
+  @IsEmail()
+  email!: string;
 }

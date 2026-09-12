@@ -9,12 +9,14 @@ import {
   removeEstudiante,
   listProyectosDeSala,
   getSala,
+  updateSala,
   vincularProyecto,
   desvincularProyecto,
   SalasApiError,
   type SalaEstudiante,
   type SalaEstudianteInput,
   type ProyectoEnSala,
+  type UpdateSalaDto,
 } from '../api/salas.api';
 import { notify } from '../../../shared/api/toast';
 
@@ -33,6 +35,20 @@ export function useSala(salaId: string | null) {
     queryKey: salasKeys.detail(salaId ?? ''),
     queryFn: () => getSala(salaId as string),
     enabled: !!salaId,
+  });
+}
+
+export function useUpdateSala(salaId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: UpdateSalaDto) => updateSala(salaId, data),
+    onSuccess: (sala) => {
+      qc.setQueryData(salasKeys.detail(salaId), sala);
+      notify.success('Sala actualizada.');
+    },
+    onError: (err) => {
+      notify.error(err instanceof SalasApiError ? err.message : 'No se pudo actualizar la sala.');
+    },
   });
 }
 

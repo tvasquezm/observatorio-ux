@@ -46,6 +46,9 @@ export class CommentsService {
         ...(artefactoLogicoId ? { artefactoLogicoId } : {}),
       },
       orderBy: { createdAt: 'asc' },
+      include: {
+        autor: { select: { id: true, nombre: true, email: true } },
+      },
     });
   }
 

@@ -194,6 +194,19 @@ delete** real (borra `EquipoMiembro` y luego el `Equipo`) — a diferencia
 de `UxArtifact`/`Sala`/`Proyecto`, un equipo no es evidencia de
 investigación y no necesita ventana de recuperación.
 
+`POST .../miembros` recibe `{ email }` (antes `{ usuarioId }`) — el
+backend resuelve el `Usuario` por email, mismo patrón que
+`ProjectsService.addMember`. El frontend no tiene forma de conocer el
+UUID de un usuario, así que el contrato por email es el único viable
+para esa pantalla.
+
+**Frontend:** tab "Equipos" en `SalaDetallePage` (`features/equipos/`).
+DOCENTE dueño/ADMIN: toggle `permiteCreacionEquipos` +
+`limiteIntegrantesEquipo` (reusa `PATCH /salas/:id`), CRUD de equipos,
+agregar/quitar miembro por email. ESTUDIANTE: ve los equipos de su sala;
+si el toggle está activo puede crear el suyo (queda de primer miembro
+automáticamente, ver arriba) y salir del suyo; no gestiona equipos ajenos.
+
 Los valores admitidos para `tipo` son `PERSONA`, `JOURNEY_MAP` y
 `MOMENTOS_CRITICOS`. El campo `contenido` es JSON y permite que cada técnica
 conserve su estructura específica. Las nuevas versiones se almacenan como
@@ -268,6 +281,16 @@ comentario o a `ADMIN`.
 `DELETE` es soft delete (marca `deletedAt`); `findAll` excluye por defecto
 los comentarios eliminados. No hay hilos/respuestas anidadas ni
 notificaciones — comentario plano por proyecto/artefacto.
+
+`findAll` incluye `autor: { id, nombre, email }` (antes solo devolvía
+`autorId`) — lo necesita el frontend para mostrar quién comentó.
+
+**Frontend:** tab "Comentarios" en `ProjectDetailLayout` →
+`pages/ProjectCommentsPage.tsx` (`features/comments/`). Alcance de esta
+fase: comentarios generales del proyecto, sin filtro por
+`artefactoLogicoId` en la UI (el backend ya lo soporta si se necesita
+después). Crear disponible para cualquiera con acceso al proyecto;
+editar/borrar solo el propio autor o `ADMIN`, igual que el backend.
 
 ## Manejo de errores estandarizado
 

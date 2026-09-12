@@ -169,7 +169,7 @@ describe('EquiposService', () => {
       prisma.equipoMiembro.findUnique.mockResolvedValue(null);
       prisma.equipoMiembro.create.mockResolvedValue({ id: 'em-2' });
 
-      await service.addMiembro('sala-1', 'eq-1', { usuarioId: otroEstudiante.id }, estudiante);
+      await service.addMiembro('sala-1', 'eq-1', { email: otroEstudiante.email }, estudiante);
 
       expect(prisma.equipoMiembro.create).toHaveBeenCalledWith({
         data: { equipoId: 'eq-1', usuarioId: otroEstudiante.id },
@@ -186,7 +186,7 @@ describe('EquiposService', () => {
       prisma.equipoMiembro.count.mockResolvedValue(2);
 
       await expect(
-        service.addMiembro('sala-1', 'eq-1', { usuarioId: otroEstudiante.id }, estudiante),
+        service.addMiembro('sala-1', 'eq-1', { email: otroEstudiante.email }, estudiante),
       ).rejects.toThrow(ConflictException);
       expect(prisma.equipoMiembro.create).not.toHaveBeenCalled();
     });
@@ -199,7 +199,7 @@ describe('EquiposService', () => {
       prisma.equipoMiembro.findUnique.mockResolvedValue({ id: 'em-existente' });
 
       await expect(
-        service.addMiembro('sala-1', 'eq-1', { usuarioId: otroEstudiante.id }, estudiante),
+        service.addMiembro('sala-1', 'eq-1', { email: otroEstudiante.email }, estudiante),
       ).rejects.toThrow(ConflictException);
       expect(prisma.equipoMiembro.create).not.toHaveBeenCalled();
     });
@@ -209,7 +209,7 @@ describe('EquiposService', () => {
       prisma.equipo.findUnique.mockResolvedValue(equipo);
 
       await expect(
-        service.addMiembro('sala-1', 'eq-1', { usuarioId: otroEstudiante.id }, otroEstudiante),
+        service.addMiembro('sala-1', 'eq-1', { email: otroEstudiante.email }, otroEstudiante),
       ).rejects.toThrow(ForbiddenException);
       expect(prisma.equipoMiembro.create).not.toHaveBeenCalled();
     });

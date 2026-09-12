@@ -96,12 +96,11 @@ export class EquiposService {
     const { sala, equipo } = await this.getEquipoDeSalaOrThrow(salaId, equipoId);
     await this.assertPuedeGestionar(sala, equipo, user);
 
-    const usuario = await this.prisma.usuario.findUnique({
-      where: { id: dto.usuarioId },
-    });
+    const email = dto.email.trim().toLowerCase();
+    const usuario = await this.prisma.usuario.findUnique({ where: { email } });
 
     if (!usuario || usuario.rol !== 'ESTUDIANTE') {
-      throw new NotFoundException('El usuario a agregar no existe o no es un estudiante.');
+      throw new NotFoundException('No existe un estudiante registrado con ese email.');
     }
 
     await this.assertEsEstudianteDeSala(salaId, usuario.email);
