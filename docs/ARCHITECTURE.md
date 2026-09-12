@@ -427,5 +427,39 @@ autenticado y el detalle vuelve a comprobar la invitación. DOCENTE y ADMIN usan
 la acción distinta `Administrar sala`; la diferencia visual no sustituye los
 controles de autorización del backend.
 
+## Fase 3 (Plan de ajustes) — Módulo Comentarios (backend)
+
+Nueva entidad `Comentario`, independiente de `UxArtifact`. Alcance definido
+sin resumen previo disponible (ver `docs/PLAN_AJUSTES.md §FASE 3`):
+
+- `proyectoId` obligatorio; `artefactoLogicoId` opcional. Se referencia el
+  artefacto **lógico** (no el `id` de una fila de versión puntual), igual
+  criterio que usa `UxArtifact.artefactoLogicoId` internamente, para que un
+  comentario no quede huérfano cuando el artefacto se versiona.
+- Solo `Usuario` (ESTUDIANTE/DOCENTE/ADMIN) comenta — `Participante` (sin
+  cuenta) queda fuera de este alcance, no estaba en el contexto original.
+- Acceso vía `ProjectAccessService.assertAccess` (dueño/ADMIN/miembro) para
+  crear y listar — mismo servicio ya compartido con Artifacts/Projects.
+- Editar y eliminar (soft delete, mismo patrón que Sala/Proyecto/UxArtifact)
+  quedan restringidos al propio autor o `ADMIN`, chequeo propio del módulo
+  (no delegado a `ProjectAccessService`, que no distingue autoría de
+  comentario).
+- Sin hilos/respuestas anidadas ni notificaciones — comentario plano.
+- Nuevo módulo `modules/comments` (`CommentsModule`/`Service`/`Controller`/
+  `Dto`), registrado en `AppModule`. Endpoints y detalle de permisos en
+  `docs/BACKEND.md §Comentarios`.
+- Sin frontend en esta fase — no estaba definido en el plan original; el
+  plan solo marca frontend explícito para Fases 1, 6 y 7.
+
+**No verificado en este entorno:** no fue posible correr `prisma generate`
+ni compilar (`tsc`) porque el dominio de descarga de engines de Prisma
+(`binaries.prisma.sh`) está bloqueado por la configuración de red del
+sandbox. La migración SQL se escribió a mano siguiendo el formato de las
+migraciones anteriores del proyecto, y el código se revisó manualmente
+contra los patrones ya existentes (`ArtifactsModule`/`ProjectAccessService`).
+Verificar con `pnpm --filter backend prisma generate` y
+`pnpm --filter backend build` en un entorno con esa red disponible antes de
+mergear.
+
 
 

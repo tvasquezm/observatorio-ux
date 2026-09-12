@@ -79,9 +79,9 @@ No existe (falta 100%):
 
 ---
 
-## FASE 3 — Comentarios (pendiente, no iniciada)
+## FASE 3 — Comentarios (backend hecho, sin verificar en sandbox)
 
-Modelo `Comentario`: `proyectoId` obligatorio, `artefactoId` opcional. Permisos vía `ProjectAccessService`. Ver detalle en resumen de mejoras (mensaje previo del chat).
+Modelo `Comentario`: `proyectoId` obligatorio, `artefactoLogicoId` opcional (referencia al artefacto lógico, no a una versión puntual). Permisos vía `ProjectAccessService` (crear/listar) + chequeo propio de autoría (editar/eliminar). Alcance solo `Usuario`, sin frontend. Detalle completo en `docs/ARCHITECTURE.md §Fase 3` y `docs/BACKEND.md §Comentarios` (el resumen de mejoras original no estaba disponible; alcance definido por Claude y aprobado por el usuario).
 
 ## FASE 4 — Equipos (pendiente, no iniciada)
 

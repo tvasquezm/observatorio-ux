@@ -15,6 +15,7 @@ import { ProjectsModule } from './modules/projects/projects.module';
 import { SessionsModule } from './modules/sessions/sessions.module';
 import { HealthController } from './health.controller';
 import { SalasModule } from './modules/salas/salas.module';
+import { CommentsModule } from './modules/comments/comments.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { SalasModule } from './modules/salas/salas.module';
     ProjectsModule,
     SessionsModule,
     SalasModule,
+    CommentsModule,
   ],
   providers: [
     RolesGuard,

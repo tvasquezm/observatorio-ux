@@ -62,6 +62,7 @@ model Proyecto {
   artefactos UxArtifact[]
   whitelist  ParticipanteWhitelist[]
   miembros   ProyectoMiembro[]
+  comentarios Comentario[]
   salaId String?
   sala   Sala?   @relation(fields: [salaId], references: [id])
 
@@ -97,6 +98,7 @@ model Usuario {
   artefactosAutor   UxArtifact[]      @relation("ArtefactosComoAutor")
   whitelistCreada   ParticipanteWhitelist[]
   proyectosMiembro  ProyectoMiembro[]
+  comentariosAutor  Comentario[]      @relation("ComentariosComoAutor")
   salas Sala[]
   @@map("usuarios")
 
@@ -302,4 +304,27 @@ model UxArtifact {
 
   @@unique([artefactoLogicoId, version])
   @@map("ux_artifacts")
+}
+
+model Comentario {
+  id         String   @id @default(uuid())
+  proyecto   Proyecto @relation(fields: [proyectoId], references: [id])
+  proyectoId String
+
+  // Referencia al artefacto lógico (no a una fila de versión puntual), para
+  // que el comentario siga siendo válido aunque el artefacto se versione.
+  artefactoLogicoId String?
+
+  autor   Usuario @relation("ComentariosComoAutor", fields: [autorId], references: [id])
+  autorId String
+
+  texto String
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Soft delete: mismo patrón que Sala/Proyecto/UxArtifact.
+  deletedAt DateTime?
+
+  @@map("comentarios")
 }

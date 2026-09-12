@@ -183,6 +183,30 @@ usuario). Ver `docs/ARCHITECTURE.md` §Sprint 4.
 Para probar estos endpoints se puede importar
 `postman/ux-artifacts.postman_collection.json`.
 
+## Comentarios
+
+```text
+POST   /api/projects/:proyectoId/comments
+GET    /api/projects/:proyectoId/comments
+PATCH  /api/projects/:proyectoId/comments/:comentarioId
+DELETE /api/projects/:proyectoId/comments/:comentarioId
+```
+
+`proyectoId` es obligatorio; `artefactoLogicoId` es opcional y se puede
+enviar al crear (body) o filtrar al listar (`?artefactoLogicoId=`). Se
+guarda el `artefactoLogicoId` (no el `id` de una versión puntual del
+`UxArtifact`) para que el comentario siga siendo válido aunque el
+artefacto se versione.
+
+**Permisos:** crear y listar requieren acceso al proyecto (dueño, `ADMIN` o
+`ProyectoMiembro`, vía `ProjectAccessService.assertAccess`). Editar
+(`PATCH`) y eliminar (`DELETE`) están restringidos al propio autor del
+comentario o a `ADMIN`.
+
+`DELETE` es soft delete (marca `deletedAt`); `findAll` excluye por defecto
+los comentarios eliminados. No hay hilos/respuestas anidadas ni
+notificaciones — comentario plano por proyecto/artefacto.
+
 ## Manejo de errores estandarizado
 
 Toda respuesta de error (400/401/403/404/409/500) tiene la misma forma,
