@@ -98,6 +98,43 @@ export class AuthService {
     });
   }
 
+  /**
+   * Fase 1 (PLAN_AJUSTES.md): punto de acceso público sin datos
+   * personales. Acceso 100% abierto por link/QR — decisión tomada por el
+   * usuario para reemplazar el registro con whitelist/email. Cualquiera
+   * con el proyectoId puede entrar: no valida whitelist ni código de
+   * invitación. Crea un Participante sin metadata y devuelve el token de
+   * sesión directo (mismo `participanteJwt` que `issueParticipantToken`).
+   *
+   * El consentimiento sigue siendo obligatorio, pero se exige más
+   * adelante en el flujo (ver `CardSortingService.joinSession`), no acá
+   * — así el participante puede navegar a la pantalla de consentimiento
+   * ya con sesión, en vez de recibir el token recién después de aceptar.
+   */
+  async accessParticipant(proyectoId: string) {
+    const proyecto = await this.prisma.proyecto.findUnique({
+      where: { id: proyectoId },
+    });
+
+    if (!proyecto || proyecto.deletedAt) {
+      throw new NotFoundException('El proyecto no existe.');
+    }
+
+    const participante = await this.prisma.participante.create({ data: {} });
+
+    const accessToken = await this.participanteJwt.sign({
+      sub: participante.id,
+      actor: 'PARTICIPANTE',
+      rol: 'PARTICIPANTE',
+      proyectoId,
+    });
+
+    return {
+      access_token: accessToken,
+      participant: { id: participante.id, proyectoId },
+    };
+  }
+
   async registerParticipantConsent(
     participanteId: string,
     proyectoId: string,
@@ -113,17 +150,23 @@ export class AuthService {
       throw new NotFoundException('El participante no existe.');
     }
 
+    const proyecto = await this.prisma.proyecto.findUnique({ where: { id: proyectoId } });
+    if (!proyecto || proyecto.deletedAt) {
+      throw new NotFoundException('El proyecto no existe.');
+    }
+
+    // Fase 1 (PLAN_AJUSTES.md): si el participante entró por el acceso
+    // público abierto (accessParticipant), nunca existe una entrada de
+    // whitelist a su nombre — no hay código que validar. Si sí existe
+    // (flujo previo con invitación por email), se sigue exigiendo el
+    // código, igual que antes.
     const whitelistEntry = await this.prisma.participanteWhitelist.findFirst({
       where: { proyectoId, participanteId, usado: true },
     });
 
-    if (!whitelistEntry) {
-      throw new ForbiddenException(
-        'El participante no está autorizado para este proyecto.',
-      );
+    if (whitelistEntry) {
+      this.assertInvitationCode(codigoInvitacion ?? '', whitelistEntry.codigoInvitacionHash);
     }
-
-    this.assertInvitationCode(codigoInvitacion ?? '', whitelistEntry.codigoInvitacionHash);
 
     const latestConsent = await this.prisma.consentimiento.findFirst({
       where: { participanteId, proyectoId },

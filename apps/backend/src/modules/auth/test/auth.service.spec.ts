@@ -4,7 +4,7 @@
 // proyecto sea rechazado, y que el registro sea idempotente.
 
 import { Test } from '@nestjs/testing';
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { AuthService } from '../auth.service';
@@ -31,6 +31,9 @@ describe('AuthService.registerParticipant', () => {
       create: jest.Mock;
       update: jest.Mock;
     };
+    proyecto: {
+      findUnique: jest.Mock;
+    };
   };
 
   const PROYECTO_ID = 'proyecto-1';
@@ -56,6 +59,9 @@ describe('AuthService.registerParticipant', () => {
         findFirst: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+      },
+      proyecto: {
+        findUnique: jest.fn(),
       },
     };
 
@@ -180,6 +186,7 @@ describe('AuthService.registerParticipant', () => {
 
   it('registra consentimiento solo para un participante autorizado', async () => {
     prisma.participante.findUnique.mockResolvedValue({ id: 'participante-1' });
+    prisma.proyecto.findUnique.mockResolvedValue({ id: PROYECTO_ID, deletedAt: null });
     prisma.participanteWhitelist.findFirst.mockResolvedValue({
       id: 'entry-1',
       usado: true,
@@ -207,6 +214,36 @@ describe('AuthService.registerParticipant', () => {
         version: '1.0',
       },
     });
+  });
+
+  it('registra consentimiento sin whitelist para un participante de acceso abierto (Fase 1)', async () => {
+    prisma.participante.findUnique.mockResolvedValue({ id: 'participante-anonimo' });
+    prisma.proyecto.findUnique.mockResolvedValue({ id: PROYECTO_ID, deletedAt: null });
+    prisma.participanteWhitelist.findFirst.mockResolvedValue(null);
+    prisma.consentimiento.findFirst.mockResolvedValue(null);
+    prisma.consentimiento.create.mockResolvedValue({ id: 'consent-abierto' });
+
+    await expect(
+      service.registerParticipantConsent('participante-anonimo', PROYECTO_ID, true, '1.0'),
+    ).resolves.toEqual({ id: 'consent-abierto' });
+
+    expect(prisma.consentimiento.create).toHaveBeenCalledWith({
+      data: {
+        participanteId: 'participante-anonimo',
+        proyectoId: PROYECTO_ID,
+        aceptado: true,
+        version: '1.0',
+      },
+    });
+  });
+
+  it('rechaza registrar consentimiento si el proyecto no existe', async () => {
+    prisma.participante.findUnique.mockResolvedValue({ id: 'participante-1' });
+    prisma.proyecto.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.registerParticipantConsent('participante-1', PROYECTO_ID, true, '1.0'),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('rechaza emitir token si el participante no está en la whitelist', async () => {
@@ -251,5 +288,75 @@ describe('AuthService.registerParticipant', () => {
       service.registerParticipant(PROYECTO_ID, EMAIL_AUTORIZADO, undefined, 'codigo-incorrecto-largo'),
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(prisma.participante.create).not.toHaveBeenCalled();
+  });
+});
+
+// Fase 1 (PLAN_AJUSTES.md): acceso público sin whitelist ni datos
+// personales. Decisión del usuario: 100% abierto por link/QR.
+describe('AuthService.accessParticipant', () => {
+  let service: AuthService;
+  let prisma: {
+    proyecto: { findUnique: jest.Mock };
+    participante: { create: jest.Mock };
+  };
+  let participanteJwt: { sign: jest.Mock };
+
+  const PROYECTO_ID = 'proyecto-1';
+
+  beforeEach(async () => {
+    prisma = {
+      proyecto: { findUnique: jest.fn() },
+      participante: { create: jest.fn() },
+    };
+    participanteJwt = { sign: jest.fn().mockResolvedValue('token-firmado') };
+
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        AuthService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: JwtService, useValue: { signAsync: jest.fn() } },
+        { provide: ParticipanteJwtService, useValue: participanteJwt },
+        { provide: ConfigService, useValue: { get: jest.fn() } },
+      ],
+    }).compile();
+
+    service = moduleRef.get(AuthService);
+  });
+
+  it('rechaza el acceso si el proyecto no existe', async () => {
+    prisma.proyecto.findUnique.mockResolvedValue(null);
+
+    await expect(service.accessParticipant(PROYECTO_ID)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    expect(prisma.participante.create).not.toHaveBeenCalled();
+  });
+
+  it('rechaza el acceso si el proyecto está soft-deleted', async () => {
+    prisma.proyecto.findUnique.mockResolvedValue({ id: PROYECTO_ID, deletedAt: new Date() });
+
+    await expect(service.accessParticipant(PROYECTO_ID)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    expect(prisma.participante.create).not.toHaveBeenCalled();
+  });
+
+  it('crea un participante SIN datos personales y devuelve el token de sesión', async () => {
+    prisma.proyecto.findUnique.mockResolvedValue({ id: PROYECTO_ID, deletedAt: null });
+    prisma.participante.create.mockResolvedValue({ id: 'participante-anonimo' });
+
+    const result = await service.accessParticipant(PROYECTO_ID);
+
+    expect(prisma.participante.create).toHaveBeenCalledWith({ data: {} });
+    expect(participanteJwt.sign).toHaveBeenCalledWith({
+      sub: 'participante-anonimo',
+      actor: 'PARTICIPANTE',
+      rol: 'PARTICIPANTE',
+      proyectoId: PROYECTO_ID,
+    });
+    expect(result).toEqual({
+      access_token: 'token-firmado',
+      participant: { id: 'participante-anonimo', proyectoId: PROYECTO_ID },
+    });
   });
 });

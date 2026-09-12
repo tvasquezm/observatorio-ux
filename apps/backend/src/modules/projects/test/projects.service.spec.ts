@@ -94,6 +94,7 @@ describe('ProjectsService', () => {
       expect(prisma.proyecto.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
+            deletedAt: null,
             OR: [
               { creadoPorId: DUEÑO_ID },
               { miembros: { some: { usuarioId: DUEÑO_ID } } },
@@ -103,13 +104,13 @@ describe('ProjectsService', () => {
       );
     });
 
-    it('ADMIN ve todos los proyectos (sin filtro where)', async () => {
+    it('ADMIN ve todos los proyectos (sin filtro adicional, solo excluye eliminados)', async () => {
       prisma.proyecto.findMany.mockResolvedValue([proyectoDeEjemplo]);
 
       await service.findAll(userAdmin);
 
       expect(prisma.proyecto.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: undefined }),
+        expect.objectContaining({ where: { deletedAt: null } }),
       );
     });
   });

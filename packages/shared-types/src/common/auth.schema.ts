@@ -20,6 +20,16 @@ export const LoginResponseSchema = z.object({
   user: EvaluatorUserSchema,
 });
 
+// Fase 1 (PLAN_AJUSTES.md): acceso público de participante sin nombre/
+// correo — POST /auth/participants/access.
+export const ParticipantAccessResponseSchema = z.object({
+  access_token: z.string().min(1),
+  participant: z.object({
+    id: z.string().uuid(),
+    proyectoId: z.string().uuid(),
+  }),
+});
+
 export const AuthenticatedUserSchema = z.object({
   id: z.string().uuid(),
   email: z.string().email().optional(),
@@ -34,4 +44,5 @@ export type AuthenticatedActor = z.infer<typeof AuthenticatedActorSchema>;
 export type EvaluatorUser = z.infer<typeof EvaluatorUserSchema>;
 export type LoginPayload = z.infer<typeof LoginPayloadSchema>;
 export type LoginResponse = z.infer<typeof LoginResponseSchema>;
+export type ParticipantAccessResponse = z.infer<typeof ParticipantAccessResponseSchema>;
 export type AuthenticatedUser = z.infer<typeof AuthenticatedUserSchema>;

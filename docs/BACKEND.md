@@ -67,6 +67,28 @@ usar el default. Ver `apps/backend/prisma/seed.ts`.
 1. `POST /api/auth/login` con `email` y `password` para obtener un token de evaluador.
 2. Usar el token como `Authorization: Bearer <token>`.
 3. Crear o consultar proyectos desde `/api/projects`.
+
+### Participante — acceso público abierto (por defecto, desde Fase 1)
+
+Sin whitelist ni datos personales. Cualquiera con el `proyectoId` (compartido vía
+link o QR) puede entrar:
+
+1. `POST /api/auth/participants/access` con `{ "proyectoId": "..." }`. Crea un
+   `Participante` sin metadata y devuelve `access_token` + `participant.id`
+   directamente — no hay paso de "registro" separado.
+2. Registrar su consentimiento con `POST /api/auth/participants/consent` usando
+   `participanteId`, `proyectoId`, `aceptado` y `version` (sin `codigoInvitacion`:
+   este flujo no usa whitelist). Sigue siendo obligatorio — es requisito legal/
+   ético, no un dato de contacto.
+3. Usar el `access_token` en `POST /api/card-sorting/sessions/:id/join` — este
+   paso vuelve a exigir que exista consentimiento aceptado para el proyecto.
+4. Enviar los resultados con `POST /api/card-sorting/sessions/:id/results`.
+
+### Participante — flujo previo con whitelist/email (se mantiene para invitaciones controladas)
+
+Vigente cuando el docente quiere restringir quién participa (p. ej. Evaluación
+Heurística con invitaciones nominales):
+
 4. Cargar participantes autorizados con `POST /api/projects/:id/participantes`.
    El cuerpo tiene la forma `{ "participantes": [{ "email": "...", "nombre": "..." }] }`.
    La respuesta incluye un `codigoInvitacion` aleatorio por cada entrada nueva; se muestra
@@ -83,7 +105,10 @@ usar el default. Ver `apps/backend/prisma/seed.ts`.
 
 El registro exige que el email esté en la whitelist y que el código de invitación
 coincida con su hash almacenado. El consentimiento y la emisión del token vuelven
-a comprobar ambos datos; el código en texto plano nunca se guarda en la base de datos.
+a comprobar ambos datos cuando existe una entrada de whitelist asociada; el código
+en texto plano nunca se guarda en la base de datos. Si el participante entró por
+el acceso abierto (sin whitelist), `POST /api/auth/participants/consent` no exige
+ningún código.
 
 En desarrollo también existen `GET /api/auth/test-token` y
 `GET /api/auth/test-participant-token`, que generan tokens a partir de los datos

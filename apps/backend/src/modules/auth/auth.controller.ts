@@ -8,6 +8,7 @@ import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 import { AuthService } from './auth.service';
 import {
   LoginDto,
+  ParticipantAccessDto,
   ParticipantTokenDto,
   RegisterParticipantDto,
   RegisterParticipantConsentDto,
@@ -72,9 +73,20 @@ export class AuthController {
     }));
   }
 
-  // No piden credenciales previas (cualquiera puede intentar registrar un
-  // email como participante), así que también van más estrictos que el
-  // default global.
+  // Fase 1 (PLAN_AJUSTES.md): acceso público sin nombre/correo. Cualquiera
+  // con el proyectoId (vía link/QR) entra directo — decisión de acceso
+  // abierto, sin whitelist. Throttle estricto: es un endpoint público sin
+  // credenciales previas.
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('participants/access')
+  accessParticipant(@Body() dto: ParticipantAccessDto) {
+    return this.authService.accessParticipant(dto.proyectoId);
+  }
+
+  // Flujo previo con whitelist/email + código de invitación. Se mantiene
+  // para el caso en que el docente sí quiera controlar quién participa
+  // (ej. invitaciones de Evaluación Heurística vía projects.addToWhitelist);
+  // ya no es el flujo por defecto de Card Sorting/onboarding público.
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('participants/register')
   registerParticipant(@Body() dto: RegisterParticipantDto) {

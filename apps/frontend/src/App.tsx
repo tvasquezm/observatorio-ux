@@ -2,6 +2,7 @@
 
 import { Routes, Route } from 'react-router-dom';
 import { LoginPage } from './features/auth/pages/LoginPage';
+import { OnboardingPage } from './features/onboarding/pages/OnboardingPage';
 import { ProtectedRoute } from './shared/routing/ProtectedRoute';
 import { PerspectiveRoute } from './shared/routing/PerspectiveRoute';
 import { AppLayout } from './layouts/AppLayout';
@@ -24,6 +25,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      {/* Público — participante sin cuenta (Fase 1, PLAN_AJUSTES.md) */}
+      <Route path="/participar/:proyectoId" element={<OnboardingPage />} />
 
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>

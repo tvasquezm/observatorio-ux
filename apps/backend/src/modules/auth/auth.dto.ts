@@ -28,6 +28,11 @@ export class ParticipantTokenDto {
   codigoInvitacion!: string;
 }
 
+export class ParticipantAccessDto {
+  @IsUUID()
+  proyectoId!: string;
+}
+
 export class RegisterParticipantDto {
   @IsUUID()
   proyectoId!: string;
@@ -58,7 +63,11 @@ export class RegisterParticipantConsentDto {
   @MinLength(1)
   version!: string;
 
+  // Opcional desde Fase 1: solo aplica al flujo previo con whitelist. Un
+  // participante de acceso abierto (accessParticipant) no tiene código
+  // que enviar.
+  @IsOptional()
   @IsString()
   @MinLength(16)
-  codigoInvitacion!: string;
+  codigoInvitacion?: string;
 }
