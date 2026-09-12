@@ -12,6 +12,7 @@ import {
 import { SalasService } from './salas.service';
 import {
   BulkCreateSalaEstudiantesDto,
+  ConfirmHardDeleteDto,
   CreateProyectoEnSalaDto,
   CreateSalaDto,
   CreateSalaEstudianteDto,
@@ -58,6 +59,34 @@ export class SalasController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.salasService.update(id, updateSalaDto, user);
+  }
+
+  @Delete(':id')
+  @Roles('DOCENTE', 'ADMIN')
+  softDelete(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.salasService.softDelete(id, user);
+  }
+
+  @Post(':id/restore')
+  @Roles('DOCENTE', 'ADMIN')
+  restore(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.salasService.restore(id, user);
+  }
+
+  @Delete(':id/hard')
+  @Roles('ADMIN')
+  hardDelete(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ConfirmHardDeleteDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.salasService.hardDelete(id, dto, user);
   }
 
   // ---------------------------------------------------------------

@@ -65,6 +65,10 @@ model Proyecto {
   salaId String?
   sala   Sala?   @relation(fields: [salaId], references: [id])
 
+  // Soft delete: se activa en cascada cuando su Sala se elimina (ver
+  // Sala.deletedAt). Los listados (findAll) lo excluyen por defecto.
+  deletedAt DateTime?
+
   @@map("proyectos")
 }
 
@@ -156,6 +160,10 @@ model Sala {
   updatedAt     DateTime   @updatedAt
   proyectos     Proyecto[]
   estudiantes   SalaEstudiante[]
+
+  // Soft delete con ventana de recuperación de 20 días (ver SalasService).
+  // Al eliminarse, cascada lógica a los Proyecto de la sala.
+  deletedAt DateTime?
 }
 
 // Registro liviano de estudiante inscrito en una sala. No es un Usuario

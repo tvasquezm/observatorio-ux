@@ -33,15 +33,17 @@ export class ProjectsService {
 
   findAll(user: AuthenticatedUser) {
     return this.prisma.proyecto.findMany({
-      where:
-        user.rol === 'ADMIN'
-          ? undefined
+      where: {
+        deletedAt: null,
+        ...(user.rol === 'ADMIN'
+          ? {}
           : {
               OR: [
                 { creadoPorId: user.id },
                 { miembros: { some: { usuarioId: user.id } } },
               ],
-            },
+            }),
+      },
       orderBy: { createdAt: 'desc' },
       include: { _count: { select: { sesiones: true, artefactos: true } } },
     });
@@ -55,7 +57,9 @@ export class ProjectsService {
       include: { _count: { select: { sesiones: true, artefactos: true } } },
     });
 
-    if (!project) throw new NotFoundException('El proyecto no existe.');
+    if (!project || project.deletedAt) {
+      throw new NotFoundException('El proyecto no existe.');
+    }
 
     return project;
   }

@@ -82,6 +82,12 @@ export class UpdateSalaEstudianteDto {
   nombre?: string;
 }
 
+export class ConfirmHardDeleteDto {
+  @IsString()
+  @IsNotEmpty()
+  confirm!: string;
+}
+
 export class CreateProyectoEnSalaDto {
   @IsString()
   @MinLength(2)

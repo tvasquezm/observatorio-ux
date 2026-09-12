@@ -10,12 +10,17 @@ import { PrismaService } from '../../core/database/prisma.service'; // o tu ruta
 import { AuthenticatedUser } from '../auth/types/authenticated-user.interface';
 import {
   BulkCreateSalaEstudiantesDto,
+  ConfirmHardDeleteDto,
   CreateProyectoEnSalaDto,
   CreateSalaDto,
   CreateSalaEstudianteDto,
   UpdateSalaDto,
   UpdateSalaEstudianteDto,
 } from './dto/sala.dto';
+
+// Ventana de recuperación tras un soft delete de Sala. Pasado este plazo,
+// solo queda el hard delete definitivo (ADMIN + confirmación).
+const DIAS_VENTANA_RECUPERACION = 20;
 
 @Injectable()
 export class SalasService {
@@ -27,11 +32,14 @@ export class SalasService {
     }
 
     return this.prisma.sala.findMany({
-      where: user.rol === 'ADMIN'
-        ? undefined
-        : user.rol === 'ESTUDIANTE'
-          ? { estudiantes: { some: { email: user.email!.trim().toLowerCase() } } }
-          : { profesorId: user.id },
+      where: {
+        deletedAt: null,
+        ...(user.rol === 'ADMIN'
+          ? {}
+          : user.rol === 'ESTUDIANTE'
+            ? { estudiantes: { some: { email: user.email!.trim().toLowerCase() } } }
+            : { profesorId: user.id }),
+      },
       orderBy: { createdAt: 'desc' },
       include: {
         profesor: {
@@ -98,14 +106,21 @@ export class SalasService {
   }
 
   /**
-   * Lanza NotFoundException si la sala no existe, ForbiddenException si
-   * el usuario no es el profesor dueño ni ADMIN. Devuelve la sala si tiene
-   * acceso (evita un segundo findUnique en el caller).
+   * Lanza NotFoundException si la sala no existe (o está soft-deleted,
+   * salvo allowDeleted), ForbiddenException si el usuario no es el
+   * profesor dueño ni ADMIN. Devuelve la sala si tiene acceso (evita un
+   * segundo findUnique en el caller).
    */
-  private async assertOwnerOrAdmin(salaId: string, user: AuthenticatedUser) {
+  private async assertOwnerOrAdmin(
+    salaId: string,
+    user: AuthenticatedUser,
+    options: { allowDeleted?: boolean } = {},
+  ) {
     const sala = await this.prisma.sala.findUnique({ where: { id: salaId } });
 
-    if (!sala) throw new NotFoundException('La sala no existe.');
+    if (!sala || (!options.allowDeleted && sala.deletedAt)) {
+      throw new NotFoundException('La sala no existe.');
+    }
     if (sala.profesorId !== user.id && user.rol !== 'ADMIN') {
       throw new ForbiddenException(
         'Solo el profesor dueño de la sala o un administrador pueden hacer esto.',
@@ -125,7 +140,7 @@ export class SalasService {
       },
     });
 
-    if (!sala) throw new NotFoundException('La sala no existe.');
+    if (!sala || sala.deletedAt) throw new NotFoundException('La sala no existe.');
     if (user.rol === 'ADMIN' || sala.profesorId === user.id) return sala;
 
     if (user.rol === 'ESTUDIANTE' && user.email) {
@@ -260,10 +275,123 @@ export class SalasService {
     await this.assertCanViewSala(salaId, user);
 
     return this.prisma.proyecto.findMany({
-      where: { salaId },
+      where: { salaId, deletedAt: null },
       orderBy: { createdAt: 'desc' },
       include: { _count: { select: { sesiones: true, artefactos: true } } },
     });
+  }
+
+  // ---------------------------------------------------------------
+  // Borrado de Sala: soft delete (20 días recuperable) + hard delete ADMIN
+  // ---------------------------------------------------------------
+
+  /**
+   * Soft delete de la Sala + cascada lógica a sus Proyecto (quedan
+   * ocultos, no se borran). Recuperable durante DIAS_VENTANA_RECUPERACION.
+   */
+  async softDelete(salaId: string, user: AuthenticatedUser) {
+    await this.assertOwnerOrAdmin(salaId, user);
+
+    const ahora = new Date();
+    await this.prisma.$transaction([
+      this.prisma.sala.update({
+        where: { id: salaId },
+        data: { deletedAt: ahora },
+      }),
+      this.prisma.proyecto.updateMany({
+        where: { salaId, deletedAt: null },
+        data: { deletedAt: ahora },
+      }),
+    ]);
+
+    return { eliminado: true, recuperableHasta: this.finVentana(ahora) };
+  }
+
+  /**
+   * Revierte un soft delete, siempre que esté dentro de la ventana de
+   * recuperación. Restaura también los Proyecto que quedaron ocultos por
+   * la cascada del soft delete original.
+   */
+  async restore(salaId: string, user: AuthenticatedUser) {
+    const sala = await this.assertOwnerOrAdmin(salaId, user, { allowDeleted: true });
+
+    if (!sala.deletedAt) {
+      throw new BadRequestException('Esta sala no está eliminada.');
+    }
+    if (new Date() > this.finVentana(sala.deletedAt)) {
+      throw new BadRequestException(
+        `La ventana de recuperación de ${DIAS_VENTANA_RECUPERACION} días ya venció. ` +
+          'Esta sala ya no se puede restaurar.',
+      );
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.sala.update({
+        where: { id: salaId },
+        data: { deletedAt: null },
+      }),
+      this.prisma.proyecto.updateMany({
+        where: { salaId, deletedAt: sala.deletedAt },
+        data: { deletedAt: null },
+      }),
+    ]);
+
+    return { restaurado: true };
+  }
+
+  /**
+   * Borrado físico definitivo, exclusivo ADMIN (ver Roles en el
+   * controller). Requiere confirmación exacta `"DELETE"`. Borra en
+   * cascada, en orden de dependencia real (la FK real es RESTRICT en
+   * casi toda la cadena, así que no hay cascada automática de Postgres).
+   */
+  async hardDelete(salaId: string, dto: ConfirmHardDeleteDto, user: AuthenticatedUser) {
+    if (dto.confirm !== 'DELETE') {
+      throw new BadRequestException('Debes escribir "DELETE" para confirmar el borrado definitivo.');
+    }
+
+    const sala = await this.assertOwnerOrAdmin(salaId, user, { allowDeleted: true });
+
+    const proyectos = await this.prisma.proyecto.findMany({
+      where: { salaId },
+      select: { id: true },
+    });
+    const proyectoIds = proyectos.map((p) => p.id);
+
+    await this.prisma.$transaction([
+      this.prisma.cardGrouping.deleteMany({
+        where: { participanteSesion: { proyectoId: { in: proyectoIds } } },
+      }),
+      this.prisma.card.deleteMany({
+        where: { session: { proyectoId: { in: proyectoIds } } },
+      }),
+      this.prisma.category.deleteMany({
+        where: { session: { proyectoId: { in: proyectoIds } } },
+      }),
+      this.prisma.researchSession.deleteMany({
+        where: { proyectoId: { in: proyectoIds } },
+      }),
+      this.prisma.uxArtifact.deleteMany({
+        where: { proyectoId: { in: proyectoIds } },
+      }),
+      this.prisma.participanteWhitelist.deleteMany({
+        where: { proyectoId: { in: proyectoIds } },
+      }),
+      this.prisma.proyectoMiembro.deleteMany({
+        where: { proyectoId: { in: proyectoIds } },
+      }),
+      this.prisma.proyecto.deleteMany({ where: { id: { in: proyectoIds } } }),
+      this.prisma.salaEstudiante.deleteMany({ where: { salaId } }),
+      this.prisma.sala.delete({ where: { id: salaId } }),
+    ]);
+
+    return { eliminadoDefinitivamente: true, proyectosEliminados: proyectoIds.length };
+  }
+
+  private finVentana(desde: Date): Date {
+    const fin = new Date(desde);
+    fin.setDate(fin.getDate() + DIAS_VENTANA_RECUPERACION);
+    return fin;
   }
 
   async createProyectoEnSala(
