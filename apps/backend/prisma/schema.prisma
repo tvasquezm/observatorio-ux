@@ -99,6 +99,8 @@ model Usuario {
   whitelistCreada   ParticipanteWhitelist[]
   proyectosMiembro  ProyectoMiembro[]
   comentariosAutor  Comentario[]      @relation("ComentariosComoAutor")
+  equiposCreados    Equipo[]          @relation("EquiposCreados")
+  equiposMiembro    EquipoMiembro[]   @relation("EquiposComoMiembro")
   salas Sala[]
   @@map("usuarios")
 
@@ -162,6 +164,13 @@ model Sala {
   updatedAt     DateTime   @updatedAt
   proyectos     Proyecto[]
   estudiantes   SalaEstudiante[]
+  equipos       Equipo[]
+
+  // Fase 4: toggle de creación de equipos por ESTUDIANTE (DOCENTE dueño
+  // siempre puede crear equipos, use o no este toggle). limiteIntegrantesEquipo
+  // nulo = sin límite; solo lo configura el DOCENTE dueño o ADMIN.
+  permiteCreacionEquipos  Boolean @default(false)
+  limiteIntegrantesEquipo Int?
 
   // Soft delete con ventana de recuperación de 20 días (ver SalasService).
   // Al eliminarse, cascada lógica a los Proyecto de la sala.
@@ -182,6 +191,35 @@ model SalaEstudiante {
 
   @@unique([salaId, email])
   @@map("sala_estudiantes")
+}
+
+// Fase 4: equipo de estudiantes dentro de una Sala. Hard delete real (no es
+// evidencia de investigación como UxArtifact, no necesita ventana de
+// recuperación).
+model Equipo {
+  id         String @id @default(uuid())
+  sala       Sala   @relation(fields: [salaId], references: [id])
+  salaId     String
+  nombre     String
+  creadoPor   Usuario @relation("EquiposCreados", fields: [creadoPorId], references: [id])
+  creadoPorId String
+  createdAt  DateTime @default(now())
+
+  miembros EquipoMiembro[]
+
+  @@map("equipos")
+}
+
+model EquipoMiembro {
+  id        String   @id @default(uuid())
+  equipo    Equipo   @relation(fields: [equipoId], references: [id])
+  equipoId  String
+  usuario   Usuario  @relation("EquiposComoMiembro", fields: [usuarioId], references: [id])
+  usuarioId String
+  createdAt DateTime @default(now())
+
+  @@unique([equipoId, usuarioId])
+  @@map("equipo_miembros")
 }
 // ------------------------------------------------------------
 // GRUPO A — ResearchSession (transaccional)

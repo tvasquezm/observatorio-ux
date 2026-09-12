@@ -83,9 +83,9 @@ No existe (falta 100%):
 
 Modelo `Comentario`: `proyectoId` obligatorio, `artefactoLogicoId` opcional (referencia al artefacto lógico, no a una versión puntual). Permisos vía `ProjectAccessService` (crear/listar) + chequeo propio de autoría (editar/eliminar). Alcance solo `Usuario`, sin frontend. Detalle completo en `docs/ARCHITECTURE.md §Fase 3` y `docs/BACKEND.md §Comentarios` (el resumen de mejoras original no estaba disponible; alcance definido por Claude y aprobado por el usuario).
 
-## FASE 4 — Equipos (pendiente, no iniciada)
+## FASE 4 — Equipos (backend hecho, sin verificar en sandbox)
 
-Entidad `Equipo`/`EquipoMiembro` + `Sala.permiteCreacionEquipos` (toggle DOCENTE) + límite de integrantes configurable solo por DOCENTE. Pueden crear equipo: DOCENTE y ESTUDIANTE (si el toggle lo permite).
+Entidades `Equipo`/`EquipoMiembro` + `Sala.permiteCreacionEquipos` (toggle) + `Sala.limiteIntegrantesEquipo` (límite), ambos editables solo por DOCENTE dueño/ADMIN vía el `PATCH /salas/:id` existente. Crear equipo: DOCENTE dueño/ADMIN siempre, ESTUDIANTE solo con el toggle activo y estando inscrito en la sala. Gestión (editar/eliminar/miembros): creador del equipo, DOCENTE dueño, o ADMIN. Salir del equipo no requiere ser gestor. Hard delete real (no soft delete). Sin frontend. Detalle completo en `docs/ARCHITECTURE.md §Fase 4` y `docs/BACKEND.md §Equipos (Fase 4)`.
 
 ## FASE 5 — Permisos de Proyecto (pendiente, no iniciada)
 

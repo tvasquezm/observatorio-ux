@@ -461,5 +461,49 @@ Verificar con `pnpm --filter backend prisma generate` y
 `pnpm --filter backend build` en un entorno con esa red disponible antes de
 mergear.
 
+**Actualización:** verificado por el usuario en su máquina — `prisma
+generate`, `nest build`, `prisma migrate deploy` (contra Postgres real) y
+`pnpm --filter backend test comments` (14/14) pasaron sin errores.
+
+## Fase 4 (Plan de ajustes) — Módulo Equipos (backend)
+
+Entidades nuevas `Equipo`/`EquipoMiembro` + dos campos nuevos en `Sala`
+(`permiteCreacionEquipos`, `limiteIntegrantesEquipo`). Alcance definido
+por Claude a partir del titular de la Fase 4 en `docs/PLAN_AJUSTES.md`
+(mismo criterio que en Fase 3 — sin resumen previo disponible):
+
+- Un `Equipo` vive dentro de una `Sala` (`salaId` obligatorio), no de un
+  `Proyecto` — el plan original no vincula equipos a proyectos, así que no
+  se agregó esa relación.
+- `permiteCreacionEquipos` (toggle) y `limiteIntegrantesEquipo` (límite)
+  se editan reutilizando el `PATCH /salas/:id` ya existente, no un
+  endpoint nuevo — evita duplicar el mecanismo de autorización
+  (`assertOwnerOrAdmin`) que `SalasService.update` ya tenía.
+- Regla de creación: DOCENTE dueño/ADMIN siempre; ESTUDIANTE solo con el
+  toggle activo y estando inscrito en la sala (reutiliza el chequeo por
+  email de `SalasService.findAll`, no se duplicó como campo nuevo).
+- Gestión (editar/eliminar/miembros) restringida al creador del equipo,
+  DOCENTE dueño, o ADMIN — regla propia del módulo, no delegada a un
+  servicio compartido tipo `ProjectAccessService` porque la noción de
+  "acceso" acá es distinta (equipo, no proyecto).
+- Salir del equipo (quitarse a uno mismo) no requiere ser gestor —
+  distinto de "quitar a otro miembro", que sí lo requiere.
+- Eliminar equipo es **hard delete** real, a diferencia del resto de
+  entidades del sistema (que usan soft delete) — un equipo es una
+  agrupación operativa, no evidencia de investigación.
+- Nuevo módulo `modules/equipos` (`EquiposModule`/`Service`/`Controller`/
+  `Dto`), anidado como `salas/:salaId/equipos`, registrado en `AppModule`.
+- Sin frontend en esta fase, mismo criterio que Fase 3.
+
+Detalle de endpoints y permisos en `docs/BACKEND.md §Equipos (Fase 4)`.
+Tests unitarios en `equipos.service.spec.ts` (creación por rol/toggle,
+límite de integrantes, gestión vs. autogestión, hard delete).
+
+**No verificado en el sandbox:** mismo bloqueo de red que la Fase 3
+(`binaries.prisma.sh`); revisado manualmente contra los patrones
+existentes. Verificar con `pnpm --filter backend prisma generate` +
+`pnpm --filter backend build` + `pnpm --filter backend test equipos` en un
+entorno con esa red disponible.
+
 
 

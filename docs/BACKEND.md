@@ -157,6 +157,43 @@ Requiere que el artefacto no esté bloqueado por otro usuario. `findAll`
 excluye por defecto los artefactos con `deletedAt` seteado — no hay
 parámetro para incluirlos vía esta ruta.
 
+## Equipos (Fase 4)
+
+```text
+POST   /api/salas/:salaId/equipos
+GET    /api/salas/:salaId/equipos
+GET    /api/salas/:salaId/equipos/:equipoId
+PATCH  /api/salas/:salaId/equipos/:equipoId
+DELETE /api/salas/:salaId/equipos/:equipoId
+POST   /api/salas/:salaId/equipos/:equipoId/miembros
+DELETE /api/salas/:salaId/equipos/:equipoId/miembros/:usuarioId
+```
+
+`Sala` suma dos campos configurables solo por el DOCENTE dueño o `ADMIN`
+(vía el `PATCH /api/salas/:id` existente): `permiteCreacionEquipos`
+(boolean, toggle) y `limiteIntegrantesEquipo` (entero opcional, `null` =
+sin límite).
+
+**Permisos:**
+- **Crear equipo:** el DOCENTE dueño de la sala y `ADMIN` siempre pueden.
+  Un `ESTUDIANTE` solo puede si `sala.permiteCreacionEquipos === true` y
+  está inscrito en la sala (mismo chequeo por email que usa
+  `SalasService.findAll` contra `SalaEstudiante`). Si el creador es
+  `ESTUDIANTE`, queda agregado automáticamente como primer miembro.
+- **Leer (listar/ver):** dueño de la sala, `ADMIN`, o cualquier estudiante
+  inscrito en la sala (sin depender del toggle — leer no es crear).
+- **Editar / eliminar / gestionar miembros:** el creador del equipo, el
+  DOCENTE dueño de la sala, o `ADMIN`.
+- **Salir del equipo:** cualquier miembro puede quitarse a sí mismo
+  (`DELETE .../miembros/:usuarioId` con su propio id), sin necesidad de ser
+  gestor.
+
+`limiteIntegrantesEquipo` se valida al agregar un miembro nuevo (rechaza
+con `409` si el equipo ya está lleno). Eliminar un equipo es **hard
+delete** real (borra `EquipoMiembro` y luego el `Equipo`) — a diferencia
+de `UxArtifact`/`Sala`/`Proyecto`, un equipo no es evidencia de
+investigación y no necesita ventana de recuperación.
+
 Los valores admitidos para `tipo` son `PERSONA`, `JOURNEY_MAP` y
 `MOMENTOS_CRITICOS`. El campo `contenido` es JSON y permite que cada técnica
 conserve su estructura específica. Las nuevas versiones se almacenan como

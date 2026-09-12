@@ -16,6 +16,7 @@ import { SessionsModule } from './modules/sessions/sessions.module';
 import { HealthController } from './health.controller';
 import { SalasModule } from './modules/salas/salas.module';
 import { CommentsModule } from './modules/comments/comments.module';
+import { EquiposModule } from './modules/equipos/equipos.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { CommentsModule } from './modules/comments/comments.module';
     SessionsModule,
     SalasModule,
     CommentsModule,
+    EquiposModule,
   ],
   providers: [
     RolesGuard,

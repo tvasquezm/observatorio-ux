@@ -1,11 +1,14 @@
 import {
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsEmail,
   IsISO8601,
+  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
+  Min,
   MinLength,
   ValidateNested,
 } from 'class-validator';
@@ -53,6 +56,16 @@ export class UpdateSalaDto {
   @IsOptional()
   @IsISO8601()
   fechaFin?: string;
+
+  // Fase 4 — Equipos.
+  @IsOptional()
+  @IsBoolean()
+  permiteCreacionEquipos?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  limiteIntegrantesEquipo?: number;
 }
 
 export class CreateSalaEstudianteDto {

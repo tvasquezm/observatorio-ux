@@ -101,6 +101,12 @@ export class SalasService {
           : {}),
         ...(dto.fechaInicio !== undefined ? { fechaInicio } : {}),
         ...(dto.fechaFin !== undefined ? { fechaFin } : {}),
+        ...(dto.permiteCreacionEquipos !== undefined
+          ? { permiteCreacionEquipos: dto.permiteCreacionEquipos }
+          : {}),
+        ...(dto.limiteIntegrantesEquipo !== undefined
+          ? { limiteIntegrantesEquipo: dto.limiteIntegrantesEquipo }
+          : {}),
       },
     });
   }
