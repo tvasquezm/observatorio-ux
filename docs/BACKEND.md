@@ -258,6 +258,19 @@ estudiante no está inscrito (por email, `SalaEstudiante`) en ninguna sala
 no vencida (`fechaFin >= ahora`). Una sala sin `fechaFin` se considera
 siempre activa. Se revalida en cada login, no solo la primera vez.
 
+**Frontend:** el login condicionado no requirió cambios — `LoginPage` ya
+mostraba `error.message` inline y `useLogin` ya disparaba `notify.error`,
+así que el mensaje del backend se ve tal cual. Sí hacía falta en
+`ProjectsPage`: el form de creación no tenía forma de mandar `salaId`, así
+que un ESTUDIANTE nunca podía crear proyecto (el 403 del backend era
+correcto pero no había manera de evitarlo). Ahora, si el rol activo es
+ESTUDIANTE, el form muestra un `<select>` con sus salas que tengan
+`permiteCreacionProyectos === true` (via nuevo `useSalas()` en
+`useSalasQueries.ts`); si no tiene ninguna, muestra el aviso y deshabilita
+el submit. También se agregó `onError` a `useUpdateProject` (no lo tenía)
+para que un DOCENTE que intenta editar un proyecto creado por un
+ESTUDIANTE vea el motivo del 403 en vez de que falle en silencio.
+
 ## Comentarios
 
 ```text

@@ -4,13 +4,22 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useCreateProject, useProjects, useUpdateProject } from '../features/projects/hooks/useProjectsQueries';
 import type { Proyecto } from '../features/projects/api/projects.api';
+import { useSalas } from '../features/salas/hooks/useSalasQueries';
+import { useActivePerspective } from '../shared/auth/useActivePerspective';
 
 export function ProjectsPage() {
   const { data: proyectos, isLoading } = useProjects();
   const { mutate: crear, isPending } = useCreateProject();
   const { mutate: actualizar, isPending: isUpdating } = useUpdateProject();
+  const activeRole = useActivePerspective();
+  const esEstudiante = activeRole === 'ESTUDIANTE';
+  const { data: salas } = useSalas();
+  // Fase 5: un ESTUDIANTE solo puede crear un proyecto dentro de una sala
+  // que lo permita (Sala.permiteCreacionProyectos) — el backend lo exige.
+  const salasElegibles = (salas ?? []).filter((s) => s.permiteCreacionProyectos);
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
+  const [salaId, setSalaId] = useState('');
   const [mostrandoCreacion, setMostrandoCreacion] = useState(false);
   const [busqueda, setBusqueda] = useState('');
   const [editando, setEditando] = useState<string | null>(null);
@@ -19,12 +28,18 @@ export function ProjectsPage() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!nombre.trim()) return;
+    if (esEstudiante && !salaId) return;
     crear(
-      { nombre: nombre.trim(), descripcion: descripcion.trim() || undefined },
+      {
+        nombre: nombre.trim(),
+        descripcion: descripcion.trim() || undefined,
+        ...(esEstudiante ? { salaId } : {}),
+      },
       {
         onSuccess: () => {
           setNombre('');
           setDescripcion('');
+          setSalaId('');
           setMostrandoCreacion(false);
         },
       },
@@ -34,6 +49,7 @@ export function ProjectsPage() {
   function cancelarCreacion() {
     setNombre('');
     setDescripcion('');
+    setSalaId('');
     setMostrandoCreacion(false);
   }
 
@@ -90,9 +106,35 @@ export function ProjectsPage() {
               onChange={(e) => setDescripcion(e.target.value)}
               className="text-input"
             />
+            {esEstudiante && salasElegibles.length > 0 && (
+              <>
+                <label className="sr-only" htmlFor="nuevo-proyecto-sala">Sala</label>
+                <select
+                  id="nuevo-proyecto-sala"
+                  value={salaId}
+                  onChange={(e) => setSalaId(e.target.value)}
+                  required
+                  className="text-input"
+                >
+                  <option value="">Selecciona una sala…</option>
+                  {salasElegibles.map((s) => (
+                    <option key={s.id} value={s.id}>{s.nombre}</option>
+                  ))}
+                </select>
+              </>
+            )}
+            {esEstudiante && salasElegibles.length === 0 && (
+              <p className="hint-block">
+                Ninguna de tus salas permite todavía que los estudiantes creen proyectos.
+              </p>
+            )}
             <div className="form-actions project-create-actions">
               <button type="button" className="secondary" onClick={cancelarCreacion}>Cancelar</button>
-              <button type="submit" className="primary" disabled={isPending}>
+              <button
+                type="submit"
+                className="primary"
+                disabled={isPending || (esEstudiante && salasElegibles.length === 0)}
+              >
                 {isPending ? 'Creando…' : 'Crear'}
               </button>
             </div>

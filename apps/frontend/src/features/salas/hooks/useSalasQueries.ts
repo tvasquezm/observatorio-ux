@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  getSalas,
   listEstudiantes,
   addEstudiante,
   addEstudiantesBulk,
@@ -21,6 +22,7 @@ import {
 import { notify } from '../../../shared/api/toast';
 
 export const salasKeys = {
+  all: ['salas'] as const,
   detail: (salaId: string) => ['salas', salaId] as const,
   estudiantes: (salaId: string) => ['salas', salaId, 'estudiantes'] as const,
   proyectos: (salaId: string) => ['salas', salaId, 'proyectos'] as const,
@@ -28,6 +30,10 @@ export const salasKeys = {
 
 function mensajeError(err: unknown, fallback: string) {
   return err instanceof SalasApiError ? err.message : fallback;
+}
+
+export function useSalas() {
+  return useQuery({ queryKey: salasKeys.all, queryFn: getSalas });
 }
 
 export function useSala(salaId: string | null) {

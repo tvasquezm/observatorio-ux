@@ -40,8 +40,8 @@ export function useProject(id: string | null) {
 export function useCreateProject() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ nombre, descripcion }: { nombre: string; descripcion?: string }) =>
-      createProject(nombre, descripcion),
+    mutationFn: ({ nombre, descripcion, salaId }: { nombre: string; descripcion?: string; salaId?: string }) =>
+      createProject(nombre, descripcion, salaId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: projectsKeys.all });
       notify.success('Proyecto creado.');
@@ -60,6 +60,9 @@ export function useUpdateProject() {
     onSuccess: (p) => {
       qc.setQueryData(projectsKeys.detail(p.id), p);
       qc.invalidateQueries({ queryKey: projectsKeys.all });
+    },
+    onError: (err) => {
+      notify.error(err instanceof ProjectsApiError ? err.message : 'No se pudo editar el proyecto.');
     },
   });
 }

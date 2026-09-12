@@ -73,10 +73,14 @@ export function getProject(id: string): Promise<Proyecto> {
   return request<Proyecto>(`/projects/${id}`);
 }
 
-export function createProject(nombre: string, descripcion?: string): Promise<Proyecto> {
+export function createProject(
+  nombre: string,
+  descripcion?: string,
+  salaId?: string,
+): Promise<Proyecto> {
   return request<Proyecto>('/projects', {
     method: 'POST',
-    body: JSON.stringify({ nombre, descripcion }),
+    body: JSON.stringify({ nombre, descripcion, ...(salaId ? { salaId } : {}) }),
   });
 }
 

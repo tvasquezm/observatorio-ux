@@ -562,3 +562,11 @@ Detalle de endpoints y permisos en
 patrones existentes (Equipos/Fase 4). Verificar con
 `pnpm --filter backend prisma generate` + `pnpm --filter backend build`
 + tests de `projects` y `auth` en un entorno con esa red disponible.
+
+**Actualización (frontend):** agregado en sesión posterior, junto con el
+resto (Fases 3 y 4). No hizo falta tocar el login (ver
+`docs/BACKEND.md §Proyectos — permisos de creación/edición (Fase 5)`).
+Cambios: `ProjectsPage` suma selector de sala para ESTUDIANTE al crear
+(`useSalas()` nuevo en `features/salas/hooks/`), y `useUpdateProject`
+suma `onError` (faltaba) para que se vea el 403 cuando un DOCENTE intenta
+editar un proyecto de un ESTUDIANTE.

@@ -24,6 +24,8 @@ export interface Sala {
   // nulo = sin límite.
   permiteCreacionEquipos: boolean;
   limiteIntegrantesEquipo: number | null;
+  // Fase 5 — toggle de creación de proyectos por ESTUDIANTE.
+  permiteCreacionProyectos: boolean;
 }
 
 export interface CreateSalaDto {
