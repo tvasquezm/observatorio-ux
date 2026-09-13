@@ -61,6 +61,32 @@ export class CardSortingService {
     return estudio;
   }
 
+  // Todos los estudios maestros de Card Sorting del proyecto (no solo el
+  // más reciente) — permite al EVALUADOR tener varios estudios en
+  // paralelo para el mismo proyecto y ver los resultados de cada uno.
+  async findAllByProyecto(proyectoId: string, user: AuthenticatedUser) {
+    await this.projectAccess.assertAccess(
+      proyectoId,
+      user,
+      'No tienes acceso a los estudios de este proyecto.',
+    );
+
+    return this.prisma.researchSession.findMany({
+      where: {
+        proyectoId,
+        tipo: TipoSesion.CARD_SORTING,
+        actor: ActorSesion.EVALUADOR,
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        cardsDefinidas: true,
+        categoriasDefinidas: true,
+        agrupaciones: { include: { card: true, category: true } },
+        estudio: { include: { cardsDefinidas: true, categoriasDefinidas: true } },
+      },
+    });
+  }
+
   async createSession(dto: CreateCardSortingSessionDto, user: AuthenticatedUser) {
     await this.projectAccess.assertAccess(
       dto.proyectoId,

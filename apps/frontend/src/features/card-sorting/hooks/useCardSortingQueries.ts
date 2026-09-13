@@ -10,6 +10,7 @@ import {
   getCardSortingAnalytics,
   getCardSortingSession,
   getCardSortingSessionByProyecto,
+  getCardSortingEstudiosByProyecto,
   cerrarCardSortingEstudio,
   joinCardSortingSession,
   submitCardSortingResult,
@@ -24,6 +25,7 @@ export const cardSortingKeys = {
   all: ['card-sorting'] as const,
   session: (id: string) => ['card-sorting', 'session', id] as const,
   byProyecto: (proyectoId: string) => ['card-sorting', 'proyecto', proyectoId] as const,
+  todosByProyecto: (proyectoId: string) => ['card-sorting', 'proyecto', proyectoId, 'todos'] as const,
   analytics: (id: string) => ['card-sorting', 'analytics', id] as const,
 };
 
@@ -35,6 +37,19 @@ export function useCardSortingSessionByProyecto(proyectoId: string | null) {
   return useQuery({
     queryKey: cardSortingKeys.byProyecto(proyectoId ?? ''),
     queryFn: () => getCardSortingSessionByProyecto(proyectoId as string),
+    enabled: !!proyectoId,
+  });
+}
+
+/**
+ * Todos los estudios maestros ya creados para el proyecto actual (no
+ * solo el más reciente). El proyecto puede tener varios estudios de
+ * Card Sorting en paralelo.
+ */
+export function useCardSortingEstudiosByProyecto(proyectoId: string | null) {
+  return useQuery({
+    queryKey: cardSortingKeys.todosByProyecto(proyectoId ?? ''),
+    queryFn: () => getCardSortingEstudiosByProyecto(proyectoId as string),
     enabled: !!proyectoId,
   });
 }
@@ -81,6 +96,11 @@ export function useCreateCardSortingSession() {
       // posterior no tenga que volver a pegarle a la red.
       queryClient.setQueryData(cardSortingKeys.session(session.id), session);
       queryClient.setQueryData(cardSortingKeys.byProyecto(session.proyectoId), session);
+      // El proyecto puede tener varios estudios en paralelo — invalida la
+      // lista completa para que el nuevo estudio aparezca en el selector.
+      queryClient.invalidateQueries({
+        queryKey: cardSortingKeys.todosByProyecto(session.proyectoId),
+      });
     },
   });
 }
@@ -97,6 +117,9 @@ export function useCerrarCardSortingEstudio() {
     onSuccess: (session) => {
       queryClient.setQueryData(cardSortingKeys.session(session.id), session);
       queryClient.setQueryData(cardSortingKeys.byProyecto(session.proyectoId), session);
+      queryClient.invalidateQueries({
+        queryKey: cardSortingKeys.todosByProyecto(session.proyectoId),
+      });
     },
   });
 }

@@ -41,6 +41,7 @@ export interface CreateSalaDto {
 export type UpdateSalaDto = Partial<CreateSalaDto> & {
   permiteCreacionEquipos?: boolean;
   limiteIntegrantesEquipo?: number;
+  permiteCreacionProyectos?: boolean;
 };
 
 export class SalasApiError extends Error {

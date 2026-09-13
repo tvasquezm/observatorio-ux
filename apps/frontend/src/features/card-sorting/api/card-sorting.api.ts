@@ -171,6 +171,20 @@ export function getCardSortingSessionByProyecto(
 }
 
 /**
+ * Todos los estudios maestros ya creados para un proyecto (no solo el
+ * más reciente) — permite al evaluador tener varios estudios de Card
+ * Sorting en paralelo para el mismo proyecto.
+ */
+export function getCardSortingEstudiosByProyecto(
+  proyectoId: string,
+): Promise<CardSortingSession[]> {
+  return request<CardSortingSession[]>(
+    `/card-sorting/sessions/proyecto/${proyectoId}/todos`,
+    { method: 'GET' },
+  );
+}
+
+/**
  * Evaluador cierra (o reabre) el estudio maestro: bloquea nuevos
  * join/submit de participantes sin borrar nada.
  */

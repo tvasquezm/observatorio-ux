@@ -53,6 +53,19 @@ export class CardSortingController {
   // Lo consulta tanto el EVALUADOR (cookie evaluadorToken) como el
   // PARTICIPANTE (Bearer participanteToken) — dos estrategias distintas,
   // la primera que valide gana (ver jwt.strategy.ts / jwt-participante.strategy.ts).
+  // Todos los estudios maestros del proyecto (no solo el más reciente).
+  // Se declara antes de ':id' para no competir con esa ruta de un solo
+  // segmento (acá son 3 segmentos: proyecto/:proyectoId/todos).
+  @Get('proyecto/:proyectoId/todos')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ESTUDIANTE', 'DOCENTE', 'ADMIN')
+  findAllByProyecto(
+    @Param('proyectoId', ParseUUIDPipe) proyectoId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.cardSortingService.findAllByProyecto(proyectoId, user);
+  }
+
   @Get(':id')
   @UseGuards(AuthGuard(['jwt', 'jwt-participante']), RolesGuard)
   @Roles('ESTUDIANTE', 'DOCENTE', 'ADMIN', 'PARTICIPANTE')

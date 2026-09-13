@@ -12,12 +12,14 @@ const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', icon: '◆', end: true },
   { to: '/proyectos', label: 'Proyectos', icon: '✣', end: false },
   { to: '/salas', label: 'Salas', icon: '▣', end: false },
+  { to: '/admin/profesores', label: 'Profesores', icon: '⚑', end: false },
 ];
 
 const CRUMB_LABELS: Record<string, string> = {
   '/': 'Dashboard',
   '/proyectos': 'Proyectos',
   '/salas': 'Salas',
+  '/admin/profesores': 'Profesores',
 };
 
 export function AppLayout() {
@@ -30,7 +32,11 @@ export function AppLayout() {
   });
   const crumb = CRUMB_LABELS[location.pathname] ?? 'Proyecto';
   const activeRole = user ? resolvePerspective(user.rol, perspectiveRole) : null;
-  const visibleNavItems = NAV_ITEMS.filter((item) => item.to !== '/salas' || (activeRole && canViewSalas(activeRole)));
+  const visibleNavItems = NAV_ITEMS.filter((item) => {
+    if (item.to === '/salas') return !!activeRole && canViewSalas(activeRole);
+    if (item.to === '/admin/profesores') return activeRole === 'ADMIN';
+    return true;
+  });
 
   useEffect(() => {
     document.documentElement.dataset.theme = darkMode ? 'dark' : 'light';

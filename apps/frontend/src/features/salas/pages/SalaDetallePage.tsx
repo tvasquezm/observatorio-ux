@@ -133,7 +133,7 @@ export function SalaDetallePage() {
                 </button>
               </div>
 
-              {tab === 'proyectos' && <ProyectosDeSala salaId={salaId} />}
+              {tab === 'proyectos' && <ProyectosDeSala salaId={salaId} sala={sala} />}
               {tab === 'estudiantes' && <EstudiantesDeSala salaId={salaId} />}
               {tab === 'equipos' && <EquiposDeSalaDocente salaId={salaId} sala={sala} />}
             </section>
@@ -202,14 +202,23 @@ function ProyectosDeSalaLectura({ salaId }: { salaId: string }) {
 // Tab Proyectos
 // ---------------------------------------------------------------
 
-function ProyectosDeSala({ salaId }: { salaId: string }) {
+function ProyectosDeSala({ salaId, sala }: { salaId: string; sala: Sala }) {
   const confirm = useConfirm();
   const { data: proyectosSala, isLoading, isError, error, refetch } = useProyectosDeSala(salaId);
   const { data: todosLosProyectos } = useProjects();
   const { mutate: vincular, isPending: vinculando } = useVincularProyecto(salaId);
   const { mutate: desvincular } = useDesvincularProyecto(salaId);
+  const { mutate: actualizarSala, isPending: guardandoToggle } = useUpdateSala(salaId);
 
   const [proyectoAVincular, setProyectoAVincular] = useState('');
+  const [permiteCreacionProyectos, setPermiteCreacionProyectos] = useState(
+    sala.permiteCreacionProyectos,
+  );
+
+  function handleGuardarToggleProyectos(e: React.FormEvent) {
+    e.preventDefault();
+    actualizarSala({ permiteCreacionProyectos });
+  }
 
   // Solo se pueden vincular proyectos que todavía no están en ninguna sala.
   const disponiblesParaVincular = (todosLosProyectos ?? []).filter(
@@ -230,6 +239,20 @@ function ProyectosDeSala({ salaId }: { salaId: string }) {
 
   return (
     <div>
+      <form onSubmit={handleGuardarToggleProyectos} className="form-row-inline" style={{ marginBottom: 16 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <input
+            type="checkbox"
+            checked={permiteCreacionProyectos}
+            onChange={(e) => setPermiteCreacionProyectos(e.target.checked)}
+          />
+          Permitir que los estudiantes creen proyectos en esta sala
+        </label>
+        <button type="submit" className="primary" disabled={guardandoToggle}>
+          {guardandoToggle ? 'Guardando…' : 'Guardar configuración'}
+        </button>
+      </form>
+
       <div className="sala-project-linker">
         <div>
           <h3>Agregar un proyecto a la sala</h3>
