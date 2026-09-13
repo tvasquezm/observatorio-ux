@@ -216,6 +216,12 @@ export function CardSortingPage() {
                 </div>
                 <span className="count">{sesion.cardsDefinidas.length} tarjetas</span>
               </div>
+              <p className="hint-text">
+                Esta vista es solo ilustrativa (las tarjetas no se pueden arrastrar acá). Para
+                probar el estudio de verdad —incluido el arrastrar y soltar y el envío de
+                resultados— abrí el link de la sección "Compartir" en otra pestaña; funciona sin
+                cerrar tu sesión de evaluador.
+              </p>
               <div className="sort-workspace">
                 <div className="deck">
                   <div className="zone-head"><b>Mazo inicial</b><span>{sesion.cardsDefinidas.length}</span></div>
