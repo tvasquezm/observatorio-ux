@@ -11,6 +11,7 @@ import { CardSortingService } from '../card-sorting.service';
 import { PrismaService } from '../../../../core/database/prisma.service';
 import { ProjectAccessService } from '../../../../core/access/project-access.service';
 import { AuthenticatedUser } from '../../../auth/types/authenticated-user.interface';
+import { ParticipanteJwtService } from '../../../auth/participante-jwt.service';
 
 describe('CardSortingService.submitResult', () => {
   let service: CardSortingService;
@@ -71,6 +72,7 @@ describe('CardSortingService.submitResult', () => {
         CardSortingService,
         { provide: PrismaService, useValue: prisma },
         { provide: ProjectAccessService, useValue: { assertAccess: jest.fn() } },
+        { provide: ParticipanteJwtService, useValue: { sign: jest.fn() } },
       ],
     }).compile();
 

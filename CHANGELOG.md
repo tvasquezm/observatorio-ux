@@ -1,8 +1,30 @@
+## Card Sorting — ciclo de vida y trazabilidad (12/09/2026)
+- Las técnicas Card Sorting ahora tienen nombre configurable y listado por proyecto.
+- Se incorporó estado abierto/cerrado y fecha de cierre.
+- El estudiante propietario puede cerrar la técnica; el cierre impide nuevas respuestas sin eliminar las ya recibidas.
+- La analítica conserva y agrega todas las respuestas completadas, mostrando el total recibido.
+- El enlace externo muestra un aviso cuando la técnica está cerrada y ya no permite participar.
+
 # Changelog
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
 ## Unreleased
+
+### Features
+
+* **e2e:** incorpora Playwright para validar login, proyecto, las cinco
+  técnicas UX, restricciones por rol y responsive en escritorio/móvil.
+* **responsive:** reorganiza navegación, formularios y acciones para pantallas
+  táctiles, con targets mínimos de 44 px y soporte de safe areas.
+
+### Fixes
+
+* **artifacts:** libera locks de edición al cancelar, cambiar de artefacto o
+  abandonar la ruta, incluso si la adquisición termina de forma tardía.
+* **shared-types:** centraliza contratos de autenticación y Card Sorting; el
+  formulario de Card Sorting ahora envía tarjetas/categorías con el shape que
+  valida el backend.
 
 ### BREAKING CHANGE
 

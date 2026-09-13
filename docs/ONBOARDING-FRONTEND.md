@@ -164,11 +164,13 @@ con el mockup sin reinventar estilos sueltos por página.
 
 1. ~~Falta la vista de edición en Personas/Journey Map/Momentos Críticos.~~
    **Resuelto (Sprint 4):** las 3 páginas ya llaman `lock`/`update`/`unlock`
-   end-to-end, con manejo de `409` (solo lectura + toast). Sigue pendiente:
-   liberar el lock también al desmontar el componente sin guardar/cancelar
-   explícitamente (hoy depende del TTL de 5 min como red de seguridad).
-2. **No hay authStore de evaluador.** `getAuthToken()` en `artifacts.api.ts`
-   es un placeholder sobre `localStorage` directo.
+   end-to-end, con manejo de `409` (solo lectura + toast).
+   **Resuelto (Sprint 4):** `useArtifactEditLock` libera el lock al cancelar,
+   cambiar de artefacto o desmontar la ruta, incluida la carrera donde el
+   `POST /lock` responde después de abandonar la pantalla. El TTL de 5 min
+   queda únicamente como red de seguridad ante una pérdida de conexión.
+2. ~~No hay authStore de evaluador.~~ **Resuelto (Sprint 4):** existe
+   `useAuthStore`; la sesión se valida con `GET /auth/me` y cookie `httpOnly`.
 3. **`EvaluacionHeuristicaController` sigue en español**, sin alias en
    inglés — pendiente de decisión de equipo, no tocar sin avisar.
 4. Deuda técnica específica de Evaluación Heurística (backend) en

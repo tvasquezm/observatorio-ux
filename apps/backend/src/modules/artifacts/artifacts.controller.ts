@@ -31,7 +31,7 @@ export class ArtifactsController {
   constructor(private readonly artifactsService: ArtifactsService) {}
 
   @Post()
-  @Roles('ESTUDIANTE', 'ADMIN')
+  @Roles('ESTUDIANTE', 'DOCENTE', 'ADMIN')
   create(
     @Param('proyectoId', ParseUUIDPipe) proyectoId: string,
     @Body() dto: CreateArtifactDto,
@@ -60,7 +60,7 @@ export class ArtifactsController {
   }
 
   @Post(':artefactoId/versions')
-  @Roles('ESTUDIANTE', 'ADMIN')
+  @Roles('ESTUDIANTE', 'DOCENTE', 'ADMIN')
   createVersion(
     @Param('artefactoId', ParseUUIDPipe) artefactoId: string,
     @Body() dto: CreateArtifactVersionDto,
@@ -74,7 +74,7 @@ export class ArtifactsController {
     summary:
       'Adquiere (o renueva) el bloqueo pesimista sobre la última versión del artefacto.',
   })
-  @Roles('ESTUDIANTE', 'ADMIN')
+  @Roles('ESTUDIANTE', 'DOCENTE', 'ADMIN')
   acquireLock(
     @Param('artefactoId', ParseUUIDPipe) artefactoId: string,
     @Body() dto: AcquireLockDto,
@@ -85,7 +85,7 @@ export class ArtifactsController {
 
   @Delete(':artefactoId/lock')
   @ApiOperation({ summary: 'Libera el bloqueo pesimista del artefacto.' })
-  @Roles('ESTUDIANTE', 'ADMIN')
+  @Roles('ESTUDIANTE', 'DOCENTE', 'ADMIN')
   releaseLock(
     @Param('artefactoId', ParseUUIDPipe) artefactoId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -94,7 +94,7 @@ export class ArtifactsController {
   }
 
   @Delete(':artefactoId')
-  @Roles('ESTUDIANTE', 'ADMIN')
+  @Roles('ESTUDIANTE', 'DOCENTE', 'ADMIN')
   @ApiOperation({
     summary:
       'Elimina el artefacto (soft delete: marca deletedAt en todas sus versiones, no borra filas).',

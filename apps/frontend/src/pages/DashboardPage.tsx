@@ -48,7 +48,7 @@ export function DashboardPage() {
           <b>UX<br />LAB</b>
         </div>
         <div className="welcome-actions">
-          <Link to="/proyectos" className="primary">+ Nuevo proyecto</Link>
+          <Link to="/proyectos" className="primary">Ver proyectos</Link>
         </div>
       </section>
 
@@ -104,7 +104,7 @@ export function DashboardPage() {
               <span className="kicker">PROYECTOS</span>
               <h2>Actividad reciente</h2>
             </div>
-            <Link to="/proyectos" className="ghost">+ Nuevo proyecto</Link>
+            <Link to="/proyectos" className="ghost">Ver todos →</Link>
           </div>
           {isLoading && <p>Cargando…</p>}
           {recientes.map((p, i) => (

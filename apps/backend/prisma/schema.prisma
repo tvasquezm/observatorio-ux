@@ -181,6 +181,7 @@ model ResearchSession {
   id         String       @id @default(uuid())
   proyecto   Proyecto     @relation(fields: [proyectoId], references: [id])
   proyectoId String
+  nombre     String       @default("Card Sorting")
   tipo       TipoSesion
   estado     EstadoSesion @default(INVITADO)
 
@@ -206,6 +207,11 @@ model ResearchSession {
 
   createdAt    DateTime  @default(now())
   completadoAt DateTime?
+  cerradoAt   DateTime?
+
+  // Token derivado y firmado para compartir un Card Sorting con participantes externos.
+  // No se almacena el token en texto plano; solo se usa para invalidación/versionado si se requiere.
+  enlaceParticipanteHash String? @unique
 
   @@index([proyectoId, tipo])
   @@index([estudioId])

@@ -13,6 +13,9 @@ import { PersonasPage } from './pages/PersonasPage';
 import { JourneyMapPage } from './pages/JourneyMapPage';
 import { MomentosCriticosPage } from './pages/MomentosCriticosPage';
 import { CardSortingPage } from './pages/CardSortingPage';
+import { CardSortingWorkspacePage } from './features/card-sorting/pages/CardSortingWorkspacePage';
+import { CardSortingParticipantPage } from './features/card-sorting/pages/CardSortingParticipantPage';
+import { CardSortingResultsPage } from './features/card-sorting/pages/CardSortingResultsPage';
 import { EvaluacionHeuristicaPage } from './pages/EvaluacionHeuristicaPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { ProjectMembersPage } from './pages/ProjectMembersPage';
@@ -25,13 +28,15 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
 
+      {/* Enlace compartible para participantes autenticados por participanteToken. */}
+      <Route path="/card-sorting/participar/:token" element={<CardSortingParticipantPage />} />
+
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/proyectos" element={<ProjectsPage />} />
           
-          {/* Nueva ruta para la gestión de salas del profesor */}
-          <Route element={<PerspectiveRoute allowed={['DOCENTE', 'ADMIN']} />}>
+          <Route element={<PerspectiveRoute allowed={['ESTUDIANTE', 'DOCENTE', 'ADMIN']} />}>
             <Route path="/salas" element={<ProfesorSalasPage />} />
             <Route path="/salas/:salaId" element={<SalaDetallePage />} />
           </Route>
@@ -42,6 +47,10 @@ export default function App() {
             <Route path="journey-map" element={<JourneyMapPage />} />
             <Route path="momentos-criticos" element={<MomentosCriticosPage />} />
             <Route path="card-sorting" element={<CardSortingPage />} />
+            <Route path="card-sorting/:estudioId" element={<CardSortingWorkspacePage />} />
+            <Route element={<PerspectiveRoute allowed={['ESTUDIANTE', 'DOCENTE', 'ADMIN']} />}>
+              <Route path="card-sorting/:estudioId/resultados" element={<CardSortingResultsPage />} />
+            </Route>
             <Route path="evaluacion-heuristica" element={<EvaluacionHeuristicaPage />} />
             <Route element={<PerspectiveRoute allowed={['DOCENTE', 'ADMIN']} />}>
               <Route path="analitica" element={<AnalyticsPage />} />

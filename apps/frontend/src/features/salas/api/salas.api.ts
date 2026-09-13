@@ -14,6 +14,12 @@ export interface Sala {
   fechaInicio?: string | null;
   fechaFin?: string | null;
   createdAt: string;
+  profesor?: {
+    id: string;
+    nombre: string;
+    email: string;
+    rol: string;
+  };
 }
 
 export interface CreateSalaDto {
@@ -23,6 +29,8 @@ export interface CreateSalaDto {
   fechaInicio: string;
   fechaFin: string;
 }
+
+export type UpdateSalaDto = Partial<CreateSalaDto>;
 
 export class SalasApiError extends Error {
   constructor(public readonly status: number, message: string) {
@@ -68,9 +76,20 @@ export function getSalas(): Promise<Sala[]> {
   return request<Sala[]>('/salas');
 }
 
+export function getSala(salaId: string): Promise<Sala> {
+  return request<Sala>(`/salas/${salaId}`);
+}
+
 export function createSala(data: CreateSalaDto): Promise<Sala> {
   return request<Sala>('/salas', {
     method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export function updateSala(salaId: string, data: UpdateSalaDto): Promise<Sala> {
+  return request<Sala>(`/salas/${salaId}`, {
+    method: 'PATCH',
     body: JSON.stringify(data),
   });
 }
@@ -151,16 +170,6 @@ export interface ProyectoEnSala {
 
 export function listProyectosDeSala(salaId: string): Promise<ProyectoEnSala[]> {
   return request<ProyectoEnSala[]>(`/salas/${salaId}/proyectos`);
-}
-
-export function createProyectoEnSala(
-  salaId: string,
-  data: { nombre: string; descripcion?: string },
-): Promise<ProyectoEnSala> {
-  return request<ProyectoEnSala>(`/salas/${salaId}/proyectos`, {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
 }
 
 export function vincularProyecto(

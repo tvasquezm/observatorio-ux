@@ -5,21 +5,15 @@
 // otro token ('participanteToken') y otro endpoint de reanudación.
 
 import { csrfHeaders } from '../../../shared/api/csrf';
+import type {
+  EvaluatorRole,
+  EvaluatorUser,
+  LoginResponse,
+} from '@observatorio-ux/shared-types';
+
+export type { EvaluatorRole, EvaluatorUser, LoginResponse };
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
-
-export type EvaluatorRole = 'ESTUDIANTE' | 'DOCENTE' | 'ADMIN';
-
-export interface EvaluatorUser {
-  id: string;
-  nombre: string;
-  email: string;
-  rol: EvaluatorRole;
-}
-
-export interface LoginResponse {
-  user: EvaluatorUser;
-}
 
 export class AuthApiError extends Error {
   constructor(public readonly status: number, message: string) {

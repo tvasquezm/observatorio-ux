@@ -142,5 +142,11 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
 
+# Playwright (evidencia local y reportes generados)
+.playwright-cli/
+test-results/
+playwright-report/
+output/playwright/
+
 # Archivo diagnóstico local generado accidentalmente
 c --noEmit

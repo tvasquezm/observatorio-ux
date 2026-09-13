@@ -8,7 +8,7 @@ import {
   updateEstudiante,
   removeEstudiante,
   listProyectosDeSala,
-  createProyectoEnSala,
+  getSala,
   vincularProyecto,
   desvincularProyecto,
   SalasApiError,
@@ -19,12 +19,21 @@ import {
 import { notify } from '../../../shared/api/toast';
 
 export const salasKeys = {
+  detail: (salaId: string) => ['salas', salaId] as const,
   estudiantes: (salaId: string) => ['salas', salaId, 'estudiantes'] as const,
   proyectos: (salaId: string) => ['salas', salaId, 'proyectos'] as const,
 };
 
 function mensajeError(err: unknown, fallback: string) {
   return err instanceof SalasApiError ? err.message : fallback;
+}
+
+export function useSala(salaId: string | null) {
+  return useQuery({
+    queryKey: salasKeys.detail(salaId ?? ''),
+    queryFn: () => getSala(salaId as string),
+    enabled: !!salaId,
+  });
 }
 
 // --- Estudiantes ---
@@ -97,19 +106,6 @@ export function useProyectosDeSala(salaId: string | null) {
     queryKey: salasKeys.proyectos(salaId ?? ''),
     queryFn: () => listProyectosDeSala(salaId as string),
     enabled: !!salaId,
-  });
-}
-
-export function useCreateProyectoEnSala(salaId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (data: { nombre: string; descripcion?: string }) =>
-      createProyectoEnSala(salaId, data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: salasKeys.proyectos(salaId) });
-      notify.success('Proyecto creado en la sala.');
-    },
-    onError: (err) => notify.error(mensajeError(err, 'No se pudo crear el proyecto.')),
   });
 }
 

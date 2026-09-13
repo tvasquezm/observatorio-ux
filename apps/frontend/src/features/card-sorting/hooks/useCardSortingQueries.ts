@@ -7,6 +7,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   CardSortingApiError,
   createCardSortingSession,
+  listCardSortingStudies,
+  closeCardSortingStudy,
+  createCardSortingShareLink,
+  getPublicCardSortingStudy,
+  joinPublicCardSortingStudy,
+  submitStudentCardSortingResult,
   getCardSortingAnalytics,
   getCardSortingSession,
   joinCardSortingSession,
@@ -29,6 +35,19 @@ export const cardSortingKeys = {
  * clústeres). `enabled` se controla desde afuera porque solo tiene
  * sentido pedirla una vez el estudio ya existe.
  */
+export function useCardSortingStudies(projectId: string | null) {
+  return useQuery({ queryKey: [...cardSortingKeys.all, 'studies', projectId ?? ''], queryFn: () => listCardSortingStudies(projectId as string), enabled: !!projectId });
+}
+
+export function useCloseCardSortingStudy() {
+  const queryClient = useQueryClient();
+  return useMutation({ mutationFn: (estudioId: string) => closeCardSortingStudy(estudioId), onSuccess: (session) => {
+    queryClient.invalidateQueries({ queryKey: [...cardSortingKeys.all, 'studies', session.proyectoId] });
+    queryClient.invalidateQueries({ queryKey: cardSortingKeys.analytics(session.id) });
+    queryClient.invalidateQueries({ queryKey: cardSortingKeys.session(session.id) });
+  }});
+}
+
 export function useCardSortingAnalytics(estudioId: string | null) {
   return useQuery({
     queryKey: cardSortingKeys.analytics(estudioId ?? ''),
@@ -42,10 +61,10 @@ export function useCardSortingAnalytics(estudioId: string | null) {
  * `enabled` controla si dispara la query (útil para no pedir datos
  * antes de tener un id real, ej. antes del join).
  */
-export function useCardSortingSession(sessionId: string | null) {
+export function useCardSortingSession(sessionId: string | null, participantAuth = false) {
   return useQuery({
-    queryKey: cardSortingKeys.session(sessionId ?? ''),
-    queryFn: () => getCardSortingSession(sessionId as string),
+    queryKey: [...cardSortingKeys.session(sessionId ?? ''), participantAuth ? 'participant' : 'evaluator'],
+    queryFn: () => getCardSortingSession(sessionId as string, participantAuth),
     enabled: !!sessionId,
   });
 }
@@ -69,6 +88,37 @@ export function useCreateCardSortingSession() {
   });
 }
 
+export function useCreateCardSortingShareLink() {
+  return useMutation({
+    mutationFn: (estudioId: string) => createCardSortingShareLink(estudioId),
+  });
+}
+
+export function usePublicCardSortingStudy(token: string | null) {
+  return useQuery({
+    queryKey: ['card-sorting', 'public', token ?? ''],
+    queryFn: () => getPublicCardSortingStudy(token as string),
+    enabled: !!token,
+  });
+}
+
+export function useJoinPublicCardSortingStudy() {
+  return useMutation({
+    mutationFn: (token: string) => joinPublicCardSortingStudy(token),
+  });
+}
+
+export function useSubmitStudentCardSortingResult() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ estudioId, grupos }: { estudioId: string; grupos: SubmitCardSortingGrupo[] }) =>
+      submitStudentCardSortingResult(estudioId, grupos),
+    onSuccess: (_session, variables) => {
+      queryClient.invalidateQueries({ queryKey: cardSortingKeys.analytics(variables.estudioId) });
+    },
+  });
+}
+
 /**
  * Participante anónimo se une a un estudio. Al tener éxito, guarda el
  * sessionId propio en el store de Zustand — ese id es el que se usa
@@ -81,13 +131,7 @@ export function useJoinCardSortingSession() {
   );
 
   return useMutation({
-    mutationFn: ({
-      estudioId,
-      participanteId,
-    }: {
-      estudioId: string;
-      participanteId: string;
-    }) => joinCardSortingSession(estudioId, participanteId),
+    mutationFn: ({ estudioId }: { estudioId: string }) => joinCardSortingSession(estudioId),
     onSuccess: (session, variables) => {
       setParticipantSession(variables.estudioId, session.id);
       queryClient.setQueryData(cardSortingKeys.session(session.id), session);

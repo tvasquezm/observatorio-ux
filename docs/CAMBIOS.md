@@ -3,6 +3,115 @@
 Todo acá parte de TUS archivos reales que subiste, con ediciones mínimas
 y quirúrgicas. No hay archivos inventados desde cero salvo los indicados.
 
+## Ronda 14 (Sesión — creación centralizada y acceso por invitación)
+
+1. **Un único punto para crear proyectos.** Se retiraron las acciones repetidas
+   del Dashboard y el formulario duplicado dentro del detalle de Sala. La
+   pantalla `Proyectos` conserva una sola acción `Nuevo proyecto`, que revela
+   un formulario compacto únicamente cuando se solicita. En las Salas solo se
+   vinculan proyectos existentes.
+   - `apps/frontend/src/pages/DashboardPage.tsx`
+   - `apps/frontend/src/pages/ProjectsPage.tsx`
+   - `apps/frontend/src/features/salas/pages/SalaDetallePage.tsx`
+
+2. **Acciones de Sala diferenciadas por rol.** Una cuenta ESTUDIANTE ve
+   `Unirse a la sala` solo sobre las salas donde su correo fue invitado. El
+   docente o administrador ve `Administrar sala`; no se presenta la acción de
+   unión como si fuera estudiante.
+   - `apps/frontend/src/features/salas/pages/ProfesorSalasPage.tsx`
+
+3. **Restricción verificada en la API y la interfaz.** El listado estudiantil
+   continúa filtrado por `SalaEstudiante.email`, y el detalle vuelve a validar
+   esa inscripción: conocer o pegar la URL de otra sala no concede acceso.
+   Se agregaron pruebas para el formulario único y para las etiquetas por rol.
+   - `apps/backend/src/modules/salas/salas.service.ts`
+   - `apps/frontend/src/pages/__tests__/ProjectsPage.test.tsx`
+   - `apps/frontend/src/features/salas/pages/ProfesorSalasPage.test.tsx`
+
+## Ronda 13 (Sesión — Analítica oscura y acceso estudiantil a Salas)
+
+1. **Analítica general corregida en modo oscuro.** Las tarjetas KPI, sus
+   etiquetas, valores, estados y pistas de las barras dejaron de usar fondos y
+   textos claros fijos. Ahora consumen los tokens semánticos de superficie,
+   texto, estado positivo y borde de cada tema.
+   - `apps/frontend/src/styles/theme.css`
+
+2. **Salas visibles para estudiantes, sin permisos de gestión.** La navegación
+   y las rutas aceptan la perspectiva ESTUDIANTE. El listado cambia su texto y
+   oculta por completo `Crear sala` y `Editar`; cada tarjeta presenta una acción
+   explícita `Unirse a la sala`.
+   - `apps/frontend/src/App.tsx`
+   - `apps/frontend/src/shared/auth/perspectivas.ts`
+   - `apps/frontend/src/features/salas/pages/ProfesorSalasPage.tsx`
+
+3. **Detalle de sala de solo lectura.** Al entrar, el estudiante ve nombre,
+   período, docente, fechas, instrucciones y proyectos asignados. No se montan
+   formularios para crear/vincular proyectos ni controles sobre estudiantes.
+   El detalle y los formularios docentes también usan superficies e inputs
+   compatibles con modo claro y oscuro.
+   - `apps/frontend/src/features/salas/pages/SalaDetallePage.tsx`
+   - `apps/frontend/src/features/salas/api/salas.api.ts`
+   - `apps/frontend/src/features/salas/hooks/useSalasQueries.ts`
+
+4. **Autorización por inscripción.** `GET /salas` devuelve a un estudiante solo
+   las salas donde su correo autenticado aparece registrado. `GET /salas/:id`
+   y `GET /salas/:id/proyectos` aplican el mismo control; las mutaciones siguen
+   restringidas a DOCENTE/ADMIN.
+   - `apps/backend/src/modules/salas/salas.controller.ts`
+   - `apps/backend/src/modules/salas/salas.service.ts`
+
+5. **Pruebas de regresión.** Se cubrieron filtro por correo, acceso autorizado
+   y denegado al detalle, además de la ausencia de controles de creación y
+   edición en la vista del estudiante.
+   - `apps/backend/src/modules/salas/test/salas.service.spec.ts`
+   - `apps/frontend/src/features/salas/pages/ProfesorSalasPage.test.tsx`
+
+## Ronda 12 (Sesión — contraste de temas y edición de Salas)
+
+1. **Momentos Críticos legible en claro y oscuro.** Se reemplazaron los
+   colores fijos de la matriz 3x3, las incidencias y la subnavegación del
+   proyecto por tokens semánticos con variantes para ambos temas. También se
+   ajustó el color de peligro y el foco visible para conservar contraste en
+   botones, enlaces y controles.
+   - `apps/frontend/src/styles/theme.css`
+   - `apps/frontend/src/layouts/ProjectDetailLayout.tsx`
+
+2. **Edición de Salas desde el listado del docente.** Cada sala ahora expone
+   una acción `Editar` que reutiliza el formulario y permite modificar nombre,
+   período, instrucciones, fecha de inicio y fecha de término. Las fechas se
+   precargan en hora local y se envían al backend en formato ISO.
+   - `apps/frontend/src/features/salas/pages/ProfesorSalasPage.tsx`
+   - `apps/frontend/src/features/salas/api/salas.api.ts`
+
+3. **Endpoint de actualización con autorización y validación.** Se agregó
+   `PATCH /salas/:id`, restringido al docente propietario o a un administrador.
+   Las actualizaciones parciales validan el rango completo, incluyendo la fecha
+   ya guardada cuando solo se modifica uno de los extremos.
+   - `apps/backend/src/modules/salas/dto/sala.dto.ts`
+   - `apps/backend/src/modules/salas/salas.controller.ts`
+   - `apps/backend/src/modules/salas/salas.service.ts`
+
+4. **Pruebas de regresión.** Se cubrió la precarga y envío de fechas desde la
+   interfaz, la actualización del propietario, la validación de fechas
+   parciales y el rechazo de un docente ajeno.
+   - `apps/frontend/src/features/salas/pages/ProfesorSalasPage.test.tsx`
+   - `apps/backend/src/modules/salas/test/salas.service.spec.ts`
+
+## Ronda 11 (Sesión — Sprint 4, fix de test de `useAuthStore`)
+
+1. **`leerUserGuardado()` explotaba al importar el módulo en test.**
+   `useAuthStore.ts` corre `leerUserGuardado()` a nivel de módulo (fuera de
+   cualquier acción del store), y esa función llamaba `localStorage.getItem`
+   directo. En el entorno de `PerspectiveRoute.test.tsx` (que usa el store
+   REAL, no mockeado, a diferencia de `MomentosCriticosPage.test.tsx`)
+   `localStorage` no estaba garantizado como funcional en el instante del
+   `import`, lo que rompía la suite con `TypeError: localStorage.getItem is
+   not a function`. Se agregó un guard (`typeof localStorage === 'undefined'
+   || typeof localStorage.getItem !== 'function'` → `null`) antes de leer,
+   sin cambiar el comportamiento en runtime real (el navegador siempre tiene
+   `localStorage` funcional). Ver `docs/AUDIT_LOG.md` K1.
+   - `apps/frontend/src/features/auth/store/useAuthStore.ts`
+
 ## Ronda 10 (cierre verificable del Sprint 4 oficial)
 
 1. **D2 — dashboard conectado a sesiones reales.** El contrato `Proyecto`

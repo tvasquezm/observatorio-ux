@@ -15,6 +15,7 @@ import {
   CreateProyectoEnSalaDto,
   CreateSalaDto,
   CreateSalaEstudianteDto,
+  UpdateSalaDto,
   UpdateSalaEstudianteDto,
 } from './dto/sala.dto';
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
@@ -29,15 +30,34 @@ export class SalasController {
   constructor(private readonly salasService: SalasService) {}
 
   @Get()
-  @Roles('DOCENTE', 'ADMIN')
+  @Roles('ESTUDIANTE', 'DOCENTE', 'ADMIN')
   async findAll(@CurrentUser() user: AuthenticatedUser) {
     return this.salasService.findAll(user);
+  }
+
+  @Get(':id')
+  @Roles('ESTUDIANTE', 'DOCENTE', 'ADMIN')
+  async findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.salasService.findOne(id, user);
   }
 
   @Post()
   @Roles('DOCENTE', 'ADMIN')
   async create(@Body() createSalaDto: CreateSalaDto, @CurrentUser() user: AuthenticatedUser) {
     return this.salasService.create(createSalaDto, user.id);
+  }
+
+  @Patch(':id')
+  @Roles('DOCENTE', 'ADMIN')
+  async update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateSalaDto: UpdateSalaDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.salasService.update(id, updateSalaDto, user);
   }
 
   // ---------------------------------------------------------------
@@ -99,7 +119,7 @@ export class SalasController {
   // ---------------------------------------------------------------
 
   @Get(':id/proyectos')
-  @Roles('DOCENTE', 'ADMIN')
+  @Roles('ESTUDIANTE', 'DOCENTE', 'ADMIN')
   listProyectos(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthenticatedUser,

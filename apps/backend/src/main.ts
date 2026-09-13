@@ -8,17 +8,23 @@ import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 
-// CSRF (double-submit cookie): solo aplica a requests que ya traen la
-// cookie httpOnly `evaluadorToken` (o sea, sesión de EVALUADOR autenticada
-// por cookie) y a métodos mutantes. El flujo de PARTICIPANTE sigue usando
-// Bearer token (nunca manda esta cookie), así que nunca cae acá — un
-// header Authorization no se adjunta solo, a diferencia de una cookie, y
-// por eso no necesita este chequeo.
+// CSRF (double-submit cookie): solo aplica a requests que se autentican
+// por la cookie httpOnly `evaluadorToken` (sesión de EVALUADOR). Un
+// request con `Authorization: Bearer` (PARTICIPANTE, o EVALUADOR vía
+// bearer) no depende de esa cookie para autenticarse — el navegador no
+// adjunta ese header solo, a diferencia de una cookie, así que no es
+// vulnerable a CSRF y no necesita este chequeo. Antes solo se miraba si
+// la cookie estaba PRESENTE, no si la request realmente dependía de
+// ella: si el mismo navegador tenía la cookie de evaluador (típico al
+// probar tu propio enlace de participante estando logueado), el
+// participante quedaba bloqueado con 403 aunque mandara un Bearer válido.
 const METODOS_MUTANTES = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 function csrfProtection(req: Request, res: Response, next: NextFunction) {
   const tieneCookieDeSesion = Boolean((req as any).cookies?.evaluadorToken);
-  if (!METODOS_MUTANTES.has(req.method) || !tieneCookieDeSesion) {
+  const tieneAuthorizationBearer = Boolean(req.header('authorization'));
+
+  if (!METODOS_MUTANTES.has(req.method) || !tieneCookieDeSesion || tieneAuthorizationBearer) {
     next();
     return;
   }

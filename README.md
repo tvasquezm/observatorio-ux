@@ -137,16 +137,26 @@ pnpm --filter frontend dev
 ## Testing
 
 ```bash
-pnpm --filter backend test        # unitarios (57 tests, 6 suites — en verde)
-pnpm -r test                      # corre "test" en todos los workspaces que lo definan
+pnpm --filter backend test        # pruebas unitarias del backend
+pnpm --filter frontend test       # componentes, hooks y permisos del frontend
+pnpm -r test                      # corre las pruebas de todos los workspaces
 ```
 
-> ⚠️ Todavía no existen tests e2e (`test:e2e`) ni tests de frontend — son parte del
-> backlog pendiente, no scripts ya implementados. Antes de correr `pnpm -r test`
-> desde la raíz, tené en cuenta que solo `apps/backend` define ese script hoy;
-> `apps/frontend` y `packages/shared-types` no lo tienen todavía.
->
-> Cobertura actualmente mínima en varios módulos — ampliarla es parte del backlog.
+Las pruebas E2E cubren el recorrido `login → proyecto → 5 técnicas`, la
+restricción de Analítica para estudiantes y la ausencia de desbordamiento en
+escritorio (1440×900) y móvil táctil (390×844):
+
+```bash
+docker compose up -d db           # Playwright prepara migraciones y seed
+pnpm exec playwright install chromium  # solo la primera vez
+pnpm test:e2e                     # escritorio + móvil
+pnpm test:e2e:mobile              # solo viewport móvil
+pnpm test:e2e:desktop             # solo escritorio
+```
+
+Si frontend/backend ya están levantados con Docker, Playwright los reutiliza.
+En CI levanta ambos servicios, ejecuta las pruebas y conserva capturas, video y
+trace cuando hay una falla.
 
 ## CI
 
@@ -172,6 +182,7 @@ paso está ahí mismo.
 - [`docs/comandos-backend.md`](docs/comandos-backend.md) — flujo de backend sin Docker (Node/pnpm local)
 - [`docs/Guia_Prueba_E2E_Card_Sorting_Participantes.md`](docs/Guia_Prueba_E2E_Card_Sorting_Participantes.md) — prueba E2E de Card Sorting con participantes
 - [`docs/deuda-tecnica-heuristica.md`](docs/deuda-tecnica-heuristica.md) — registro histórico de deuda técnica del módulo de Evaluación Heurística (03/08/2026) — la mayoría de esos ítems ya están resueltos, revisar `ARCHITECTURE.md` para el estado vigente
+- [`docs/dudas-profesor.md`](docs/dudas-profesor.md) — dudas y pendientes que dependen de información que solo puede confirmar el profesor (incluye D7 y R4)
 
 **Registros por sprint** (`docs/sprints/`):
 - [`docs/sprints/GUIA-IA-DOCUMENTACION.md`](docs/sprints/GUIA-IA-DOCUMENTACION.md) — convenciones para asistentes de IA (nomenclatura, vocabulario técnico, qué doc actualizar)

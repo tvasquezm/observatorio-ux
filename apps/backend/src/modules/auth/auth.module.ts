@@ -29,6 +29,6 @@ import { ParticipanteTokenService } from './participante-token.service';
     ParticipanteJwtService,
     ParticipanteTokenService,
   ],
-  exports: [AuthService, JwtModule],
+  exports: [AuthService, JwtModule, ParticipanteJwtService],
 })
 export class AuthModule {}

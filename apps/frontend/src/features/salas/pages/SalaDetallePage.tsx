@@ -5,51 +5,148 @@
 // liviano, sin cuenta — alta individual o masiva pegando una lista).
 
 import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { useProjects } from '../../projects/hooks/useProjectsQueries';
 import {
+  useSala,
   useEstudiantes,
   useAddEstudiante,
   useAddEstudiantesBulk,
   useRemoveEstudiante,
   useProyectosDeSala,
-  useCreateProyectoEnSala,
   useVincularProyecto,
   useDesvincularProyecto,
 } from '../hooks/useSalasQueries';
 import { useConfirm } from '../../../shared/api/confirm';
+import { useAuthStore } from '../../auth/store/useAuthStore';
+import { resolvePerspective } from '../../../shared/auth/perspectivas';
 
 type Tab = 'proyectos' | 'estudiantes';
 
 export function SalaDetallePage() {
   const { salaId } = useParams<{ salaId: string }>();
   const [tab, setTab] = useState<Tab>('proyectos');
+  const { user, perspectiveRole } = useAuthStore();
+  const activeRole = user ? resolvePerspective(user.rol, perspectiveRole) : null;
+  const esEstudiante = activeRole === 'ESTUDIANTE';
+  const { data: sala, isLoading, isError, error, refetch } = useSala(salaId ?? null);
 
   if (!salaId) return null;
 
   return (
-    <div className="card" style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
-      <h2 style={{ marginBottom: '16px' }}>Detalle de la Sala</h2>
+    <div className="sala-detail-page">
+      <Link to="/salas" className="sala-back-link">← Volver a mis salas</Link>
 
-      <div className="form-row-inline" style={{ marginBottom: 24 }}>
-        <button
-          type="button"
-          className={tab === 'proyectos' ? 'primary' : 'secondary'}
-          onClick={() => setTab('proyectos')}
-        >
-          Proyectos
-        </button>
-        <button
-          type="button"
-          className={tab === 'estudiantes' ? 'primary' : 'secondary'}
-          onClick={() => setTab('estudiantes')}
-        >
-          Estudiantes
-        </button>
-      </div>
+      {isLoading && <p className="text-muted">Cargando sala…</p>}
+      {isError && (
+        <div className="sala-form-error" role="alert">
+          <p>{(error as Error).message}</p>
+          <button type="button" className="secondary" onClick={() => refetch()}>Reintentar</button>
+        </div>
+      )}
 
-      {tab === 'proyectos' ? <ProyectosDeSala salaId={salaId} /> : <EstudiantesDeSala salaId={salaId} />}
+      {sala && (
+        <>
+          <header className="sala-detail-hero">
+            <div>
+              <span className="kicker">{esEstudiante ? 'MI SALA' : 'GESTIÓN DE SALA'}</span>
+              <h1>{sala.nombre}</h1>
+              <p>{sala.instrucciones || 'Esta sala todavía no tiene instrucciones.'}</p>
+            </div>
+            <span className="sala-periodo">{sala.periodo}</span>
+            <dl className="sala-detail-meta">
+              <div><dt>Docente</dt><dd>{sala.profesor?.nombre ?? 'Sin información'}</dd></div>
+              <div><dt>Inicio</dt><dd>{formatearFechaDetalle(sala.fechaInicio)}</dd></div>
+              <div><dt>Término</dt><dd>{formatearFechaDetalle(sala.fechaFin)}</dd></div>
+            </dl>
+          </header>
+
+          {esEstudiante ? (
+            <ProyectosDeSalaLectura salaId={salaId} />
+          ) : (
+            <section className="sala-management-panel" aria-labelledby="gestion-sala-title">
+              <h2 id="gestion-sala-title" className="sr-only">Gestión de la sala</h2>
+              <div className="sala-tabs" role="group" aria-label="Contenido de la sala">
+                <button
+                  type="button"
+                  aria-pressed={tab === 'proyectos'}
+                  className={tab === 'proyectos' ? 'primary' : 'secondary'}
+                  onClick={() => setTab('proyectos')}
+                >
+                  Proyectos
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={tab === 'estudiantes'}
+                  className={tab === 'estudiantes' ? 'primary' : 'secondary'}
+                  onClick={() => setTab('estudiantes')}
+                >
+                  Estudiantes
+                </button>
+              </div>
+
+              {tab === 'proyectos'
+                ? <ProyectosDeSala salaId={salaId} />
+                : <EstudiantesDeSala salaId={salaId} />}
+            </section>
+          )}
+        </>
+      )}
     </div>
+  );
+}
+
+function formatearFechaDetalle(fechaRaw?: string | null) {
+  if (!fechaRaw) return 'Sin definir';
+  const fecha = new Date(fechaRaw);
+  if (Number.isNaN(fecha.getTime())) return 'Sin definir';
+  return fecha.toLocaleString('es-CL', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function ProyectosDeSalaLectura({ salaId }: { salaId: string }) {
+  const { data: proyectos, isLoading, isError, error, refetch } = useProyectosDeSala(salaId);
+
+  return (
+    <section className="sala-student-panel" aria-labelledby="proyectos-sala-title">
+      <div className="sala-section-head">
+        <div>
+          <span className="kicker">CONTENIDO</span>
+          <h2 id="proyectos-sala-title">Proyectos de la sala</h2>
+        </div>
+        <span className="count">{proyectos?.length ?? 0} en total</span>
+      </div>
+      <p className="text-muted-sm">Puedes consultar los proyectos asignados por tu docente. La gestión de la sala es solo de lectura para estudiantes.</p>
+
+      {isLoading && <p>Cargando proyectos…</p>}
+      {isError && (
+        <div className="error-text" role="alert">
+          <p>{(error as Error).message}</p>
+          <button type="button" className="secondary" onClick={() => refetch()}>Reintentar</button>
+        </div>
+      )}
+      <div className="list-stack">
+        {proyectos?.map((proyecto) => (
+          <article key={proyecto.id} className="entity-card sala-project-readonly">
+            <div>
+              <h3>{proyecto.nombre}</h3>
+              <p>{proyecto.descripcion || 'Sin descripción.'}</p>
+            </div>
+            <span className="sala-readonly-badge">Solo lectura</span>
+          </article>
+        ))}
+        {proyectos && proyectos.length === 0 && (
+          <div className="salas-empty">
+            <p>Esta sala todavía no tiene proyectos asignados.</p>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -61,27 +158,15 @@ function ProyectosDeSala({ salaId }: { salaId: string }) {
   const confirm = useConfirm();
   const { data: proyectosSala, isLoading, isError, error, refetch } = useProyectosDeSala(salaId);
   const { data: todosLosProyectos } = useProjects();
-  const { mutate: crear, isPending: creando } = useCreateProyectoEnSala(salaId);
   const { mutate: vincular, isPending: vinculando } = useVincularProyecto(salaId);
   const { mutate: desvincular } = useDesvincularProyecto(salaId);
 
-  const [nombre, setNombre] = useState('');
-  const [descripcion, setDescripcion] = useState('');
   const [proyectoAVincular, setProyectoAVincular] = useState('');
 
   // Solo se pueden vincular proyectos que todavía no están en ninguna sala.
   const disponiblesParaVincular = (todosLosProyectos ?? []).filter(
     (p) => !proyectosSala?.some((ps) => ps.id === p.id) && !p.salaId,
   );
-
-  function handleCrear(e: React.FormEvent) {
-    e.preventDefault();
-    if (!nombre.trim()) return;
-    crear(
-      { nombre: nombre.trim(), descripcion: descripcion.trim() || undefined },
-      { onSuccess: () => { setNombre(''); setDescripcion(''); } },
-    );
-  }
 
   function handleVincular(e: React.FormEvent) {
     e.preventDefault();
@@ -97,34 +182,14 @@ function ProyectosDeSala({ salaId }: { salaId: string }) {
 
   return (
     <div>
-      <div className="sala-management-grid">
-        <form onSubmit={handleCrear} className="form-grid">
+      <div className="sala-project-linker">
+        <div>
+          <h3>Agregar un proyecto a la sala</h3>
+          <p>Los proyectos se crean una sola vez desde Proyectos y luego se vinculan aquí.</p>
+        </div>
+        <form onSubmit={handleVincular} className="form-row-inline sala-project-link-form">
           <label className="field">
-            Crear proyecto nuevo en esta sala
-            <input
-              type="text"
-              placeholder="Nombre del proyecto"
-              value={nombre}
-              onChange={(e) => setNombre(e.target.value)}
-              required
-            />
-          </label>
-          <label className="field">
-            Descripción (opcional)
-            <textarea
-              value={descripcion}
-              onChange={(e) => setDescripcion(e.target.value)}
-              rows={2}
-            />
-          </label>
-          <button type="submit" className="primary" disabled={creando}>
-            {creando ? 'Creando…' : '+ Crear proyecto'}
-          </button>
-        </form>
-
-        <form onSubmit={handleVincular} className="form-grid">
-          <label className="field">
-            Vincular un proyecto ya existente
+            Proyecto existente
             <select
               value={proyectoAVincular}
               onChange={(e) => setProyectoAVincular(e.target.value)}
@@ -140,6 +205,9 @@ function ProyectosDeSala({ salaId }: { salaId: string }) {
             {vinculando ? 'Vinculando…' : 'Vincular proyecto'}
           </button>
         </form>
+        {disponiblesParaVincular.length === 0 && (
+          <Link to="/proyectos" className="secondary sala-projects-link">Ir a Proyectos →</Link>
+        )}
       </div>
 
       {isLoading && <p>Cargando proyectos…</p>}
