@@ -10,15 +10,26 @@ import { GlobalExceptionFilter } from './common/filters/global-exception.filter'
 
 // CSRF (double-submit cookie): solo aplica a requests que ya traen la
 // cookie httpOnly `evaluadorToken` (o sea, sesión de EVALUADOR autenticada
-// por cookie) y a métodos mutantes. El flujo de PARTICIPANTE sigue usando
-// Bearer token (nunca manda esta cookie), así que nunca cae acá — un
-// header Authorization no se adjunta solo, a diferencia de una cookie, y
-// por eso no necesita este chequeo.
+// por cookie) y a métodos mutantes. El flujo de PARTICIPANTE usa Bearer
+// token (o, en el primer paso de acceso, ningún token todavía) — pero si
+// el mismo navegador tiene además una sesión de EVALUADOR abierta (ej.
+// alguien probando su propio link de participante en la misma pestaña),
+// la cookie `evaluadorToken` viaja igual "de arrastre" en cualquier
+// pedido al mismo origen, aunque el pedido no la use para autenticarse.
+// Por eso se excluyen también:
+//   - pedidos con `Authorization: Bearer` (no vulnerable a CSRF: un
+//     navegador nunca adjunta ese header solo, a diferencia de una cookie).
+//   - las rutas públicas de acceso de participante (`/auth/participants/*`),
+//     que ni siquiera tienen token todavía en el primer paso y nunca se
+//     autentican con la cookie de evaluador.
 const METODOS_MUTANTES = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const PREFIJOS_EXENTOS_CSRF = ['/api/auth/participants'];
 
 function csrfProtection(req: Request, res: Response, next: NextFunction) {
   const tieneCookieDeSesion = Boolean((req as any).cookies?.evaluadorToken);
-  if (!METODOS_MUTANTES.has(req.method) || !tieneCookieDeSesion) {
+  const tieneBearer = Boolean(req.header('authorization'));
+  const esRutaExenta = PREFIJOS_EXENTOS_CSRF.some((prefijo) => req.path.startsWith(prefijo));
+  if (!METODOS_MUTANTES.has(req.method) || !tieneCookieDeSesion || tieneBearer || esRutaExenta) {
     next();
     return;
   }
