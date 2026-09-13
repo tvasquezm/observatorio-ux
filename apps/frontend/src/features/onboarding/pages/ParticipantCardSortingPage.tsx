@@ -16,8 +16,6 @@ import {
 import { SesionExpiradaError } from '../../../shared/api/api-client';
 import { notify } from '../../../shared/api/toast';
 
-const NUEVA_ZONA = '__nueva__';
-
 interface ProgresoCache {
   // cardId -> categoriaId (CERRADO) o nombre de categoría (ABIERTO)
   asignaciones: Record<string, string>;
