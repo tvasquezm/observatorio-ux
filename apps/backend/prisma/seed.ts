@@ -29,6 +29,7 @@ const profesorPassword = process.env.SEED_PROFESOR_PASSWORD || 'profesor123';
 const profesorId = 'f1e1b6a1-0000-4a11-9c00-000000000001';
 const profesorEmail = 'profesor@test.com';
 const profesorProjectId = 'f1e1b6a1-0001-4a11-9c00-000000000002';
+const salaId = 'f1e1b6a1-0006-4a11-9c00-000000000007';
 const adminId = 'a1e1b6a1-0000-4a11-9c00-000000000001';
 const adminEmail = 'admin@test.com';
 const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'admin1234';
@@ -169,6 +170,28 @@ async function main() {
       creadoPorId: profesor.id,
     },
   });
+
+  // --- Sala del profesor (Fase 5/6): login de ESTUDIANTE exige sala activa.
+  // Solo estudiante1 y estudiante2 quedan inscritos — estudiante3 queda sin
+  // sala a propósito, para probar el bloqueo de login (Fase 5).
+  const sala = await prisma.sala.upsert({
+    where: { id: salaId },
+    update: { nombre: 'Sala Demo 2026', periodo: '2026-1', profesorId: profesor.id },
+    create: {
+      id: salaId,
+      nombre: 'Sala Demo 2026',
+      periodo: '2026-1',
+      profesorId: profesor.id,
+    },
+  });
+
+  for (const est of [estudiante1, estudiante2]) {
+    await prisma.salaEstudiante.upsert({
+      where: { salaId_email: { salaId: sala.id, email: est.email } },
+      update: { nombre: est.nombre },
+      create: { salaId: sala.id, nombre: est.nombre, email: est.email },
+    });
+  }
 
   const participanteDemo = await prisma.participante.upsert({
     where: { id: participanteDemoId },
@@ -411,6 +434,7 @@ async function main() {
   console.log('Seed listo. Estudiantes (mismo proyecto, contraseña demo):');
   [estudiante1, estudiante2, estudiante3].forEach((e) => console.log(`  - ${e.email}`));
   console.log(`Contraseña demo: ${demoPassword}`);
+  console.log('Sala demo: estudiante1 y estudiante2 inscritos, estudiante3 SIN sala (bloqueado, Fase 5).');
   console.log(`Proyecto demo: ${project.id}`);
   console.log('---');
   console.log(`Usuario profesor (prueba): ${profesor.email}`);
