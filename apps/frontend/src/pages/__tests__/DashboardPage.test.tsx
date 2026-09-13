@@ -5,10 +5,15 @@ import { DashboardPage } from '../DashboardPage';
 
 const mocks = vi.hoisted(() => ({
   useProjects: vi.fn(),
+  useSalas: vi.fn(),
 }));
 
 vi.mock('../../features/projects/hooks/useProjectsQueries', () => ({
   useProjects: mocks.useProjects,
+}));
+
+vi.mock('../../features/salas/hooks/useSalasQueries', () => ({
+  useSalas: mocks.useSalas,
 }));
 
 vi.mock('../../features/auth/store/useAuthStore', () => ({
@@ -40,6 +45,7 @@ beforeEach(() => {
       },
     ],
   });
+  mocks.useSalas.mockReturnValue({ isLoading: false, data: [] });
 });
 
 describe('DashboardPage', () => {

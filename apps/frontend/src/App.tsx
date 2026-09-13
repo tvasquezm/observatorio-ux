@@ -21,6 +21,7 @@ import { ProjectCommentsPage } from './pages/ProjectCommentsPage';
 import { ProjectParticipantsPage } from './pages/ProjectParticipantsPage';
 import { ProfesorSalasPage } from './features/salas/pages/ProfesorSalasPage';
 import { SalaDetallePage } from './features/salas/pages/SalaDetallePage';
+import { AdminProfesoresPage } from './features/admin/pages/AdminProfesoresPage';
 
 export default function App() {
   return (
@@ -37,6 +38,10 @@ export default function App() {
           <Route element={<PerspectiveRoute allowed={['ESTUDIANTE', 'DOCENTE', 'ADMIN']} />}>
             <Route path="/salas" element={<ProfesorSalasPage />} />
             <Route path="/salas/:salaId" element={<SalaDetallePage />} />
+          </Route>
+
+          <Route element={<PerspectiveRoute allowed={['ADMIN']} />}>
+            <Route path="/admin/profesores" element={<AdminProfesoresPage />} />
           </Route>
 
           <Route path="/proyectos/:proyectoId" element={<ProjectDetailLayout />}>

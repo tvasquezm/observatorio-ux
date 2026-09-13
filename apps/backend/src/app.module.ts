@@ -17,6 +17,7 @@ import { HealthController } from './health.controller';
 import { SalasModule } from './modules/salas/salas.module';
 import { CommentsModule } from './modules/comments/comments.module';
 import { EquiposModule } from './modules/equipos/equipos.module';
+import { UsersModule } from './modules/users/users.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { EquiposModule } from './modules/equipos/equipos.module';
     SalasModule,
     CommentsModule,
     EquiposModule,
+    UsersModule,
   ],
   providers: [
     RolesGuard,

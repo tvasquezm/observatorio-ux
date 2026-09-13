@@ -15,6 +15,10 @@ vi.mock('../../features/projects/hooks/useProjectsQueries', () => ({
   useUpdateProject: () => ({ mutate: mocks.update, isPending: false }),
 }));
 
+vi.mock('../../features/salas/hooks/useSalasQueries', () => ({
+  useSalas: () => ({ data: [] }),
+}));
+
 beforeEach(() => {
   vi.clearAllMocks();
 });

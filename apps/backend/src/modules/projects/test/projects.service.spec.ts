@@ -37,6 +37,7 @@ describe('ProjectsService', () => {
     id: PROYECTO_ID,
     nombre: 'Observatorio UX',
     creadoPorId: DUEÑO_ID,
+    creadoPor: { rol: 'DOCENTE' },
   };
 
   const userDueño: AuthenticatedUser = { id: DUEÑO_ID, rol: 'DOCENTE' } as AuthenticatedUser;

@@ -2,6 +2,7 @@
 
 import { Link } from 'react-router-dom';
 import { useProjects } from '../features/projects/hooks/useProjectsQueries';
+import { useSalas } from '../features/salas/hooks/useSalasQueries';
 import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { PERSPECTIVE_LABELS, resolvePerspective } from '../shared/auth/perspectivas';
 
@@ -24,6 +25,8 @@ export function DashboardPage() {
   const { data: proyectos, isLoading } = useProjects();
   const { user, perspectiveRole } = useAuthStore();
   const activeRole = user ? resolvePerspective(user.rol, perspectiveRole) : null;
+  const esEstudiante = user?.rol === 'ESTUDIANTE';
+  const { data: salas, isLoading: isLoadingSalas } = useSalas();
   const total = proyectos?.length ?? 0;
   const totalSesiones = proyectos?.reduce((suma, proyecto) => suma + (proyecto._count?.sesiones ?? 0), 0) ?? 0;
   const recientes = proyectos?.slice(0, 5) ?? [];
@@ -74,6 +77,30 @@ export function DashboardPage() {
           <p>{activo ? 'Abre una técnica para trabajar' : 'Crea uno desde "Proyectos"'}</p>
         </article>
       </section>
+
+      {esEstudiante && (
+        <section className="panel">
+          <div className="panel-head">
+            <div>
+              <span className="kicker">MIS SALAS</span>
+              <h2>Salas en las que estás inscrito</h2>
+            </div>
+          </div>
+          {isLoadingSalas && <p>Cargando…</p>}
+          {!isLoadingSalas && (salas?.length ?? 0) === 0 && (
+            <p>No estás inscrito en ninguna sala todavía.</p>
+          )}
+          {salas?.map((sala) => (
+            <div key={sala.id} className="project-row">
+              <div>
+                <b>{sala.nombre}</b>
+                <small>{sala.periodo}</small>
+                {sala.profesor && <small>Profesor: {sala.profesor.nombre}</small>}
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
 
       <div className="section-title">
         <div>
