@@ -1,9 +1,9 @@
 // apps/frontend/src/pages/CardSortingPage.tsx
 //
 // Vista de EVALUADOR: crea el estudio maestro (tarjetas + categorías
-// opcionales) y muestra el resultado. El flujo de PARTICIPANTE (join +
-// submit) queda fuera de esta página — vive en shared/api/api-client.ts
-// con otro token, y necesitaría su propia ruta pública sin JwtAuthGuard.
+// opcionales), comparte el link de acceso y muestra el resultado/analítica.
+// El flujo de PARTICIPANTE vive en features/onboarding (OnboardingPage +
+// ParticipantCardSortingPage), con su propio token (jwt-participante).
 
 import { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
@@ -11,12 +11,15 @@ import type { ProjectOutletContext } from '../layouts/ProjectDetailLayout';
 import {
   useCardSortingAnalytics,
   useCreateCardSortingSession,
+  useCerrarCardSortingEstudio,
 } from '../features/card-sorting/hooks/useCardSortingQueries';
 import type { TipoCardSorting } from '../features/card-sorting/api/card-sorting.api';
+import { notify } from '../shared/api/toast';
 
 export function CardSortingPage() {
   const { proyectoId } = useOutletContext<ProjectOutletContext>();
   const { mutate: crear, data: sesion, isPending, error } = useCreateCardSortingSession();
+  const { mutate: cerrarEstudio, isPending: cerrando } = useCerrarCardSortingEstudio();
   const { data: analytics, isLoading: cargandoAnalytics, refetch: refetchAnalytics } = useCardSortingAnalytics(
     sesion?.id ?? null,
   );
@@ -43,6 +46,17 @@ export function CardSortingPage() {
       tarjetas,
       categorias: tipo === 'CERRADO' && categorias.length > 0 ? categorias : undefined,
     });
+  }
+
+  async function copiarLinkParticipante() {
+    if (!sesion) return;
+    const link = `${window.location.origin}/participar/${proyectoId}?estudio=${sesion.id}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      notify.success('Link copiado al portapapeles.');
+    } catch {
+      notify.error('No se pudo copiar. Copia el link manualmente.');
+    }
   }
 
   return (
@@ -169,9 +183,27 @@ export function CardSortingPage() {
 
           <aside className="panel sort-analysis">
             <span className="kicker">COMPARTIR</span>
-            <h2>ID de sesión</h2>
-            <p className="hint-text">Comparte este ID con cada participante para que se una al estudio.</p>
-            <div className="callout" style={{ wordBreak: 'break-all' }}>{sesion.id}</div>
+            <h2>Link para participantes</h2>
+            <p className="hint-text">Comparte este link con cada participante para que se una al estudio.</p>
+            <div className="callout" style={{ wordBreak: 'break-all' }}>
+              {window.location.origin}/participar/{proyectoId}?estudio={sesion.id}
+            </div>
+            <button type="button" className="secondary mt-8" onClick={copiarLinkParticipante}>
+              Copiar link para participantes
+            </button>
+            <button
+              type="button"
+              className={sesion.cerrado ? 'secondary mt-8' : 'danger mt-8'}
+              disabled={cerrando}
+              onClick={() => cerrarEstudio({ estudioId: sesion.id, cerrado: !sesion.cerrado })}
+            >
+              {cerrando ? 'Guardando…' : sesion.cerrado ? 'Reabrir estudio' : 'Cerrar estudio'}
+            </button>
+            {sesion.cerrado && (
+              <p className="hint-text mt-8">
+                Estudio cerrado: nadie puede unirse ni enviar resultados nuevos.
+              </p>
+            )}
           </aside>
         </section>
       )}

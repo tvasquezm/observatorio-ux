@@ -246,6 +246,9 @@ model ResearchSession {
 
   // --- NUEVO: 3FN CARD SORTING ---
   tipoCardSorting TipoCardSorting?
+  // Solo relevante en el estudio maestro (actor EVALUADOR): bloquea
+  // nuevos join/submit de participantes sin borrar nada.
+  cerrado         Boolean          @default(false)
 
   // Auto-relación Evaluador -> Participante
   estudio   ResearchSession?  @relation("EstudioParticipantes", fields: [estudioId], references: [id])

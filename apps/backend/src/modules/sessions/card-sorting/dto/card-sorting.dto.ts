@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsEnum,
   IsOptional,
   IsString,
@@ -70,4 +71,9 @@ export class SubmitCardSortingResultDto {
   @ValidateNested({ each: true })
   @Type(() => GrupoDto)
   grupos!: GrupoDto[];
+}
+
+export class CerrarEstudioDto {
+  @IsBoolean()
+  cerrado!: boolean;
 }

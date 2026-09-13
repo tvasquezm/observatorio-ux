@@ -9,6 +9,7 @@ import {
   createCardSortingSession,
   getCardSortingAnalytics,
   getCardSortingSession,
+  cerrarCardSortingEstudio,
   joinCardSortingSession,
   submitCardSortingResult,
   type CreateCardSortingSessionPayload,
@@ -64,6 +65,21 @@ export function useCreateCardSortingSession() {
     onSuccess: (session) => {
       // Precarga la cache de detalle para que un getSession inmediato
       // posterior no tenga que volver a pegarle a la red.
+      queryClient.setQueryData(cardSortingKeys.session(session.id), session);
+    },
+  });
+}
+
+/**
+ * Evaluador cierra/reabre el estudio maestro (bloquea nuevos join/submit
+ * de participantes).
+ */
+export function useCerrarCardSortingEstudio() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ estudioId, cerrado }: { estudioId: string; cerrado: boolean }) =>
+      cerrarCardSortingEstudio(estudioId, cerrado),
+    onSuccess: (session) => {
       queryClient.setQueryData(cardSortingKeys.session(session.id), session);
     },
   });

@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { getSalas, createSala, updateSala, type Sala } from '../api/salas.api';
+import { getSalas, createSala, updateSala, softDeleteSala, type Sala } from '../api/salas.api';
 import { useAuthStore } from '../../auth/store/useAuthStore';
 import { resolvePerspective } from '../../../shared/auth/perspectivas';
+import { useConfirm } from '../../../shared/api/confirm';
 
 function fechaParaInput(fechaRaw?: string | null) {
   if (!fechaRaw) return '';
@@ -24,6 +25,7 @@ export const ProfesorSalasPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState('');
   const modalRef = useRef<HTMLDialogElement>(null);
+  const confirm = useConfirm();
 
   // Estados del formulario
   const [nombre, setNombre] = useState('');
@@ -120,6 +122,16 @@ export const ProfesorSalasPage: React.FC = () => {
     }
   };
 
+  const handleEliminarSala = async (sala: Sala) => {
+    if (!(await confirm(`¿Eliminar la sala "${sala.nombre}"? Se puede recuperar dentro de 20 días.`))) return;
+    try {
+      await softDeleteSala(sala.id);
+      await cargarSalas();
+    } catch (err: any) {
+      setLoadError(err?.message || 'No se pudo eliminar la sala.');
+    }
+  };
+
   const salasFiltradas = salas.filter((sala) =>
     sala.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
     sala.periodo.toLowerCase().includes(busqueda.toLowerCase())
@@ -164,13 +176,18 @@ export const ProfesorSalasPage: React.FC = () => {
           </p>
         </div>
         {puedeGestionar && (
-          <button
-            type="button"
-            onClick={abrirCrearSala}
-            className="primary"
-          >
-            + Crear sala
-          </button>
+          <div className="salas-header-actions">
+            <Link to="/salas/eliminadas" className="secondary">
+              Salas eliminadas
+            </Link>
+            <button
+              type="button"
+              onClick={abrirCrearSala}
+              className="primary"
+            >
+              + Crear sala
+            </button>
+          </div>
         )}
       </div>
 
@@ -233,6 +250,16 @@ export const ProfesorSalasPage: React.FC = () => {
                           aria-label={`Editar sala ${sala.nombre}`}
                         >
                           Editar
+                        </button>
+                      )}
+                      {puedeGestionar && (
+                        <button
+                          type="button"
+                          className="danger sala-delete-button"
+                          onClick={() => handleEliminarSala(sala)}
+                          aria-label={`Eliminar sala ${sala.nombre}`}
+                        >
+                          Eliminar
                         </button>
                       )}
                       <Link className="primary sala-enter-link" to={`/salas/${sala.id}`}>

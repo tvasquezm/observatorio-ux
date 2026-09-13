@@ -74,6 +74,8 @@ export interface CardSortingSession {
   agrupaciones: CardGrouping[];
   createdAt: string;
   completadoAt: string | null;
+  // Fase: cierre de estudio — solo tiene sentido en el estudio maestro.
+  cerrado: boolean;
 }
 
 // --- Manejo de errores ---
@@ -151,6 +153,20 @@ export function getCardSortingSession(
 ): Promise<CardSortingSession> {
   return request<CardSortingSession>(`/card-sorting/sessions/${sessionId}`, {
     method: 'GET',
+  });
+}
+
+/**
+ * Evaluador cierra (o reabre) el estudio maestro: bloquea nuevos
+ * join/submit de participantes sin borrar nada.
+ */
+export function cerrarCardSortingEstudio(
+  estudioId: string,
+  cerrado: boolean,
+): Promise<CardSortingSession> {
+  return request<CardSortingSession>(`/card-sorting/sessions/${estudioId}/cerrar`, {
+    method: 'PATCH',
+    body: JSON.stringify({ cerrado }),
   });
 }
 

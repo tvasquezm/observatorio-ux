@@ -26,6 +26,8 @@ export interface Sala {
   limiteIntegrantesEquipo: number | null;
   // Fase 5 — toggle de creación de proyectos por ESTUDIANTE.
   permiteCreacionProyectos: boolean;
+  // Fase 2 — soft delete (20 días de ventana de recuperación).
+  deletedAt?: string | null;
 }
 
 export interface CreateSalaDto {
@@ -100,6 +102,27 @@ export function updateSala(salaId: string, data: UpdateSalaDto): Promise<Sala> {
   return request<Sala>(`/salas/${salaId}`, {
     method: 'PATCH',
     body: JSON.stringify(data),
+  });
+}
+
+// --- Fase 2: soft delete / restore / hard delete ---
+
+export function softDeleteSala(salaId: string): Promise<Sala> {
+  return request<Sala>(`/salas/${salaId}`, { method: 'DELETE' });
+}
+
+export function getSalasEliminadas(): Promise<Sala[]> {
+  return request<Sala[]>('/salas/eliminadas');
+}
+
+export function restoreSala(salaId: string): Promise<Sala> {
+  return request<Sala>(`/salas/${salaId}/restore`, { method: 'POST' });
+}
+
+export function hardDeleteSala(salaId: string): Promise<{ eliminado: boolean }> {
+  return request<{ eliminado: boolean }>(`/salas/${salaId}/hard`, {
+    method: 'DELETE',
+    body: JSON.stringify({ confirm: 'DELETE' }),
   });
 }
 

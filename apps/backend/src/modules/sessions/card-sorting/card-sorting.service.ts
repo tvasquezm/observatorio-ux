@@ -80,6 +80,29 @@ export class CardSortingService {
     return this.getSession(participantSession.id, user);
   }
 
+  async cerrarEstudio(estudioId: string, cerrado: boolean, user: AuthenticatedUser) {
+    const estudio = await this.prisma.researchSession.findUnique({
+      where: { id: estudioId },
+    });
+
+    if (
+      !estudio ||
+      estudio.tipo !== TipoSesion.CARD_SORTING ||
+      estudio.actor !== ActorSesion.EVALUADOR
+    ) {
+      throw new NotFoundException('No existe el estudio maestro solicitado.');
+    }
+
+    if (user.rol !== 'ADMIN' && estudio.evaluadorId !== user.id) {
+      throw new ForbiddenException('No tienes permiso sobre este estudio.');
+    }
+
+    return this.prisma.researchSession.update({
+      where: { id: estudioId },
+      data: { cerrado },
+    });
+  }
+
   async joinSession(estudioId: string, user: AuthenticatedUser) {
     const estudio = await this.prisma.researchSession.findUnique({
       where: { id: estudioId },
@@ -91,6 +114,10 @@ export class CardSortingService {
       estudio.actor !== ActorSesion.EVALUADOR
     ) {
       throw new NotFoundException('No existe el estudio maestro solicitado.');
+    }
+
+    if (estudio.cerrado) {
+      throw new ForbiddenException('Este estudio ya no acepta nuevos participantes.');
     }
 
     if (user.proyectoId && user.proyectoId !== estudio.proyectoId) {
@@ -330,6 +357,10 @@ export class CardSortingService {
       const study = await tx.researchSession.findUniqueOrThrow({
         where: { id: session.estudioId },
       });
+
+      if (study.cerrado) {
+        throw new ForbiddenException('Este estudio ya no acepta envíos.');
+      }
       const cards = await tx.card.findMany({
         where: { sessionId: study.id },
         select: { id: true },

@@ -10,14 +10,18 @@
 // sin trabajo de estilos/UI final, eso lo hace después el resto del equipo.
 
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { accessProject, registerConsent, OnboardingApiError } from '../api/onboarding.api';
 import { guardarSesionParticipante } from '../store/useParticipantSession';
+import { joinCardSortingSession } from '../api/participant-card-sorting.api';
 
-type Paso = 'acceso' | 'consentimiento' | 'listo';
+type Paso = 'acceso' | 'consentimiento' | 'listo' | 'uniendo';
 
 export function OnboardingPage() {
   const { proyectoId } = useParams<{ proyectoId: string }>();
+  const [searchParams] = useSearchParams();
+  const estudioId = searchParams.get('estudio');
+  const navigate = useNavigate();
   const [paso, setPaso] = useState<Paso>('acceso');
   const [participanteId, setParticipanteId] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
@@ -56,9 +60,26 @@ export function OnboardingPage() {
     setError(null);
     try {
       await registerConsent(participanteId, proyectoId!, aceptado);
-      setPaso(aceptado ? 'listo' : 'acceso');
+      if (!aceptado) {
+        setPaso('acceso');
+        return;
+      }
+      if (estudioId) {
+        setPaso('uniendo');
+        const sesion = await joinCardSortingSession(estudioId);
+        navigate(`/participar/sesion/${sesion.id}`, { replace: true });
+        return;
+      }
+      setPaso('listo');
     } catch (e) {
-      setError(e instanceof OnboardingApiError ? e.message : 'No se pudo registrar tu respuesta.');
+      const mensaje =
+        e instanceof OnboardingApiError
+          ? e.message
+          : e instanceof Error
+            ? e.message
+            : 'No se pudo continuar. Intenta de nuevo.';
+      setError(mensaje);
+      setPaso('consentimiento');
     } finally {
       setCargando(false);
     }
@@ -96,6 +117,13 @@ export function OnboardingPage() {
               No acepto
             </button>
           </div>
+        </section>
+      )}
+
+      {paso === 'uniendo' && (
+        <section>
+          <h1>Uniéndote al estudio…</h1>
+          <p>Un momento.</p>
         </section>
       )}
 

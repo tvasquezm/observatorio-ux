@@ -36,6 +36,13 @@ export class SalasController {
     return this.salasService.findAll(user);
   }
 
+  // Antes de ':id' — si no, Nest intentaría matchear 'eliminadas' como :id.
+  @Get('eliminadas')
+  @Roles('DOCENTE', 'ADMIN')
+  async findAllDeleted(@CurrentUser() user: AuthenticatedUser) {
+    return this.salasService.findAllDeleted(user);
+  }
+
   @Get(':id')
   @Roles('ESTUDIANTE', 'DOCENTE', 'ADMIN')
   async findOne(

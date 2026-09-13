@@ -49,6 +49,24 @@ export class SalasService {
     });
   }
 
+  // Fase 2: salas soft-deleted dentro de la ventana de recuperación (20
+  // días). Solo el DOCENTE dueño o ADMIN puede verlas — sirve para restore
+  // o hard delete definitivo.
+  async findAllDeleted(user: AuthenticatedUser) {
+    return this.prisma.sala.findMany({
+      where: {
+        deletedAt: { not: null },
+        ...(user.rol === 'ADMIN' ? {} : { profesorId: user.id }),
+      },
+      orderBy: { deletedAt: 'desc' },
+      include: {
+        profesor: {
+          select: { id: true, nombre: true, email: true, rol: true },
+        },
+      },
+    });
+  }
+
   async create(createSalaDto: CreateSalaDto, userId?: string) {
     if (!userId) {
       throw new UnauthorizedException('No se encontró el usuario autenticado para crear la sala.');

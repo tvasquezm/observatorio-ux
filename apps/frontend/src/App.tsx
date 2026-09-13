@@ -3,6 +3,7 @@
 import { Routes, Route } from 'react-router-dom';
 import { LoginPage } from './features/auth/pages/LoginPage';
 import { OnboardingPage } from './features/onboarding/pages/OnboardingPage';
+import { ParticipantCardSortingPage } from './features/onboarding/pages/ParticipantCardSortingPage';
 import { ProtectedRoute } from './shared/routing/ProtectedRoute';
 import { PerspectiveRoute } from './shared/routing/PerspectiveRoute';
 import { AppLayout } from './layouts/AppLayout';
@@ -21,6 +22,7 @@ import { ProjectCommentsPage } from './pages/ProjectCommentsPage';
 import { ProjectParticipantsPage } from './pages/ProjectParticipantsPage';
 import { ProfesorSalasPage } from './features/salas/pages/ProfesorSalasPage';
 import { SalaDetallePage } from './features/salas/pages/SalaDetallePage';
+import { SalasEliminadasPage } from './features/salas/pages/SalasEliminadasPage';
 import { AdminProfesoresPage } from './features/admin/pages/AdminProfesoresPage';
 
 export default function App() {
@@ -29,6 +31,7 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       {/* Público — participante sin cuenta (Fase 1, PLAN_AJUSTES.md) */}
       <Route path="/participar/:proyectoId" element={<OnboardingPage />} />
+      <Route path="/participar/sesion/:sesionId" element={<ParticipantCardSortingPage />} />
 
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
@@ -38,6 +41,10 @@ export default function App() {
           <Route element={<PerspectiveRoute allowed={['ESTUDIANTE', 'DOCENTE', 'ADMIN']} />}>
             <Route path="/salas" element={<ProfesorSalasPage />} />
             <Route path="/salas/:salaId" element={<SalaDetallePage />} />
+          </Route>
+
+          <Route element={<PerspectiveRoute allowed={['DOCENTE', 'ADMIN']} />}>
+            <Route path="/salas/eliminadas" element={<SalasEliminadasPage />} />
           </Route>
 
           <Route element={<PerspectiveRoute allowed={['ADMIN']} />}>

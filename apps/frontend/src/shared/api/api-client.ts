@@ -1,9 +1,11 @@
 // apps/frontend/src/lib/api-client.ts
 //
-// Cliente HTTP (fetch) con reconexión silenciosa ante 401 (ADR Master,
-// sección 3). El participanteId en localStorage NUNCA se usa como
-// credencial directa — solo como llave para solicitar una revalidación
-// real contra la base de datos vía /participantes/reanudar.
+// Cliente HTTP (fetch) para el PARTICIPANTE. Ya no intenta reconexión
+// automática vía /participantes/reanudar — ese endpoint no existe en el
+// backend. Ante un 401 (token vencido), se corta con un mensaje claro
+// para que el participante vuelva a entrar por el link original; el
+// progreso ya clasificado NO se pierde porque se cachea aparte (ver
+// features/onboarding/pages/ParticipantCardSortingPage.tsx).
 
 import { notify } from './toast';
 
@@ -24,6 +26,16 @@ export class ApiValidationError extends Error {
   }
 }
 
+// Se lanza específicamente en 401, para que quien llame pueda
+// distinguir "sesión vencida" de cualquier otro error y decidir qué
+// hacer (ej. mostrar "volvé a entrar por el link").
+export class SesionExpiradaError extends Error {
+  constructor() {
+    super('Tu sesión expiró. Vuelve a entrar usando el link original para continuar.');
+    this.name = 'SesionExpiradaError';
+  }
+}
+
 function normalizarDetalles(message: unknown): DetalleValidacion[] {
   if (Array.isArray(message) && message.every((m) => m && typeof m === 'object' && 'campo' in m)) {
     return message as DetalleValidacion[];
@@ -34,49 +46,7 @@ function normalizarDetalles(message: unknown): DetalleValidacion[] {
   return [{ campo: '', mensaje: String(message ?? 'Error de validación') }];
 }
 
-let renovandoToken: Promise<string> | null = null;
-
-function getParticipanteLocal() {
-  const participanteId = localStorage.getItem('participanteId');
-  const proyectoId = localStorage.getItem('proyectoId');
-  return participanteId && proyectoId ? { participanteId, proyectoId } : null;
-}
-
-// Evita reintentos concurrentes: si varias mutaciones fallan con 401 al
-// mismo tiempo, solo se dispara UNA llamada a /reanudar; todas esperan
-// la misma promesa en vez de pedir tokens en paralelo.
-async function obtenerTokenFresco(): Promise<string> {
-  if (renovandoToken) return renovandoToken;
-
-  const local = getParticipanteLocal();
-  if (!local) throw new Error('No hay sesión de participante que reanudar');
-
-  renovandoToken = fetch('/api/participantes/reanudar', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(local),
-  })
-    .then((res) => {
-      if (!res.ok) throw new Error('No se pudo reanudar la sesión');
-      return res.json();
-    })
-    .then((json) => {
-      const { token } = json.data;
-      localStorage.setItem('participanteToken', token);
-      return token as string;
-    })
-    .finally(() => {
-      renovandoToken = null;
-    });
-
-  return renovandoToken;
-}
-
-export async function apiFetch<T>(
-  url: string,
-  options: RequestInit = {},
-  esReintento = false,
-): Promise<T> {
+export async function apiFetch<T>(url: string, options: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem('participanteToken');
   const res = await fetch(url, {
     ...options,
@@ -87,16 +57,9 @@ export async function apiFetch<T>(
     },
   });
 
-  // Reconexión silenciosa — un solo reintento por request (esReintento
-  // evita loop infinito si /reanudar también falla, ej. estudio cerrado).
-  if (res.status === 401 && !esReintento) {
-    try {
-      await obtenerTokenFresco();
-      return apiFetch<T>(url, options, true); // reintenta la operación ORIGINAL completa
-    } catch {
-      notify.error('Tu sesión expiró y no se pudo reanudar. El estudio puede estar cerrado.');
-      throw new Error('No se pudo reanudar la sesión de participante');
-    }
+  if (res.status === 401) {
+    notify.error('Tu sesión expiró. Vuelve a entrar usando el link original para continuar.');
+    throw new SesionExpiradaError();
   }
 
   if (res.status === 400) {
@@ -117,3 +80,4 @@ export async function apiFetch<T>(
   // objeto directo. Se quita el desenvoltorio que asumía ese wrapper.
   return (await res.json()) as T;
 }
+

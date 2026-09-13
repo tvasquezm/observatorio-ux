@@ -11,6 +11,10 @@ import {
   listProyectosDeSala,
   getSala,
   updateSala,
+  softDeleteSala,
+  getSalasEliminadas,
+  restoreSala,
+  hardDeleteSala,
   vincularProyecto,
   desvincularProyecto,
   SalasApiError,
@@ -23,6 +27,7 @@ import { notify } from '../../../shared/api/toast';
 
 export const salasKeys = {
   all: ['salas'] as const,
+  eliminadas: ['salas', 'eliminadas'] as const,
   detail: (salaId: string) => ['salas', salaId] as const,
   estudiantes: (salaId: string) => ['salas', salaId, 'estudiantes'] as const,
   proyectos: (salaId: string) => ['salas', salaId, 'proyectos'] as const,
@@ -55,6 +60,49 @@ export function useUpdateSala(salaId: string) {
     onError: (err) => {
       notify.error(err instanceof SalasApiError ? err.message : 'No se pudo actualizar la sala.');
     },
+  });
+}
+
+// --- Fase 2: soft delete / restore / hard delete ---
+
+export function useSoftDeleteSala() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (salaId: string) => softDeleteSala(salaId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: salasKeys.all });
+      notify.success('Sala eliminada (recuperable por 20 días).');
+    },
+    onError: (err) => notify.error(mensajeError(err, 'No se pudo eliminar la sala.')),
+  });
+}
+
+export function useSalasEliminadas() {
+  return useQuery({ queryKey: salasKeys.eliminadas, queryFn: getSalasEliminadas });
+}
+
+export function useRestoreSala() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (salaId: string) => restoreSala(salaId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: salasKeys.eliminadas });
+      qc.invalidateQueries({ queryKey: salasKeys.all });
+      notify.success('Sala recuperada.');
+    },
+    onError: (err) => notify.error(mensajeError(err, 'No se pudo recuperar la sala.')),
+  });
+}
+
+export function useHardDeleteSala() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (salaId: string) => hardDeleteSala(salaId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: salasKeys.eliminadas });
+      notify.success('Sala eliminada definitivamente.');
+    },
+    onError: (err) => notify.error(mensajeError(err, 'No se pudo eliminar definitivamente.')),
   });
 }
 
