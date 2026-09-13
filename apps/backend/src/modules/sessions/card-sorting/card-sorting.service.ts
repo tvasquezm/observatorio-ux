@@ -33,6 +33,34 @@ export class CardSortingService {
     private readonly projectAccess: ProjectAccessService,
   ) {}
 
+  // Estudio(s) maestro(s) de Card Sorting ya creados para un proyecto —
+  // permite a CardSortingPage restaurar el estado al entrar/recargar en
+  // vez de depender solo del resultado en memoria de createSession.
+  async findByProyecto(proyectoId: string, user: AuthenticatedUser) {
+    await this.projectAccess.assertAccess(
+      proyectoId,
+      user,
+      'No tienes acceso a los estudios de este proyecto.',
+    );
+
+    const estudio = await this.prisma.researchSession.findFirst({
+      where: {
+        proyectoId,
+        tipo: TipoSesion.CARD_SORTING,
+        actor: ActorSesion.EVALUADOR,
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        cardsDefinidas: true,
+        categoriasDefinidas: true,
+        agrupaciones: { include: { card: true, category: true } },
+        estudio: { include: { cardsDefinidas: true, categoriasDefinidas: true } },
+      },
+    });
+
+    return estudio;
+  }
+
   async createSession(dto: CreateCardSortingSessionDto, user: AuthenticatedUser) {
     await this.projectAccess.assertAccess(
       dto.proyectoId,

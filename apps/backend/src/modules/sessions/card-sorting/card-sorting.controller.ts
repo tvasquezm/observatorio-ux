@@ -6,6 +6,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
@@ -37,6 +38,16 @@ export class CardSortingController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.cardSortingService.createSession(dto, user);
+  }
+
+  @Get()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ESTUDIANTE', 'DOCENTE', 'ADMIN')
+  findByProyecto(
+    @Query('proyectoId', ParseUUIDPipe) proyectoId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.cardSortingService.findByProyecto(proyectoId, user);
   }
 
   // Lo consulta tanto el EVALUADOR (cookie evaluadorToken) como el

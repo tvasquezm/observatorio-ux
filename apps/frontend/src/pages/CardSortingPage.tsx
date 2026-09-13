@@ -12,13 +12,16 @@ import {
   useCardSortingAnalytics,
   useCreateCardSortingSession,
   useCerrarCardSortingEstudio,
+  useCardSortingSessionByProyecto,
 } from '../features/card-sorting/hooks/useCardSortingQueries';
 import type { TipoCardSorting } from '../features/card-sorting/api/card-sorting.api';
 import { notify } from '../shared/api/toast';
 
 export function CardSortingPage() {
   const { proyectoId } = useOutletContext<ProjectOutletContext>();
-  const { mutate: crear, data: sesion, isPending, error } = useCreateCardSortingSession();
+  const { data: existente } = useCardSortingSessionByProyecto(proyectoId);
+  const { mutate: crear, data: sesionCreada, isPending, error } = useCreateCardSortingSession();
+  const sesion = sesionCreada ?? existente ?? null;
   const { mutate: cerrarEstudio, isPending: cerrando } = useCerrarCardSortingEstudio();
   const { data: analytics, isLoading: cargandoAnalytics, refetch: refetchAnalytics } = useCardSortingAnalytics(
     sesion?.id ?? null,

@@ -9,6 +9,7 @@ import {
   createCardSortingSession,
   getCardSortingAnalytics,
   getCardSortingSession,
+  getCardSortingSessionByProyecto,
   cerrarCardSortingEstudio,
   joinCardSortingSession,
   submitCardSortingResult,
@@ -22,8 +23,21 @@ import { useCardSortingStore } from '../store/useCardSortingStore';
 export const cardSortingKeys = {
   all: ['card-sorting'] as const,
   session: (id: string) => ['card-sorting', 'session', id] as const,
+  byProyecto: (proyectoId: string) => ['card-sorting', 'proyecto', proyectoId] as const,
   analytics: (id: string) => ['card-sorting', 'analytics', id] as const,
 };
+
+/**
+ * Estudio maestro ya existente para el proyecto actual (si lo hay).
+ * Se usa para restaurar CardSortingPage al recargar/reentrar.
+ */
+export function useCardSortingSessionByProyecto(proyectoId: string | null) {
+  return useQuery({
+    queryKey: cardSortingKeys.byProyecto(proyectoId ?? ''),
+    queryFn: () => getCardSortingSessionByProyecto(proyectoId as string),
+    enabled: !!proyectoId,
+  });
+}
 
 /**
  * Analítica agregada del estudio (matriz de similitud, frecuencia,
@@ -66,6 +80,7 @@ export function useCreateCardSortingSession() {
       // Precarga la cache de detalle para que un getSession inmediato
       // posterior no tenga que volver a pegarle a la red.
       queryClient.setQueryData(cardSortingKeys.session(session.id), session);
+      queryClient.setQueryData(cardSortingKeys.byProyecto(session.proyectoId), session);
     },
   });
 }
@@ -81,6 +96,7 @@ export function useCerrarCardSortingEstudio() {
       cerrarCardSortingEstudio(estudioId, cerrado),
     onSuccess: (session) => {
       queryClient.setQueryData(cardSortingKeys.session(session.id), session);
+      queryClient.setQueryData(cardSortingKeys.byProyecto(session.proyectoId), session);
     },
   });
 }
