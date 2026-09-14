@@ -15,6 +15,10 @@ import {
 } from './auth.dto';
 import type { AuthenticatedUser } from './types/authenticated-user.interface';
 
+// Los E2E recorren dos viewports y pueden repetir un caso fallido. Se evita
+// que el propio runner se bloquee por IP sin relajar el límite de producción.
+const LOGIN_RATE_LIMIT = process.env.NODE_ENV === 'test' ? 30 : 5;
+
 // Cookie de sesión: sin `maxAge` (cookie de sesión de navegador). La
 // expiración real la sigue marcando el JWT (`ignoreExpiration: false` en
 // JwtStrategy) — no hace falta duplicar ese plazo acá y arriesgarse a que
@@ -38,7 +42,7 @@ export class AuthController {
   // Límite estricto: es el blanco más obvio de fuerza bruta (probar
   // contraseñas contra un email conocido). 5 intentos / minuto por IP,
   // contra el default global de 60/min del resto de la API.
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Throttle({ default: { limit: LOGIN_RATE_LIMIT, ttl: 60_000 } })
   @Post('login')
   async login(
     @Body() dto: LoginDto,

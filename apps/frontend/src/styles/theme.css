@@ -1774,7 +1774,7 @@ input::placeholder, textarea::placeholder { color: color-mix(in srgb, var(--mute
   .comment-body header { flex-direction: column; }
   .comment-actions { align-self: flex-start; }
   .salas-header-actions, .salas-toolbar { align-items: stretch; flex-direction: column; }
-  .salas-header-actions > * { flex: 1; }
+  .salas-header-actions > * { flex: 1; min-height: 44px; }
   .salas-search-input { width: 100%; }
   .salas-result-count { align-self: flex-end; }
   .sala-card { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 13px; padding: 15px; }
