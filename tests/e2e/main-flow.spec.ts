@@ -19,7 +19,7 @@ test('recorre login, proyecto y las cinco técnicas UX', async ({ page }, testIn
     ['Personas', 'Personas'],
     ['Journey Map', 'Journey Maps'],
     ['Momentos Críticos', 'Momentos críticos'],
-    ['Card Sorting', 'Card sorting'],
+    ['Card Sorting', 'Card Sorting'],
     ['Evaluación Heurística', 'Hallazgos heurísticos'],
   ] as const;
 
