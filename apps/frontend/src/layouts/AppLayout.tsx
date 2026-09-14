@@ -65,6 +65,7 @@ export function AppLayout() {
 
   return (
     <div className="app" data-perspective={activeRole?.toLowerCase()}>
+      <a className="skip-link" href="#main-content">Saltar al contenido</a>
       <aside className="side" aria-label="Navegación principal">
         <div className="brand">
           <img className="brand-isotipo" src="/brand/uxlab-isotipo-white.png" alt="UXLab" />
@@ -74,7 +75,7 @@ export function AppLayout() {
           </div>
         </div>
 
-        <span className="side-label">NAVEGACIÓN</span>
+        <span className="side-label">Principal</span>
         <nav className="side-nav" aria-label="Secciones principales">
           {visibleNavItems.map((item) => (
             <NavLink
@@ -96,7 +97,7 @@ export function AppLayout() {
               <b>{user?.nombre}</b>
               <small>{user?.rol}</small>
             </div>
-            <button onClick={logout}>Salir</button>
+            <button type="button" onClick={logout}>Salir</button>
           </div>
         </div>
       </aside>
@@ -121,7 +122,7 @@ export function AppLayout() {
               aria-pressed={darkMode}
               onClick={() => setDarkMode((current) => !current)}
             >
-              {darkMode ? '☼ Claro' : '☾ Oscuro'}
+              {darkMode ? 'Modo claro' : 'Modo oscuro'}
             </button>
             <button
               type="button"
@@ -137,7 +138,7 @@ export function AppLayout() {
                 ])
               }
             >
-              ↓ PDF
+              Exportar PDF
             </button>
           </div>
         </div>
@@ -149,7 +150,7 @@ export function AppLayout() {
             onRestore={() => changePerspective(user.rol)}
           />
         ) : null}
-        <div className="content">
+        <div className="content" id="main-content" tabIndex={-1}>
           <Outlet />
         </div>
       </main>

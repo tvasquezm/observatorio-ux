@@ -164,11 +164,11 @@ export const ProfesorSalasPage: React.FC = () => {
   };
 
   return (
-    <div className="card salas-page">
+    <div className="salas-page">
       <div className="salas-header">
         <div>
-          <span className="kicker">ESPACIOS DE TRABAJO</span>
-          <h1>{puedeGestionar ? 'Salas de Proyecto UX' : 'Mis salas'}</h1>
+          <span className="eyebrow">Espacios académicos</span>
+          <h1>{puedeGestionar ? 'Salas de proyecto UX' : 'Mis salas'}</h1>
           <p>
             {puedeGestionar
               ? 'Gestiona las salas de tus estudiantes y supervisa su avance temporal.'
@@ -177,7 +177,7 @@ export const ProfesorSalasPage: React.FC = () => {
         </div>
         {puedeGestionar && (
           <div className="salas-header-actions">
-            <Link to="/salas/eliminadas" className="secondary">
+            <Link to="/salas/eliminadas" className="secondary button-like">
               Salas eliminadas
             </Link>
             <button
@@ -185,13 +185,14 @@ export const ProfesorSalasPage: React.FC = () => {
               onClick={abrirCrearSala}
               className="primary"
             >
-              + Crear sala
+              Crear sala
             </button>
           </div>
         )}
       </div>
 
-      <div className="salas-search">
+      <div className="salas-toolbar">
+        <div className="salas-search">
         <label className="sr-only" htmlFor="buscar-sala">Buscar sala</label>
         <input
           id="buscar-sala"
@@ -201,6 +202,10 @@ export const ProfesorSalasPage: React.FC = () => {
           onChange={(e) => setBusqueda(e.target.value)}
           className="salas-search-input"
         />
+        </div>
+        <span className="salas-result-count" aria-live="polite">
+          {loading ? 'Cargando…' : `${salasFiltradas.length} ${salasFiltradas.length === 1 ? 'sala' : 'salas'}`}
+        </span>
       </div>
 
       {loadError ? (
@@ -209,7 +214,7 @@ export const ProfesorSalasPage: React.FC = () => {
           <button type="button" className="secondary" onClick={cargarSalas}>Reintentar</button>
         </div>
       ) : loading ? (
-        <p className="text-muted">Cargando salas...</p>
+        <div className="loading-block" aria-label="Cargando salas" />
       ) : salasFiltradas.length > 0 ? (
         <div className="salas-list">
           {salasFiltradas.map((sala) => {
@@ -221,7 +226,7 @@ export const ProfesorSalasPage: React.FC = () => {
             const creada = formatearFecha(sala.createdAt || salaCompat.created_at) || 'N/A';
 
             return (
-              <div
+              <article
                 key={sala.id}
                 className="sala-card"
               >
@@ -229,7 +234,7 @@ export const ProfesorSalasPage: React.FC = () => {
                   <div>
                     {sala.nombre.match(/\d+/)?.[0] ?? sala.nombre.charAt(0)}
                   </div>
-                  <span>👥</span>
+                  <span>SALA</span>
                 </div>
 
                 <div className="sala-card-content">
@@ -270,7 +275,6 @@ export const ProfesorSalasPage: React.FC = () => {
 
                   <div className="sala-dates">
                     <div className="sala-date-item">
-                      <span aria-hidden="true">🗓️</span>
                       <div>
                         <span>Inicio</span>
                         <strong>{inicio}</strong>
@@ -280,7 +284,6 @@ export const ProfesorSalasPage: React.FC = () => {
                     <span className="sala-date-arrow" aria-hidden="true">→</span>
 
                     <div className="sala-date-item">
-                      <span aria-hidden="true">🗓️</span>
                       <div>
                         <span>Término</span>
                         <strong>{fin}</strong>
@@ -290,7 +293,6 @@ export const ProfesorSalasPage: React.FC = () => {
                     <div className="sala-date-separator" aria-hidden="true" />
 
                     <div className="sala-date-item">
-                      <span aria-hidden="true">🗓️</span>
                       <div>
                         <span>Creada el</span>
                         <strong>{creada}</strong>
@@ -298,13 +300,13 @@ export const ProfesorSalasPage: React.FC = () => {
                     </div>
                   </div>
                 </div>
-              </div>
+              </article>
             );
           })}
         </div>
       ) : (
-        <div className="card salas-empty">
-          <p>{busqueda ? 'No hay salas que coincidan con la búsqueda.' : 'Todavía no tienes salas.'}</p>
+        <div className="empty-state salas-empty">
+          <strong>{busqueda ? 'Sin coincidencias' : 'Todavía no tienes salas'}</strong>
           <small>
             {busqueda
               ? 'Prueba con otro nombre o período.'
@@ -312,6 +314,7 @@ export const ProfesorSalasPage: React.FC = () => {
                 ? 'Crea una sala para comenzar a organizar a tus estudiantes.'
                 : 'Cuando un docente registre tu correo en una sala, aparecerá aquí automáticamente.'}
           </small>
+          {!busqueda && puedeGestionar && <button type="button" className="primary" onClick={abrirCrearSala}>Crear la primera sala</button>}
         </div>
       )}
 

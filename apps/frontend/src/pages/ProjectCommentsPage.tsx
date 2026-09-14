@@ -1,18 +1,11 @@
-// apps/frontend/src/pages/ProjectCommentsPage.tsx
-//
-// Comentarios generales del proyecto (sin filtro por artefactoLogicoId en
-// esta fase). Cualquiera con acceso al proyecto puede publicar; editar/
-// borrar es solo del propio autor o ADMIN (mismo criterio que el backend
-// en CommentsService.findOwn).
-
 import React, { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import type { ProjectOutletContext } from '../layouts/ProjectDetailLayout';
 import {
   useComments,
   useCreateComment,
-  useUpdateComment,
   useRemoveComment,
+  useUpdateComment,
 } from '../features/comments/hooks/useCommentsQueries';
 import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { useActivePerspective } from '../shared/auth/useActivePerspective';
@@ -25,15 +18,14 @@ export function ProjectCommentsPage() {
   const { mutate: editar } = useUpdateComment(proyectoId);
   const { mutate: borrar } = useRemoveComment(proyectoId);
   const confirm = useConfirm();
-  const currentUser = useAuthStore((s) => s.user);
+  const currentUser = useAuthStore((state) => state.user);
   const activeRole = useActivePerspective();
-
   const [texto, setTexto] = useState('');
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [textoEdicion, setTextoEdicion] = useState('');
 
-  function handleCrear(e: React.FormEvent) {
-    e.preventDefault();
+  function handleCrear(event: React.FormEvent) {
+    event.preventDefault();
     const limpio = texto.trim();
     if (!limpio) return;
     crear(limpio, { onSuccess: () => setTexto('') });
@@ -56,16 +48,11 @@ export function ProjectCommentsPage() {
   function guardarEdicion(comentarioId: string) {
     const limpio = textoEdicion.trim();
     if (!limpio) return;
-    editar(
-      { comentarioId, texto: limpio },
-      { onSuccess: cancelarEdicion },
-    );
+    editar({ comentarioId, texto: limpio }, { onSuccess: cancelarEdicion });
   }
 
   async function handleBorrar(comentarioId: string) {
-    if (await confirm('¿Borrar este comentario?')) {
-      borrar(comentarioId);
-    }
+    if (await confirm('¿Borrar este comentario?')) borrar(comentarioId);
   }
 
   function formatearFecha(fechaRaw: string) {
@@ -81,85 +68,64 @@ export function ProjectCommentsPage() {
   }
 
   return (
-    <div className="panel">
-      <div className="panel-head">
+    <div className="comments-page">
+      <section className="comments-intro">
+        <span className="eyebrow">Conversación del proyecto</span>
         <h2>Comentarios</h2>
-      </div>
+        <p>Deja decisiones, preguntas o contexto para que el equipo pueda retomarlos después.</p>
+      </section>
 
-      <form onSubmit={handleCrear} className="form-row-inline">
-        <input
-          type="text"
-          placeholder="Escribe un comentario…"
-          aria-label="Nuevo comentario"
-          value={texto}
-          onChange={(e) => setTexto(e.target.value)}
-          required
-          className="input-flex"
-        />
-        <button type="submit" className="primary" disabled={creando}>
-          {creando ? 'Publicando…' : '+ Comentar'}
-        </button>
+      <form onSubmit={handleCrear} className="comment-composer">
+        <span className="comment-avatar" aria-hidden="true">{(currentUser?.nombre ?? 'U').charAt(0).toUpperCase()}</span>
+        <label className="sr-only" htmlFor="nuevo-comentario">Nuevo comentario</label>
+        <textarea id="nuevo-comentario" placeholder="Escribe una observación o decisión…" value={texto} onChange={(event) => setTexto(event.target.value)} required rows={3} />
+        <div className="comment-composer-actions">
+          <small>{texto.trim().length} caracteres</small>
+          <button type="submit" className="primary" disabled={creando || !texto.trim()}>{creando ? 'Publicando…' : 'Publicar comentario'}</button>
+        </div>
       </form>
 
-      {isLoading && <p>Cargando…</p>}
+      {isLoading && <div className="loading-block" aria-label="Cargando comentarios" />}
       {isError && (
-        <div className="error-text" role="alert">
+        <div className="inline-state inline-state--error" role="alert">
           <p>{(error as Error).message}</p>
           <button type="button" className="secondary" onClick={() => refetch()}>Reintentar</button>
         </div>
       )}
 
-      <div className="list-stack mt-16">
-        {comentarios?.map((c) => (
-          <div key={c.id} className="entity-card">
-            {editandoId === c.id ? (
-              <div className="form-row-inline" style={{ width: '100%' }}>
-                <input
-                  type="text"
-                  aria-label="Editar comentario"
-                  value={textoEdicion}
-                  onChange={(e) => setTextoEdicion(e.target.value)}
-                  className="input-flex"
-                />
-                <button type="button" className="primary" onClick={() => guardarEdicion(c.id)}>
-                  Guardar
-                </button>
-                <button type="button" className="secondary" onClick={cancelarEdicion}>
-                  Cancelar
-                </button>
+      <section className="comment-feed" aria-label="Comentarios del proyecto">
+        {comentarios?.map((comentario) => (
+          <article key={comentario.id} className="comment-item">
+            <span className="comment-avatar" aria-hidden="true">{comentario.autor.nombre.charAt(0).toUpperCase()}</span>
+            {editandoId === comentario.id ? (
+              <div className="comment-edit">
+                <label className="sr-only" htmlFor={`editar-comentario-${comentario.id}`}>Editar comentario</label>
+                <textarea id={`editar-comentario-${comentario.id}`} value={textoEdicion} onChange={(event) => setTextoEdicion(event.target.value)} rows={3} />
+                <div className="comment-edit-actions">
+                  <button type="button" className="secondary" onClick={cancelarEdicion}>Cancelar</button>
+                  <button type="button" className="primary" disabled={!textoEdicion.trim()} onClick={() => guardarEdicion(comentario.id)}>Guardar cambios</button>
+                </div>
               </div>
             ) : (
-              <>
-                <div>
-                  <p>{c.texto}</p>
-                  <div className="text-muted-sm">
-                    {c.autor.nombre} · {formatearFecha(c.createdAt)}
-                  </div>
-                </div>
-                {puedeGestionar(c.autorId) && (
-                  <div className="form-row-inline">
-                    <button
-                      type="button"
-                      className="link-btn link-btn--edit"
-                      onClick={() => iniciarEdicion(c.id, c.texto)}
-                    >
-                      Editar
-                    </button>
-                    <button
-                      type="button"
-                      className="link-btn link-btn--delete"
-                      onClick={() => handleBorrar(c.id)}
-                    >
-                      Borrar
-                    </button>
-                  </div>
-                )}
-              </>
+              <div className="comment-body">
+                <header>
+                  <div><strong>{comentario.autor.nombre}</strong><time dateTime={comentario.createdAt}>{formatearFecha(comentario.createdAt)}</time></div>
+                  {puedeGestionar(comentario.autorId) && (
+                    <div className="comment-actions">
+                      <button type="button" className="text-button" onClick={() => iniciarEdicion(comentario.id, comentario.texto)}>Editar</button>
+                      <button type="button" className="text-button text-button--danger" onClick={() => handleBorrar(comentario.id)}>Borrar</button>
+                    </div>
+                  )}
+                </header>
+                <p>{comentario.texto}</p>
+              </div>
             )}
-          </div>
+          </article>
         ))}
-        {comentarios && comentarios.length === 0 && <p>Todavía no hay comentarios.</p>}
-      </div>
+        {comentarios && comentarios.length === 0 && (
+          <div className="empty-state empty-state--compact"><strong>La conversación está vacía</strong><p>Publica el primer comentario para dejar contexto al equipo.</p></div>
+        )}
+      </section>
     </div>
   );
 }

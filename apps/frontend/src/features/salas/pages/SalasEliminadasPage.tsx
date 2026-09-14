@@ -45,21 +45,29 @@ export function SalasEliminadasPage() {
   }
 
   return (
-    <div className="card salas-page">
+    <div className="salas-page recycle-page">
       <div className="salas-header">
         <div>
-          <span className="kicker">RECUPERACIÓN</span>
+          <span className="eyebrow">Recuperación</span>
           <h1>Salas eliminadas</h1>
-          <p>Ventana de recuperación de {DIAS_VENTANA_RECUPERACION} días desde la eliminación.</p>
+          <p>Las salas permanecen disponibles durante {DIAS_VENTANA_RECUPERACION} días antes de vencer.</p>
         </div>
-        <Link to="/salas" className="secondary">← Volver a mis salas</Link>
+        <Link to="/salas" className="secondary button-like">← Volver a mis salas</Link>
       </div>
 
-      {isLoading && <p className="text-muted">Cargando…</p>}
-      {!isLoading && salas?.length === 0 && <p>No hay salas eliminadas.</p>}
+      <div className="recovery-note">
+        <strong>Recuperación segura</strong>
+        <span>Restaurar una sala recupera también sus proyectos, sesiones y evidencia asociada.</span>
+      </div>
+
+      {isLoading && <div className="loading-block" aria-label="Cargando salas eliminadas" />}
+      {!isLoading && salas?.length === 0 && (
+        <div className="empty-state"><strong>No hay salas eliminadas</strong><p>Cuando elimines una sala, aparecerá temporalmente en este espacio.</p><Link to="/salas" className="secondary button-like">Volver a salas</Link></div>
+      )}
 
       {!isLoading && !!salas?.length && (
-        <table>
+        <div className="table-shell"><table className="data-table recovery-table">
+          <caption className="sr-only">Salas disponibles para recuperar</caption>
           <thead>
             <tr>
               <th>Nombre</th>
@@ -76,9 +84,9 @@ export function SalasEliminadasPage() {
                 <tr key={sala.id}>
                   <td>{sala.nombre}</td>
                   <td>{sala.periodo}</td>
-                  <td>{vencida ? 'Vencida' : `${restantes} día(s)`}</td>
+                  <td><span className={vencida ? 'recovery-days expired' : 'recovery-days'}>{vencida ? 'Vencida' : `${restantes} ${restantes === 1 ? 'día' : 'días'}`}</span></td>
                   <td>
-                    <div className="form-row-inline">
+                    <div className="table-actions">
                       {!vencida && (
                         <button type="button" className="secondary" onClick={() => restaurar(sala.id)}>
                           Recuperar
@@ -99,7 +107,7 @@ export function SalasEliminadasPage() {
               );
             })}
           </tbody>
-        </table>
+        </table></div>
       )}
     </div>
   );
