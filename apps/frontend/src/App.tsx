@@ -50,6 +50,7 @@ export default function App() {
           </Route>
 
           <Route element={<PerspectiveRoute allowed={['ADMIN']} />}>
+            <Route path="/admin" element={<AdminProfesoresPage />} />
             <Route path="/admin/profesores" element={<AdminProfesoresPage />} />
           </Route>
 

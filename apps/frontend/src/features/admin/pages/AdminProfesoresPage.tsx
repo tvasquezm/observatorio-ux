@@ -6,6 +6,8 @@ import {
   useRemoveDocente,
 } from '../hooks/useUsersQueries';
 import { useConfirm } from '../../../shared/api/confirm';
+import { UserAccountsPanel } from '../components/UserAccountsPanel';
+import { AdminProjectsPanel } from '../components/AdminProjectsPanel';
 
 function CrearDocenteForm() {
   const { mutate: crear, isPending } = useCreateDocente();
@@ -138,9 +140,13 @@ export function AdminProfesoresPage() {
   return (
     <div className="fade admin-page">
       <header className="page-head">
-        <div><span className="eyebrow">Administración</span><h1>Personas y accesos</h1><p>Crea cuentas docentes y consulta quiénes participan en las salas del observatorio.</p></div>
+        <div><span className="eyebrow">Administración</span><h1>Panel administrativo</h1><p>Gestiona cuentas, permisos, proyectos y el avance de las sesiones.</p></div>
         <div className="page-summary" aria-label="Resumen de usuarios"><span><strong>{docentes?.length ?? 0}</strong> docentes</span><span><strong>{estudiantes?.length ?? 0}</strong> estudiantes</span></div>
       </header>
+
+      <UserAccountsPanel />
+
+      <AdminProjectsPanel />
 
       <div className="admin-layout">
         <aside className="panel admin-create-panel">

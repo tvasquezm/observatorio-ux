@@ -3,6 +3,7 @@
 import { useAuthStore } from '../../auth/store/useAuthStore';
 import { notify } from '../../../shared/api/toast';
 import { csrfHeaders } from '../../../shared/api/csrf';
+import type { EvaluatorRole } from '../../auth/api/auth.api';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
 
@@ -10,9 +11,11 @@ export interface Docente {
   id: string;
   nombre: string;
   email: string;
-  rol: string;
+  rol: EvaluatorRole;
   createdAt: string;
 }
+
+export type UsuarioCuenta = Docente;
 
 export interface CreateDocenteDto {
   nombre: string;
@@ -71,6 +74,17 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 export function getDocentes(): Promise<Docente[]> {
   return request<Docente[]>('/users');
+}
+
+export function getAccounts(): Promise<UsuarioCuenta[]> {
+  return request<UsuarioCuenta[]>('/users/accounts');
+}
+
+export function updateUserRole(id: string, rol: EvaluatorRole): Promise<UsuarioCuenta> {
+  return request<UsuarioCuenta>(`/users/${id}/role`, {
+    method: 'PATCH',
+    body: JSON.stringify({ rol }),
+  });
 }
 
 export function createDocente(data: CreateDocenteDto): Promise<Docente> {

@@ -19,6 +19,27 @@ export interface Proyecto {
   };
 }
 
+export interface AdminProjectSession {
+  id: string;
+  nombre: string;
+  tipo: 'CARD_SORTING' | 'EVALUACION_HEURISTICA';
+  estado: 'INVITADO' | 'EN_PROGRESO' | 'COMPLETADO' | 'ABANDONADO';
+  actor: 'PARTICIPANTE' | 'EVALUADOR';
+  createdAt: string;
+  completadoAt: string | null;
+}
+
+export interface AdminProjectOverview extends Omit<Proyecto, '_count'> {
+  creadoPor: {
+    id: string;
+    nombre: string;
+    email: string;
+    rol: string;
+  };
+  sesiones: AdminProjectSession[];
+  _count: { artefactos: number };
+}
+
 export class ProjectsApiError extends Error {
   constructor(public readonly status: number, message: string) {
     super(message);
@@ -69,6 +90,10 @@ export function listProjects(): Promise<Proyecto[]> {
   return request<Proyecto[]>('/projects');
 }
 
+export function getAdminProjectOverview(): Promise<AdminProjectOverview[]> {
+  return request<AdminProjectOverview[]>('/projects/admin/overview');
+}
+
 export function getProject(id: string): Promise<Proyecto> {
   return request<Proyecto>(`/projects/${id}`);
 }
@@ -92,6 +117,10 @@ export function updateProject(
     method: 'PATCH',
     body: JSON.stringify(data),
   });
+}
+
+export function deleteProject(id: string): Promise<{ eliminado: boolean }> {
+  return request<{ eliminado: boolean }>(`/projects/${id}`, { method: 'DELETE' });
 }
 
 export interface MiembroProyecto {

@@ -12,13 +12,14 @@ const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', icon: '◆', end: true },
   { to: '/proyectos', label: 'Proyectos', icon: '✣', end: false },
   { to: '/salas', label: 'Salas', icon: '▣', end: false },
-  { to: '/admin/profesores', label: 'Profesores', icon: '⚑', end: false },
+  { to: '/admin', label: 'Administración', icon: '⚑', end: false },
 ];
 
 const CRUMB_LABELS: Record<string, string> = {
   '/': 'Dashboard',
   '/proyectos': 'Proyectos',
   '/salas': 'Salas',
+  '/admin': 'Administración',
   '/admin/profesores': 'Profesores',
 };
 
@@ -34,7 +35,7 @@ export function AppLayout() {
   const activeRole = user ? resolvePerspective(user.rol, perspectiveRole) : null;
   const visibleNavItems = NAV_ITEMS.filter((item) => {
     if (item.to === '/salas') return !!activeRole && canViewSalas(activeRole);
-    if (item.to === '/admin/profesores') return activeRole === 'ADMIN';
+    if (item.to === '/admin') return activeRole === 'ADMIN';
     return true;
   });
 

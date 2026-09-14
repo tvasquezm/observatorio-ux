@@ -3,7 +3,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createProject,
+  deleteProject,
   getProject,
+  getAdminProjectOverview,
   listProjects,
   updateProject,
   listMembers,
@@ -13,6 +15,7 @@ import {
   addToWhitelist,
   ProjectsApiError,
   type MiembroProyecto,
+  type AdminProjectOverview,
   type WhitelistEntry,
   type WhitelistEntradaInput,
 } from '../api/projects.api';
@@ -20,6 +23,7 @@ import { notify } from '../../../shared/api/toast';
 
 export const projectsKeys = {
   all: ['projects'] as const,
+  adminOverview: ['projects', 'admin', 'overview'] as const,
   detail: (id: string) => ['projects', id] as const,
   members: (id: string) => ['projects', id, 'miembros'] as const,
   whitelist: (id: string) => ['projects', id, 'participantes'] as const,
@@ -27,6 +31,13 @@ export const projectsKeys = {
 
 export function useProjects() {
   return useQuery({ queryKey: projectsKeys.all, queryFn: listProjects });
+}
+
+export function useAdminProjectOverview() {
+  return useQuery<AdminProjectOverview[]>({
+    queryKey: projectsKeys.adminOverview,
+    queryFn: getAdminProjectOverview,
+  });
 }
 
 export function useProject(id: string | null) {
@@ -63,6 +74,20 @@ export function useUpdateProject() {
     },
     onError: (err) => {
       notify.error(err instanceof ProjectsApiError ? err.message : 'No se pudo editar el proyecto.');
+    },
+  });
+}
+
+export function useDeleteProject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: deleteProject,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: projectsKeys.all });
+      notify.success('Proyecto eliminado.');
+    },
+    onError: (err) => {
+      notify.error(err instanceof ProjectsApiError ? err.message : 'No se pudo eliminar el proyecto.');
     },
   });
 }

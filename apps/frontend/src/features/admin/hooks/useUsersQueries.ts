@@ -3,16 +3,20 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getDocentes,
+  getAccounts,
   createDocente,
   removeDocente,
   getEstudiantes,
+  updateUserRole,
   UsersApiError,
   type CreateDocenteDto,
 } from '../api/users.api';
 import { notify } from '../../../shared/api/toast';
+import type { EvaluatorRole } from '../../auth/api/auth.api';
 
 export const usersKeys = {
   docentes: ['users', 'docentes'] as const,
+  accounts: ['users', 'accounts'] as const,
   estudiantes: (salaId?: string) => ['users', 'estudiantes', salaId ?? 'all'] as const,
 };
 
@@ -22,6 +26,25 @@ function mensajeError(err: unknown, fallback: string) {
 
 export function useDocentes() {
   return useQuery({ queryKey: usersKeys.docentes, queryFn: getDocentes });
+}
+
+export function useAccounts() {
+  return useQuery({ queryKey: usersKeys.accounts, queryFn: getAccounts });
+}
+
+export function useUpdateUserRole() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, rol }: { id: string; rol: EvaluatorRole }) => updateUserRole(id, rol),
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: usersKeys.accounts }),
+        qc.invalidateQueries({ queryKey: usersKeys.docentes }),
+      ]);
+      notify.success('Rol actualizado.');
+    },
+    onError: (err) => notify.error(mensajeError(err, 'No se pudo cambiar el rol.')),
+  });
 }
 
 export function useCreateDocente() {
