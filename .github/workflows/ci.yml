@@ -61,7 +61,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'pnpm'
 
       - name: Instalar dependencias
@@ -76,8 +76,8 @@ jobs:
       - name: Aplicar migraciones (contra el Postgres del job)
         run: pnpm --filter backend exec prisma migrate deploy
 
-      - name: Validar script de arranque del backend
-        run: sh -n apps/backend/entrypoint.sh
+      - name: Validar scripts de arranque del backend
+        run: sh -n apps/backend/entrypoint.sh apps/backend/entrypoint.prod.sh
 
       - name: Tests del backend
         run: pnpm --filter backend test
@@ -106,3 +106,30 @@ jobs:
 
       - name: Auditar dependencias de severidad alta o crítica
         run: pnpm audit --audit-level high
+
+  deployment-smoke:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Validar configuración productiva
+        run: docker compose --env-file env.production.example -f docker-compose.production.yml config --quiet
+
+      - name: Construir y levantar desde cero
+        run: docker compose --env-file env.production.example -f docker-compose.production.yml up -d --build --wait --wait-timeout 180
+
+      - name: Verificar frontend, proxy y API
+        run: |
+          curl --fail --show-error http://localhost:8080/nginx-health
+          curl --fail --show-error http://localhost:8080/api/health
+          curl --fail --show-error http://localhost:8080/
+
+      - name: Mostrar logs si falla
+        if: failure()
+        run: docker compose --env-file env.production.example -f docker-compose.production.yml logs --no-color
+
+      - name: Limpiar contenedores y volumen
+        if: always()
+        run: docker compose --env-file env.production.example -f docker-compose.production.yml down -v
