@@ -1726,7 +1726,7 @@ input::placeholder, textarea::placeholder { color: color-mix(in srgb, var(--mute
   .brand { padding: 0; }
   .side-label { display: none; }
   .side-nav { display: flex; grid-column: 1 / -1; gap: 4px; margin-top: 10px; overflow-x: auto; }
-  .nav-btn { flex: 1 0 auto; width: auto; min-height: 40px; padding: 8px 11px; }
+  .nav-btn { flex: 1 0 auto; width: auto; min-height: 44px; padding: 8px 11px; }
   .side-bottom { align-self: center; }
   .side-user { padding: 0; border: 0; }
   .side-user > span { width: 32px; height: 32px; }
