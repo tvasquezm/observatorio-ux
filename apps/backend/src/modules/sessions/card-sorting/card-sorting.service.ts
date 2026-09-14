@@ -71,7 +71,7 @@ export class CardSortingService {
       'No tienes acceso a los estudios de este proyecto.',
     );
 
-    return this.prisma.researchSession.findMany({
+    const estudios = await this.prisma.researchSession.findMany({
       where: {
         proyectoId,
         tipo: TipoSesion.CARD_SORTING,
@@ -83,8 +83,20 @@ export class CardSortingService {
         categoriasDefinidas: true,
         agrupaciones: { include: { card: true, category: true } },
         estudio: { include: { cardsDefinidas: true, categoriasDefinidas: true } },
+        _count: {
+          select: {
+            participantesDeEsteEstudio: {
+              where: { estado: EstadoSesion.COMPLETADO },
+            },
+          },
+        },
       },
     });
+
+    return estudios.map(({ _count, ...estudio }) => ({
+      ...estudio,
+      respuestasCount: _count.participantesDeEsteEstudio,
+    }));
   }
 
   async createSession(dto: CreateCardSortingSessionDto, user: AuthenticatedUser) {
@@ -109,6 +121,7 @@ export class CardSortingService {
       data: {
         proyectoId: dto.proyectoId,
         evaluadorId: user.id,
+        nombre: dto.nombre.trim(),
         tipo: TipoSesion.CARD_SORTING,
         estado: EstadoSesion.INVITADO,
         actor: ActorSesion.EVALUADOR,
@@ -194,7 +207,13 @@ export class CardSortingService {
       where: {
         estudioId,
         participanteId: user.id,
-        estado: { in: [EstadoSesion.INVITADO, EstadoSesion.EN_PROGRESO] },
+        estado: {
+          in: [
+            EstadoSesion.INVITADO,
+            EstadoSesion.EN_PROGRESO,
+            EstadoSesion.COMPLETADO,
+          ],
+        },
       },
     });
 
@@ -282,14 +301,25 @@ export class CardSortingService {
     const cards = estudio.cardsDefinidas;
     const participantesCount = participantes.length;
 
-    // Mapa participanteSesionId -> (cardId -> categoryId) para calcular
-    // co-ocurrencias por participante.
+    // Las categorías abiertas se crean por participante y por eso tienen IDs
+    // distintos. Para agregarlas correctamente usamos una clave normalizada
+    // por nombre; las categorías cerradas también quedan representadas por
+    // esa misma clave estable.
+    const normalizarCategoria = (nombre: string) =>
+      nombre.trim().toLocaleLowerCase('es-CL');
+    const nombresCategoria = new Map<string, string>();
+
+    // participanteSesionId -> (cardId -> clave de categoría normalizada).
     const porParticipante = new Map<string, Map<string, string>>();
     for (const g of groupings) {
+      const categoriaKey = normalizarCategoria(g.category.nombre);
+      if (!nombresCategoria.has(categoriaKey)) {
+        nombresCategoria.set(categoriaKey, g.category.nombre.trim());
+      }
       if (!porParticipante.has(g.participanteSesionId)) {
         porParticipante.set(g.participanteSesionId, new Map());
       }
-      porParticipante.get(g.participanteSesionId)!.set(g.cardId, g.categoryId);
+      porParticipante.get(g.participanteSesionId)!.set(g.cardId, categoriaKey);
     }
 
     // Matriz de similitud: % de participantes que agruparon cada par de
@@ -316,15 +346,16 @@ export class CardSortingService {
     // Frecuencia por nombre de categoría (predefinida o creada en abierto).
     const frecuenciaPorCategoria = new Map<string, number>();
     for (const g of groupings) {
+      const categoriaKey = normalizarCategoria(g.category.nombre);
       frecuenciaPorCategoria.set(
-        g.category.nombre,
-        (frecuenciaPorCategoria.get(g.category.nombre) ?? 0) + 1,
+        categoriaKey,
+        (frecuenciaPorCategoria.get(categoriaKey) ?? 0) + 1,
       );
     }
     const totalAsignaciones = groupings.length || 1;
     const frecuencia = [...frecuenciaPorCategoria.entries()]
-      .map(([nombre, count]) => ({
-        nombre,
+      .map(([categoriaKey, count]) => ({
+        nombre: nombresCategoria.get(categoriaKey) ?? categoriaKey,
         count,
         porcentaje: Math.round((count / totalAsignaciones) * 100),
       }))
@@ -336,15 +367,15 @@ export class CardSortingService {
     for (const card of cards) {
       const conteo = new Map<string, number>();
       for (const asignaciones of porParticipante.values()) {
-        const catId = asignaciones.get(card.id);
-        if (!catId) continue;
-        conteo.set(catId, (conteo.get(catId) ?? 0) + 1);
+        const categoriaKey = asignaciones.get(card.id);
+        if (!categoriaKey) continue;
+        conteo.set(categoriaKey, (conteo.get(categoriaKey) ?? 0) + 1);
       }
       if (conteo.size === 0) continue;
-      const [catIdGanadora, votos] = [...conteo.entries()].sort((a, b) => b[1] - a[1])[0];
-      const nombreCat = groupings.find((g) => g.categoryId === catIdGanadora)?.category.nombre ?? 'Sin nombre';
+      const [categoriaGanadora, votos] = [...conteo.entries()].sort((a, b) => b[1] - a[1])[0];
+      const nombreCat = nombresCategoria.get(categoriaGanadora) ?? 'Sin nombre';
       const totalVotosCard = [...conteo.values()].reduce((a, b) => a + b, 0);
-      const entry = clusterMap.get(catIdGanadora) ?? {
+      const entry = clusterMap.get(categoriaGanadora) ?? {
         nombre: nombreCat,
         cardIds: [],
         totalVotos: 0,
@@ -353,7 +384,7 @@ export class CardSortingService {
       entry.cardIds.push(card.etiqueta);
       entry.totalVotos += totalVotosCard;
       entry.votosGanador += votos;
-      clusterMap.set(catIdGanadora, entry);
+      clusterMap.set(categoriaGanadora, entry);
     }
     const clusters = [...clusterMap.values()]
       .map((c) => ({
@@ -374,7 +405,79 @@ export class CardSortingService {
     }
     const acuerdoGlobal = pares > 0 ? Math.round(sumaSimilitud / pares) : 0;
 
+    // Matrices de colocación: conteo absoluto y porcentaje de participantes
+    // que ubicaron cada tarjeta en cada categoría. Estas vistas complementan
+    // la matriz de similitud y facilitan inspecciones por tarjeta/categoría.
+    const categorias = [...nombresCategoria.entries()]
+      .map(([key, nombre]) => ({ key, nombre }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+    const conteoCardCategoria = new Map<string, Map<string, number>>();
+    for (const card of cards) conteoCardCategoria.set(card.id, new Map());
+    for (const g of groupings) {
+      const categoriaKey = normalizarCategoria(g.category.nombre);
+      const fila = conteoCardCategoria.get(g.cardId);
+      if (fila) fila.set(categoriaKey, (fila.get(categoriaKey) ?? 0) + 1);
+    }
+
+    const resultsMatrix = {
+      categorias: categorias.map((categoria) => categoria.nombre),
+      filas: cards.map((card) => ({
+        tarjeta: card.etiqueta,
+        valores: categorias.map(
+          (categoria) => conteoCardCategoria.get(card.id)?.get(categoria.key) ?? 0,
+        ),
+      })),
+    };
+    const popularPlacementsMatrix = {
+      categorias: resultsMatrix.categorias,
+      filas: cards.map((card) => ({
+        tarjeta: card.etiqueta,
+        valores: categorias.map((categoria) => {
+          const count = conteoCardCategoria.get(card.id)?.get(categoria.key) ?? 0;
+          return participantesCount > 0
+            ? Math.round((count / participantesCount) * 100)
+            : 0;
+        }),
+      })),
+    };
+    const porCarta = cards.map((card) => {
+      const fila = conteoCardCategoria.get(card.id) ?? new Map<string, number>();
+      const categoriasUsadas = categorias
+        .map((categoria) => ({
+          nombre: categoria.nombre,
+          frecuencia: fila.get(categoria.key) ?? 0,
+        }))
+        .filter((categoria) => categoria.frecuencia > 0)
+        .sort((a, b) => b.frecuencia - a.frecuencia);
+      return {
+        tarjeta: card.etiqueta,
+        categoriasCount: categoriasUsadas.length,
+        categorias: categoriasUsadas,
+      };
+    });
+    const porCategoria = categorias.map((categoria) => {
+      const cartas = cards
+        .map((card) => ({
+          tarjeta: card.etiqueta,
+          frecuencia: conteoCardCategoria.get(card.id)?.get(categoria.key) ?? 0,
+        }))
+        .filter((card) => card.frecuencia > 0)
+        .sort((a, b) => b.frecuencia - a.frecuencia);
+      return {
+        nombre: categoria.nombre,
+        cardsCount: cartas.length,
+        cartas,
+      };
+    });
+
     return {
+      estudio: {
+        id: estudio.id,
+        proyectoId: estudio.proyectoId,
+        nombre: estudio.nombre,
+        cerrado: estudio.cerrado,
+        createdAt: estudio.createdAt,
+      },
       participantesCount,
       cardsCount: cards.length,
       acuerdoGlobal,
@@ -382,6 +485,11 @@ export class CardSortingService {
       matrizSimilitud: matriz,
       frecuenciaPorCategoria: frecuencia,
       clusters,
+      categorias: categorias.map((categoria) => categoria.nombre),
+      resultsMatrix,
+      popularPlacementsMatrix,
+      porCarta,
+      porCategoria,
     };
   }
 

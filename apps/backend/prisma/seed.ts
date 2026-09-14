@@ -222,40 +222,70 @@ async function main() {
   }
 
   // --- Técnica 1: Card Sorting (estudio + sesión de participante completada) ---
-  // Se limpian hijos del estudio para que el seed sea re-ejecutable sin duplicar.
-  await prisma.cardGrouping.deleteMany({
-    where: { participanteSesionId: cardSortingParticipanteSesionId },
-  });
-  await prisma.category.deleteMany({ where: { sessionId: cardSortingEstudioId } });
-  await prisma.card.deleteMany({ where: { sessionId: cardSortingEstudioId } });
-  await prisma.researchSession.deleteMany({
-    where: { id: { in: [cardSortingParticipanteSesionId, cardSortingEstudioId] } },
-  });
-
-  const cardSortingEstudio = await prisma.researchSession.create({
-    data: {
-      id: cardSortingEstudioId,
+  // Upserts deliberados: reiniciar el entorno no debe borrar respuestas reales.
+  const cardSortingEstudio = await prisma.researchSession.upsert({
+    where: { id: cardSortingEstudioId },
+    update: {
       proyectoId: profesorProject.id,
       evaluadorId: profesor.id,
+      nombre: 'Card Sorting',
       tipo: TipoSesion.CARD_SORTING,
       estado: EstadoSesion.EN_PROGRESO,
       actor: ActorSesion.EVALUADOR,
       tipoCardSorting: TipoCardSorting.CERRADO,
-      cardsDefinidas: {
-        create: cardIds.map((id, i) => ({ id, etiqueta: `Tarjeta ${i + 1}` })),
-      },
-      categoriasDefinidas: {
-        create: categoryIds.map((id, i) => ({
-          id,
-          nombre: `Categoría ${i + 1}`,
-          esPredefinida: true,
-        })),
-      },
+    },
+    create: {
+      id: cardSortingEstudioId,
+      proyectoId: profesorProject.id,
+      evaluadorId: profesor.id,
+      nombre: 'Card Sorting',
+      tipo: TipoSesion.CARD_SORTING,
+      estado: EstadoSesion.EN_PROGRESO,
+      actor: ActorSesion.EVALUADOR,
+      tipoCardSorting: TipoCardSorting.CERRADO,
     },
   });
 
-  await prisma.researchSession.create({
-    data: {
+  for (let index = 0; index < cardIds.length; index += 1) {
+    await prisma.card.upsert({
+      where: { id: cardIds[index] },
+      update: { sessionId: cardSortingEstudio.id, etiqueta: `Tarjeta ${index + 1}` },
+      create: {
+        id: cardIds[index],
+        sessionId: cardSortingEstudio.id,
+        etiqueta: `Tarjeta ${index + 1}`,
+      },
+    });
+  }
+
+  for (let index = 0; index < categoryIds.length; index += 1) {
+    await prisma.category.upsert({
+      where: { id: categoryIds[index] },
+      update: {
+        sessionId: cardSortingEstudio.id,
+        nombre: `Categoría ${index + 1}`,
+        esPredefinida: true,
+      },
+      create: {
+        id: categoryIds[index],
+        sessionId: cardSortingEstudio.id,
+        nombre: `Categoría ${index + 1}`,
+        esPredefinida: true,
+      },
+    });
+  }
+
+  const cardSortingParticipanteSesion = await prisma.researchSession.upsert({
+    where: { id: cardSortingParticipanteSesionId },
+    update: {
+      proyectoId: profesorProject.id,
+      tipo: TipoSesion.CARD_SORTING,
+      estado: EstadoSesion.COMPLETADO,
+      actor: ActorSesion.PARTICIPANTE,
+      participanteId: participanteDemo.id,
+      estudioId: cardSortingEstudio.id,
+    },
+    create: {
       id: cardSortingParticipanteSesionId,
       proyectoId: profesorProject.id,
       tipo: TipoSesion.CARD_SORTING,
@@ -264,16 +294,31 @@ async function main() {
       participanteId: participanteDemo.id,
       estudioId: cardSortingEstudio.id,
       completadoAt: new Date(),
-      agrupaciones: {
-        create: [
-          { cardId: cardIds[0], categoryId: categoryIds[0] },
-          { cardId: cardIds[1], categoryId: categoryIds[0] },
-          { cardId: cardIds[2], categoryId: categoryIds[1] },
-          { cardId: cardIds[3], categoryId: categoryIds[1] },
-        ],
-      },
     },
   });
+
+  const seedGroupings = [
+    { cardId: cardIds[0], categoryId: categoryIds[0] },
+    { cardId: cardIds[1], categoryId: categoryIds[0] },
+    { cardId: cardIds[2], categoryId: categoryIds[1] },
+    { cardId: cardIds[3], categoryId: categoryIds[1] },
+  ];
+  for (const grouping of seedGroupings) {
+    await prisma.cardGrouping.upsert({
+      where: {
+        participanteSesionId_cardId: {
+          participanteSesionId: cardSortingParticipanteSesion.id,
+          cardId: grouping.cardId,
+        },
+      },
+      update: { categoryId: grouping.categoryId },
+      create: {
+        participanteSesionId: cardSortingParticipanteSesion.id,
+        cardId: grouping.cardId,
+        categoryId: grouping.categoryId,
+      },
+    });
+  }
 
   // --- Técnica 2: Evaluación Heurística ---
   await prisma.researchSession.upsert({

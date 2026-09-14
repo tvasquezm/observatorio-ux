@@ -7,6 +7,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  MaxLength,
   MinLength,
   ValidateNested,
 } from 'class-validator';
@@ -31,6 +32,11 @@ class CategoriaDto {
 export class CreateCardSortingSessionDto {
   @IsUUID()
   proyectoId!: string;
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(120)
+  nombre!: string;
 
   @IsOptional()
   @IsEnum(CardSortingTypeDto)
