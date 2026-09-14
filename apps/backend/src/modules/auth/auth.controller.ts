@@ -75,9 +75,9 @@ export class AuthController {
 
   // Fase 1 (PLAN_AJUSTES.md): acceso público sin nombre/correo. Cualquiera
   // con el proyectoId (vía link/QR) entra directo — decisión de acceso
-  // abierto, sin whitelist. Throttle estricto: es un endpoint público sin
-  // credenciales previas.
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  // abierto, sin whitelist. El burst permite el ingreso simultáneo de una
+  // sala completa que comparte la misma IP pública.
+  @Throttle({ default: { limit: 120, ttl: 60_000 } })
   @Post('participants/access')
   accessParticipant(@Body() dto: ParticipantAccessDto) {
     return this.authService.accessParticipant(dto.proyectoId);
@@ -98,7 +98,7 @@ export class AuthController {
     );
   }
 
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Throttle({ default: { limit: 120, ttl: 60_000 } })
   @Post('participants/consent')
   registerParticipantConsent(@Body() dto: RegisterParticipantConsentDto) {
     return this.authService.registerParticipantConsent(
@@ -110,13 +110,15 @@ export class AuthController {
     );
   }
 
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Throttle({ default: { limit: 120, ttl: 60_000 } })
   @Post('participants/token')
   participantToken(@Body() dto: ParticipantTokenDto) {
     return this.authService.issueParticipantToken(
       dto.participanteId,
       dto.proyectoId,
       dto.codigoInvitacion,
+      false,
+      dto.resumeToken,
     );
   }
 

@@ -36,6 +36,16 @@ export class SesionExpiradaError extends Error {
   }
 }
 
+export class ApiRequestError extends Error {
+  constructor(
+    public readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'ApiRequestError';
+  }
+}
+
 function normalizarDetalles(message: unknown): DetalleValidacion[] {
   if (Array.isArray(message) && message.every((m) => m && typeof m === 'object' && 'campo' in m)) {
     return message as DetalleValidacion[];
@@ -58,7 +68,6 @@ export async function apiFetch<T>(url: string, options: RequestInit = {}): Promi
   });
 
   if (res.status === 401) {
-    notify.error('Tu sesión expiró. Vuelve a entrar usando el link original para continuar.');
     throw new SesionExpiradaError();
   }
 
@@ -70,9 +79,13 @@ export async function apiFetch<T>(url: string, options: RequestInit = {}): Promi
   }
   if (!res.ok) {
     const body = await res.json().catch(() => null);
-    const mensaje = Array.isArray(body?.message) ? body.message.join(' ') : body?.message;
+    const mensaje = res.status === 429
+      ? 'Hay muchas personas intentando entrar al mismo tiempo. Espera unos segundos y vuelve a intentarlo.'
+      : Array.isArray(body?.message)
+        ? body.message.join(' ')
+        : body?.message;
     notify.error(mensaje ?? 'Ocurrió un error inesperado');
-    throw new Error(`Error ${res.status}: ${res.statusText}`);
+    throw new ApiRequestError(res.status, mensaje ?? `Error ${res.status}: ${res.statusText}`);
   }
 
   // Confirmado por prueba real (POST /projects/:id/artifacts): el backend

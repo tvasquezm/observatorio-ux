@@ -347,7 +347,9 @@ describe('AuthService.accessParticipant', () => {
 
     const result = await service.accessParticipant(PROYECTO_ID);
 
-    expect(prisma.participante.create).toHaveBeenCalledWith({ data: {} });
+    expect(prisma.participante.create).toHaveBeenCalledWith({
+      data: { resumeTokenHash: expect.stringMatching(/^[a-f0-9]{64}$/) },
+    });
     expect(participanteJwt.sign).toHaveBeenCalledWith({
       sub: 'participante-anonimo',
       actor: 'PARTICIPANTE',
@@ -356,7 +358,79 @@ describe('AuthService.accessParticipant', () => {
     });
     expect(result).toEqual({
       access_token: 'token-firmado',
+      resume_token: expect.any(String),
       participant: { id: 'participante-anonimo', proyectoId: PROYECTO_ID },
     });
+    expect(result.resume_token).toHaveLength(43);
+  });
+});
+
+describe('AuthService reanuda un participante anónimo', () => {
+  const PROYECTO_ID = 'proyecto-1';
+  const PARTICIPANTE_ID = 'participante-1';
+  const RESUME_TOKEN = 'resume-token-seguro-con-mas-de-32-caracteres';
+  const RESUME_HASH = createHash('sha256').update(RESUME_TOKEN).digest('hex');
+  let service: AuthService;
+  let prisma: {
+    participante: { findUnique: jest.Mock };
+    participanteWhitelist: { findFirst: jest.Mock };
+    consentimiento: { findFirst: jest.Mock };
+  };
+  let participanteJwt: { sign: jest.Mock };
+
+  beforeEach(async () => {
+    prisma = {
+      participante: { findUnique: jest.fn() },
+      participanteWhitelist: { findFirst: jest.fn() },
+      consentimiento: { findFirst: jest.fn() },
+    };
+    participanteJwt = { sign: jest.fn().mockResolvedValue('token-renovado') };
+
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        AuthService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: JwtService, useValue: { signAsync: jest.fn() } },
+        { provide: ParticipanteJwtService, useValue: participanteJwt },
+        { provide: ConfigService, useValue: { get: jest.fn() } },
+      ],
+    }).compile();
+
+    service = moduleRef.get(AuthService);
+    prisma.participante.findUnique.mockResolvedValue({
+      id: PARTICIPANTE_ID,
+      resumeTokenHash: RESUME_HASH,
+    });
+    prisma.participanteWhitelist.findFirst.mockResolvedValue(null);
+    prisma.consentimiento.findFirst.mockResolvedValue({ aceptado: true });
+  });
+
+  it('renueva el Bearer conservando la misma identidad', async () => {
+    await expect(
+      service.issueParticipantToken(
+        PARTICIPANTE_ID,
+        PROYECTO_ID,
+        undefined,
+        false,
+        RESUME_TOKEN,
+      ),
+    ).resolves.toEqual({
+      access_token: 'token-renovado',
+      resume_token: RESUME_TOKEN,
+      participant: { id: PARTICIPANTE_ID, proyectoId: PROYECTO_ID },
+    });
+  });
+
+  it('rechaza un secreto de reanudación incorrecto', async () => {
+    await expect(
+      service.issueParticipantToken(
+        PARTICIPANTE_ID,
+        PROYECTO_ID,
+        undefined,
+        false,
+        'resume-token-incorrecto-con-mas-de-32-caracteres',
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.consentimiento.findFirst).not.toHaveBeenCalled();
   });
 });

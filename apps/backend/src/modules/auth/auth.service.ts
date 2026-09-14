@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { createHash, timingSafeEqual } from 'crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../core/database/prisma.service';
 import { AuthenticatedUser } from './types/authenticated-user.interface';
@@ -120,7 +120,11 @@ export class AuthService {
       throw new NotFoundException('El proyecto no existe.');
     }
 
-    const participante = await this.prisma.participante.create({ data: {} });
+    const resumeToken = randomBytes(32).toString('base64url');
+    const resumeTokenHash = createHash('sha256').update(resumeToken).digest('hex');
+    const participante = await this.prisma.participante.create({
+      data: { resumeTokenHash },
+    });
 
     const accessToken = await this.participanteJwt.sign({
       sub: participante.id,
@@ -131,6 +135,7 @@ export class AuthService {
 
     return {
       access_token: accessToken,
+      resume_token: resumeToken,
       participant: { id: participante.id, proyectoId },
     };
   }
@@ -218,6 +223,7 @@ export class AuthService {
     proyectoId: string,
     codigoInvitacion?: string,
     allowUnlisted = false,
+    resumeToken?: string,
   ) {
     const participante = await this.prisma.participante.findUnique({
       where: { id: participanteId },
@@ -232,12 +238,27 @@ export class AuthService {
         where: { proyectoId, participanteId, usado: true },
       });
 
-      if (!whitelistEntry) {
-        throw new ForbiddenException(
-          'El participante no está autorizado para este proyecto.',
-        );
+      if (whitelistEntry) {
+        this.assertInvitationCode(codigoInvitacion ?? '', whitelistEntry.codigoInvitacionHash);
+      } else {
+        const receivedHash = resumeToken
+          ? createHash('sha256').update(resumeToken).digest()
+          : Buffer.alloc(32);
+        const expectedHash = participante.resumeTokenHash
+          ? Buffer.from(participante.resumeTokenHash, 'hex')
+          : Buffer.alloc(32, 1);
+
+        if (
+          !resumeToken ||
+          !participante.resumeTokenHash ||
+          receivedHash.length !== expectedHash.length ||
+          !timingSafeEqual(receivedHash, expectedHash)
+        ) {
+          throw new ForbiddenException(
+            'No se pudo reanudar esta participación. Vuelve a ingresar desde el enlace original.',
+          );
+        }
       }
-      this.assertInvitationCode(codigoInvitacion ?? '', whitelistEntry.codigoInvitacionHash);
     }
 
     const consentimiento = await this.prisma.consentimiento.findFirst({
@@ -260,6 +281,7 @@ export class AuthService {
 
     return {
       access_token: accessToken,
+      ...(resumeToken ? { resume_token: resumeToken } : {}),
       participant: { id: participante.id, proyectoId },
     };
   }

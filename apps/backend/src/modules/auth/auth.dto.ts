@@ -23,9 +23,15 @@ export class ParticipantTokenDto {
   @IsUUID()
   proyectoId!: string;
 
+  @IsOptional()
   @IsString()
   @MinLength(16)
-  codigoInvitacion!: string;
+  codigoInvitacion?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(32)
+  resumeToken?: string;
 }
 
 export class ParticipantAccessDto {

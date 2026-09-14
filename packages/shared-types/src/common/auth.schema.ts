@@ -24,6 +24,7 @@ export const LoginResponseSchema = z.object({
 // correo — POST /auth/participants/access.
 export const ParticipantAccessResponseSchema = z.object({
   access_token: z.string().min(1),
+  resume_token: z.string().min(32).optional(),
   participant: z.object({
     id: z.string().uuid(),
     proyectoId: z.string().uuid(),

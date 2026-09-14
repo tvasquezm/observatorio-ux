@@ -24,6 +24,9 @@ export class OnboardingApiError extends Error {
 }
 
 async function parseErrorMessage(res: Response): Promise<string> {
+  if (res.status === 429) {
+    return 'Hay muchas personas intentando entrar al mismo tiempo. Espera unos segundos y vuelve a intentarlo.';
+  }
   try {
     const body = await res.json();
     const mensaje = Array.isArray(body?.message) ? body.message.join(' ') : body?.message;
@@ -45,6 +48,30 @@ export async function accessProject(proyectoId: string): Promise<ParticipantAcce
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ proyectoId }),
+    });
+  } catch {
+    throw new OnboardingApiError(0, 'No se pudo conectar con el servidor.');
+  }
+
+  if (!res.ok) {
+    throw new OnboardingApiError(res.status, await parseErrorMessage(res));
+  }
+
+  return (await res.json()) as ParticipantAccessResponse;
+}
+
+/** Renueva el Bearer de la misma identidad anónima usando su secreto local. */
+export async function resumeProject(
+  participanteId: string,
+  proyectoId: string,
+  resumeToken: string,
+): Promise<ParticipantAccessResponse> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/auth/participants/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ participanteId, proyectoId, resumeToken }),
     });
   } catch {
     throw new OnboardingApiError(0, 'No se pudo conectar con el servidor.');

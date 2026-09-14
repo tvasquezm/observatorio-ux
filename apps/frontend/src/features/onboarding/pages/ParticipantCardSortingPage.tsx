@@ -5,7 +5,7 @@
 // externa. El progreso se cachea en localStorage por sesionId para no
 // perderlo si el token expira o la página se recarga.
 
-import { useEffect, useMemo, useState, type DragEvent } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   getParticipantCardSortingSession,
@@ -15,6 +15,12 @@ import {
 } from '../api/participant-card-sorting.api';
 import { SesionExpiradaError } from '../../../shared/api/api-client';
 import { notify } from '../../../shared/api/toast';
+import { CardSortingWorkspace } from '../../card-sorting/components/CardSortingWorkspace';
+import { resumeProject } from '../api/onboarding.api';
+import {
+  guardarSesionParticipante,
+  leerSesionParticipante,
+} from '../store/useParticipantSession';
 
 interface ProgresoCache {
   // cardId -> categoriaId (CERRADO) o nombre de categoría (ABIERTO)
@@ -60,10 +66,6 @@ export function ParticipantCardSortingPage() {
 
   const [asignaciones, setAsignaciones] = useState<Record<string, string>>({});
   const [categoriasCreadas, setCategoriasCreadas] = useState<string[]>([]);
-  // Tarjeta recién soltada en "+ Nueva categoría", esperando que el
-  // participante escriba el nombre para confirmar.
-  const [pendienteNueva, setPendienteNueva] = useState<string | null>(null);
-  const [nombreNueva, setNombreNueva] = useState('');
 
   useEffect(() => {
     if (!sesionId) return;
@@ -78,7 +80,33 @@ export function ParticipantCardSortingPage() {
         setSesion(data);
       } catch (e) {
         if (e instanceof SesionExpiradaError) {
-          setSesionExpirada(true);
+          const stored = leerSesionParticipante();
+          if (!stored?.resumeToken) {
+            setSesionExpirada(true);
+          } else {
+            try {
+              const renewed = await resumeProject(
+                stored.participanteId,
+                stored.proyectoId,
+                stored.resumeToken,
+              );
+              guardarSesionParticipante({
+                token: renewed.access_token,
+                resumeToken: renewed.resume_token ?? stored.resumeToken,
+                participanteId: renewed.participant.id,
+                proyectoId: renewed.participant.proyectoId,
+              });
+              const data = await getParticipantCardSortingSession(sesionId);
+              setSesion(data);
+            } catch (resumeError) {
+              setError(
+                resumeError instanceof Error
+                  ? resumeError.message
+                  : 'No se pudo reanudar la participación.',
+              );
+              setSesionExpirada(true);
+            }
+          }
         } else {
           setError(e instanceof Error ? e.message : 'No se pudo cargar el estudio.');
         }
@@ -95,91 +123,13 @@ export function ParticipantCardSortingPage() {
     guardarCache(sesionId, { asignaciones, categoriasCreadas });
   }, [sesionId, asignaciones, categoriasCreadas]);
 
-  const esCerrado = sesion?.estudio.tipoCardSorting === 'CERRADO';
   const estudioCerrado = sesion?.estudio.cerrado ?? false;
 
-  const cardsPorId = useMemo(() => {
-    const map = new Map<string, string>();
-    sesion?.estudio.cardsDefinidas.forEach((c) => map.set(c.id, c.etiqueta));
-    return map;
-  }, [sesion]);
-
-  const sinClasificar = useMemo(
-    () => sesion?.estudio.cardsDefinidas.filter((c) => !asignaciones[c.id]) ?? [],
-    [sesion, asignaciones],
-  );
-
-  const todasAsignadas = sinClasificar.length === 0 && (sesion?.estudio.cardsDefinidas.length ?? 0) > 0;
-
-  function asignar(cardId: string, valor: string) {
-    setAsignaciones((prev) => ({ ...prev, [cardId]: valor }));
-  }
-
-  function quitarDeMazo(cardId: string) {
-    setAsignaciones((prev) => {
-      const { [cardId]: _omit, ...resto } = prev;
-      return resto;
-    });
-  }
-
-  function onDropZonaExistente(e: DragEvent, valor: string) {
-    e.preventDefault();
-    const cardId = e.dataTransfer.getData('text/plain');
-    if (!cardId) return;
-    asignar(cardId, valor);
-  }
-
-  function onDropMazo(e: DragEvent) {
-    e.preventDefault();
-    const cardId = e.dataTransfer.getData('text/plain');
-    if (!cardId) return;
-    quitarDeMazo(cardId);
-  }
-
-  function onDropNuevaZona(e: DragEvent) {
-    e.preventDefault();
-    const cardId = e.dataTransfer.getData('text/plain');
-    if (!cardId) return;
-    setPendienteNueva(cardId);
-    setNombreNueva('');
-  }
-
-  function confirmarNuevaCategoria() {
-    const nombre = nombreNueva.trim();
-    if (!nombre || !pendienteNueva) return;
-    setCategoriasCreadas((prev) => (prev.includes(nombre) ? prev : [...prev, nombre]));
-    asignar(pendienteNueva, nombre);
-    setPendienteNueva(null);
-    setNombreNueva('');
-  }
-
-  async function handleEnviar() {
+  async function handleEnviar(grupos: GrupoResultado[]) {
     if (!sesion || !sesionId) return;
     setEnviando(true);
     setError(null);
     try {
-      let grupos: GrupoResultado[];
-      if (esCerrado) {
-        const porCategoria = new Map<string, string[]>();
-        for (const card of sesion.estudio.cardsDefinidas) {
-          const categoriaId = asignaciones[card.id];
-          porCategoria.set(categoriaId, [...(porCategoria.get(categoriaId) ?? []), card.id]);
-        }
-        grupos = Array.from(porCategoria.entries()).map(([categoriaId, cardIds]) => ({
-          categoriaId,
-          cardIds,
-        }));
-      } else {
-        const porNombre = new Map<string, string[]>();
-        for (const card of sesion.estudio.cardsDefinidas) {
-          const nombre = asignaciones[card.id];
-          porNombre.set(nombre, [...(porNombre.get(nombre) ?? []), card.id]);
-        }
-        grupos = Array.from(porNombre.entries()).map(([categoriaNombre, cardIds]) => ({
-          categoriaNombre,
-          cardIds,
-        }));
-      }
       await submitCardSortingResult(sesionId, grupos);
       limpiarCache(sesionId);
       setEnviado(true);
@@ -197,158 +147,95 @@ export function ParticipantCardSortingPage() {
 
   if (cargando) {
     return (
-      <main className="onboarding">
-        <p>Cargando estudio…</p>
+      <main className="onboarding participant-entry">
+        <section className="participant-card participant-state">
+          <div className="participant-loader" aria-hidden="true" />
+          <h1>Preparando el estudio</h1>
+          <p>Cargando tarjetas y categorías…</p>
+        </section>
       </main>
     );
   }
 
   if (sesionExpirada) {
     return (
-      <main className="onboarding">
-        <p role="alert" className="onboarding-error">
-          Tu sesión expiró. Volvé a entrar usando el link original — tu clasificación quedó
-          guardada y vas a poder continuar donde la dejaste.
-        </p>
+      <main className="onboarding participant-entry">
+        <section className="participant-card participant-state">
+          <span className="participant-state-mark" aria-hidden="true">↻</span>
+          <h1>La sesión expiró</h1>
+          <p role="alert" className="onboarding-error">
+          No pudimos renovar esta participación automáticamente. Vuelve a abrir el enlace
+          original; si la sesión es anterior a esta actualización, puede ser necesario comenzar
+          una clasificación nueva.
+          </p>
+        </section>
       </main>
     );
   }
 
   if (error && !sesion) {
     return (
-      <main className="onboarding">
-        <p role="alert" className="onboarding-error">{error}</p>
+      <main className="onboarding participant-entry">
+        <section className="participant-card participant-state">
+          <span className="participant-state-mark" aria-hidden="true">!</span>
+          <h1>No pudimos abrir el estudio</h1>
+          <p role="alert" className="onboarding-error">{error}</p>
+        </section>
       </main>
     );
   }
 
   if (!sesion) return null;
 
-  if (enviado) {
+  if (enviado || sesion.estado === 'COMPLETADO') {
     return (
-      <main className="onboarding">
-        <h1>¡Listo!</h1>
-        <p>Gracias por participar. Ya puedes cerrar esta ventana.</p>
+      <main className="onboarding participant-entry">
+        <section className="participant-card participant-state">
+          <span className="participant-complete" aria-hidden="true">✓</span>
+          <h1>Clasificación enviada</h1>
+          <p>Gracias por participar. Ya puedes cerrar esta ventana.</p>
+        </section>
       </main>
     );
   }
 
   if (estudioCerrado) {
     return (
-      <main className="onboarding">
-        <p role="alert" className="onboarding-error">
+      <main className="onboarding participant-entry">
+        <section className="participant-card participant-state">
+          <span className="participant-state-mark" aria-hidden="true">—</span>
+          <h1>Estudio cerrado</h1>
+          <p role="alert" className="onboarding-error">
           Este estudio ya no acepta envíos — el evaluador lo cerró. Tu clasificación no se pudo
           enviar.
-        </p>
+          </p>
+        </section>
       </main>
     );
   }
 
   return (
-    <main className="onboarding">
-      <h1>Clasifica las tarjetas</h1>
-      <p>
-        Arrastra cada tarjeta del mazo hacia la categoría que le corresponda.
-        {!esCerrado && ' Podés soltarla en "+ Nueva categoría" para crear una propia.'}
-      </p>
+    <main className="onboarding participant-study">
+      <header className="participant-study-head">
+        <img src="/brand/uxlab-observatorio.png" alt="UXLab Observatorio" />
+        <div>
+          <span className="eyebrow">Card Sorting · Participación anónima</span>
+          <h1>{sesion.estudio.nombre}</h1>
+          <p>Organiza todas las tarjetas según la relación que encuentres entre ellas. Tu avance se guarda en este dispositivo.</p>
+        </div>
+      </header>
 
       {error && <p role="alert" className="onboarding-error">{error}</p>}
 
-      <div className="participant-sort-board">
-        <div
-          className="participant-sort-zone participant-sort-deck"
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={onDropMazo}
-        >
-          <h2>Mazo ({sinClasificar.length})</h2>
-          {sinClasificar.map((card) => (
-            <div
-              key={card.id}
-              className="participant-sort-card"
-              draggable
-              onDragStart={(e) => e.dataTransfer.setData('text/plain', card.id)}
-            >
-              {card.etiqueta}
-            </div>
-          ))}
-        </div>
-
-        {esCerrado &&
-          sesion.estudio.categoriasDefinidas.map((cat) => (
-            <div
-              key={cat.id}
-              className="participant-sort-zone"
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => onDropZonaExistente(e, cat.id)}
-            >
-              <h2>{cat.nombre}</h2>
-              {sesion.estudio.cardsDefinidas
-                .filter((c) => asignaciones[c.id] === cat.id)
-                .map((c) => (
-                  <div
-                    key={c.id}
-                    className="participant-sort-card"
-                    draggable
-                    onDragStart={(e) => e.dataTransfer.setData('text/plain', c.id)}
-                  >
-                    {c.etiqueta}
-                  </div>
-                ))}
-            </div>
-          ))}
-
-        {!esCerrado &&
-          categoriasCreadas.map((nombre) => (
-            <div
-              key={nombre}
-              className="participant-sort-zone"
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => onDropZonaExistente(e, nombre)}
-            >
-              <h2>{nombre}</h2>
-              {Object.entries(asignaciones)
-                .filter(([, valor]) => valor === nombre)
-                .map(([cardId]) => (
-                  <div
-                    key={cardId}
-                    className="participant-sort-card"
-                    draggable
-                    onDragStart={(e) => e.dataTransfer.setData('text/plain', cardId)}
-                  >
-                    {cardsPorId.get(cardId)}
-                  </div>
-                ))}
-            </div>
-          ))}
-
-        {!esCerrado && (
-          <div
-            className="participant-sort-zone participant-sort-nueva"
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={onDropNuevaZona}
-          >
-            <h2>+ Nueva categoría</h2>
-            {pendienteNueva && (
-              <div>
-                <p>«{cardsPorId.get(pendienteNueva)}» — ¿cómo se llama esta categoría?</p>
-                <input
-                  type="text"
-                  autoFocus
-                  value={nombreNueva}
-                  onChange={(e) => setNombreNueva(e.target.value)}
-                  placeholder="Nombre de la categoría"
-                />
-                <button type="button" onClick={confirmarNuevaCategoria}>Crear</button>
-                <button type="button" onClick={() => setPendienteNueva(null)}>Cancelar</button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      <button type="button" onClick={handleEnviar} disabled={!todasAsignadas || enviando}>
-        {enviando ? 'Enviando…' : 'Enviar clasificación'}
-      </button>
+      <CardSortingWorkspace
+        study={sesion.estudio}
+        assignments={asignaciones}
+        customCategories={categoriasCreadas}
+        onAssignmentsChange={setAsignaciones}
+        onCustomCategoriesChange={setCategoriasCreadas}
+        onSubmit={handleEnviar}
+        submitting={enviando}
+      />
     </main>
   );
 }

@@ -20,8 +20,10 @@ export interface ParticipantCategoria {
 
 export interface ParticipantCardSortingSession {
   id: string;
+  estado: 'INVITADO' | 'EN_PROGRESO' | 'COMPLETADO';
   estudio: {
     id: string;
+    nombre: string;
     tipoCardSorting: 'ABIERTO' | 'CERRADO';
     cerrado: boolean;
     cardsDefinidas: ParticipantCard[];
