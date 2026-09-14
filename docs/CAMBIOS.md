@@ -583,3 +583,14 @@ con red real (o Docker, como en sprints anteriores) para confirmar esas
   Si tu equipo dispara ese tipo de excepción manual en algún servicio,
   el formulario no podrá resaltar un input específico para ese caso —
   es información que el propio `throw` manual nunca tuvo.
+
+## 14-09-2026 — Sprint 5 oficial: panel administrativo
+
+- `users`: listado seguro de cuentas y cambio de rol con salvaguardas.
+- `projects`: resumen administrativo y Soft Delete exclusivo de ADMIN.
+- `AdminProfesoresPage`: panel unificado de cuentas, permisos, proyectos y
+  progreso de sesiones; navegación principal renombrada a “Administración”.
+- Tests: servicios de usuarios/proyectos, componentes administrativos y acceso
+  E2E denegado para estudiantes.
+- Documentación: referencias complementarias de Sprint 4, pauta de evaluación
+  y registro verificable de Sprint 5.

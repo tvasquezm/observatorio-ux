@@ -570,3 +570,17 @@ Cambios: `ProjectsPage` suma selector de sala para ESTUDIANTE al crear
 (`useSalas()` nuevo en `features/salas/hooks/`), y `useUpdateProject`
 suma `onError` (faltaba) para que se vea el 403 cuando un DOCENTE intenta
 editar un proyecto de un ESTUDIANTE.
+
+## Sprint 5 oficial — Panel administrativo
+
+> Este Sprint 5 corresponde al cronograma oficial. No debe confundirse con la
+> “Fase 5” histórica del plan de ajustes descrita arriba.
+
+El panel `/admin` consolida gestión de cuentas, proyectos y avance de sesiones.
+Las capacidades administrativas sensibles aplican defensa en profundidad:
+`RoleRoute` en el frontend, `RolesGuard` en el controlador y chequeos de rol en
+el servicio. Así, ocultar la navegación no se confunde con autorización real.
+
+Los proyectos eliminados por ADMIN usan `deletedAt` (Soft Delete). Esta decisión
+preserva la trazabilidad de sesiones y artefactos, y evita que una operación de
+administración destruya evidencia del proceso de investigación.

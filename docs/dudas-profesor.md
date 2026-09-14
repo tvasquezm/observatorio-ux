@@ -16,16 +16,19 @@ cierran acá cuando haya respuesta.
    es una decisión de negocio explícita o quedó así por default al agregar
    `ProyectoMiembro`. — `apps/frontend/src/layouts/ProjectDetailLayout.tsx`
 
-2. **D7 — referencias del capítulo 2 del Trabajo de Título.**
-   Pendiente desde `docs/ARCHITECTURE.md` (verificación de Sprint 4): no se
-   encontró el capítulo 2 entre los archivos disponibles, así que no se
-   pudieron completar/verificar sus referencias sin fabricarlas.
-
-3. **R4 — acta de reunión con el profesor.**
+2. **R4 — acta de reunión con el profesor.**
    Pendiente desde `docs/ARCHITECTURE.md` (verificación de Sprint 4): no
    existe un acta fuente disponible en el repositorio para dar por cerrado
    este entregable.
 
+3. **E6/R5 — envío de la pauta y reunión de Sprint 5.**
+   La pauta está preparada en
+   `docs/sprints/sprint5-pauta-evaluacion-usabilidad.md`, pero no hay evidencia
+   de envío, revisión ni reunión. Registrar esos hechos solo cuando ocurran.
+
 ## Cerradas
 
-_(vacío por ahora)_
+1. **D7 — referencias complementarias del capítulo 2.**
+   Investigación terminada con tres fuentes y texto puente en
+   `docs/sprints/sprint4-referencias-marco-teorico.md`. Sigue faltando el
+   manuscrito fuente para incorporar el contenido directamente.

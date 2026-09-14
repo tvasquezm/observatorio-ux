@@ -188,6 +188,9 @@ paso está ahí mismo.
 - [`docs/sprints/GUIA-IA-DOCUMENTACION.md`](docs/sprints/GUIA-IA-DOCUMENTACION.md) — convenciones para asistentes de IA (nomenclatura, vocabulario técnico, qué doc actualizar)
 - [`docs/sprints/sprint3-herramientas-ux.md`](docs/sprints/sprint3-herramientas-ux.md) — Sprint 3, Persona/Journey Map/Momentos Críticos
 - [`docs/sprints/sprint4-auth-roles.md`](docs/sprints/sprint4-auth-roles.md) — Sprint 4, roles + segregación de auth
+- [`docs/sprints/sprint4-referencias-marco-teorico.md`](docs/sprints/sprint4-referencias-marco-teorico.md) — referencias complementarias y texto puente para el capítulo 2
+- [`docs/sprints/sprint5-panel-administrativo.md`](docs/sprints/sprint5-panel-administrativo.md) — alcance, decisiones y estado verificable del panel administrativo
+- [`docs/sprints/sprint5-pauta-evaluacion-usabilidad.md`](docs/sprints/sprint5-pauta-evaluacion-usabilidad.md) — pauta borrador lista para revisión del profesor
 
 - [`postman/`](postman/) — colecciones Postman por módulo (token de prueba vía `/auth/test-token`, deshabilitado automáticamente cuando `NODE_ENV=production`)
 
