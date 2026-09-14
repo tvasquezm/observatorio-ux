@@ -594,3 +594,27 @@ con red real (o Docker, como en sprints anteriores) para confirmar esas
   E2E denegado para estudiantes.
 - Documentación: referencias complementarias de Sprint 4, pauta de evaluación
   y registro verificable de Sprint 5.
+
+## 14-09-2026 — Sprint 6 oficial: despliegue reproducible
+
+- `apps/backend/Dockerfile`: targets multi-stage de desarrollo, build y
+  producción sobre Node.js 24; imagen ejecutable con Nest compilado y Prisma.
+- `apps/backend/entrypoint.prod.sh`: migraciones automáticas sin seed antes de
+  iniciar el backend productivo.
+- `apps/frontend/Dockerfile`: build estático con Vite y runtime Nginx.
+- `apps/frontend/nginx.static.conf`: entrega de assets, healthcheck y fallback
+  de rutas de la SPA.
+- `docker-compose.production.yml`: stack aislado `db` + `backend` + `frontend`
+  + `nginx`, con volumen persistente, healthchecks y orden de arranque.
+- `deploy/nginx/default.conf`: reverse proxy de `/api/*` al backend y del resto
+  al frontend bajo un único origen.
+- `env.production.example`: contrato explícito de variables productivas sin
+  secretos reales; corregida además la instrucción de copia en `env.example`.
+- `.github/workflows/ci.yml`: Node.js 24 y nuevo smoke test que construye,
+  levanta, consulta y destruye el stack desde cero.
+- `package.json`: requisito mínimo actualizado a Node.js 24.
+- `README.md`, `docs/ARCHITECTURE.md`, `docs/dudas-profesor.md` y
+  `docs/sprints/sprint6-despliegue.md`: arquitectura, instalación, operación y
+  estado F1–F8 documentados; R6 permanece pendiente por depender del profesor.
+- `docs/ARCHITECTURE.md`: los encabezados históricos “Sprint 5–8” se corrigieron
+  a “Ronda 5–8” para no mezclarlos con el cronograma oficial.

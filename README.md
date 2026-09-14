@@ -12,7 +12,7 @@ Plataforma SaaS para la ejecución, gestión y análisis matemático de metodolo
 
 Trabajo de título de **Ingeniería en Computación (UTEM)**. Centraliza en un solo lugar cinco metodologías de UX Research —Evaluación Heurística, Card Sorting, Perfil de Persona, Journey Map y Mapa de Momentos Críticos—, con autenticación por roles, gestión de proyectos y un modelo de datos pensado para el análisis, no solo el almacenamiento.
 
-> **Estado:** en desarrollo activo (Sprint 1 y 2 de 13, ya cerrados). Antes de auditar o contribuir, revisa [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), donde se documentan las decisiones de arquitectura y los hallazgos de auditoría técnica.
+> **Estado:** en desarrollo activo. Los entregables técnicos de los Sprints 1–6 están implementados; las reuniones y validaciones humanas pendientes se registran por separado. Antes de auditar o contribuir, revisa [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Tabla de contenidos
 
@@ -46,7 +46,7 @@ La interfaz usa un sistema de diseño propio, **Academic Minimalism**: paleta mo
 - **Backend:** NestJS, Prisma ORM, PostgreSQL, validación con Zod (`nestjs-zod`)
 - **Frontend:** React (Vite), TypeScript, Zustand, TanStack Query, Tailwind CSS
 - **Concurrencia:** bloqueo pesimista con TTL para edición de artefactos (`POST`/`DELETE .../artifacts/:id/lock`) + constraints a nivel de base de datos
-- **Infra de desarrollo:** Docker Compose (`db`, `shared-types` en watch mode, `backend`, `frontend`)
+- **Infra:** Docker Compose para desarrollo y despliegue productivo con Nginx como reverse proxy
 - **Reportería:** PDF por proyecto + exportación JSON (Sprint 7)
 - **Pruebas de carga:** k6, objetivo 200 usuarios concurrentes (Sprint 8)
 
@@ -109,7 +109,7 @@ docker compose down -v
 ```
 
 <details>
-<summary>Alternativa sin Docker (Node.js 20+, pnpm 9+, PostgreSQL 15+ local)</summary>
+<summary>Alternativa sin Docker (Node.js 24+, pnpm 10.34.5+, PostgreSQL 15+ local)</summary>
 
 ```bash
 pnpm install
@@ -133,6 +133,21 @@ pnpm --filter backend start:dev
 pnpm --filter frontend dev
 ```
 </details>
+
+### Despliegue productivo
+
+El stack productivo sirve frontend y API desde un único puerto y no ejecuta
+datos demo. La guía completa está en
+[`docs/sprints/sprint6-despliegue.md`](docs/sprints/sprint6-despliegue.md).
+
+```bash
+cp env.production.example .env.production
+# Reemplazar secretos, contraseña, DATABASE_URL y CORS_ORIGIN.
+docker compose --env-file .env.production -f docker-compose.production.yml up -d --build --wait --wait-timeout 180
+```
+
+Con el puerto predeterminado, la aplicación queda en `http://localhost:8080`.
+Para publicación real se requiere HTTPS delante de Nginx.
 
 ## Testing
 
@@ -163,10 +178,11 @@ trace cuando hay una falla.
 Cada `push` a `main` y cada Pull Request disparan un workflow de GitHub
 Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) que corre,
 contra un Postgres real: build de `shared-types`, `prisma generate` +
-`migrate deploy`, los tests del backend, y el build del frontend. No requiere
-ninguna acción manual — se ve en la pestaña **Actions** del repo, o como
-check ✅/❌ directo en la página del Pull Request. Si falla, el log de cada
-paso está ahí mismo.
+`migrate deploy`, tests del backend/frontend, E2E responsive y auditoría de
+dependencias. Un segundo job construye y prueba el stack productivo completo
+desde cero. No requiere ninguna acción manual — se ve en la pestaña
+**Actions** del repo, o como check ✅/❌ directo en la página del Pull Request.
+Si falla, el log de cada paso está ahí mismo.
 
 ## Documentación adicional
 
@@ -191,6 +207,7 @@ paso está ahí mismo.
 - [`docs/sprints/sprint4-referencias-marco-teorico.md`](docs/sprints/sprint4-referencias-marco-teorico.md) — referencias complementarias y texto puente para el capítulo 2
 - [`docs/sprints/sprint5-panel-administrativo.md`](docs/sprints/sprint5-panel-administrativo.md) — alcance, decisiones y estado verificable del panel administrativo
 - [`docs/sprints/sprint5-pauta-evaluacion-usabilidad.md`](docs/sprints/sprint5-pauta-evaluacion-usabilidad.md) — pauta borrador lista para revisión del profesor
+- [`docs/sprints/sprint6-despliegue.md`](docs/sprints/sprint6-despliegue.md) — despliegue productivo reproducible, operación y estado F1–F8/R6
 
 - [`postman/`](postman/) — colecciones Postman por módulo (token de prueba vía `/auth/test-token`, deshabilitado automáticamente cuando `NODE_ENV=production`)
 

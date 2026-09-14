@@ -26,6 +26,12 @@ cierran acá cuando haya respuesta.
    `docs/sprints/sprint5-pauta-evaluacion-usabilidad.md`, pero no hay evidencia
    de envío, revisión ni reunión. Registrar esos hechos solo cuando ocurran.
 
+4. **R6 — reunión y validación del despliegue de Sprint 6.**
+   F1–F8 están implementados y documentados en
+   `docs/sprints/sprint6-despliegue.md`, pero no existe un acta ni una aprobación
+   verificable del profesor. Registrar fecha, asistentes, observaciones y
+   acuerdos antes de marcar R6 como completo.
+
 ## Cerradas
 
 1. **D7 — referencias complementarias del capítulo 2.**

@@ -226,7 +226,7 @@ Ese endpoint **no existe**. `ArtifactsController` solo expone `POST /projects/:p
 
 ---
 
-## Sprint 5 — Robustez del lock pesimista + acceso multi-usuario mínimo
+## Ronda 5 — Robustez del lock pesimista + acceso multi-usuario mínimo
 
 Foco del sprint: cerrar los cabos sueltos que dejó F1 (Sprint 4) al conectar el lock a la UI, y resolver el problema de fondo de que el modelo de acceso a proyectos solo soportaba un usuario por proyecto — lo que impedía probar el lock entre usuarios reales distintos.
 
@@ -258,9 +258,9 @@ Detalle en `docs/AUDIT_LOG.md` (F5) y `docs/CAMBIOS.md` (§Ronda 5).
 
 ---
 
-## Sprint 6 — Acceso a proyectos consolidado + gestión de miembros (Fase 2, backend)
+## Ronda 6 — Acceso a proyectos consolidado + gestión de miembros (Fase 2, backend)
 
-Foco: cerrar los dos "pendiente acotado" que dejó el Sprint 5 (F5) — el modelo `ProyectoMiembro` existía pero (a) `ProjectsService`/`CardSortingService`/`EvaluacionHeuristicaService` no lo reconocían, cada uno con su propio chequeo `creadoPorId`/ADMIN duplicado, y (b) no había forma de gestionar la membresía salvo por seed o base de datos directa.
+Foco: cerrar los dos "pendiente acotado" que dejó la Ronda 5 (F5) — el modelo `ProyectoMiembro` existía pero (a) `ProjectsService`/`CardSortingService`/`EvaluacionHeuristicaService` no lo reconocían, cada uno con su propio chequeo `creadoPorId`/ADMIN duplicado, y (b) no había forma de gestionar la membresía salvo por seed o base de datos directa.
 
 ### De 4 chequeos duplicados a un servicio compartido
 
@@ -295,9 +295,9 @@ Al mover el chequeo de `ArtifactsService` al servicio compartido, se revisó su 
 
 ---
 
-## Sprint 7 — Fase 1: sesión expirada, ConfirmDialog, múltiples incidentes
+## Ronda 7 — Fase 1: sesión expirada, ConfirmDialog, múltiples incidentes
 
-*(Documentado retroactivamente en el Sprint 8 — este trabajo se hizo en una sesión anterior que no se volcó a la documentación en su momento.)*
+*(Documentado retroactivamente en la Ronda 8 — este trabajo se hizo en una sesión anterior que no se volcó a la documentación en su momento.)*
 
 Foco: los 3 ítems de "UX y robustez de sesión" del plan original de Fase 1, sin tocar el modelo de datos ni el backend.
 
@@ -309,15 +309,15 @@ Foco: los 3 ítems de "UX y robustez de sesión" del plan original de Fase 1, si
 
 ---
 
-## Sprint 8 — UI de miembros, Vitest, y cierre de documentación
+## Ronda 8 — UI de miembros, Vitest, y cierre de documentación
 
-Foco: los "pendiente real" que el Sprint 6 dejó explícitos (UI de miembros, tests de frontend), más instalar Vitest desde cero (no existía), más ponerse al día con la documentación de la Fase 1 (Sprint 7, arriba).
+Foco: los "pendiente real" que la Ronda 6 dejó explícitos (UI de miembros, tests de frontend), más instalar Vitest desde cero (no existía), más ponerse al día con la documentación de la Fase 1 (Ronda 7, arriba).
 
 ### UI "Miembros del proyecto"
 
-Sin sorpresas de diseño: el backend (Sprint 6) ya definía la forma exacta de los 3 endpoints, así que el trabajo fue directo — cliente API + hooks react-query (mismo patrón que el resto de `useProjectsQueries.ts`) + una página nueva. La única decisión real fue **dónde** ocultar los controles de administración: se comparan `useAuthStore().user.id`/`.rol` contra `proyecto.creadoPorId` en el cliente, para no mostrar un formulario de "agregar miembro" o un botón "Quitar" que el backend igual va a rechazar con `403`. Esto es UX, no seguridad — el enforcement real sigue siendo `assertOwnerOrAdmin` en el backend; si alguien arma el request a mano igual se lo rechaza.
+Sin sorpresas de diseño: el backend (Ronda 6) ya definía la forma exacta de los 3 endpoints, así que el trabajo fue directo — cliente API + hooks react-query (mismo patrón que el resto de `useProjectsQueries.ts`) + una página nueva. La única decisión real fue **dónde** ocultar los controles de administración: se comparan `useAuthStore().user.id`/`.rol` contra `proyecto.creadoPorId` en el cliente, para no mostrar un formulario de "agregar miembro" o un botón "Quitar" que el backend igual va a rechazar con `403`. Esto es UX, no seguridad — el enforcement real sigue siendo `assertOwnerOrAdmin` en el backend; si alguien arma el request a mano igual se lo rechaza.
 
-Se encontró de paso que `projects.api.ts` tenía su propio `request()` (no comparte código con `artifacts.api.ts`) y nunca había recibido el fix de sesión expirada (401) del Sprint 7 — se aplicó el mismo criterio ahí también, por consistencia, no porque se haya encontrado un bug reportado.
+Se encontró de paso que `projects.api.ts` tenía su propio `request()` (no comparte código con `artifacts.api.ts`) y nunca había recibido el fix de sesión expirada (401) de la Ronda 7 — se aplicó el mismo criterio ahí también, por consistencia, no porque se haya encontrado un bug reportado.
 
 ### Vitest, instalado por primera vez
 
@@ -327,7 +327,7 @@ El frontend no tenía ninguna infraestructura de testing. Se evaluó no meter Je
 
 Se agregó un único `data-testid` a la matriz 3×3 (`celda-{impacto}-{frecuencia}`) exclusivamente para poder verificar agrupación desde el test — no cambia el comportamiento visual ni de accesibilidad, es un hook de testing puro.
 
-**Verificado, no solo revisado a mano:** a diferencia de sesiones anteriores donde no fue posible instalar dependencias (ver limitación del Sprint 6), acá sí se pudo — se copió `apps/frontend` fuera del monorepo (para que `npm install` no intentara resolver el protocolo `workspace:` de paquetes hermanos) y se corrió tanto `npx vitest run` (3/3 tests pasan) como `npx tsc --noEmit` (sin errores) sobre el resultado real, no sobre una lectura manual del código. La instalación fue en una copia de trabajo — el repo real necesita su propio `pnpm install` para bajar estas devDependencies nuevas.
+**Verificado, no solo revisado a mano:** a diferencia de sesiones anteriores donde no fue posible instalar dependencias (ver limitación de la Ronda 6), acá sí se pudo — se copió `apps/frontend` fuera del monorepo (para que `npm install` no intentara resolver el protocolo `workspace:` de paquetes hermanos) y se corrió tanto `npx vitest run` (3/3 tests pasan) como `npx tsc --noEmit` (sin errores) sobre el resultado real, no sobre una lectura manual del código. La instalación fue en una copia de trabajo — el repo real necesita su propio `pnpm install` para bajar estas devDependencies nuevas.
 
 ### Documentación
 
@@ -353,7 +353,7 @@ Foco: cruzar 3 reglas de negocio del documento maestro contra el código real de
 
 **Regla 1 (Centralización por `proyectoId`):** cumplía sin cambios — `App.tsx` anida las 5 técnicas + analítica/miembros/participantes bajo `/proyectos/:proyectoId`, `ProjectDetailLayout` inyecta `proyectoId` vía `useOutletContext`, todas las páginas hijas lo consumen de ahí. Sin brecha, sin código nuevo.
 
-**Regla 2 (DOCENTE no edita artefactos de estudiante — "la visibilidad no implica permiso"):** ver `docs/AUDIT_LOG.md` J1. `ArtifactsController` daba a DOCENTE los mismos permisos de escritura que a ESTUDIANTE sobre `create`/`createVersion`/`acquireLock`/`releaseLock`/`remove` — solo `assertAccess` (dueño/ADMIN/miembro) filtraba, sin distinguir rol. Cerrado acotando `@Roles(...)` por método (DOCENTE queda solo en los `GET`) y agregando el mismo gating en frontend (`shared/auth/permisos.ts` + `PersonasPage`/`JourneyMapPage`/`MomentosCriticosPage`) para no mostrar controles que el backend igual iba a rechazar — mismo criterio ya usado en Sprint 8 para miembros de proyecto.
+**Regla 2 (DOCENTE no edita artefactos de estudiante — "la visibilidad no implica permiso"):** ver `docs/AUDIT_LOG.md` J1. `ArtifactsController` daba a DOCENTE los mismos permisos de escritura que a ESTUDIANTE sobre `create`/`createVersion`/`acquireLock`/`releaseLock`/`remove` — solo `assertAccess` (dueño/ADMIN/miembro) filtraba, sin distinguir rol. Cerrado acotando `@Roles(...)` por método (DOCENTE queda solo en los `GET`) y agregando el mismo gating en frontend (`shared/auth/permisos.ts` + `PersonasPage`/`JourneyMapPage`/`MomentosCriticosPage`) para no mostrar controles que el backend igual iba a rechazar — mismo criterio ya usado en la Ronda 8 para miembros de proyecto.
 
 **Regla 3 (evaluadorToken y participanteToken "estrictamente separados"):** ver `docs/AUDIT_LOG.md` J2. En frontend ya cumplía (`api-client.ts` solo participante/Bearer/localStorage, `artifacts.api.ts` solo evaluador/cookie httpOnly+CSRF). En backend, `JwtStrategy` firmaba y validaba ambos tipos de token con el mismo `jwt.secret` — el propio comentario del archivo decía "el mismo secreto firma ambos". La única barrera real entre uno y otro era el claim `actor`, no dos mecanismos de firma independientes. Cerrado con secreto y estrategia Passport separados (`JWT_PARTICIPANTE_SECRET`, `JwtParticipanteStrategy`, `ParticipanteJwtService`) — nueva env var **obligatoria**, documentado como *breaking change* en `CHANGELOG.md` y en `docs/sprints/sprint4-auth-roles.md`.
 
@@ -584,3 +584,28 @@ el servicio. Así, ocultar la navegación no se confunde con autorización real.
 Los proyectos eliminados por ADMIN usan `deletedAt` (Soft Delete). Esta decisión
 preserva la trazabilidad de sesiones y artefactos, y evita que una operación de
 administración destruya evidencia del proceso de investigación.
+
+## Sprint 6 oficial — Despliegue reproducible
+
+La infraestructura separa explícitamente desarrollo y producción mediante
+targets multi-stage en ambos Dockerfiles. El target productivo del backend
+ejecuta el JavaScript compilado y aplica migraciones con `prisma migrate deploy`;
+el del frontend entrega únicamente los archivos generados por Vite mediante
+Nginx. El seed y los servidores en modo watch quedan limitados al target de
+desarrollo.
+
+`docker-compose.production.yml` define cuatro servicios con responsabilidades
+aisladas: PostgreSQL, API NestJS, servidor estático y reverse proxy. Solo el
+reverse proxy publica un puerto. Nginx mantiene frontend y `/api` bajo el mismo
+origen, lo que simplifica CORS y evita incorporar la dirección interna del
+backend al bundle del navegador.
+
+Los servicios declaran healthchecks y dependencias condicionadas a estado
+saludable. La base debe aceptar conexiones antes de que el backend aplique las
+migraciones; backend y frontend deben estar saludables antes de iniciar el
+proxy. El workflow repite un despliegue desde cero y consulta los tres puntos
+observables (`/nginx-health`, `/api/health` y `/`) en cada push.
+
+Se actualizó la línea base a Node.js 24 LTS en Docker, CI y `engines`. El detalle
+operativo y el estado F1–F8/R6 están en
+`docs/sprints/sprint6-despliegue.md`.
