@@ -55,6 +55,41 @@ export class ProjectsService {
     });
   }
 
+  adminOverview(user: AuthenticatedUser) {
+    if (user.rol !== 'ADMIN') {
+      throw new ForbiddenException('Solo un administrador puede ver este resumen.');
+    }
+
+    return this.prisma.proyecto.findMany({
+      where: { deletedAt: null },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        nombre: true,
+        descripcion: true,
+        creadoPorId: true,
+        createdAt: true,
+        salaId: true,
+        creadoPor: {
+          select: { id: true, nombre: true, email: true, rol: true },
+        },
+        sesiones: {
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            nombre: true,
+            tipo: true,
+            estado: true,
+            actor: true,
+            createdAt: true,
+            completadoAt: true,
+          },
+        },
+        _count: { select: { artefactos: true } },
+      },
+    });
+  }
+
   async findOne(id: string, user: AuthenticatedUser) {
     await this.projectAccess.assertAccess(id, user);
 
@@ -95,6 +130,26 @@ export class ProjectsService {
           : {}),
       },
     });
+  }
+
+  async remove(id: string, user: AuthenticatedUser) {
+    if (user.rol !== 'ADMIN') {
+      throw new ForbiddenException('Solo un administrador puede eliminar proyectos.');
+    }
+
+    const project = await this.prisma.proyecto.findUnique({
+      where: { id },
+      select: { id: true, deletedAt: true },
+    });
+    if (!project || project.deletedAt) {
+      throw new NotFoundException('El proyecto no existe.');
+    }
+
+    await this.prisma.proyecto.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+    return { eliminado: true };
   }
 
   async addToWhitelist(

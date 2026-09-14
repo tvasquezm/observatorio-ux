@@ -1,7 +1,13 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../core/database/prisma.service';
-import { CreateDocenteDto } from './dto/user.dto';
+import { CreateDocenteDto, UpdateUserRoleDto } from './dto/user.dto';
+import type { AuthenticatedUser } from '../auth/types/authenticated-user.interface';
 
 @Injectable()
 export class UsersService {
@@ -28,6 +34,41 @@ export class UsersService {
       orderBy: { createdAt: 'desc' },
     });
     return docentes;
+  }
+
+  async listAccounts() {
+    return this.prisma.usuario.findMany({
+      select: { id: true, nombre: true, email: true, rol: true, createdAt: true },
+      orderBy: [{ rol: 'asc' }, { nombre: 'asc' }],
+    });
+  }
+
+  async updateRole(id: string, dto: UpdateUserRoleDto, actor: AuthenticatedUser) {
+    const usuario = await this.prisma.usuario.findUnique({ where: { id } });
+    if (!usuario) {
+      throw new NotFoundException('Usuario no encontrado.');
+    }
+
+    if (usuario.id === actor.id && dto.rol !== 'ADMIN') {
+      throw new BadRequestException('No puedes quitar el rol ADMIN de tu propia cuenta.');
+    }
+
+    if (usuario.rol === 'DOCENTE' && dto.rol !== 'DOCENTE') {
+      const salasActivas = await this.prisma.sala.count({
+        where: { profesorId: id, deletedAt: null },
+      });
+      if (salasActivas > 0) {
+        throw new ConflictException(
+          'El docente tiene salas activas. Reasígnalas o elimínalas antes de cambiar su rol.',
+        );
+      }
+    }
+
+    return this.prisma.usuario.update({
+      where: { id },
+      data: { rol: dto.rol },
+      select: { id: true, nombre: true, email: true, rol: true, createdAt: true },
+    });
   }
 
   async removeDocente(id: string) {
