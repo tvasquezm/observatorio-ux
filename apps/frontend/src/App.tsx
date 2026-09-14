@@ -15,6 +15,8 @@ import { PersonasPage } from './pages/PersonasPage';
 import { JourneyMapPage } from './pages/JourneyMapPage';
 import { MomentosCriticosPage } from './pages/MomentosCriticosPage';
 import { CardSortingPage } from './pages/CardSortingPage';
+import { CardSortingWorkspacePage } from './features/card-sorting/pages/CardSortingWorkspacePage';
+import { CardSortingResultsPage } from './features/card-sorting/pages/CardSortingResultsPage';
 import { EvaluacionHeuristicaPage } from './pages/EvaluacionHeuristicaPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { ProjectMembersPage } from './pages/ProjectMembersPage';
@@ -57,6 +59,8 @@ export default function App() {
             <Route path="journey-map" element={<JourneyMapPage />} />
             <Route path="momentos-criticos" element={<MomentosCriticosPage />} />
             <Route path="card-sorting" element={<CardSortingPage />} />
+            <Route path="card-sorting/:estudioId" element={<CardSortingWorkspacePage />} />
+            <Route path="card-sorting/:estudioId/resultados" element={<CardSortingResultsPage />} />
             <Route path="evaluacion-heuristica" element={<EvaluacionHeuristicaPage />} />
             <Route path="comentarios" element={<ProjectCommentsPage />} />
             <Route element={<PerspectiveRoute allowed={['DOCENTE', 'ADMIN']} />}>

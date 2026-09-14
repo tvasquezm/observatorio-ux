@@ -1,23 +1,18 @@
 // apps/frontend/src/features/card-sorting/hooks/useCardSortingQueries.ts
 //
 // Capa de integración con TanStack Query. Aislamiento: solo importa
-// desde ../api y ../store, ambos dentro de la misma feature.
+// desde ../api, dentro de la misma feature.
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  CardSortingApiError,
   createCardSortingSession,
   getCardSortingAnalytics,
   getCardSortingSession,
   getCardSortingSessionByProyecto,
   getCardSortingEstudiosByProyecto,
   cerrarCardSortingEstudio,
-  joinCardSortingSession,
-  submitCardSortingResult,
   type CreateCardSortingSessionPayload,
-  type SubmitCardSortingGrupo,
 } from '../api/card-sorting.api';
-import { useCardSortingStore } from '../store/useCardSortingStore';
 
 // Query keys centralizadas para evitar strings sueltos repetidos y
 // facilitar invalidaciones consistentes.
@@ -40,7 +35,6 @@ export function useCardSortingSessionByProyecto(proyectoId: string | null) {
     enabled: !!proyectoId,
   });
 }
-
 /**
  * Todos los estudios maestros ya creados para el proyecto actual (no
  * solo el más reciente). El proyecto puede tener varios estudios de
@@ -66,7 +60,6 @@ export function useCardSortingAnalytics(estudioId: string | null) {
     enabled: !!estudioId,
   });
 }
-
 /**
  * Lee una sesión de Card Sorting (maestra o de participante).
  * `enabled` controla si dispara la query (útil para no pedir datos
@@ -123,67 +116,4 @@ export function useCerrarCardSortingEstudio() {
     },
   });
 }
-
-/**
- * Participante anónimo se une a un estudio. Al tener éxito, guarda el
- * sessionId propio en el store de Zustand — ese id es el que se usa
- * después para el submit.
- */
-export function useJoinCardSortingSession() {
-  const queryClient = useQueryClient();
-  const setParticipantSession = useCardSortingStore(
-    (s) => s.setParticipantSession,
-  );
-
-  return useMutation({
-    mutationFn: ({
-      estudioId,
-      participanteId,
-    }: {
-      estudioId: string;
-      participanteId: string;
-    }) => joinCardSortingSession(estudioId, participanteId),
-    onSuccess: (session, variables) => {
-      setParticipantSession(variables.estudioId, session.id);
-      queryClient.setQueryData(cardSortingKeys.session(session.id), session);
-    },
-  });
-}
-
-/**
- * Participante envía su resultado final. Usa el participantSessionId
- * que ya está en el store (no hay que volver a pasarlo desde el
- * componente que llama al mutate).
- */
-export function useSubmitCardSortingResult() {
-  const queryClient = useQueryClient();
-  const participantSessionId = useCardSortingStore(
-    (s) => s.participantSessionId,
-  );
-  const clearParticipantSession = useCardSortingStore(
-    (s) => s.clearParticipantSession,
-  );
-
-  return useMutation({
-    mutationFn: (grupos: SubmitCardSortingGrupo[]) => {
-      if (!participantSessionId) {
-        // Falla rápido y explícito en vez de mandar un submit a
-        // "undefined" que el backend rechazaría con un 404 confuso.
-        return Promise.reject(
-          new CardSortingApiError(
-            0,
-            'No hay una sesión de participante activa. Debes unirte al estudio (join) antes de enviar resultados.',
-          ),
-        );
-      }
-      return submitCardSortingResult(participantSessionId, grupos);
-    },
-    onSuccess: (session) => {
-      queryClient.setQueryData(cardSortingKeys.session(session.id), session);
-      // La sesión quedó COMPLETADO en el backend — limpiamos el store
-      // para que un refresh accidental no reintente un submit sobre
-      // una sesión ya cerrada.
-      clearParticipantSession();
-    },
-  });
-}
+// Card Sorting evaluator queries end here.

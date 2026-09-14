@@ -12,6 +12,7 @@ export const CardSortingCategoryInputSchema = z.object({
 
 export const CreateCardSortingSessionPayloadSchema = z.object({
   proyectoId: z.string().uuid(),
+  nombre: z.string().trim().min(1).max(120),
   tipo: TipoCardSortingSchema.optional(),
   tarjetas: z.array(CardSortingCardInputSchema).min(1),
   categorias: z.array(CardSortingCategoryInputSchema).optional(),

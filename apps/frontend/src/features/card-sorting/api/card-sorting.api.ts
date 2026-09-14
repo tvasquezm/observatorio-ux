@@ -64,6 +64,7 @@ export interface CardGrouping {
 export interface CardSortingSession {
   id: string;
   proyectoId: string;
+  nombre: string;
   tipo: 'CARD_SORTING';
   tipoCardSorting: TipoCardSorting | null;
   estado: 'INVITADO' | 'EN_PROGRESO' | 'COMPLETADO' | 'ABANDONADO';
@@ -76,6 +77,7 @@ export interface CardSortingSession {
   completadoAt: string | null;
   // Fase: cierre de estudio — solo tiene sentido en el estudio maestro.
   cerrado: boolean;
+  respuestasCount?: number;
 }
 
 // --- Manejo de errores ---
@@ -198,28 +200,6 @@ export function cerrarCardSortingEstudio(
   });
 }
 
-/**
- * Participante anónimo se une a un estudio: crea su propia sesión hija.
- * Ruta pública en el backend (no requiere JWT de Usuario).
- */
-export function joinCardSortingSession(
-  estudioId: string,
-  participanteId: string,
-): Promise<CardSortingSession> {
-  return request<CardSortingSession>(
-    `/card-sorting/sessions/${estudioId}/join`,
-    {
-      method: 'POST',
-      body: JSON.stringify({ participanteId }),
-    },
-  );
-}
-
-/**
- * Participante envía su resultado de agrupamiento. El backend deriva el
- * participanteId de la sesión en el servidor (no viaja en el body, ver
- * ADR de seguridad IDOR).
- */
 export interface CardSortingFrecuenciaCategoria {
   nombre: string;
   count: number;
@@ -232,7 +212,31 @@ export interface CardSortingCluster {
   acuerdo: number;
 }
 
+export interface CardSortingMatrix {
+  categorias: string[];
+  filas: Array<{ tarjeta: string; valores: number[] }>;
+}
+
+export interface CardSortingPorCarta {
+  tarjeta: string;
+  categoriasCount: number;
+  categorias: Array<{ nombre: string; frecuencia: number }>;
+}
+
+export interface CardSortingPorCategoria {
+  nombre: string;
+  cardsCount: number;
+  cartas: Array<{ tarjeta: string; frecuencia: number }>;
+}
+
 export interface CardSortingAnalytics {
+  estudio: {
+    id: string;
+    proyectoId: string;
+    nombre: string;
+    cerrado: boolean;
+    createdAt: string;
+  };
   participantesCount: number;
   cardsCount: number;
   acuerdoGlobal: number;
@@ -240,6 +244,11 @@ export interface CardSortingAnalytics {
   matrizSimilitud: number[][];
   frecuenciaPorCategoria: CardSortingFrecuenciaCategoria[];
   clusters: CardSortingCluster[];
+  categorias: string[];
+  resultsMatrix: CardSortingMatrix;
+  popularPlacementsMatrix: CardSortingMatrix;
+  porCarta: CardSortingPorCarta[];
+  porCategoria: CardSortingPorCategoria[];
 }
 
 /**
@@ -251,17 +260,4 @@ export function getCardSortingAnalytics(estudioId: string): Promise<CardSortingA
   return request<CardSortingAnalytics>(`/card-sorting/sessions/${estudioId}/analytics`, {
     method: 'GET',
   });
-}
-
-export function submitCardSortingResult(
-  participanteSesionId: string,
-  grupos: SubmitCardSortingGrupo[],
-): Promise<CardSortingSession> {
-  return request<CardSortingSession>(
-    `/card-sorting/sessions/${participanteSesionId}/results`,
-    {
-      method: 'POST',
-      body: JSON.stringify({ grupos } satisfies SubmitCardSortingResultPayload),
-    },
-  );
 }
