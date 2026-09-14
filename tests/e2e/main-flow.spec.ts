@@ -61,3 +61,17 @@ test('impide que un estudiante abra la analítica restringida', async ({ page })
   await expect(page).toHaveURL('/');
   await expect(page.getByRole('heading', { name: 'Un mapa claro para decidir mejor.' })).toBeVisible();
 });
+
+test('restringe el panel y las cuentas administrativas a usuarios ADMIN', async ({ page }) => {
+  await loginAsStudent(page);
+
+  const accountsStatus = await page.evaluate(async () => {
+    const response = await fetch('/api/users/accounts', { credentials: 'include' });
+    return response.status;
+  });
+  expect(accountsStatus).toBe(403);
+
+  await page.goto('/admin');
+  await expect(page).toHaveURL('/');
+  await expect(page.getByRole('heading', { name: 'Un mapa claro para decidir mejor.' })).toBeVisible();
+});

@@ -116,6 +116,56 @@ describe('ProjectsService', () => {
     });
   });
 
+  describe('adminOverview', () => {
+    it('devuelve proyectos con sesiones y autor para el panel administrativo', async () => {
+      prisma.proyecto.findMany.mockResolvedValue([proyectoDeEjemplo]);
+
+      await expect(service.adminOverview(userAdmin)).resolves.toEqual([proyectoDeEjemplo]);
+      expect(prisma.proyecto.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { deletedAt: null },
+          select: expect.objectContaining({
+            creadoPor: expect.any(Object),
+            sesiones: expect.any(Object),
+          }),
+        }),
+      );
+    });
+
+    it('rechaza el resumen si el servicio recibe un rol no administrador', async () => {
+      expect(() => service.adminOverview(userDueño)).toThrow(ForbiddenException);
+      expect(prisma.proyecto.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('remove (DELETE /projects/:id)', () => {
+    it('elimina de forma lógica cuando lo solicita un administrador', async () => {
+      prisma.proyecto.findUnique.mockResolvedValue({ id: PROYECTO_ID, deletedAt: null });
+      prisma.proyecto.update.mockResolvedValue({ id: PROYECTO_ID });
+
+      await expect(service.remove(PROYECTO_ID, userAdmin)).resolves.toEqual({ eliminado: true });
+      expect(prisma.proyecto.update).toHaveBeenCalledWith({
+        where: { id: PROYECTO_ID },
+        data: { deletedAt: expect.any(Date) },
+      });
+    });
+
+    it('rechaza la eliminación si no la solicita un administrador', async () => {
+      await expect(service.remove(PROYECTO_ID, userDueño)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      expect(prisma.proyecto.update).not.toHaveBeenCalled();
+    });
+
+    it('devuelve 404 para un proyecto inexistente o ya eliminado', async () => {
+      prisma.proyecto.findUnique.mockResolvedValue(null);
+
+      await expect(service.remove(PROYECTO_ID, userAdmin)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+  });
+
   describe('findOne (ownership)', () => {
     it('el dueño puede ver su proyecto', async () => {
       prisma.proyecto.findUnique.mockResolvedValue(proyectoDeEjemplo);
