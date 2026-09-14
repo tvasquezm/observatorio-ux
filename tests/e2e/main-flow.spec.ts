@@ -49,7 +49,7 @@ test('recorre login, proyecto y las cinco técnicas UX', async ({ page }, testIn
       await expectInsideViewport(page, link);
     }
 
-    const createRoom = page.getByRole('button', { name: '+ Crear sala' });
+    const createRoom = page.getByRole('button', { name: 'Crear sala', exact: true });
     await expect(createRoom).toBeVisible();
     expect((await createRoom.boundingBox())?.height).toBeGreaterThanOrEqual(44);
   }
