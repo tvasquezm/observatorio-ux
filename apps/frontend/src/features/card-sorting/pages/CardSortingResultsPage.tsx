@@ -1,5 +1,5 @@
-import { useState, type CSSProperties } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import type { CSSProperties } from 'react';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import type {
   CardSortingMatrix,
   CardSortingPorCarta,
@@ -20,7 +20,17 @@ const TABS: Array<{ id: ResultsTab; label: string }> = [
 export function CardSortingResultsPage() {
   const { estudioId } = useParams<{ estudioId: string }>();
   const analyticsQuery = useCardSortingAnalytics(estudioId ?? null);
-  const [activeTab, setActiveTab] = useState<ResultsTab>('cards');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get('vista');
+  const activeTab: ResultsTab = TABS.some((tab) => tab.id === requestedTab)
+    ? (requestedTab as ResultsTab)
+    : 'cards';
+  const setActiveTab = (tab: ResultsTab) => {
+    const next = new URLSearchParams(searchParams);
+    if (tab === 'cards') next.delete('vista');
+    else next.set('vista', tab);
+    setSearchParams(next, { replace: true });
+  };
   const data = analyticsQuery.data;
 
   if (analyticsQuery.isLoading) return <div className="panel">Calculando resultados…</div>;
@@ -43,7 +53,7 @@ export function CardSortingResultsPage() {
       <header className="page-head">
         <div>
           <span className="kicker">CARD SORTING · RESULTADOS</span>
-          <h1>{data.estudio.nombre}</h1>
+          <h2>{data.estudio.nombre}</h2>
           <p>Compara patrones de clasificación y usa la evidencia para decidir la arquitectura de información.</p>
         </div>
         <Link
