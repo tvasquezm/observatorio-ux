@@ -19,7 +19,7 @@ export function TechniquePageHeader({
     <div className="page-head">
       <div>
         <span className={labelVariant}>{label}</span>
-        <h1>{title}</h1>
+        <h2>{title}</h2>
         <p>{description}</p>
       </div>
       {action}

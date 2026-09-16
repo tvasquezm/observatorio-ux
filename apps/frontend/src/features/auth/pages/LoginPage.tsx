@@ -20,11 +20,14 @@ export function LoginPage() {
 
   return (
     <div className="login">
-      <section className="login-card">
+      <main className="login-card">
         <img
           className="login-logo"
-          src="/brand/uxlab-observatorio.png"
+          src="/brand/uxlab-observatorio.webp"
           alt="UXLab Observatorio · Experiencia usuaria"
+          width="1760"
+          height="440"
+          {...{ fetchpriority: 'high' }}
         />
         <h1>Ingresa a tu cuenta</h1>
         <p>Accede para gestionar tus proyectos de investigación UX.</p>
@@ -63,8 +66,13 @@ export function LoginPage() {
           </button>
         </form>
 
+        <details className="login-help">
+          <summary>¿Olvidaste tu contraseña o no puedes ingresar?</summary>
+          <p>Solicita a tu docente o a la persona administradora de la plataforma que restablezca tu acceso.</p>
+        </details>
+
         <small className="login-note">Plataforma de investigación UX · uso académico</small>
-      </section>
+      </main>
 
       <aside className="login-art">
         <div className="orbit" />
@@ -72,8 +80,11 @@ export function LoginPage() {
         <div>
           <img
             className="login-art-logo"
-            src="/brand/uxlab-observatorio-white.png"
+            src="/brand/uxlab-observatorio-white.webp"
             alt="UXLab Observatorio"
+            width="1760"
+            height="440"
+            decoding="async"
           />
           <strong>Diseña con evidencia.</strong>
           <p>

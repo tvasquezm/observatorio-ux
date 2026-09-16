@@ -51,18 +51,21 @@ export function ProjectDetailLayout() {
         </div>
       </div>
 
-      <nav className="project-subnav" aria-label="Secciones del proyecto">
-        {visibleItems.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.end}
-            className={({ isActive }) => `project-subnav-link${isActive ? ' active' : ''}`}
-          >
-            {item.label}
-          </NavLink>
-        ))}
-      </nav>
+      <div className="project-subnav-shell">
+        <nav className="project-subnav" aria-label="Secciones del proyecto" aria-describedby="project-subnav-hint" tabIndex={0}>
+          {visibleItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.end}
+              className={({ isActive }) => `project-subnav-link${isActive ? ' active' : ''}`}
+            >
+              {item.label}
+            </NavLink>
+          ))}
+        </nav>
+        <span id="project-subnav-hint" className="project-subnav-hint">Desliza para ver más secciones →</span>
+      </div>
 
       <Outlet context={{ proyectoId } satisfies ProjectOutletContext} />
     </div>

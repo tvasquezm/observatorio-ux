@@ -36,7 +36,7 @@ export function DashboardPage() {
     <div className="fade">
       <section className="welcome">
         <div>
-          <span className="kicker">{fechaHoy()} · <i className="status-dot-active">●</i> {total} PROYECTO{total === 1 ? '' : 'S'} ACTIVO{total === 1 ? '' : 'S'}</span>
+          <span className="kicker">{fechaHoy()} · <i className="status-dot-active">●</i> {total} PROYECTO{total === 1 ? '' : 'S'} DISPONIBLE{total === 1 ? '' : 'S'}</span>
           <h1>Un mapa claro para decidir mejor.</h1>
           <p>
             {activo
@@ -72,7 +72,7 @@ export function DashboardPage() {
           <p>{user?.nombre} · cuenta {user?.rol?.toLowerCase()}</p>
         </article>
         <article className="metric rise">
-          <small>Proyecto activo</small>
+          <small>Proyecto reciente</small>
           <strong className="stat-value">{activo?.nombre ?? 'Ninguno'}</strong>
           <p>{activo ? 'Abre una técnica para trabajar' : 'Crea uno desde "Proyectos"'}</p>
         </article>

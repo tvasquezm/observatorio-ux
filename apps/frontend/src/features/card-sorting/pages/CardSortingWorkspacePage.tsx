@@ -68,7 +68,7 @@ export function CardSortingWorkspacePage() {
       <header className="page-head">
         <div>
           <span className="kicker">CARD SORTING · WORKSPACE</span>
-          <h1>{session.nombre}</h1>
+          <h2>{session.nombre}</h2>
           <p>
             Prueba la interacción localmente, comparte el estudio y controla cuándo recibe
             respuestas. La práctica de esta pantalla no altera la analítica.

@@ -8,7 +8,7 @@
 // crear uno propio y salir del suyo).
 
 import React, { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useProjects } from '../../projects/hooks/useProjectsQueries';
 import {
   useSala,
@@ -40,8 +40,17 @@ type TabEstudiante = 'proyectos' | 'equipos';
 
 export function SalaDetallePage() {
   const { salaId } = useParams<{ salaId: string }>();
-  const [tab, setTab] = useState<Tab>('proyectos');
-  const [tabEstudiante, setTabEstudiante] = useState<TabEstudiante>('proyectos');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get('tab');
+  const tab: Tab = requestedTab === 'estudiantes' || requestedTab === 'equipos' ? requestedTab : 'proyectos';
+  const tabEstudiante: TabEstudiante = requestedTab === 'equipos' ? 'equipos' : 'proyectos';
+  const setTab = (nextTab: Tab) => {
+    const next = new URLSearchParams(searchParams);
+    if (nextTab === 'proyectos') next.delete('tab');
+    else next.set('tab', nextTab);
+    setSearchParams(next, { replace: true });
+  };
+  const setTabEstudiante = (nextTab: TabEstudiante) => setTab(nextTab);
   const { user, perspectiveRole } = useAuthStore();
   const activeRole = user ? resolvePerspective(user.rol, perspectiveRole) : null;
   const esEstudiante = activeRole === 'ESTUDIANTE';

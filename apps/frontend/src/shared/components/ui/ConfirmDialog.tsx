@@ -6,15 +6,20 @@
 // vez en la raíz de la app (ver main.tsx) — mismo criterio que
 // ToastContainer.tsx.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { ConfirmRequestDetail, ConfirmResponseDetail } from '../../api/confirm';
 
 export function ConfirmDialog() {
   const [pending, setPending] = useState<ConfirmRequestDetail | null>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const messageId = useId();
 
   useEffect(() => {
     function onConfirm(event: Event) {
       const detail = (event as CustomEvent<ConfirmRequestDetail>).detail;
+      restoreFocusRef.current = document.activeElement as HTMLElement | null;
       setPending(detail);
     }
     window.addEventListener('app:confirm', onConfirm);
@@ -22,13 +27,10 @@ export function ConfirmDialog() {
   }, []);
 
   useEffect(() => {
-    if (!pending) return;
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') responder(false);
-    }
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const dialog = dialogRef.current;
+    if (!pending || !dialog) return;
+    if (!dialog.open) dialog.showModal();
+    cancelRef.current?.focus();
   }, [pending]);
 
   function responder(result: boolean) {
@@ -38,39 +40,44 @@ export function ConfirmDialog() {
         detail: { id: pending.id, result },
       }),
     );
+    dialogRef.current?.close();
     setPending(null);
+    window.requestAnimationFrame(() => restoreFocusRef.current?.focus());
   }
 
   if (!pending) return null;
 
   return (
-    <div role="presentation" onClick={() => responder(false)} className="confirm-overlay">
-      <div
-        role="alertdialog"
-        aria-modal="true"
-        aria-label={pending.message}
-        onClick={(e) => e.stopPropagation()}
-        className="confirm-dialog"
-      >
-        <p className="confirm-message">{pending.message}</p>
-        <div className="confirm-actions">
-          <button
-            type="button"
-            onClick={() => responder(false)}
-            className="confirm-btn confirm-btn--cancel"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={() => responder(true)}
-            autoFocus
-            className="confirm-btn confirm-btn--confirm"
-          >
-            Confirmar
-          </button>
-        </div>
+    <dialog
+      ref={dialogRef}
+      aria-labelledby={messageId}
+      className="confirm-dialog"
+      onCancel={(event) => {
+        event.preventDefault();
+        responder(false);
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) responder(false);
+      }}
+    >
+      <p id={messageId} className="confirm-message">{pending.message}</p>
+      <div className="confirm-actions">
+        <button
+          ref={cancelRef}
+          type="button"
+          onClick={() => responder(false)}
+          className="confirm-btn confirm-btn--cancel"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          onClick={() => responder(true)}
+          className="confirm-btn confirm-btn--confirm"
+        >
+          Confirmar
+        </button>
       </div>
-    </div>
+    </dialog>
   );
 }

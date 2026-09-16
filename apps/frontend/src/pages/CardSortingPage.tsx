@@ -63,7 +63,7 @@ export function CardSortingPage() {
       <header className="page-head">
         <div>
           <span className="kicker">ARQUITECTURA DE INFORMACIÓN</span>
-          <h1>Card Sorting</h1>
+          <h2>Card Sorting</h2>
           <p>
             Crea estudios abiertos o cerrados, compártelos con participantes y analiza cada
             clasificación como evidencia independiente.
