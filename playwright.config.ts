@@ -1,10 +1,10 @@
 import { defineConfig } from '@playwright/test';
 
-const baseURL = process.env.E2E_BASE_URL ?? 'http://127.0.0.1:5173';
-const backendURL = process.env.E2E_BACKEND_URL ?? 'http://127.0.0.1:3000';
+const baseURL = process.env.E2E_BASE_URL ?? 'http://127.0.0.1:5174';
+const backendURL = process.env.E2E_BACKEND_URL ?? 'http://127.0.0.1:3001';
 const databaseURL =
   process.env.DATABASE_URL ??
-  'postgresql://postgres:postgres@127.0.0.1:5434/observatorio_ux';
+  'postgresql://postgres:postgres@127.0.0.1:5434/observatorio_ux_e2e';
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -22,7 +22,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: 'pnpm --filter backend start:dev',
+      command: 'pnpm --filter backend exec prisma generate && pnpm --filter backend start:dev',
       url: `${backendURL}/api/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
@@ -30,16 +30,16 @@ export default defineConfig({
         ...process.env,
         NODE_ENV: 'test',
         DATABASE_URL: databaseURL,
-        JWT_SECRET: process.env.JWT_SECRET ?? 'e2e_evaluador_secret_2026',
+        JWT_SECRET: process.env.JWT_SECRET ?? 'e2e_evaluador_secret_2026_min_32_chars',
         JWT_PARTICIPANTE_SECRET:
-          process.env.JWT_PARTICIPANTE_SECRET ?? 'e2e_participante_secret_2026',
+          process.env.JWT_PARTICIPANTE_SECRET ?? 'e2e_participante_secret_2026_min_32_chars',
         JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN ?? '1h',
-        PORT: '3000',
+        PORT: new URL(backendURL).port || '3001',
         CORS_ORIGIN: baseURL,
       },
     },
     {
-      command: 'pnpm --filter frontend dev --host 127.0.0.1',
+      command: `pnpm --filter frontend dev --host 127.0.0.1 --port ${new URL(baseURL).port || '5174'}`,
       url: `${baseURL}/login`,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,

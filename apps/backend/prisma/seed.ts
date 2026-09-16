@@ -376,7 +376,7 @@ async function main() {
       artefactoLogicoId: artifactPersonaId,
       version: 1,
       contenido: {
-        nombre: 'María Pérez',
+        nombreCompleto: 'María Pérez',
         edad: 28,
         ocupacion: 'Diseñadora UX Junior',
         objetivos: ['Encontrar información rápido', 'Completar tareas sin fricción'],
