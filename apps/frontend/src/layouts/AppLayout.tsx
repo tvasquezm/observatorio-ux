@@ -1,12 +1,12 @@
 // apps/frontend/src/layouts/AppLayout.tsx
 
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { canViewAnalytics, canViewSalas, resolvePerspective } from '../shared/auth/perspectivas';
 import { ProfilePerspectiveSwitcher } from '../shared/components/ProfilePerspectiveSwitcher';
 import { PerspectivePreviewNotice } from '../shared/components/PerspectivePreviewNotice';
-import { exportarResumenPdf } from '../shared/utils/pdf';
+const ExportReportDialog = lazy(() => import('../features/reports/ExportReportDialog').then((module) => ({ default: module.ExportReportDialog })));
 
 const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', icon: '◆', end: true },
@@ -31,6 +31,7 @@ export function AppLayout() {
     const savedTheme = window.localStorage.getItem('observatorio-ux-theme');
     return savedTheme === 'dark' || (savedTheme === null && window.matchMedia('(prefers-color-scheme: dark)').matches);
   });
+  const [exportOpen, setExportOpen] = useState(false);
   const crumb = CRUMB_LABELS[location.pathname] ?? 'Proyecto';
   const activeRole = user ? resolvePerspective(user.rol, perspectiveRole) : null;
   const visibleNavItems = NAV_ITEMS.filter((item) => {
@@ -69,7 +70,7 @@ export function AppLayout() {
       <a className="skip-link" href="#main-content">Saltar al contenido</a>
       <aside className="side" aria-label="Navegación principal">
         <div className="brand">
-          <img className="brand-isotipo" src="/brand/uxlab-isotipo-white.png" alt="UXLab" />
+          <img className="brand-isotipo" src="/brand/uxlab-isotipo-white.webp" width="144" height="92" alt="UXLab" />
           <div>
             <b>UXLab Observatorio</b>
             <small>Experiencia usuaria</small>
@@ -128,16 +129,7 @@ export function AppLayout() {
             <button
               type="button"
               className="secondary"
-              onClick={() =>
-                exportarResumenPdf(crumb, [
-                  `Usuario: ${user?.nombre ?? ''}`,
-                  `Rol de la cuenta: ${user?.rol ?? ''}`,
-                  `Perspectiva activa: ${activeRole ?? ''}`,
-                  `Vista: ${crumb}`,
-                  '',
-                  'Exportado desde Observatorio UX',
-                ])
-              }
+              onClick={() => setExportOpen(true)}
             >
               Exportar PDF
             </button>
@@ -155,6 +147,7 @@ export function AppLayout() {
           <Outlet />
         </div>
       </main>
+      {exportOpen && <Suspense fallback={<span role="status">Preparando exportación…</span>}><ExportReportDialog projectId={location.pathname.match(/^\/proyectos\/([^/]+)/)?.[1]} onClose={() => setExportOpen(false)} /></Suspense>}
     </div>
   );
 }
