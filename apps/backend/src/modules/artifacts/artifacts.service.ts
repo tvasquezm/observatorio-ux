@@ -73,7 +73,7 @@ export class ArtifactsService {
 
   async findOne(artefactoId: string, user: AuthenticatedUser) {
     const artifact = await this.prisma.uxArtifact.findUnique({
-      where: { id: artefactoId },
+      where: { id: artefactoId, deletedAt: null },
     });
 
     if (!artifact) throw new NotFoundException('El artefacto no existe.');
@@ -92,18 +92,20 @@ export class ArtifactsService {
    * refresca deletedAt.
    */
   async softDelete(artefactoId: string, user: AuthenticatedUser) {
-    const artifact = await this.findOne(artefactoId, user);
+    const artifact = await this.findOneIncludingDeleted(artefactoId, user);
+    if (artifact.deletedAt) return artifact;
     await this.assertPuedeEditar(user, artifact.proyectoId);
     const latest = await this.getLatestVersion(artifact.artefactoLogicoId, artifact);
 
     this.assertNotLockedByOther(latest, user);
 
+    const deletedAt = new Date();
     await this.prisma.uxArtifact.updateMany({
       where: { artefactoLogicoId: artifact.artefactoLogicoId },
-      data: { deletedAt: new Date() },
+      data: { deletedAt, lockedById: null, lockedUntil: null },
     });
 
-    return this.findOne(artefactoId, user);
+    return { ...artifact, deletedAt, lockedById: null, lockedUntil: null };
   }
 
   async createVersion(
@@ -121,22 +123,37 @@ export class ArtifactsService {
     // vigente sobre el estado actual del artefacto.
     this.assertNotLockedByOther(latest, user);
 
+    if (dto.expectedVersion !== undefined && latest.version !== dto.expectedVersion) {
+      throw new ConflictException(
+        `El artefacto cambió desde que lo abriste (versión actual: ${latest.version}). Recarga antes de guardar.`,
+      );
+    }
+
     // El tipo se hereda del artefacto lógico existente, no del DTO.
     this.validateContenidoByTipo(artifact.tipo, dto.contenido);
 
     // La nueva fila nace sin lock (lockedById/lockedUntil quedan null por
     // default del schema): guardar una versión cierra, de hecho, la sesión
     // de edición que originó el lock sobre la versión anterior.
-    return this.prisma.uxArtifact.create({
-      data: {
-        proyectoId: artifact.proyectoId,
-        tipo: artifact.tipo,
-        artefactoLogicoId: artifact.artefactoLogicoId,
-        version: latest.version + 1,
-        contenido: dto.contenido as Prisma.InputJsonValue,
-        autorId: user.id,
-      },
-    });
+    try {
+      return await this.prisma.uxArtifact.create({
+        data: {
+          proyectoId: artifact.proyectoId,
+          tipo: artifact.tipo,
+          artefactoLogicoId: artifact.artefactoLogicoId,
+          version: latest.version + 1,
+          contenido: dto.contenido as Prisma.InputJsonValue,
+          autorId: user.id,
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException(
+          'Otro usuario guardó una versión antes que tú. Recarga y vuelve a aplicar tus cambios.',
+        );
+      }
+      throw error;
+    }
   }
 
   /**
@@ -229,7 +246,7 @@ export class ArtifactsService {
     },
   >(artefactoLogicoId: string, fallback: T): Promise<T> {
     const latest = await this.prisma.uxArtifact.findFirst({
-      where: { artefactoLogicoId },
+      where: { artefactoLogicoId, deletedAt: null },
       orderBy: { version: 'desc' },
     });
 
@@ -252,7 +269,7 @@ export class ArtifactsService {
     if (user.rol === 'ESTUDIANTE') return;
 
     const project = await this.prisma.proyecto.findUnique({
-      where: { id: proyectoId },
+      where: { id: proyectoId, deletedAt: null },
       select: { creadoPorId: true },
     });
 
@@ -261,6 +278,18 @@ export class ArtifactsService {
     throw new ForbiddenException(
       'Solo un estudiante, o el dueño del proyecto, puede editar sus artefactos.',
     );
+  }
+
+  private async findOneIncludingDeleted(
+    artefactoId: string,
+    user: AuthenticatedUser,
+  ) {
+    const artifact = await this.prisma.uxArtifact.findUnique({
+      where: { id: artefactoId },
+    });
+    if (!artifact) throw new NotFoundException('El artefacto no existe.');
+    await this.projectAccess.assertAccess(artifact.proyectoId, user);
+    return artifact;
   }
 
   private isLockActive(lockedUntil: Date | null): boolean {

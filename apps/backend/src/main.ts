@@ -1,6 +1,7 @@
 import { BadRequestException, ValidationPipe, ValidationError } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import type { NextFunction, Request, Response } from 'express';
@@ -72,8 +73,15 @@ function formatValidationErrors(
 }
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const config = app.get(ConfigService);
+
+  if (config.get<string>('app.nodeEnv') === 'production') {
+    // El compose coloca exactamente un Nginx delante del backend. Limitar
+    // la confianza a un salto mantiene req.ip útil para throttling sin
+    // aceptar una cadena X-Forwarded-For arbitraria enviada por el cliente.
+    app.set('trust proxy', 1);
+  }
 
   app.useGlobalFilters(new GlobalExceptionFilter());
   app.use(helmet());
@@ -104,37 +112,35 @@ async function bootstrap() {
     }),
   );
 
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('API Observatorio UX')
-    .setDescription(
-      [
-        'API para estudios de investigación UX.',
-        '',
-        '### Cómo autenticarte aquí (2 pasos, solo una vez por sesión del navegador)',
-        '1. Abre `GET /auth/test-token` más abajo, selecciona **Try it out** → **Execute** y copia el valor de `access_token` de la respuesta (solo funciona con `NODE_ENV != production`; usa el usuario del seed).',
-        '2. Click en el botón **Authorize** 🔓 arriba a la derecha, pegá el token (sin la palabra "Bearer", Swagger la agrega sola) y confirmá.',
-        '',
-        'A partir de ahí, todos los endpoints protegidos ya salen con el candado cerrado — no hace falta repetirlo por cada uno. Si recargás la página, el token queda guardado y no hay que autenticarse de nuevo.',
-      ].join('\n'),
-    )
-    .setVersion('1.0.0')
-    .addBearerAuth()
-    .build();
+  if (config.get<string>('app.nodeEnv') !== 'production') {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('API Observatorio UX')
+      .setDescription(
+        [
+          'API para estudios de investigación UX.',
+          '',
+          '### Cómo autenticarte aquí (2 pasos, solo una vez por sesión del navegador)',
+          '1. Abre `GET /auth/test-token` más abajo, selecciona **Try it out** → **Execute** y copia el valor de `access_token` de la respuesta (solo funciona con `NODE_ENV != production`; usa el usuario del seed).',
+          '2. Click en el botón **Authorize** 🔓 arriba a la derecha, pegá el token (sin la palabra "Bearer", Swagger la agrega sola) y confirmá.',
+          '',
+          'A partir de ahí, todos los endpoints protegidos ya salen con el candado cerrado — no hace falta repetirlo por cada uno. Si recargás la página, el token queda guardado y no hay que autenticarse de nuevo.',
+        ].join('\n'),
+      )
+      .setVersion('1.0.0')
+      .addBearerAuth()
+      .build();
 
-  SwaggerModule.setup(
-    'api/docs',
-    app,
-    SwaggerModule.createDocument(app, swaggerConfig),
-    {
-      swaggerOptions: {
-        // El token pegado en "Authorize" sobrevive a un F5 — sin esto,
-        // recargar la página de Swagger obliga a repetir el paso 1-2 de
-        // autenticación cada vez, que es justo la fricción más grande para
-        // alguien que solo quiere probar un endpoint suelto.
-        persistAuthorization: true,
+    SwaggerModule.setup(
+      'api/docs',
+      app,
+      SwaggerModule.createDocument(app, swaggerConfig),
+      {
+        swaggerOptions: {
+          persistAuthorization: true,
+        },
       },
-    },
-  );
+    );
+  }
 
   await app.listen(config.getOrThrow<number>('PORT'));
 }

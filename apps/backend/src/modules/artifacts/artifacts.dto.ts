@@ -26,6 +26,12 @@ export class CreateArtifactDto {
 export class CreateArtifactVersionDto {
   @IsObject()
   contenido!: Record<string, unknown>;
+
+  /** Versión que el cliente abrió. Evita sobrescribir trabajo más reciente. */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  expectedVersion?: number;
 }
 
 export class AcquireLockDto {

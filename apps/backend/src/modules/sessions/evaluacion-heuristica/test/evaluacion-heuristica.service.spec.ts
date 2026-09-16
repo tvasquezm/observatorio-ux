@@ -18,6 +18,7 @@ describe('EvaluacionHeuristicaService', () => {
   let prisma: {
     researchSession: {
       findUnique: jest.Mock;
+      findMany: jest.Mock;
       update: jest.Mock;
     };
   };
@@ -56,6 +57,7 @@ describe('EvaluacionHeuristicaService', () => {
     prisma = {
       researchSession: {
         findUnique: jest.fn(),
+        findMany: jest.fn(),
         update: jest.fn(),
       },
     };
@@ -72,6 +74,22 @@ describe('EvaluacionHeuristicaService', () => {
   });
 
   describe('obtenerSesion (ownership)', () => {
+    it('el informe del evaluador consulta únicamente sus sesiones y omite identidades', async () => {
+      prisma.researchSession.findMany.mockResolvedValue([]);
+      await service.listarSesiones('proyecto-1', userDueño);
+      expect(prisma.researchSession.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: { proyectoId: 'proyecto-1', tipo: TipoSesion.EVALUACION_HEURISTICA, evaluadorId: DUEÑO_ID },
+        select: { id: true, proyectoId: true, estado: true, resultado: true, createdAt: true, completadoAt: true },
+      }));
+    });
+
+    it('el informe del administrador puede consultar todas las sesiones del proyecto', async () => {
+      prisma.researchSession.findMany.mockResolvedValue([]);
+      await service.listarSesiones('proyecto-1', userAdmin);
+      expect(prisma.researchSession.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: { proyectoId: 'proyecto-1', tipo: TipoSesion.EVALUACION_HEURISTICA },
+      }));
+    });
     it('permite al evaluador dueño de la sesión leerla', async () => {
       prisma.researchSession.findUnique.mockResolvedValue(sesionDeEjemplo);
 

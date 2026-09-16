@@ -23,7 +23,7 @@ export class ProjectAccessService {
     mensajeForbidden = 'No tienes acceso a este proyecto.',
   ): Promise<void> {
     const project = await this.prisma.proyecto.findUnique({
-      where: { id: proyectoId },
+      where: { id: proyectoId, deletedAt: null },
       select: { creadoPorId: true },
     });
 
@@ -50,7 +50,7 @@ export class ProjectAccessService {
     mensajeForbidden = 'Solo el creador del proyecto o un administrador pueden hacer esto.',
   ): Promise<{ creadoPorId: string }> {
     const project = await this.prisma.proyecto.findUnique({
-      where: { id: proyectoId },
+      where: { id: proyectoId, deletedAt: null },
       select: { creadoPorId: true },
     });
 

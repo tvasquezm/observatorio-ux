@@ -95,6 +95,23 @@ export class EvaluacionHeuristicaService {
     return this.getOwnedSession(sesionId, user);
   }
 
+  async listarSesiones(proyectoId: string, user: AuthenticatedUser) {
+    await this.projectAccess.assertAccess(proyectoId, user);
+    // La exportación no amplía el permiso de lectura de sesiones individuales.
+    return this.prisma.researchSession.findMany({
+      where: {
+        proyectoId,
+        tipo: TipoSesion.EVALUACION_HEURISTICA,
+        ...(user.rol === 'ADMIN' ? {} : { evaluadorId: user.id }),
+      },
+      select: {
+        id: true, proyectoId: true, estado: true, resultado: true,
+        createdAt: true, completadoAt: true,
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+  }
+
   /**
    * Analítica agregada de hallazgos heurísticos para un proyecto,
    * calculada sobre las sesiones reales (todas las de tipo

@@ -241,6 +241,9 @@ describe('ArtifactsService', () => {
 
       const result = await service.findOne('art-1', ownerUser);
       expect(result).toEqual({ id: 'art-1', proyectoId: 'proy-1' });
+      expect(prisma.uxArtifact.findUnique).toHaveBeenCalledWith({
+        where: { id: 'art-1', deletedAt: null },
+      });
     });
   });
 
@@ -324,6 +327,21 @@ describe('ArtifactsService', () => {
 
       expect(result).toEqual({ id: 'art-1', version: 3 });
     });
+
+    it('rechaza guardar sobre una versión desactualizada', async () => {
+      prisma.uxArtifact.findUnique.mockResolvedValue(baseArtifact);
+      prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
+      prisma.uxArtifact.findFirst.mockResolvedValue({ ...baseArtifact, version: 4 });
+
+      await expect(
+        service.createVersion(
+          'art-1',
+          { contenido: {}, expectedVersion: 2 },
+          ownerUser,
+        ),
+      ).rejects.toThrow(ConflictException);
+      expect(prisma.uxArtifact.create).not.toHaveBeenCalled();
+    });
   });
 
   // Cierra B4/B9/B14: antes de estos tests, lockedById/lockedUntil se leían
@@ -350,7 +368,11 @@ describe('ArtifactsService', () => {
 
       expect(prisma.uxArtifact.updateMany).toHaveBeenCalledWith({
         where: { artefactoLogicoId: 'logico-1' },
-        data: { deletedAt: expect.any(Date) },
+        data: {
+          deletedAt: expect.any(Date),
+          lockedById: null,
+          lockedUntil: null,
+        },
       });
     });
 
@@ -426,7 +448,7 @@ describe('ArtifactsService', () => {
       prisma.uxArtifact.updateMany.mockResolvedValue({ count: 3 });
 
       await expect(service.softDelete('art-1', ownerUser)).resolves.toBeDefined();
-      expect(prisma.uxArtifact.updateMany).toHaveBeenCalled();
+      expect(prisma.uxArtifact.updateMany).not.toHaveBeenCalled();
     });
   });
 

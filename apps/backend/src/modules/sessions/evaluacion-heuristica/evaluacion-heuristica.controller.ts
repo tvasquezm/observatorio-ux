@@ -25,6 +25,15 @@ import { EvaluacionHeuristicaService } from './evaluacion-heuristica.service';
 export class EvaluacionHeuristicaController {
   constructor(private readonly service: EvaluacionHeuristicaService) {}
 
+  @Get()
+  @ApiOperation({ summary: 'Lista las evaluaciones accesibles para el informe del proyecto' })
+  listar(
+    @Param('proyectoId', ParseUUIDPipe) proyectoId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.service.listarSesiones(proyectoId, user);
+  }
+
   @Post()
   @ApiOperation({ summary: 'Abre una sesión de evaluación heurística' })
   crear(
