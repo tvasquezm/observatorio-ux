@@ -217,7 +217,7 @@ export function ParticipantCardSortingPage() {
   return (
     <main className="onboarding participant-study">
       <header className="participant-study-head">
-        <img src="/brand/uxlab-observatorio.png" alt="UXLab Observatorio" />
+        <img src="/brand/uxlab-observatorio.webp" width="1760" height="440" alt="UXLab Observatorio" />
         <div>
           <span className="eyebrow">Card Sorting · Participación anónima</span>
           <h1>{sesion.estudio.nombre}</h1>

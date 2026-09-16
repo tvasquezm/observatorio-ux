@@ -1,10 +1,6 @@
 // apps/frontend/src/features/salas/api/salas.api.ts
 
-import { useAuthStore } from '../../auth/store/useAuthStore';
-import { notify } from '../../../shared/api/toast';
-import { csrfHeaders } from '../../../shared/api/csrf';
-
-const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
+import { evaluatorRequest } from '../../../shared/api/evaluator-client';
 
 export interface Sala {
   id: string;
@@ -52,36 +48,7 @@ export class SalasApiError extends Error {
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  let res: Response;
-  try {
-    res = await fetch(`${API_BASE}${path}`, {
-      ...init,
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        ...csrfHeaders(init.method),
-        ...init.headers,
-      },
-    });
-  } catch {
-    throw new SalasApiError(0, 'No se pudo conectar con el servidor.');
-  }
-
-  if (res.status === 401) {
-    useAuthStore.getState().logout();
-    notify.error('Tu sesión expiró. Vuelve a iniciar sesión.');
-    throw new SalasApiError(401, 'Sesión expirada.');
-  }
-
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    const mensaje = Array.isArray(body?.message)
-      ? body.message.map((m: any) => m.mensaje ?? m).join(' ')
-      : (body?.message ?? `Error HTTP ${res.status}`);
-    throw new SalasApiError(res.status, mensaje);
-  }
-
-  return (await res.json()) as T;
+  return evaluatorRequest<T>(path, init, (status, message) => new SalasApiError(status, message));
 }
 
 export function getSalas(): Promise<Sala[]> {

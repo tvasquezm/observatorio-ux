@@ -55,10 +55,12 @@ export function useUpdateCriticalMoment(proyectoId: string) {
     mutationFn: ({
       artefactoId,
       contenido,
+      expectedVersion,
     }: {
       artefactoId: string;
       contenido: MomentosCriticosContenido;
-    }) => updateCriticalMoment(proyectoId, artefactoId, contenido),
+      expectedVersion?: number;
+    }) => updateCriticalMoment(proyectoId, artefactoId, contenido, expectedVersion),
     onSuccess: (momento) => {
       queryClient.setQueryData(
         momentosKeys.detail(proyectoId, momento.artefactoLogicoId),

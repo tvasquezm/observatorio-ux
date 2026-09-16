@@ -36,19 +36,19 @@ function renderOnboarding() {
 }
 
 function guardarSesionLocal(token = 'token-vigente') {
-  localStorage.setItem('participanteToken', token);
-  localStorage.setItem('participanteResumeToken', RESUME_TOKEN);
-  localStorage.setItem('participanteId', PARTICIPANT_ID);
-  localStorage.setItem('proyectoId', PROJECT_ID);
+  sessionStorage.setItem('participanteToken', token);
+  sessionStorage.setItem('participanteResumeToken', RESUME_TOKEN);
+  sessionStorage.setItem('participanteId', PARTICIPANT_ID);
+  sessionStorage.setItem('proyectoId', PROJECT_ID);
 }
 
 describe('OnboardingPage reanuda Card Sorting', () => {
   beforeEach(() => {
-    localStorage.clear();
+    sessionStorage.clear();
     vi.clearAllMocks();
   });
 
-  afterEach(() => localStorage.clear());
+  afterEach(() => sessionStorage.clear());
 
   it('reutiliza la sesión existente al abrir nuevamente el mismo enlace', async () => {
     guardarSesionLocal();
@@ -78,7 +78,7 @@ describe('OnboardingPage reanuda Card Sorting', () => {
 
     expect(await screen.findByText('Sesión recuperada')).toBeInTheDocument();
     expect(resumeProject).toHaveBeenCalledWith(PARTICIPANT_ID, PROJECT_ID, RESUME_TOKEN);
-    expect(localStorage.getItem('participanteToken')).toBe('token-renovado');
+    expect(sessionStorage.getItem('participanteToken')).toBe('token-renovado');
     expect(accessProject).not.toHaveBeenCalled();
   });
 });

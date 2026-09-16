@@ -1,10 +1,6 @@
 // apps/frontend/src/features/equipos/api/equipos.api.ts
 
-import { useAuthStore } from '../../auth/store/useAuthStore';
-import { notify } from '../../../shared/api/toast';
-import { csrfHeaders } from '../../../shared/api/csrf';
-
-const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
+import { evaluatorRequest } from '../../../shared/api/evaluator-client';
 
 export interface MiembroEquipo {
   equipoId: string;
@@ -33,35 +29,7 @@ export class EquiposApiError extends Error {
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  let res: Response;
-  try {
-    res = await fetch(`${API_BASE}${path}`, {
-      ...init,
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        ...csrfHeaders(init.method),
-        ...init.headers,
-      },
-    });
-  } catch {
-    throw new EquiposApiError(0, 'No se pudo conectar con el servidor.');
-  }
-
-  if (res.status === 401) {
-    useAuthStore.getState().logout();
-    notify.error('Tu sesión expiró. Vuelve a iniciar sesión.');
-    throw new EquiposApiError(401, 'Sesión expirada.');
-  }
-
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    const mensaje = Array.isArray(body?.message)
-      ? body.message.map((m: any) => m.mensaje ?? m).join(' ')
-      : (body?.message ?? `Error HTTP ${res.status}`);
-    throw new EquiposApiError(res.status, mensaje);
-  }
-  return (await res.json()) as T;
+  return evaluatorRequest<T>(path, init, (status, message) => new EquiposApiError(status, message));
 }
 
 export function listEquipos(salaId: string): Promise<Equipo[]> {

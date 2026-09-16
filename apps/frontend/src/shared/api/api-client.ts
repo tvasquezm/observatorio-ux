@@ -57,7 +57,7 @@ function normalizarDetalles(message: unknown): DetalleValidacion[] {
 }
 
 export async function apiFetch<T>(url: string, options: RequestInit = {}): Promise<T> {
-  const token = localStorage.getItem('participanteToken');
+  const token = sessionStorage.getItem('participanteToken');
   const res = await fetch(url, {
     ...options,
     headers: {

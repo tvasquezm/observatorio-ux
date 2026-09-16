@@ -8,9 +8,7 @@
 //
 // Forma confirmada contra HeuristicaDto real (apps/backend/.../dto/heuristica.dto.ts).
 
-import { csrfHeaders } from '../../../shared/api/csrf';
-
-const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
+import { evaluatorRequest } from '../../../shared/api/evaluator-client';
 
 export interface HallazgoHeuristicaInput {
   heuristicaId: string;
@@ -48,34 +46,19 @@ export class EvaluacionHeuristicaApiError extends Error {
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  let res: Response;
-  try {
-    res = await fetch(`${API_BASE}${path}`, {
-      ...init,
-      // Cookie httpOnly de sesión (Fase 3) — sin esto, cross-origin en
-      // dev (5173 → 3000), el navegador nunca la manda y todo es 401.
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        ...csrfHeaders(init.method),
-        ...init.headers,
-      },
-    });
-  } catch {
-    throw new EvaluacionHeuristicaApiError(0, 'No se pudo conectar con el servidor.');
-  }
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    const mensaje = Array.isArray(body?.message)
-      ? body.message.map((m: any) => m.mensaje ?? m).join(' ')
-      : (body?.message ?? `Error HTTP ${res.status}`);
-    throw new EvaluacionHeuristicaApiError(res.status, mensaje);
-  }
-  return (await res.json()) as T;
+  return evaluatorRequest<T>(
+    path,
+    init,
+    (status, message) => new EvaluacionHeuristicaApiError(status, message),
+  );
 }
 
 export function crearSesionHeuristica(proyectoId: string): Promise<EvaluacionHeuristicaSesion> {
   return request(`/projects/${proyectoId}/evaluacion-heuristica/sesiones`, { method: 'POST' });
+}
+
+export function listarSesionesHeuristicas(proyectoId: string): Promise<EvaluacionHeuristicaSesion[]> {
+  return request(`/projects/${proyectoId}/evaluacion-heuristica/sesiones`);
 }
 
 export async function registrarHallazgo(

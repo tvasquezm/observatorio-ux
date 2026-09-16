@@ -1,5 +1,13 @@
 // apps/frontend/src/features/momentos-criticos/api/momentos-criticos.api.ts
 
+import type {
+  FrecuenciaIncidente,
+  ImpactoIncidente,
+  IncidenteCritico,
+  MomentosCriticos as MomentosCriticosContenido,
+  TipoIncidente,
+  UserProfile,
+} from '@observatorio-ux/shared-types';
 import {
   acquireLock,
   createArtifact,
@@ -12,31 +20,14 @@ import {
   type UxArtifact,
 } from '../../../shared/api/artifacts.api';
 
-// Espejo de momentos-criticos.ts en shared-types.
-export type TipoIncidente = 'Positivo' | 'Negativo';
-export type ImpactoIncidente = 'Alto' | 'Medio' | 'Bajo';
-export type FrecuenciaIncidente = 'Alta' | 'Media' | 'Baja';
-
-export interface UserProfile {
-  id: string;
-  nombre: string;
-  rol: string;
-}
-
-export interface IncidenteCritico {
-  nombre: string;
-  descripcion: string;
-  tipo: TipoIncidente;
-  impacto: ImpactoIncidente;
-  frecuencia: FrecuenciaIncidente;
-  causa: string;
-  accionesSugeridas: string[];
-}
-
-export interface MomentosCriticosContenido {
-  perfilUsuario: UserProfile;
-  incidentes: IncidenteCritico[]; // mínimo 1, según MomentosCriticosSchema
-}
+export type {
+  FrecuenciaIncidente,
+  ImpactoIncidente,
+  IncidenteCritico,
+  MomentosCriticosContenido,
+  TipoIncidente,
+  UserProfile,
+};
 
 export type MomentosCriticosArtifact = UxArtifact<MomentosCriticosContenido>;
 
@@ -72,8 +63,14 @@ export function updateCriticalMoment(
   proyectoId: string,
   artefactoId: string,
   contenido: MomentosCriticosContenido,
+  expectedVersion?: number,
 ): Promise<MomentosCriticosArtifact> {
-  return createArtifactVersion<MomentosCriticosContenido>(proyectoId, artefactoId, contenido);
+  return createArtifactVersion<MomentosCriticosContenido>(
+    proyectoId,
+    artefactoId,
+    contenido,
+    expectedVersion,
+  );
 }
 
 export function lockCriticalMoment(

@@ -11,7 +11,7 @@
 //   POST /api/card-sorting/sessions/:id/join
 //   POST /api/card-sorting/sessions/:id/results
 
-import { csrfHeaders } from '../../../shared/api/csrf';
+import { evaluatorRequest } from '../../../shared/api/evaluator-client';
 import type {
   CreateCardSortingSessionPayload,
   SubmitCardSortingGrupo,
@@ -25,8 +25,6 @@ export type {
   SubmitCardSortingResultPayload,
   TipoCardSorting,
 };
-
-const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
 
 // --- Tipos que reflejan las entidades reales del schema.prisma ---
 
@@ -63,6 +61,7 @@ export interface CardGrouping {
 // metodologías.
 export interface CardSortingSession {
   id: string;
+  evaluadorId?: string | null;
   proyectoId: string;
   nombre: string;
   tipo: 'CARD_SORTING';
@@ -94,40 +93,12 @@ export class CardSortingApiError extends Error {
   }
 }
 
-async function parseErrorMessage(res: Response): Promise<string> {
-  try {
-    const body = await res.json();
-    return body?.message ?? `Error HTTP ${res.status}`;
-  } catch {
-    return `Error HTTP ${res.status}`;
-  }
-}
-
 async function request<T>(path: string, init: RequestInit): Promise<T> {
-  let res: Response;
-
-  try {
-    res = await fetch(`${API_BASE}${path}`, {
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        // Solo pega para las llamadas de EVALUADOR (createCardSortingSession):
-        // getCsrfToken() no encuentra la cookie `csrfToken` en el flujo de
-        // PARTICIPANTE (nunca se emite ahí), así que en esos casos esto no
-        // agrega nada — inofensivo.
-        ...csrfHeaders(init.method),
-      },
-      ...init,
-    });
-  } catch {
-    throw new CardSortingApiError(0, 'No se pudo conectar con el servidor.');
-  }
-
-  if (!res.ok) {
-    throw new CardSortingApiError(res.status, await parseErrorMessage(res));
-  }
-
-  return res.json() as Promise<T>;
+  return evaluatorRequest<T>(
+    path,
+    init,
+    (status, message) => new CardSortingApiError(status, message),
+  );
 }
 
 // --- Funciones puras exportadas ---

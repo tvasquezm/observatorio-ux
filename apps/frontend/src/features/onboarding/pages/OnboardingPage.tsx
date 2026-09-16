@@ -49,7 +49,7 @@ export function OnboardingPage() {
     return (
       <main className="onboarding participant-entry">
         <header className="participant-brand">
-          <img src="/brand/uxlab-observatorio-white.png" alt="UXLab Observatorio" />
+          <img src="/brand/uxlab-observatorio-white.webp" width="1760" height="440" alt="UXLab Observatorio" />
           <span>Participación anónima</span>
         </header>
         <section className="participant-card participant-step participant-state">
@@ -200,7 +200,7 @@ export function OnboardingPage() {
   return (
     <main className="onboarding participant-entry">
       <header className="participant-brand">
-        <img src="/brand/uxlab-observatorio-white.png" alt="UXLab Observatorio" />
+        <img src="/brand/uxlab-observatorio-white.webp" width="1760" height="440" alt="UXLab Observatorio" />
         <span>Participación anónima</span>
       </header>
 

@@ -10,11 +10,7 @@
 // el navegador la reenvíe sola, y agrega el header CSRF (`csrfHeaders`,
 // ver ./csrf.ts) en cada mutación.
 
-import { useAuthStore } from '../../features/auth/store/useAuthStore';
-import { notify } from './toast';
-import { csrfHeaders } from './csrf';
-
-const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
+import { evaluatorRequest } from './evaluator-client';
 
 export type TipoArtefacto = 'PERSONA' | 'JOURNEY_MAP' | 'MOMENTOS_CRITICOS';
 
@@ -50,56 +46,12 @@ export class ArtifactsApiError extends Error {
   }
 }
 
-function normalizarDetalles(message: unknown): DetalleValidacion[] | undefined {
-  if (Array.isArray(message) && message.every((m) => m && typeof m === 'object' && 'campo' in m)) {
-    return message as DetalleValidacion[];
-  }
-  if (Array.isArray(message)) {
-    return message.map((m) => ({ campo: '', mensaje: String(m) }));
-  }
-  return undefined;
-}
-
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  let res: Response;
-
-  try {
-    res = await fetch(`${API_BASE}${path}`, {
-      ...init,
-      // Sin esto, un fetch cross-origin (dev: 5173 → 3000) nunca manda ni
-      // guarda la cookie httpOnly de sesión — todo terminaría en 401.
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        ...csrfHeaders(init.method),
-        ...init.headers,
-      },
-    });
-  } catch {
-    throw new ArtifactsApiError(0, 'No se pudo conectar con el servidor.');
-  }
-
-  if (res.status === 401) {
-    // Sesión expirada o token inválido: no tiene sentido reintentar ni
-    // mostrar el body del error crudo — se cierra sesión (limpia el
-    // usuario cacheado de useAuthStore) y se avisa. ProtectedRoute ya está
-    // suscrito a `isAuthenticated`, así que el logout por sí solo dispara
-    // el redirect a /login sin necesitar un evento global aparte.
-    useAuthStore.getState().logout();
-    notify.error('Tu sesión expiró. Vuelve a iniciar sesión.');
-    throw new ArtifactsApiError(401, 'Sesión expirada.');
-  }
-
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    const detalles = normalizarDetalles(body?.message);
-    const mensaje = detalles ? detalles.map((d) => d.mensaje).join(' ') : (typeof body?.message === 'string' ? body.message : undefined);
-    throw new ArtifactsApiError(res.status, mensaje ?? `Error HTTP ${res.status}`, detalles);
-  }
-
-  // Confirmado por prueba real: el backend devuelve el objeto directo,
-  // sin envoltorio { data, meta }.
-  return (await res.json()) as T;
+  return evaluatorRequest<T>(
+    path,
+    init,
+    (status, message, details) => new ArtifactsApiError(status, message, details),
+  );
 }
 
 /**
@@ -171,10 +123,11 @@ export function createArtifactVersion<T = unknown>(
   proyectoId: string,
   artefactoId: string,
   contenido: T,
+  expectedVersion?: number,
 ): Promise<UxArtifact<T>> {
   return request<UxArtifact<T>>(
     `/projects/${proyectoId}/artifacts/${artefactoId}/versions`,
-    { method: 'POST', body: JSON.stringify({ contenido }) },
+    { method: 'POST', body: JSON.stringify({ contenido, expectedVersion }) },
   );
 }
 

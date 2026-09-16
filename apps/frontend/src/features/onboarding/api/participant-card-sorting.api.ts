@@ -1,7 +1,7 @@
 // apps/frontend/src/features/onboarding/api/participant-card-sorting.api.ts
 //
 // Llamadas de PARTICIPANTE a los endpoints de card-sorting. Usa apiFetch
-// (Bearer participanteToken desde localStorage), NO el cliente de
+// (Bearer participanteToken desde sessionStorage), NO el cliente de
 // features/card-sorting/api (ese usa cookie de EVALUADOR).
 
 import { apiFetch } from '../../../shared/api/api-client';
