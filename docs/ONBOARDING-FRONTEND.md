@@ -57,9 +57,9 @@ cuando hace falta más detalle.
   montar. Si la cookie expiró o fue revocada, `checkSession()` corrige el
   estado aunque la caché diga lo contrario.
 - El flujo de **PARTICIPANTE** (`shared/api/api-client.ts`) es aparte y
-  sigue con Bearer token en `localStorage` (`participanteToken`) — eso no
-  cambió, es un diseño distinto a propósito (ver comentario en ese
-  archivo). No mezclar los dos patrones.
+  usa Bearer token en `sessionStorage` (`participanteToken`). Así se puede
+  reanudar dentro de la misma pestaña sin conservar una credencial sensible
+  después de cerrar la sesión del navegador. No mezclar los dos patrones.
 
 ## 3. Estructura de carpetas (patrón a seguir)
 

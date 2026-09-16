@@ -97,7 +97,7 @@ Los valores por defecto ya funcionan para desarrollo local con Docker (incluye `
 docker compose up --build
 ```
 
-Esto, en orden: construye las imágenes de `shared-types`, `backend` y `frontend`; levanta `db` (Postgres) y espera su healthcheck; compila `shared-types` en modo watch; aplica migraciones de Prisma; corre el seed **solo si `NODE_ENV` no es `production`**; y levanta el frontend con Vite.
+Esto, en orden: construye las imágenes de `shared-types`, `backend` y `frontend`; levanta `db` (Postgres) y espera su healthcheck; compila `shared-types` en modo watch; aplica migraciones de Prisma; y levanta el frontend con Vite. El seed no se ejecuta al reiniciar para conservar cuentas y proyectos existentes. Para crear los datos demo, ejecuta `docker compose exec backend pnpm --filter backend seed` o activa explícitamente `SEED_ON_START=true` en desarrollo. En producción nunca se ejecuta el seed automático.
 
 - Backend: `http://localhost:3000/api` (Swagger en `/api/docs`)
 - Frontend: `http://localhost:5173`
@@ -163,13 +163,16 @@ escritorio (1440×900) y móvil táctil (390×844):
 
 ```bash
 docker compose up -d db           # Playwright prepara migraciones y seed
+# Solo la primera vez: crea la base aislada que usa el recorrido E2E
+docker compose exec db psql -U postgres -d postgres -c "CREATE DATABASE observatorio_ux_e2e"
 pnpm exec playwright install chromium  # solo la primera vez
 pnpm test:e2e                     # escritorio + móvil
 pnpm test:e2e:mobile              # solo viewport móvil
 pnpm test:e2e:desktop             # solo escritorio
 ```
 
-Si frontend/backend ya están levantados con Docker, Playwright los reutiliza.
+Playwright usa por defecto los puertos 5174/3001 y la base `observatorio_ux_e2e`.
+Si se configuran `E2E_BASE_URL` y `E2E_BACKEND_URL`, puede reutilizar servidores de prueba existentes. El seed exige una base cuyo nombre termine en `_e2e` o `_test`.
 En CI levanta ambos servicios, ejecuta las pruebas y conserva capturas, video y
 trace cuando hay una falla.
 
