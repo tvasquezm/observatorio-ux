@@ -26,6 +26,7 @@ import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { useProject } from '../features/projects/hooks/useProjectsQueries';
 import { TechniquePageHeader } from '../shared/components/TechniquePageHeader';
 import { useArtifactEditLock } from '../shared/hooks/useArtifactEditLock';
+import { useUnsavedChanges } from '../shared/hooks/useUnsavedChanges';
 
 const MIN_FASES = 3;
 
@@ -56,20 +57,24 @@ export function JourneyMapPage() {
   const [form, setForm] = useState<JourneyMapContenido>(contenidoVacio());
   const [mostrarForm, setMostrarForm] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [editandoVersion, setEditandoVersion] = useState<number | null>(null);
   const [readOnly, setReadOnly] = useState(false);
+  useUnsavedChanges(mostrarForm, form, isCreating || isUpdating);
 
   function resetForm() {
     editLock.release();
     setForm(contenidoVacio());
     setEditandoId(null);
+    setEditandoVersion(null);
     setMostrarForm(false);
     setReadOnly(false);
   }
 
   function handleIniciarEditar(journey: JourneyMapArtifact) {
-    // Usamos el artefactoLogicoId para versionar la edición
-    const artefactoId = journey.artefactoLogicoId || journey.id;
+    // El endpoint de versiones recibe el ID de la fila abierta.
+    const artefactoId = journey.id;
     setEditandoId(artefactoId);
+    setEditandoVersion(journey.version);
     setForm(journey.contenido);
     setMostrarForm(true);
     setReadOnly(false);
@@ -111,7 +116,7 @@ export function JourneyMapPage() {
     if (editandoId) {
       const idAEditar = editandoId;
       actualizar(
-        { artefactoId: idAEditar, contenido: form },
+        { artefactoId: idAEditar, contenido: form, expectedVersion: editandoVersion ?? undefined },
         {
           onSuccess: resetForm,
         }
@@ -147,12 +152,12 @@ export function JourneyMapPage() {
         <div className="panel mb-16">
           <form onSubmit={handleSubmit} className="form-grid">
             <h2>{editandoId ? 'Editar Journey Map' : 'Nuevo Journey Map'}</h2>
-            {readOnly && (
+            {(readOnly || editLock.lockLost) && (
               <p className="error-text">
                 Este journey map está bloqueado por otro usuario. No puedes editarlo en este momento.
               </p>
             )}
-            <fieldset disabled={readOnly} className="readonly-fieldset">
+            <fieldset disabled={readOnly || editLock.lockLost} className="readonly-fieldset">
 
             <div className="form-grid-2">
               <input

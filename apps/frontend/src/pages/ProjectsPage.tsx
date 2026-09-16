@@ -1,11 +1,12 @@
 // apps/frontend/src/pages/ProjectsPage.tsx
 
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useCreateProject, useProjects, useUpdateProject } from '../features/projects/hooks/useProjectsQueries';
 import type { Proyecto } from '../features/projects/api/projects.api';
 import { useSalas } from '../features/salas/hooks/useSalasQueries';
 import { useActivePerspective } from '../shared/auth/useActivePerspective';
+import { useUnsavedChanges } from '../shared/hooks/useUnsavedChanges';
 
 export function ProjectsPage() {
   const { data: proyectos, isLoading } = useProjects();
@@ -21,9 +22,11 @@ export function ProjectsPage() {
   const [descripcion, setDescripcion] = useState('');
   const [salaId, setSalaId] = useState('');
   const [mostrandoCreacion, setMostrandoCreacion] = useState(false);
-  const [busqueda, setBusqueda] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const busqueda = searchParams.get('q') ?? '';
   const [editando, setEditando] = useState<string | null>(null);
   const [edicion, setEdicion] = useState({ nombre: '', descripcion: '' });
+  useUnsavedChanges(mostrandoCreacion || editando !== null, { nombre, descripcion, salaId, edicion }, isPending || isUpdating);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -142,7 +145,7 @@ export function ProjectsPage() {
         </form>
       )}
 
-      <div className="toolbar"><div><h2>Todos tus proyectos</h2><span className="muted">Selecciona uno para ver sus técnicas.</span></div><input className="search-input" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar proyecto…" /></div>
+      <div className="toolbar"><div><h2>Todos tus proyectos</h2><span className="muted">Selecciona uno para ver sus técnicas.</span></div><div><label className="sr-only" htmlFor="buscar-proyecto">Buscar proyecto</label><input id="buscar-proyecto" className="search-input" value={busqueda} onChange={(e) => { const next = new URLSearchParams(searchParams); if (e.target.value) next.set('q', e.target.value); else next.delete('q'); setSearchParams(next, { replace: true }); }} placeholder="Buscar proyecto…" /></div></div>
 
       {isLoading && <div className="panel"><p>Cargando…</p></div>}
 
@@ -151,11 +154,11 @@ export function ProjectsPage() {
           <article key={p.id} className="project-card">
             <Link to={`/proyectos/${p.id.replace(/^\//, '')}`} className="project-card-main">
               <span className={`project-dot ${['blue', 'green', 'orange'][index % 3]}`}>{p.nombre[0]?.toUpperCase()}</span>
-              <div><span className="project-kicker">{index % 2 ? 'EN INVESTIGACIÓN' : 'PROYECTO ACTIVO'}</span><h3>{p.nombre}</h3>{p.descripcion && <p>{p.descripcion}</p>}</div>
+              <div><span className="project-kicker">{(p._count?.sesiones ?? 0) > 0 ? 'CON SESIONES REGISTRADAS' : 'LISTO PARA INICIAR'}</span><h3>{p.nombre}</h3>{p.descripcion && <p>{p.descripcion}</p>}</div>
               <span className="arrow">→</span>
             </Link>
-            <div className="project-card-foot"><span>5 técnicas disponibles</span><button type="button" className="text-button" onClick={() => iniciarEdicion(p)}>Editar</button></div>
-            {editando === p.id && <form onSubmit={guardarEdicion} className="inline-edit"><input className="text-input" value={edicion.nombre} onChange={(e) => setEdicion({ ...edicion, nombre: e.target.value })} required /><input className="text-input" value={edicion.descripcion} onChange={(e) => setEdicion({ ...edicion, descripcion: e.target.value })} placeholder="Descripción" /><div className="form-actions"><button className="primary" disabled={isUpdating}>Guardar</button><button className="secondary" type="button" onClick={() => setEditando(null)}>Cancelar</button></div></form>}
+            <div className="project-card-foot"><span>{p._count?.sesiones ?? 0} sesiones · {p._count?.artefactos ?? 0} artefactos</span><button type="button" className="text-button" onClick={() => iniciarEdicion(p)}>Editar</button></div>
+            {editando === p.id && <form onSubmit={guardarEdicion} className="inline-edit"><label className="sr-only" htmlFor={`editar-proyecto-nombre-${p.id}`}>Nombre del proyecto</label><input id={`editar-proyecto-nombre-${p.id}`} className="text-input" value={edicion.nombre} onChange={(e) => setEdicion({ ...edicion, nombre: e.target.value })} required /><label className="sr-only" htmlFor={`editar-proyecto-descripcion-${p.id}`}>Descripción del proyecto</label><input id={`editar-proyecto-descripcion-${p.id}`} className="text-input" value={edicion.descripcion} onChange={(e) => setEdicion({ ...edicion, descripcion: e.target.value })} placeholder="Descripción" /><div className="form-actions"><button className="primary" disabled={isUpdating}>Guardar</button><button className="secondary" type="button" onClick={() => setEditando(null)}>Cancelar</button></div></form>}
           </article>
         ))}
         {proyectos && filtrados.length === 0 && <div className="panel empty-state"><span>⌕</span><p>{busqueda ? 'No hay proyectos que coincidan con la búsqueda.' : 'No hay proyectos todavía.'}</p></div>}

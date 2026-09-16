@@ -23,6 +23,7 @@ import { useActivePerspective } from '../shared/auth/useActivePerspective';
 import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { useProject } from '../features/projects/hooks/useProjectsQueries';
 import { useArtifactEditLock } from '../shared/hooks/useArtifactEditLock';
+import { useUnsavedChanges } from '../shared/hooks/useUnsavedChanges';
 
 const MIN_INCIDENTES = 1; // MomentosCriticosSchema exige mínimo 1
 
@@ -66,20 +67,24 @@ export function MomentosCriticosPage() {
   const [mostrarForm, setMostrarForm] = useState(false);
   const [vistaMatriz, setVistaMatriz] = useState(false);
   const [editandoArtefactoId, setEditandoArtefactoId] = useState<string | null>(null);
+  const [editandoVersion, setEditandoVersion] = useState<number | null>(null);
   const [readOnly, setReadOnly] = useState(false);
+  useUnsavedChanges(mostrarForm, { form, accionesInputs }, isCreating || isUpdating);
 
   function resetForm() {
     editLock.release();
     setForm(contenidoVacio());
     setAccionesInputs(['']);
     setEditandoArtefactoId(null);
+    setEditandoVersion(null);
     setMostrarForm(false);
     setReadOnly(false);
   }
 
   function handleStartEdit(m: MomentosCriticosArtifact) {
-    const artefactoId = m.artefactoLogicoId || m.id;
+    const artefactoId = m.id;
     setEditandoArtefactoId(artefactoId);
+    setEditandoVersion(m.version);
     setForm(m.contenido);
     setAccionesInputs(
       m.contenido.incidentes.map((inc) => (inc.accionesSugeridas ? inc.accionesSugeridas.join(', ') : '')),
@@ -138,7 +143,7 @@ export function MomentosCriticosPage() {
     if (editandoArtefactoId) {
       const idAEditar = editandoArtefactoId;
       actualizar(
-        { artefactoId: idAEditar, contenido: payload },
+        { artefactoId: idAEditar, contenido: payload, expectedVersion: editandoVersion ?? undefined },
         {
           onSuccess: resetForm,
         }
@@ -197,12 +202,12 @@ export function MomentosCriticosPage() {
       {puedeEditar && mostrarForm && (
         <form onSubmit={handleSubmit} className="entity-card form">
           <h3>{editandoArtefactoId ? 'Editar Momento Crítico' : 'Nuevo Momento Crítico'}</h3>
-          {readOnly && (
+          {(readOnly || editLock.lockLost) && (
             <p className="error-text">
               Este momento crítico está bloqueado por otro usuario. No puedes editarlo en este momento.
             </p>
           )}
-          <fieldset disabled={readOnly} className="readonly-fieldset">
+          <fieldset disabled={readOnly || editLock.lockLost} className="readonly-fieldset">
           <div className="form-grid-2">
             <input
               placeholder="Nombre del perfil de usuario *"

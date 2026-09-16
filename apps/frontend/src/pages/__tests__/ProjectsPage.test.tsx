@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProjectsPage } from '../ProjectsPage';
 
@@ -26,9 +26,7 @@ beforeEach(() => {
 describe('ProjectsPage — creación centralizada', () => {
   it('muestra un solo acceso y revela el formulario únicamente al solicitarlo', async () => {
     render(
-      <MemoryRouter>
-        <ProjectsPage />
-      </MemoryRouter>,
+      <RouterProvider router={createMemoryRouter([{ path: '*', element: <ProjectsPage /> }])} />,
     );
 
     const abrir = screen.getByRole('button', { name: 'Nuevo proyecto' });
@@ -44,9 +42,7 @@ describe('ProjectsPage — creación centralizada', () => {
 
   it('envía los datos desde el formulario compacto', async () => {
     render(
-      <MemoryRouter>
-        <ProjectsPage />
-      </MemoryRouter>,
+      <RouterProvider router={createMemoryRouter([{ path: '*', element: <ProjectsPage /> }])} />,
     );
 
     await userEvent.click(screen.getByRole('button', { name: 'Nuevo proyecto' }));

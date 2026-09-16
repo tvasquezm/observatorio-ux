@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useArtifactEditLock } from '../useArtifactEditLock';
 import * as artifactsApi from '../../api/artifacts.api';
 
@@ -18,6 +18,28 @@ describe('useArtifactEditLock', () => {
     vi.clearAllMocks();
     acquireLockMock.mockResolvedValue({} as never);
     releaseLockMock.mockResolvedValue({} as never);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('renueva la reserva durante una edición larga y avisa si deja de tenerla', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+    const { result, unmount } = renderHook(() => useArtifactEditLock('project-1'));
+    await act(async () => { await result.current.acquire('artifact-1'); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(120_000); });
+    expect(acquireLockMock).toHaveBeenCalledTimes(2);
+    expect(result.current.lockLost).toBe(false);
+
+    acquireLockMock.mockRejectedValueOnce(new Error('Conflicto de edición'));
+    await act(async () => { await vi.advanceTimersByTimeAsync(120_000); });
+    expect(result.current.lockLost).toBe(true);
+    await act(async () => { await vi.advanceTimersByTimeAsync(120_000); });
+    expect(acquireLockMock).toHaveBeenCalledTimes(3);
+    unmount();
   });
 
   it('libera el lock activo cuando la pantalla se desmonta', async () => {

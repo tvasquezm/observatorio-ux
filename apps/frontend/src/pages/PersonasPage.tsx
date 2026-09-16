@@ -17,6 +17,7 @@ import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { useProject } from '../features/projects/hooks/useProjectsQueries';
 import { TechniquePageHeader } from '../shared/components/TechniquePageHeader';
 import { useArtifactEditLock } from '../shared/hooks/useArtifactEditLock';
+import { useUnsavedChanges } from '../shared/hooks/useUnsavedChanges';
 
 const CAMPOS_LISTA: (keyof PersonaContenido)[] = [
   'hobbies', 'habilidades', 'objetivos', 'necesidades',
@@ -52,20 +53,24 @@ export function PersonasPage() {
   const [listInputs, setListInputs] = useState<Record<string, string>>(vacioListInputs());
   const [mostrarForm, setMostrarForm] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [editandoVersion, setEditandoVersion] = useState<number | null>(null);
   const [readOnly, setReadOnly] = useState(false);
+  useUnsavedChanges(mostrarForm, { form, listInputs }, isCreating || isUpdating);
 
   function resetForm() {
     editLock.release();
     setForm(vacio());
     setListInputs(vacioListInputs());
     setEditandoId(null);
+    setEditandoVersion(null);
     setMostrarForm(false);
     setReadOnly(false);
   }
 
   function handleIniciarEditar(persona: PersonaArtifact) {
-    const artefactoId = persona.artefactoLogicoId || persona.id;
+    const artefactoId = persona.id;
     setEditandoId(artefactoId);
+    setEditandoVersion(persona.version);
     setForm(persona.contenido);
     
     const inputsState: Record<string, string> = {};
@@ -100,7 +105,7 @@ export function PersonasPage() {
     if (editandoId) {
       const idAEditar = editandoId;
       actualizar(
-        { artefactoId: idAEditar, contenido: payload },
+        { artefactoId: idAEditar, contenido: payload, expectedVersion: editandoVersion ?? undefined },
         {
           onSuccess: resetForm,
         }
@@ -133,12 +138,12 @@ export function PersonasPage() {
       {puedeEditar && mostrarForm && (
         <form onSubmit={handleSubmit} className="entity-card form">
           <h3>{editandoId ? 'Editar Persona' : 'Nueva Persona'}</h3>
-          {readOnly && (
+          {(readOnly || editLock.lockLost) && (
             <p className="error-text">
               Esta persona está bloqueada por otro usuario. No puedes editarla en este momento.
             </p>
           )}
-          <fieldset disabled={readOnly} className="readonly-fieldset">
+          <fieldset disabled={readOnly || editLock.lockLost} className="readonly-fieldset">
           <input
             placeholder="Nombre completo *"
             aria-label="Nombre completo"
