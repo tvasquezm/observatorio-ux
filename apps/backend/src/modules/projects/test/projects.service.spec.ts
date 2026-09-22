@@ -97,6 +97,7 @@ describe('ProjectsService', () => {
             OR: [
               { creadoPorId: DUEÑO_ID },
               { miembros: { some: { usuarioId: DUEÑO_ID } } },
+              { sala: { profesorId: DUEÑO_ID } },
             ],
           },
         }),

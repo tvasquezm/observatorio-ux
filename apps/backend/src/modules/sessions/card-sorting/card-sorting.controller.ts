@@ -74,6 +74,20 @@ export class CardSortingController {
     return this.cardSortingService.getSession(id, user);
   }
 
+<<<<<<< Updated upstream
+=======
+  @Patch(':id/cerrar')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ESTUDIANTE')
+  cerrarEstudio(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CerrarEstudioDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.cardSortingService.cerrarEstudio(id, dto.cerrado, user);
+  }
+
+>>>>>>> Stashed changes
   @Get(':id/analytics')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ESTUDIANTE', 'DOCENTE', 'ADMIN')

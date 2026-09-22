@@ -109,12 +109,22 @@ export class CardSortingService {
     });
     const countMap = new Map(counts.map((c) => [c.estudioId, c._count._all]));
 
+<<<<<<< Updated upstream
     return studies.map((study) => ({
       id: study.id, nombre: study.nombre, tipoCardSorting: study.tipoCardSorting,
       estado: study.estado, createdAt: study.createdAt, cerradoAt: study.cerradoAt,
       cardsCount: study.cardsDefinidas.length, respuestasCount: countMap.get(study.id) ?? 0,
     }));
   }
+=======
+    // El cierre/reapertura es una acción de administración del estudio:
+    // solamente el estudiante que lo creó puede ejecutarla. El docente
+    // dueño de la Sala y ADMIN pueden consultar resultados, pero no modificar
+    // el ciclo de vida de un Card Sorting ajeno.
+    if (user.rol !== 'ESTUDIANTE' || estudio.evaluadorId !== user.id) {
+      throw new ForbiddenException('Solo el estudiante dueño puede cerrar o reabrir este estudio.');
+    }
+>>>>>>> Stashed changes
 
   async closeStudy(estudioId: string, user: AuthenticatedUser) {
     const estudio = await this.assertStudentOwnsStudy(estudioId, user);
@@ -122,8 +132,14 @@ export class CardSortingService {
       throw new ConflictException('La técnica ya está cerrada.');
     }
     return this.prisma.researchSession.update({
+<<<<<<< Updated upstream
       where: { id: estudio.id },
       data: { estado: EstadoSesion.COMPLETADO, cerradoAt: new Date() },
+=======
+      where: { id: estudioId },
+      data: { cerrado },
+      include: { cardsDefinidas: true, categoriasDefinidas: true },
+>>>>>>> Stashed changes
     });
   }
 
@@ -189,6 +205,7 @@ export class CardSortingService {
         categoriasDefinidas: true,
         agrupaciones: { include: { card: true, category: true } },
         estudio: { include: { cardsDefinidas: true, categoriasDefinidas: true } },
+        proyecto: { select: { sala: { select: { profesorId: true } } } },
       },
     });
 
@@ -199,6 +216,7 @@ export class CardSortingService {
     const canRead =
       user.rol === 'ADMIN' ||
       (user.actor === 'EVALUADOR' && session.evaluadorId === user.id) ||
+      (user.rol === 'DOCENTE' && session.proyecto?.sala?.profesorId === user.id) ||
       (user.actor === 'PARTICIPANTE' &&
         (session.participanteId === user.id ||
           (session.actor === ActorSesion.EVALUADOR &&
@@ -217,7 +235,10 @@ export class CardSortingService {
   async getAnalytics(estudioId: string, user: AuthenticatedUser) {
     const estudio = await this.prisma.researchSession.findUnique({
       where: { id: estudioId },
-      include: { cardsDefinidas: true },
+      include: {
+        cardsDefinidas: true,
+        proyecto: { select: { sala: { select: { profesorId: true } } } },
+      },
     });
 
     if (
@@ -228,7 +249,11 @@ export class CardSortingService {
       throw new NotFoundException('No existe el estudio maestro solicitado.');
     }
 
-    if (user.rol !== 'ADMIN' && estudio.evaluadorId !== user.id) {
+    const esPropietario = estudio.evaluadorId === user.id;
+    const esDocenteDeLaSala =
+      user.rol === 'DOCENTE' && estudio.proyecto?.sala?.profesorId === user.id;
+
+    if (user.rol !== 'ADMIN' && !esPropietario && !esDocenteDeLaSala) {
       throw new ForbiddenException('No tienes acceso a esta analítica.');
     }
 

@@ -7,11 +7,17 @@ import {
   useCloseCardSortingStudy,
   useSubmitStudentCardSortingResult,
 } from '../hooks/useCardSortingQueries';
+<<<<<<< Updated upstream
 import { CardSortingWorkspace } from '../components/CardSortingWorkspace';
+=======
+import { notify } from '../../../shared/api/toast';
+import { useAuthStore } from '../../auth/store/useAuthStore';
+>>>>>>> Stashed changes
 
 export function CardSortingWorkspacePage() {
   const { estudioId } = useParams<{ estudioId: string }>();
   const navigate = useNavigate();
+<<<<<<< Updated upstream
   const user = useAuthStore((state) => state.user);
   const { data: session, isLoading, error } = useCardSortingSession(estudioId ?? null);
   const shareLink = useCreateCardSortingShareLink();
@@ -20,9 +26,17 @@ export function CardSortingWorkspacePage() {
   const [participantLink, setParticipantLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+=======
+  const sessionQuery = useCardSortingSession(estudioId ?? null);
+  const closeStudy = useCerrarCardSortingEstudio();
+  const user = useAuthStore((state) => state.user);
+  const [assignments, setAssignments] = useState<Record<string, string>>({});
+  const [customCategories, setCustomCategories] = useState<string[]>([]);
+>>>>>>> Stashed changes
 
   if (isLoading) return <div className="panel">Cargando la técnica…</div>;
 
+<<<<<<< Updated upstream
   if (error || !session) {
     return (
       <div className="panel">
@@ -39,6 +53,17 @@ export function CardSortingWorkspacePage() {
 
   async function generateParticipantLink() {
     if (!estudioId || !isStudentOwner) return;
+=======
+  const session = sessionQuery.data;
+  // Solo el estudiante dueño del estudio puede administrar el enlace y
+  // cerrar/reabrir la técnica. Docentes y ADMIN mantienen acceso de lectura.
+  const isStudentOwner =
+    user?.rol === 'ESTUDIANTE' && !!session && session.evaluadorId === user.id;
+
+  async function copyParticipantLink() {
+    if (!session || !isStudentOwner) return;
+    const link = `${window.location.origin}/participar/${session.proyectoId}?estudio=${session.id}`;
+>>>>>>> Stashed changes
     try {
       const result = await shareLink.mutateAsync(estudioId);
       const url = `${window.location.origin}/card-sorting/participar/${result.urlToken}`;
@@ -49,6 +74,7 @@ export function CardSortingWorkspacePage() {
     }
   }
 
+<<<<<<< Updated upstream
   async function copyParticipantLink() {
     if (!participantLink) return;
     try {
@@ -70,6 +96,12 @@ export function CardSortingWorkspacePage() {
     if (!estudioId || !isStudentOwner) return;
     selfSubmit.mutate(
       { estudioId, grupos: groups },
+=======
+  function toggleClosed() {
+    if (!session || !isStudentOwner) return;
+    closeStudy.mutate(
+      { estudioId: session.id, cerrado: !session.cerrado },
+>>>>>>> Stashed changes
       {
         onSuccess: () => {
           setSubmitted(true);
@@ -95,6 +127,7 @@ export function CardSortingWorkspacePage() {
         </button>
       </div>
 
+<<<<<<< Updated upstream
       {isStudentOwner && (
         <section className="cs-share-bar panel">
           <div>
@@ -134,6 +167,40 @@ export function CardSortingWorkspacePage() {
             <p className="error-text">{(shareLink.error as Error).message}</p>
           )}
         </section>
+=======
+      <section className="panel cs-share-bar">
+        <div className="cs-share-copy">
+          <span className="kicker">ESTADO DEL ESTUDIO</span>
+          <strong>{session.cerrado ? 'El estudio está cerrado' : 'El estudio recibe respuestas'}</strong>
+          {isStudentOwner && <code>{participantLink}</code>}
+        </div>
+        <div className="cs-share-actions">
+          {isStudentOwner && (
+            <>
+              <button type="button" className="primary" onClick={copyParticipantLink}>
+                Copiar enlace
+              </button>
+              <button
+                type="button"
+                className={session.cerrado ? 'secondary' : 'danger'}
+                onClick={toggleClosed}
+                disabled={closeStudy.isPending}
+              >
+                {closeStudy.isPending
+                  ? 'Guardando…'
+                  : session.cerrado
+                    ? 'Reabrir estudio'
+                    : 'Cerrar estudio'}
+              </button>
+            </>
+          )}
+          <Link className="secondary button-like" to="resultados">Ver resultados</Link>
+        </div>
+      </section>
+
+      {closeStudy.error && isStudentOwner && (
+        <p role="alert" className="error-text">{closeStudy.error.message}</p>
+>>>>>>> Stashed changes
       )}
 
       <CardSortingWorkspace

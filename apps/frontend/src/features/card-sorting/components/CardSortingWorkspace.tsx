@@ -34,10 +34,43 @@ export function CardSortingWorkspace({
   const [newCategory, setNewCategory] = useState('');
   const [categoryError, setCategoryError] = useState('');
 
+<<<<<<< Updated upstream
   const unassignedCards = useMemo(
     () => cards.filter((card) => !assignments[card.id]),
     [cards, assignments],
   );
+=======
+  const isClosed = study.tipoCardSorting === 'CERRADO';
+  const categoriasDefinidas = study.categoriasDefinidas ?? [];
+  const cardsDefinidas = study.cardsDefinidas ?? [];
+  const categories = useMemo<WorkspaceCategory[]>(
+    () =>
+      isClosed
+        ? categoriasDefinidas.map((category) => ({
+            key: `predefined:${category.id}`,
+            value: category.id,
+            name: category.nombre,
+            custom: false,
+          }))
+        : customCategories.map((name) => ({
+            key: `custom:${normalizeCategory(name)}`,
+            value: name,
+            name,
+            custom: true,
+          })),
+    [customCategories, isClosed, categoriasDefinidas],
+  );
+
+  const cardsById = useMemo(
+    () => new Map(cardsDefinidas.map((card) => [card.id, card])),
+    [cardsDefinidas],
+  );
+  const unassignedCards = useMemo(
+    () => cardsDefinidas.filter((card) => !assignments[card.id]),
+    [assignments, cardsDefinidas],
+  );
+  const allAssigned = cardsDefinidas.length > 0 && unassignedCards.length === 0;
+>>>>>>> Stashed changes
 
   const cardsByCategory = useMemo(() => {
     const map = new Map<string, Card[]>();
@@ -91,10 +124,19 @@ export function CardSortingWorkspace({
 
     const groups = categories
       .map((category) => ({
+<<<<<<< Updated upstream
         ...(category.local || category.id.startsWith('local-')
           ? { categoriaNombre: category.nombre }
           : { categoriaId: category.id }),
         cardIds: cardsByCategory.get(category.id)?.map((card) => card.id) ?? [],
+=======
+        ...(category.custom
+          ? { categoriaNombre: category.name }
+          : { categoriaId: category.value }),
+        cardIds: cardsDefinidas
+          .filter((card) => assignments[card.id] === category.value)
+          .map((card) => card.id),
+>>>>>>> Stashed changes
       }))
       .filter((group) => group.cardIds.length > 0);
 
@@ -137,6 +179,7 @@ export function CardSortingWorkspace({
             <span className="count">{unassignedCards.length}</span>
           </div>
 
+<<<<<<< Updated upstream
           <div className="cs-card-list">
             {unassignedCards.length === 0 ? (
               <div className="cs-empty">Todas las tarjetas están clasificadas.</div>
@@ -156,6 +199,41 @@ export function CardSortingWorkspace({
             )}
           </div>
         </article>
+=======
+        <div className="cs-categories" aria-label="Categorías">
+          {categories.map((category) => {
+            const cards = cardsDefinidas.filter(
+              (card) => assignments[card.id] === category.value,
+            );
+            return (
+              <section
+                key={category.key}
+                className="cs-zone"
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => handleDrop(event, category.value)}
+              >
+                <header className="cs-zone-head">
+                  <h3>{category.name}</h3>
+                  <span>{cards.length}</span>
+                </header>
+                {cards.length > 0 ? (
+                  <div className="cs-card-list">{cards.map(renderCard)}</div>
+                ) : (
+                  <p className="cs-empty">Suelta aquí una tarjeta.</p>
+                )}
+                {selectedCardId && assignments[selectedCardId] !== category.value && (
+                  <button
+                    type="button"
+                    className="ghost cs-move-button"
+                    onClick={() => moveCard(selectedCardId, category.value)}
+                  >
+                    Mover aquí
+                  </button>
+                )}
+              </section>
+            );
+          })}
+>>>>>>> Stashed changes
 
         <div className="cs-categories">
           <div className="cs-categories-header">
@@ -230,6 +308,7 @@ export function CardSortingWorkspace({
         </div>
       </div>
 
+<<<<<<< Updated upstream
       {participantMode && (
         <div className="cs-submit-bar panel">
           <div>
@@ -246,6 +325,15 @@ export function CardSortingWorkspace({
             disabled={submitting || unassignedCards.length > 0}
             onClick={handleSubmit}
           >
+=======
+      <footer className="cs-submit-bar">
+        <div>
+          <strong>{cardsDefinidas.length - unassignedCards.length} de {cardsDefinidas.length}</strong>
+          <span> tarjetas clasificadas</span>
+        </div>
+        {onSubmit && (
+          <button type="button" className="primary" onClick={handleSubmit} disabled={!allAssigned || submitting || disabled}>
+>>>>>>> Stashed changes
             {submitting ? 'Enviando…' : submitLabel}
           </button>
         </div>

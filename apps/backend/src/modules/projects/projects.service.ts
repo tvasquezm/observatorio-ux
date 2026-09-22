@@ -40,6 +40,12 @@ export class ProjectsService {
               OR: [
                 { creadoPorId: user.id },
                 { miembros: { some: { usuarioId: user.id } } },
+                // Profesor supervisando desde su Sala — mismo criterio
+                // que ProjectAccessService.assertAccess. Sin esto, un
+                // proyecto de estudiante vinculado a la sala del profesor
+                // nunca aparecía en su lista de proyectos, aunque ya
+                // podía abrirlo si tenía el link directo.
+                { sala: { profesorId: user.id } },
               ],
             },
       orderBy: { createdAt: 'desc' },

@@ -225,13 +225,16 @@ function ProyectosDeSala({ salaId }: { salaId: string }) {
               <b>{p.nombre}</b>
               {p.descripcion && <div className="text-muted-sm">{p.descripcion}</div>}
             </div>
-            <button
-              type="button"
-              className="secondary"
-              onClick={() => handleDesvincular(p.id, p.nombre)}
-            >
-              Desvincular
-            </button>
+            <div className="form-row-inline" style={{ margin: 0 }}>
+              <Link to={`/proyectos/${p.id}`} className="secondary">Ver proyecto →</Link>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => handleDesvincular(p.id, p.nombre)}
+              >
+                Desvincular
+              </button>
+            </div>
           </div>
         ))}
         {proyectosSala && proyectosSala.length === 0 && (
