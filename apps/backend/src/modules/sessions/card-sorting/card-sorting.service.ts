@@ -167,6 +167,7 @@ export class CardSortingService {
     return this.prisma.researchSession.update({
       where: { id: estudioId },
       data: { cerrado },
+      include: { cardsDefinidas: true, categoriasDefinidas: true },
     });
   }
 
@@ -241,6 +242,7 @@ export class CardSortingService {
         categoriasDefinidas: true,
         agrupaciones: { include: { card: true, category: true } },
         estudio: { include: { cardsDefinidas: true, categoriasDefinidas: true } },
+        proyecto: { select: { sala: { select: { profesorId: true } } } },
       },
     });
 
@@ -251,6 +253,7 @@ export class CardSortingService {
     const canRead =
       user.rol === 'ADMIN' ||
       (user.actor === 'EVALUADOR' && session.evaluadorId === user.id) ||
+      (user.rol === 'DOCENTE' && session.proyecto?.sala?.profesorId === user.id) ||
       (user.actor === 'PARTICIPANTE' &&
         (session.participanteId === user.id ||
           (session.actor === ActorSesion.EVALUADOR &&
@@ -269,7 +272,10 @@ export class CardSortingService {
   async getAnalytics(estudioId: string, user: AuthenticatedUser) {
     const estudio = await this.prisma.researchSession.findUnique({
       where: { id: estudioId },
-      include: { cardsDefinidas: true },
+      include: {
+        cardsDefinidas: true,
+        proyecto: { select: { sala: { select: { profesorId: true } } } },
+      },
     });
 
     if (
@@ -280,7 +286,10 @@ export class CardSortingService {
       throw new NotFoundException('No existe el estudio maestro solicitado.');
     }
 
-    if (user.rol !== 'ADMIN' && estudio.evaluadorId !== user.id) {
+    const esDocenteDeLaSala =
+      user.rol === 'DOCENTE' && estudio.proyecto?.sala?.profesorId === user.id;
+
+    if (user.rol !== 'ADMIN' && estudio.evaluadorId !== user.id && !esDocenteDeLaSala) {
       throw new ForbiddenException('No tienes acceso a esta analítica.');
     }
 

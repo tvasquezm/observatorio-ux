@@ -6,12 +6,14 @@ import {
   useCerrarCardSortingEstudio,
 } from '../hooks/useCardSortingQueries';
 import { notify } from '../../../shared/api/toast';
+import { useAuthStore } from '../../auth/store/useAuthStore';
 
 export function CardSortingWorkspacePage() {
   const { estudioId } = useParams<{ estudioId: string }>();
   const navigate = useNavigate();
   const sessionQuery = useCardSortingSession(estudioId ?? null);
   const closeStudy = useCerrarCardSortingEstudio();
+  const user = useAuthStore((state) => state.user);
   const [assignments, setAssignments] = useState<Record<string, string>>({});
   const [customCategories, setCustomCategories] = useState<string[]>([]);
 
@@ -21,9 +23,11 @@ export function CardSortingWorkspacePage() {
   }, [estudioId]);
 
   const session = sessionQuery.data;
+  const canManageStudy =
+    !!session && (session.evaluadorId === user?.id || user?.rol === 'ADMIN');
 
   async function copyParticipantLink() {
-    if (!session) return;
+    if (!session || !canManageStudy) return;
     const link = `${window.location.origin}/participar/${session.proyectoId}?estudio=${session.id}`;
     try {
       await navigator.clipboard.writeText(link);
@@ -34,7 +38,7 @@ export function CardSortingWorkspacePage() {
   }
 
   function toggleClosed() {
-    if (!session) return;
+    if (!session || !canManageStudy) return;
     closeStudy.mutate(
       { estudioId: session.id, cerrado: !session.cerrado },
       {
@@ -84,31 +88,37 @@ export function CardSortingWorkspacePage() {
 
       <section className="panel cs-share-bar">
         <div className="cs-share-copy">
-          <span className="kicker">PARTICIPANTES</span>
+          <span className="kicker">ESTADO DEL ESTUDIO</span>
           <strong>{session.cerrado ? 'El estudio está cerrado' : 'El estudio recibe respuestas'}</strong>
-          <code>{participantLink}</code>
+          {canManageStudy && <code>{participantLink}</code>}
         </div>
         <div className="cs-share-actions">
-          <button type="button" className="primary" onClick={copyParticipantLink}>
-            Copiar enlace
-          </button>
-          <button
-            type="button"
-            className={session.cerrado ? 'secondary' : 'danger'}
-            onClick={toggleClosed}
-            disabled={closeStudy.isPending}
-          >
-            {closeStudy.isPending
-              ? 'Guardando…'
-              : session.cerrado
-                ? 'Reabrir estudio'
-                : 'Cerrar estudio'}
-          </button>
+          {canManageStudy && (
+            <>
+              <button type="button" className="primary" onClick={copyParticipantLink}>
+                Copiar enlace
+              </button>
+              <button
+                type="button"
+                className={session.cerrado ? 'secondary' : 'danger'}
+                onClick={toggleClosed}
+                disabled={closeStudy.isPending}
+              >
+                {closeStudy.isPending
+                  ? 'Guardando…'
+                  : session.cerrado
+                    ? 'Reabrir estudio'
+                    : 'Cerrar estudio'}
+              </button>
+            </>
+          )}
           <Link className="secondary button-like" to="resultados">Ver resultados</Link>
         </div>
       </section>
 
-      {closeStudy.error && <p role="alert" className="error-text">{closeStudy.error.message}</p>}
+      {closeStudy.error && canManageStudy && (
+        <p role="alert" className="error-text">{closeStudy.error.message}</p>
+      )}
 
       <CardSortingWorkspace
         study={session}

@@ -110,6 +110,46 @@ describe('CardSortingService analytics y ciclo de vida', () => {
     expect(prisma.researchSession.update).toHaveBeenNthCalledWith(1, {
       where: { id: 'estudio-1' },
       data: { cerrado: true },
+      include: { cardsDefinidas: true, categoriasDefinidas: true },
+    });
+  });
+
+  it('permite al docente dueño de la sala consultar la sesión y su analítica', async () => {
+    const { prisma, service } = createService();
+    const docente = {
+      id: 'docente-1',
+      rol: 'DOCENTE',
+      actor: 'EVALUADOR',
+    } as AuthenticatedUser;
+    const base = {
+      id: 'estudio-1',
+      nombre: 'Navegación principal',
+      proyectoId: 'proyecto-1',
+      evaluadorId: 'estudiante-1',
+      tipo: TipoSesion.CARD_SORTING,
+      actor: ActorSesion.EVALUADOR,
+      cerrado: false,
+      createdAt: new Date('2026-09-13T12:00:00Z'),
+      cardsDefinidas: [],
+      proyecto: { sala: { profesorId: docente.id } },
+    };
+    prisma.researchSession.findUnique.mockResolvedValue({
+      ...base,
+      categoriasDefinidas: [],
+      agrupaciones: [],
+      estudio: null,
+    });
+
+    await expect(service.getSession('estudio-1', docente)).resolves.toMatchObject(base);
+
+    prisma.researchSession.findUnique.mockResolvedValue(base);
+    prisma.researchSession.findMany.mockResolvedValue([]);
+    prisma.cardGrouping.findMany.mockResolvedValue([]);
+
+    await expect(service.getAnalytics('estudio-1', docente)).resolves.toMatchObject({
+      participantesCount: 0,
+      cardsCount: 0,
+      estudio: { id: 'estudio-1', proyectoId: 'proyecto-1' },
     });
   });
 

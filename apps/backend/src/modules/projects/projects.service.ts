@@ -47,6 +47,7 @@ export class ProjectsService {
               OR: [
                 { creadoPorId: user.id },
                 { miembros: { some: { usuarioId: user.id } } },
+                { sala: { profesorId: user.id } },
               ],
             }),
       },

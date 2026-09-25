@@ -99,6 +99,7 @@ describe('ProjectsService', () => {
             OR: [
               { creadoPorId: DUEÑO_ID },
               { miembros: { some: { usuarioId: DUEÑO_ID } } },
+              { sala: { profesorId: DUEÑO_ID } },
             ],
           },
         }),
@@ -188,6 +189,23 @@ describe('ProjectsService', () => {
 
       await expect(service.findOne(PROYECTO_ID, userAdmin)).resolves.toEqual(
         proyectoDeEjemplo,
+      );
+    });
+
+    it('el docente dueño de la sala puede ver un proyecto alojado en ella', async () => {
+      const docenteSala = {
+        id: 'docente-sala',
+        rol: 'DOCENTE',
+      } as AuthenticatedUser;
+      const proyectoDeEstudiante = {
+        ...proyectoDeEjemplo,
+        creadoPorId: 'estudiante-1',
+        sala: { profesorId: docenteSala.id },
+      };
+      prisma.proyecto.findUnique.mockResolvedValue(proyectoDeEstudiante);
+
+      await expect(service.findOne(PROYECTO_ID, docenteSala)).resolves.toEqual(
+        proyectoDeEstudiante,
       );
     });
 
