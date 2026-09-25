@@ -134,3 +134,32 @@ públicos, visibles en este mismo repositorio.
 Las passwords son configurables vía `.env`: `SEED_PASSWORD` (las 3 cuentas
 de estudiante comparten esa misma variable) y `SEED_PROFESOR_PASSWORD`, si
 no querés usar el default.
+
+---
+
+## Flujo con Pull Request y CI
+
+`main` está protegida: los cambios entran por Pull Request y el CI debe pasar.
+El CI (`.github/workflows/ci.yml`) corre en cada PR y en cada push a `main`
+con tres jobs:
+
+| Job | Qué valida |
+|---|---|
+| `dependency-audit` | `pnpm audit --audit-level high` sobre `pnpm-lock.yaml`. Es el más rápido: falla antes de que termine el build. |
+| `build-and-test` | Migraciones contra Postgres real, tests de backend y frontend, build del frontend y E2E (escritorio + móvil). |
+| `deployment-smoke` | Construye y levanta `docker-compose.production.yml` desde cero y consulta `/nginx-health`, `/api/health` y `/`. |
+
+| Comando | Cuándo usarlo |
+|---|---|
+| `pnpm audit --audit-level high` | Reproducir en local lo que hace `dependency-audit` antes de abrir el PR. |
+| VS Code → paleta de comandos → `Git: Create Branch...` | Crear la rama de trabajo antes de commitear (no commitear directo en `main`). |
+| VS Code → Source Control → `Publish Branch` | Subir la rama y abrir el PR desde el aviso que muestra GitHub (`Compare & pull request`). |
+
+Cada PR trae una plantilla con un checklist (`.github/pull_request_template.md`).
+`.github/CODEOWNERS` solicita revisión automática cuando el PR toca auth,
+permisos, migraciones, `deploy/`, Dockerfiles o `.github/`.
+
+Dependabot (`.github/dependabot.yml`) abre cada lunes un PR agrupado con las
+actualizaciones menores y de parche de dependencias, actions y Dockerfiles.
+Sus PR pasan por el mismo CI: revisa que quede en verde antes de fusionar.
+Las vulnerabilidades se reportan de forma privada según `SECURITY.md`.

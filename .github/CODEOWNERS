@@ -1,0 +1,15 @@
+# Archivos donde un error tiene impacto de seguridad o de despliegue: GitHub
+# solicita revisión automática al dueño cuando un PR los toca.
+
+/apps/backend/src/modules/auth/         @tvasquezm @BenjaminAGM @ndreller-343434
+/apps/backend/src/core/guards/          @tvasquezm @BenjaminAGM @ndreller-343434
+/apps/backend/src/core/access/          @tvasquezm @BenjaminAGM @ndreller-343434
+/apps/backend/src/core/config/          @tvasquezm @BenjaminAGM @ndreller-343434
+/apps/backend/prisma/migrations/        @tvasquezm @BenjaminAGM @ndreller-343434
+/apps/backend/prisma/schema.prisma      @tvasquezm @BenjaminAGM @ndreller-343434
+
+/.github/                               @tvasquezm @BenjaminAGM @ndreller-343434
+/deploy/                                @tvasquezm @BenjaminAGM @ndreller-343434
+/docker-compose*.yml                    @tvasquezm @BenjaminAGM @ndreller-343434
+/apps/backend/Dockerfile                @tvasquezm @BenjaminAGM @ndreller-343434
+/apps/frontend/Dockerfile               @tvasquezm @BenjaminAGM @ndreller-343434
