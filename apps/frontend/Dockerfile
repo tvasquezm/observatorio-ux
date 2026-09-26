@@ -29,7 +29,7 @@ ENV VITE_API_URL=$VITE_API_URL
 
 RUN pnpm --filter frontend build
 
-FROM nginx:1.30.4-alpine AS production
+FROM nginx:1.31.0-alpine AS production
 
 COPY apps/frontend/nginx.static.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/apps/frontend/dist /usr/share/nginx/html
