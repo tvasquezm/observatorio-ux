@@ -20,7 +20,7 @@ se incluye en este plan por ser de un compose de desarrollo, no de producción.
 - [x] Fase 1 — Auth: gating de `test-token`, consentimiento con credencial, timing/normalización de login (H2, H4, H6)
 - [x] Fase 2 — Seed: guard de contraseñas demo en producción, deja de loguearlas, bootstrap explícito de admin (H3)
 - [x] Fase 3 — Docker: imagen de producción sin root y sin dependencias de desarrollo (H7)
-- [ ] Fase 4 — Nginx: `client_max_body_size`, `limit_req`, `keepalive`, gzip (H8 + rendimiento)
+- [x] Fase 4 — Nginx: `client_max_body_size`, `limit_req`, `keepalive`, gzip (H8 + rendimiento)
 - [ ] Fase 5 — Rendimiento: `submitResult` sin N+1 de categorías, `maxWait`/`timeout` explícitos, pool de Prisma configurable
 - [ ] Fase 6 — Prueba de carga k6 del flujo del participante (access → consent → join → results, 200 VUs)
 - [ ] Fase 7 — Participantes anónimos: `proyectoId` en `Participante`, límite por proyecto, limpieza horaria de huérfanos (H5)
@@ -51,9 +51,13 @@ se incluye en este plan por ser de un compose de desarrollo, no de producción.
 - Commit: `fix(docker): imagen de producción sin root y sin deps de dev` (incluye `package.json` y `pnpm-lock.yaml`).
 
 ### Fase 4 — Nginx (H8 + rendimiento)
-- `client_max_body_size`, `limit_req` propio, `keepalive` hacia `backend`/`frontend`, gzip.
+- `client_max_body_size 5m` (la app no tiene endpoints de subida de archivos; margen generoso sin exponer el body parser a payloads arbitrarios).
+- `limit_req_zone` por IP en `/api/`: 20 r/s, `burst=60 nodelay`. **Ajuste no previsto en el PLAN original:** un `limit_req` estándar (10 r/s) es riesgoso acá porque una Sala es un grupo de estudiantes que puede compartir IP institucional (mismo tema que la deuda H1) — un valor bajo podría cortar a un curso completo cargando el dashboard a la vez. Se subió el margen; sigue siendo una protección real contra abuso de un solo cliente, no un rate-limit fino (eso ya lo cubre el `@Throttle` de auth a nivel de aplicación).
+- `upstream backend_upstream`/`upstream frontend_upstream` con `keepalive 32` + `proxy_http_version 1.1` + `proxy_set_header Connection ""` en ambas locations (reemplaza el `proxy_pass` directo a `backend:3000`/`frontend:80`).
+- `gzip on` con `gzip_types` para texto/JSON/JS/CSS/SVG, `gzip_min_length 256`, `gzip_comp_level 5`, `gzip_vary on`.
 - HSTS queda fuera: este nginx no termina TLS (ver deuda técnica H1) y prometerlo sería falso.
 - Archivos: `deploy/nginx/default.conf`.
+- Verificación real: no hay Docker en este sandbox — se instaló `nginx` (paquete Ubuntu) y se corrió `nginx -t` con el `server{}` incluido dentro de un `http{}` mínimo (mismo mecanismo que `docker-compose.production.yml`, que monta el archivo en `/etc/nginx/conf.d/default.conf`), agregando `backend`/`frontend` a `/etc/hosts` para resolver los `upstream` → sintaxis válida confirmada. No se pudo probar `limit_req`/`gzip` bajo carga real (eso es Fase 6, k6).
 - Commit: `perf(nginx): keepalive, gzip y límites`.
 
 ### Fase 5 — Rendimiento de `submitResult`
