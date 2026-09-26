@@ -19,8 +19,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Auditoría de dependencias como job propio: falla rápido (no espera el build
+  # ni los E2E) y se puede exigir como check requerido en el ruleset de main.
+  # Lee pnpm-lock.yaml; no necesita instalar dependencias.
+  dependency-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Habilitar pnpm (misma versión que apps/backend/Dockerfile)
+        run: corepack enable && corepack prepare pnpm@10.34.5 --activate
+
+      - name: Auditar dependencias de severidad alta o crítica
+        run: pnpm audit --audit-level high
+
   build-and-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     # Postgres real, igual que el que usa docker-compose.yml en local
     # (mismo tag: postgres:16-alpine), para que `prisma migrate deploy`
@@ -51,7 +69,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # El Dockerfile del backend fija pnpm@10.34.5 vía corepack — se replica acá
       # para que CI use exactamente la misma versión que local/Docker.
@@ -59,7 +77,7 @@ jobs:
         run: corepack enable && corepack prepare pnpm@10.34.5 --activate
 
       - name: Setup Node
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24'
           cache: 'pnpm'
@@ -96,7 +114,7 @@ jobs:
 
       - name: Guardar evidencia de Playwright si falla
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: evidencia-playwright
           path: |
@@ -104,15 +122,13 @@ jobs:
             test-results/
           if-no-files-found: ignore
 
-      - name: Auditar dependencias de severidad alta o crítica
-        run: pnpm audit --audit-level high
-
   deployment-smoke:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Validar configuración productiva
         run: docker compose --env-file env.production.example -f docker-compose.production.yml config --quiet

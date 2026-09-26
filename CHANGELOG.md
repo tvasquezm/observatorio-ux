@@ -10,6 +10,10 @@ All notable changes to this project will be documented in this file. See [commit
   técnicas UX, restricciones por rol y responsive en escritorio/móvil.
 * **responsive:** reorganiza navegación, formularios y acciones para pantallas
   táctiles, con targets mínimos de 44 px y soporte de safe areas.
+* **salas:** el docente dueño de una sala ahora puede ver los proyectos,
+  sesiones y analítica de sus estudiantes, y comentar en sus artefactos. No
+  puede editar artefactos, cerrar estudios ni gestionar miembros: eso sigue
+  reservado al creador del proyecto o a un ADMIN.
 
 ### Fixes
 
