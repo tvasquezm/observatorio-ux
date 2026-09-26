@@ -15,6 +15,13 @@ import { ParticipanteJwtService } from './participante-jwt.service';
 
 @Injectable()
 export class AuthService {
+  // Hash fijo (no corresponde a ninguna contraseña real) usado solo para que
+  // bcrypt.compare corra con el mismo costo cuando el usuario no existe.
+  private static readonly DUMMY_PASSWORD_HASH = bcrypt.hashSync(
+    'dummy-password-for-constant-time-login',
+    10,
+  );
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
@@ -146,6 +153,7 @@ export class AuthService {
     aceptado: boolean,
     version: string,
     codigoInvitacion?: string,
+    resumeToken?: string,
   ) {
     const participante = await this.prisma.participante.findUnique({
       where: { id: participanteId },
@@ -171,6 +179,28 @@ export class AuthService {
 
     if (whitelistEntry) {
       this.assertInvitationCode(codigoInvitacion ?? '', whitelistEntry.codigoInvitacionHash);
+    } else {
+      // Acceso abierto: sin whitelist, la única credencial posible es el
+      // resumeToken entregado en accessParticipant (mismo esquema que
+      // issueParticipantToken). Sin esto, cualquiera con el UUID del
+      // participante podía cambiar su consentimiento.
+      const receivedHash = resumeToken
+        ? createHash('sha256').update(resumeToken).digest()
+        : Buffer.alloc(32);
+      const expectedHash = participante.resumeTokenHash
+        ? Buffer.from(participante.resumeTokenHash, 'hex')
+        : Buffer.alloc(32, 1);
+
+      if (
+        !resumeToken ||
+        !participante.resumeTokenHash ||
+        receivedHash.length !== expectedHash.length ||
+        !timingSafeEqual(receivedHash, expectedHash)
+      ) {
+        throw new ForbiddenException(
+          'No se pudo validar la participación. Vuelve a ingresar desde el enlace original.',
+        );
+      }
     }
 
     const latestConsent = await this.prisma.consentimiento.findFirst({
@@ -190,9 +220,19 @@ export class AuthService {
     });
   }
   async login(email: string, password: string) {
-    const user = await this.prisma.usuario.findUnique({ where: { email } });
+    const user = await this.prisma.usuario.findUnique({
+      where: { email: email.trim().toLowerCase() },
+    });
 
-    if (!user?.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) {
+    // Si el usuario no existe, igual se corre un bcrypt.compare contra un
+    // hash dummy: sin esto, la ausencia de esa llamada es medible por
+    // timing y revela qué emails están registrados.
+    const passwordMatches = await bcrypt.compare(
+      password,
+      user?.passwordHash ?? AuthService.DUMMY_PASSWORD_HASH,
+    );
+
+    if (!user?.passwordHash || !passwordMatches) {
       throw new UnauthorizedException('Correo o contraseña incorrectos.');
     }
 
@@ -287,7 +327,9 @@ export class AuthService {
   }
 
   async issueDevelopmentEvaluatorToken() {
-    if (this.config.get('app.nodeEnv') === 'production') {
+    // H2: antes bloqueaba solo 'production'; 'test' y cualquier otro valor
+    // pasaban. Ahora se permite únicamente en 'development'.
+    if (this.config.get('app.nodeEnv') !== 'development') {
       throw new NotFoundException();
     }
 
@@ -314,7 +356,8 @@ export class AuthService {
   }
 
   async issueDevelopmentParticipantToken() {
-    if (this.config.get('app.nodeEnv') === 'production') {
+    // H2: mismo gate que issueDevelopmentEvaluatorToken.
+    if (this.config.get('app.nodeEnv') !== 'development') {
       throw new NotFoundException();
     }
 

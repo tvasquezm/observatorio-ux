@@ -111,6 +111,7 @@ export class AuthController {
       dto.aceptado,
       dto.version,
       dto.codigoInvitacion,
+      dto.resumeToken,
     );
   }
 

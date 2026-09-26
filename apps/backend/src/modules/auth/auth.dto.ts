@@ -4,15 +4,18 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  MaxLength,
   MinLength,
 } from 'class-validator';
 
 export class LoginDto {
   @IsEmail()
+  @MaxLength(254)
   email!: string;
 
   @IsString()
   @MinLength(8)
+  @MaxLength(128)
   password!: string;
 }
 
@@ -76,4 +79,12 @@ export class RegisterParticipantConsentDto {
   @IsString()
   @MinLength(16)
   codigoInvitacion?: string;
+
+  // Requerido para el flujo de acceso abierto (sin whitelist): credencial
+  // que ya se le entregó al participante en accessParticipant, igual que en
+  // ParticipantTokenDto. Sin whitelist ni resumeToken, la request se rechaza.
+  @IsOptional()
+  @IsString()
+  @MinLength(32)
+  resumeToken?: string;
 }

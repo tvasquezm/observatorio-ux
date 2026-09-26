@@ -102,11 +102,17 @@ export const VERSION_CONSENTIMIENTO = '1.0';
  * obligatorio tras la Fase 1 (requisito legal/ético) — solo cambió cómo
  * se identifica al participante, no si consiente. No manda
  * codigoInvitacion: un participante de acceso abierto nunca tuvo uno.
+ *
+ * H4 (auditoría 2026-09-24): un participante de acceso abierto (sin
+ * whitelist) ahora debe mandar su resumeToken — sin credencial, el
+ * backend rechaza la request. Sigue siendo opcional acá porque el flujo
+ * previo con whitelist/invitación no tiene resumeToken y no lo necesita.
  */
 export async function registerConsent(
   participanteId: string,
   proyectoId: string,
   aceptado: boolean,
+  resumeToken?: string,
 ): Promise<RegisterConsentResult> {
   let res: Response;
   try {
@@ -118,6 +124,7 @@ export async function registerConsent(
         proyectoId,
         aceptado,
         version: VERSION_CONSENTIMIENTO,
+        ...(resumeToken ? { resumeToken } : {}),
       }),
     });
   } catch {

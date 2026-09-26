@@ -156,7 +156,14 @@ export function OnboardingPage() {
     setCargando(true);
     setError(null);
     try {
-      await registerConsent(participanteId, activeProjectId, aceptado);
+      // H4: el participante de acceso abierto necesita mandar su
+      // resumeToken como credencial (ver onboarding.api.ts). El flujo
+      // previo con whitelist no lo tiene y el backend lo trata como
+      // opcional en ese caso.
+      const stored = leerSesionParticipante();
+      const resumeTokenActual =
+        stored && stored.proyectoId === activeProjectId ? stored.resumeToken : undefined;
+      await registerConsent(participanteId, activeProjectId, aceptado, resumeTokenActual);
       if (!aceptado) {
         limpiarSesionParticipante();
         setParticipanteId(null);
