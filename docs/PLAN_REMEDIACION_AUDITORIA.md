@@ -21,7 +21,7 @@ se incluye en este plan por ser de un compose de desarrollo, no de producción.
 - [x] Fase 2 — Seed: guard de contraseñas demo en producción, deja de loguearlas, bootstrap explícito de admin (H3)
 - [x] Fase 3 — Docker: imagen de producción sin root y sin dependencias de desarrollo (H7)
 - [x] Fase 4 — Nginx: `client_max_body_size`, `limit_req`, `keepalive`, gzip (H8 + rendimiento)
-- [ ] Fase 5 — Rendimiento: `submitResult` sin N+1 de categorías, `maxWait`/`timeout` explícitos, pool de Prisma configurable
+- [x] Fase 5 — Rendimiento: `submitResult` sin N+1 de categorías, `maxWait`/`timeout` explícitos, pool de Prisma configurable
 - [ ] Fase 6 — Prueba de carga k6 del flujo del participante (access → consent → join → results, 200 VUs)
 - [ ] Fase 7 — Participantes anónimos: `proyectoId` en `Participante`, límite por proyecto, limpieza horaria de huérfanos (H5)
 
@@ -61,10 +61,11 @@ se incluye en este plan por ser de un compose de desarrollo, no de producción.
 - Commit: `perf(nginx): keepalive, gzip y límites`.
 
 ### Fase 5 — Rendimiento de `submitResult`
-- Reemplaza el `findUnique` de categoría por grupo (N+1 dentro del loop) por un `findMany` previo.
-- `maxWait`/`timeout` explícitos en la transacción interactiva.
-- `connection_limit`/`pool_timeout` en `DATABASE_URL` de `env.production.example`.
-- Archivos: `apps/backend/src/modules/sessions/card-sorting/card-sorting.service.ts`, su spec (mock `category.findUnique` → `findMany`), `env.production.example`.
+- Reemplaza el `findUnique` de categoría por grupo (N+1 dentro del loop) por un `findMany` previo sobre los `categoriaId` únicos de `grupos`, con un `Map` para el lookup dentro del loop. Misma validación de pertenencia (`category.sessionId !== study.id`), mismo comportamiento para el resto de la función.
+- `$transaction(..., { maxWait: 5000, timeout: 10000 })` explícito (antes usaba los defaults de Prisma).
+- `connection_limit=20&pool_timeout=20` agregado a `DATABASE_URL` en `env.production.example` — el backend corre en una sola instancia y Postgres del compose usa `max_connections` default (100); 20 deja margen para herramientas de administración.
+- Archivos: `apps/backend/src/modules/sessions/card-sorting/card-sorting.service.ts`, su spec (2 tests nuevos: batch fetch de categorías por `categoriaId` y su validación de pertenencia; antes esa rama del código no tenía cobertura), `env.production.example`.
+- Verificación real: mismo bloqueo de `binaries.prisma.sh` que las fases anteriores — no se pudo correr `prisma generate` ni, por lo tanto, `jest`/`nest build` reales. Se instalaron las dependencias del monorepo (`pnpm install --ignore-scripts`, sin tocar `pnpm-lock.yaml` real — se restauró desde `orig` antes de entregar) y se corrió `tsc --noEmit` sobre el backend completo, comparando línea por línea contra el mismo comando corrido sobre `orig`: la única diferencia son 3 errores nuevos, y los 3 son el mismo patrón de cascada por Prisma Client no generado que ya afecta a decenas de líneas preexistentes en este archivo (`Property 'X' does not exist on type '{}'` / implicit `any`) — no hay ningún error de un tipo distinto. Sin acceso a Postgres real tampoco se pudo medir el N+1 con datos reales; eso queda para la Fase 6 (k6).
 - Commit: `perf(db): submitResult y pool de Prisma`.
 
 ### Fase 6 — Prueba de carga
