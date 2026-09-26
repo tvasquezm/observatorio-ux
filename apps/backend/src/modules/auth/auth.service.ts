@@ -1,6 +1,8 @@
 import {
   ConflictException,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -127,10 +129,30 @@ export class AuthService {
       throw new NotFoundException('El proyecto no existe.');
     }
 
+    // H5 (Fase 7, PLAN_REMEDIACION_AUDITORIA.md): además del @Throttle por
+    // IP del controller (que no distingue proyectos), un límite por
+    // proyecto evita que un solo proyecto agote participantes anónimos vía
+    // múltiples IPs. No reemplaza al de IP, lo complementa.
+    const limite = Number.parseInt(
+      process.env.PARTICIPANTS_ACCESS_LIMIT_PER_HOUR ?? '',
+      10,
+    ) || 300;
+    const haceUnaHora = new Date(Date.now() - 60 * 60 * 1000);
+    const accesosUltimaHora = await this.prisma.participante.count({
+      where: { proyectoId, createdAt: { gte: haceUnaHora } },
+    });
+
+    if (accesosUltimaHora >= limite) {
+      throw new HttpException(
+        'Se alcanzó el límite de participantes por hora para este proyecto. Intenta más tarde.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
     const resumeToken = randomBytes(32).toString('base64url');
     const resumeTokenHash = createHash('sha256').update(resumeToken).digest('hex');
     const participante = await this.prisma.participante.create({
-      data: { resumeTokenHash },
+      data: { resumeTokenHash, proyectoId },
     });
 
     const accessToken = await this.participanteJwt.sign({

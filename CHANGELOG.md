@@ -6,6 +6,11 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **auth:** límite de 300 participantes anónimos/hora por proyecto en
+  `accessParticipant` (configurable con `PARTICIPANTS_ACCESS_LIMIT_PER_HOUR`)
+  y limpieza horaria de participantes huérfanos sin consentimiento ni
+  sesión (Fase 7 del plan de remediación, H5).
+
 * **load-test:** agrega `tests/load/participante.k6.js` (Fase 6 del plan de
   remediación) — prueba de carga del flujo access → consent → join →
   results con rampa hasta 200 VUs.

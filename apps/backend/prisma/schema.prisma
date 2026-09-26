@@ -58,13 +58,14 @@ model Proyecto {
   creadoPorId String
   createdAt   DateTime @default(now())
 
-  sesiones    ResearchSession[]
-  artefactos  UxArtifact[]
-  whitelist   ParticipanteWhitelist[]
-  miembros    ProyectoMiembro[]
-  comentarios Comentario[]
-  salaId      String?
-  sala        Sala?                   @relation(fields: [salaId], references: [id])
+  sesiones            ResearchSession[]
+  artefactos          UxArtifact[]
+  whitelist           ParticipanteWhitelist[]
+  miembros            ProyectoMiembro[]
+  comentarios         Comentario[]
+  participantesAcceso Participante[]
+  salaId              String?
+  sala                Sala?                   @relation(fields: [salaId], references: [id])
 
   // Soft delete: se activa en cascada cuando su Sala se elimina (ver
   // Sala.deletedAt). Los listados (findAll) lo excluyen por defecto.
@@ -112,11 +113,18 @@ model Participante {
   resumeTokenHash String? // credencial opaca para renovar una sesión anónima sin crear otro participante
   createdAt       DateTime @default(now())
 
+  // H5 (Fase 7, plan de remediación): nullable para no romper filas
+  // existentes (todas creadas antes de esta columna quedan sin proyecto).
+  // Permite el límite de accesos/hora por proyecto en accessParticipant.
+  proyecto   Proyecto? @relation(fields: [proyectoId], references: [id])
+  proyectoId String?
+
   consentimientos   Consentimiento[]
   sesiones          ResearchSession[]       @relation("SesionesComoParticipante")
   categoriasCreadas Category[]
   whitelistEntries  ParticipanteWhitelist[]
 
+  @@index([proyectoId, createdAt])
   @@map("participantes")
 }
 

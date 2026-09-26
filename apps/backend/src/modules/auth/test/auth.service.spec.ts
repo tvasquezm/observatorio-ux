@@ -345,16 +345,25 @@ describe('AuthService.accessParticipant', () => {
   let service: AuthService;
   let prisma: {
     proyecto: { findUnique: jest.Mock };
-    participante: { create: jest.Mock };
+    participante: { create: jest.Mock; count: jest.Mock };
   };
   let participanteJwt: { sign: jest.Mock };
 
   const PROYECTO_ID = 'proyecto-1';
+  const ORIGINAL_LIMIT_ENV = process.env.PARTICIPANTS_ACCESS_LIMIT_PER_HOUR;
+
+  afterEach(() => {
+    if (ORIGINAL_LIMIT_ENV === undefined) {
+      delete process.env.PARTICIPANTS_ACCESS_LIMIT_PER_HOUR;
+    } else {
+      process.env.PARTICIPANTS_ACCESS_LIMIT_PER_HOUR = ORIGINAL_LIMIT_ENV;
+    }
+  });
 
   beforeEach(async () => {
     prisma = {
       proyecto: { findUnique: jest.fn() },
-      participante: { create: jest.fn() },
+      participante: { create: jest.fn(), count: jest.fn().mockResolvedValue(0) },
     };
     participanteJwt = { sign: jest.fn().mockResolvedValue('token-firmado') };
 
@@ -395,8 +404,11 @@ describe('AuthService.accessParticipant', () => {
 
     const result = await service.accessParticipant(PROYECTO_ID);
 
+    expect(prisma.participante.count).toHaveBeenCalledWith({
+      where: { proyectoId: PROYECTO_ID, createdAt: { gte: expect.any(Date) } },
+    });
     expect(prisma.participante.create).toHaveBeenCalledWith({
-      data: { resumeTokenHash: expect.stringMatching(/^[a-f0-9]{64}$/) },
+      data: { resumeTokenHash: expect.stringMatching(/^[a-f0-9]{64}$/), proyectoId: PROYECTO_ID },
     });
     expect(participanteJwt.sign).toHaveBeenCalledWith({
       sub: 'participante-anonimo',
@@ -410,6 +422,37 @@ describe('AuthService.accessParticipant', () => {
       participant: { id: 'participante-anonimo', proyectoId: PROYECTO_ID },
     });
     expect(result.resume_token).toHaveLength(43);
+  });
+
+  it('rechaza el acceso (429) si el proyecto ya alcanzó el límite por hora (H5)', async () => {
+    process.env.PARTICIPANTS_ACCESS_LIMIT_PER_HOUR = '300';
+    prisma.proyecto.findUnique.mockResolvedValue({ id: PROYECTO_ID, deletedAt: null });
+    prisma.participante.count.mockResolvedValue(300);
+
+    await expect(service.accessParticipant(PROYECTO_ID)).rejects.toMatchObject({
+      status: 429,
+    });
+    expect(prisma.participante.create).not.toHaveBeenCalled();
+  });
+
+  it('permite el acceso si todavía no se alcanzó el límite configurado', async () => {
+    process.env.PARTICIPANTS_ACCESS_LIMIT_PER_HOUR = '5';
+    prisma.proyecto.findUnique.mockResolvedValue({ id: PROYECTO_ID, deletedAt: null });
+    prisma.participante.count.mockResolvedValue(4);
+    prisma.participante.create.mockResolvedValue({ id: 'participante-anonimo' });
+
+    await expect(service.accessParticipant(PROYECTO_ID)).resolves.toBeDefined();
+    expect(prisma.participante.create).toHaveBeenCalled();
+  });
+
+  it('usa el default de 300 cuando no hay env var configurada', async () => {
+    delete process.env.PARTICIPANTS_ACCESS_LIMIT_PER_HOUR;
+    prisma.proyecto.findUnique.mockResolvedValue({ id: PROYECTO_ID, deletedAt: null });
+    prisma.participante.count.mockResolvedValue(300);
+
+    await expect(service.accessParticipant(PROYECTO_ID)).rejects.toMatchObject({
+      status: 429,
+    });
   });
 });
 
