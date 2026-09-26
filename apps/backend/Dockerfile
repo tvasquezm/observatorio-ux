@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM node:24-alpine3.24 AS development
+FROM node:26-alpine3.24 AS development
 
 # Usar la misma versión de pnpm fijada en el package.json del workspace
 RUN apk add --no-cache openssl \
@@ -36,7 +36,7 @@ FROM development AS build
 
 RUN pnpm --filter backend build
 
-FROM node:24-alpine3.24 AS production
+FROM node:26-alpine3.24 AS production
 
 RUN apk add --no-cache openssl \
     && corepack enable \
