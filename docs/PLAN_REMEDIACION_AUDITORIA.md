@@ -22,7 +22,7 @@ se incluye en este plan por ser de un compose de desarrollo, no de producción.
 - [x] Fase 3 — Docker: imagen de producción sin root y sin dependencias de desarrollo (H7)
 - [x] Fase 4 — Nginx: `client_max_body_size`, `limit_req`, `keepalive`, gzip (H8 + rendimiento)
 - [x] Fase 5 — Rendimiento: `submitResult` sin N+1 de categorías, `maxWait`/`timeout` explícitos, pool de Prisma configurable
-- [ ] Fase 6 — Prueba de carga k6 del flujo del participante (access → consent → join → results, 200 VUs)
+- [x] Fase 6 — Prueba de carga k6 del flujo del participante (access → consent → join → results, 200 VUs)
 - [ ] Fase 7 — Participantes anónimos: `proyectoId` en `Participante`, límite por proyecto, limpieza horaria de huérfanos (H5)
 
 ## Detalle por fase
@@ -69,8 +69,11 @@ se incluye en este plan por ser de un compose de desarrollo, no de producción.
 - Commit: `perf(db): submitResult y pool de Prisma`.
 
 ### Fase 6 — Prueba de carga
-- `tests/load/participante.k6.js`: flujo access → consent → join → results, 200 VUs, mide errores y latencia p95.
+- `tests/load/participante.k6.js`: flujo access → consent → join → results, rampa hasta 200 VUs (`ramping-vus`), thresholds `http_req_failed<5%` y `p(95)<800ms`. `PROYECTO_ID`/`ESTUDIO_ID` por env var, no crea datos.
 - Depende de la fase 5 (mide el `submitResult` ya optimizado).
+- **Nota de diseño (no es un bug del script):** los VUs corren desde una sola máquina, así que comparten IP real ante nginx. `limit_req` (20 r/s, burst 60) y el throttle global del backend (60/60s por IP — `join`/`results` no tienen `@Throttle` propio, a diferencia de `access`/`consent`/`token`) van a producir 429 esperables bajo carga sostenida. Es consistente con H1 (deuda técnica, topología de un solo salto): el script lo mide, no lo evita.
+- Archivos: `tests/load/participante.k6.js` (nuevo), `docs/COMANDOS.md`.
+- Verificación real: no hay `k6` ni Postgres real en este sandbox (mismo bloqueo de red que fases anteriores) — no se pudo correr contra un stack real. Se verificó sintaxis (`node --check`, ESM) y el script se armó leyendo los DTOs/controller/service reales (`auth.controller.ts`, `card-sorting.controller.ts`, `card-sorting.dto.ts`, `card-sorting.service.ts`), no de memoria. Pendiente correr en un entorno real antes de dar la fase por confirmada en la práctica.
 - Commit: `test: prueba de carga k6`.
 
 ### Fase 7 — Participantes anónimos (H5)

@@ -6,6 +6,10 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **load-test:** agrega `tests/load/participante.k6.js` (Fase 6 del plan de
+  remediación) — prueba de carga del flujo access → consent → join →
+  results con rampa hasta 200 VUs.
+
 * **e2e:** incorpora Playwright para validar login, proyecto, las cinco
   técnicas UX, restricciones por rol y responsive en escritorio/móvil.
 * **responsive:** reorganiza navegación, formularios y acciones para pantallas
