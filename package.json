@@ -23,6 +23,6 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
-    "commit-and-tag-version": "^13.1.2"
+    "commit-and-tag-version": "^13.2.1"
   }
 }
