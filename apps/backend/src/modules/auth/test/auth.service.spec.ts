@@ -222,6 +222,7 @@ describe('AuthService.registerParticipant', () => {
     const resumeTokenHash = createHash('sha256').update(resumeToken).digest('hex');
     prisma.participante.findUnique.mockResolvedValue({
       id: 'participante-anonimo',
+      proyectoId: PROYECTO_ID,
       resumeTokenHash,
     });
     prisma.proyecto.findUnique.mockResolvedValue({ id: PROYECTO_ID, deletedAt: null });
@@ -250,9 +251,33 @@ describe('AuthService.registerParticipant', () => {
     });
   });
 
+  it('rechaza registrar consentimiento si el participante abierto pertenece a otro proyecto', async () => {
+    const resumeToken = 'resume-token-seguro-con-mas-de-32-caracteres';
+    prisma.participante.findUnique.mockResolvedValue({
+      id: 'participante-anonimo',
+      proyectoId: 'proyecto-distinto',
+      resumeTokenHash: createHash('sha256').update(resumeToken).digest('hex'),
+    });
+    prisma.proyecto.findUnique.mockResolvedValue({ id: PROYECTO_ID, deletedAt: null });
+    prisma.participanteWhitelist.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.registerParticipantConsent(
+        'participante-anonimo',
+        PROYECTO_ID,
+        true,
+        '1.0',
+        undefined,
+        resumeToken,
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.consentimiento.create).not.toHaveBeenCalled();
+  });
+
   it('H4: rechaza registrar consentimiento de acceso abierto sin resumeToken', async () => {
     prisma.participante.findUnique.mockResolvedValue({
       id: 'participante-anonimo',
+      proyectoId: PROYECTO_ID,
       resumeTokenHash: createHash('sha256').update('otro-token-valido-de-32-caracteres').digest('hex'),
     });
     prisma.proyecto.findUnique.mockResolvedValue({ id: PROYECTO_ID, deletedAt: null });
@@ -267,6 +292,7 @@ describe('AuthService.registerParticipant', () => {
   it('H4: rechaza registrar consentimiento de acceso abierto con resumeToken incorrecto', async () => {
     prisma.participante.findUnique.mockResolvedValue({
       id: 'participante-anonimo',
+      proyectoId: PROYECTO_ID,
       resumeTokenHash: createHash('sha256').update('token-correcto-de-32-caracteres-o-mas').digest('hex'),
     });
     prisma.proyecto.findUnique.mockResolvedValue({ id: PROYECTO_ID, deletedAt: null });
@@ -490,6 +516,7 @@ describe('AuthService reanuda un participante anónimo', () => {
     service = moduleRef.get(AuthService);
     prisma.participante.findUnique.mockResolvedValue({
       id: PARTICIPANTE_ID,
+      proyectoId: PROYECTO_ID,
       resumeTokenHash: RESUME_HASH,
     });
     prisma.participanteWhitelist.findFirst.mockResolvedValue(null);
@@ -520,6 +547,25 @@ describe('AuthService reanuda un participante anónimo', () => {
         undefined,
         false,
         'resume-token-incorrecto-con-mas-de-32-caracteres',
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.consentimiento.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('rechaza reanudar el participante en otro proyecto', async () => {
+    prisma.participante.findUnique.mockResolvedValue({
+      id: PARTICIPANTE_ID,
+      proyectoId: 'proyecto-distinto',
+      resumeTokenHash: RESUME_HASH,
+    });
+
+    await expect(
+      service.issueParticipantToken(
+        PARTICIPANTE_ID,
+        PROYECTO_ID,
+        undefined,
+        false,
+        RESUME_TOKEN,
       ),
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(prisma.consentimiento.findFirst).not.toHaveBeenCalled();

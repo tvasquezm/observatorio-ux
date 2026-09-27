@@ -202,6 +202,12 @@ export class AuthService {
     if (whitelistEntry) {
       this.assertInvitationCode(codigoInvitacion ?? '', whitelistEntry.codigoInvitacionHash);
     } else {
+      if (participante.proyectoId !== proyectoId) {
+        throw new ForbiddenException(
+          'El participante no pertenece a este proyecto.',
+        );
+      }
+
       // Acceso abierto: sin whitelist, la única credencial posible es el
       // resumeToken entregado en accessParticipant (mismo esquema que
       // issueParticipantToken). Sin esto, cualquiera con el UUID del
@@ -303,6 +309,12 @@ export class AuthService {
       if (whitelistEntry) {
         this.assertInvitationCode(codigoInvitacion ?? '', whitelistEntry.codigoInvitacionHash);
       } else {
+        if (participante.proyectoId !== proyectoId) {
+          throw new ForbiddenException(
+            'El participante no pertenece a este proyecto.',
+          );
+        }
+
         const receivedHash = resumeToken
           ? createHash('sha256').update(resumeToken).digest()
           : Buffer.alloc(32);

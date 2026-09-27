@@ -25,12 +25,13 @@ describe('ParticipantesCleanupService.limpiarHuerfanos', () => {
     service = moduleRef.get(ParticipantesCleanupService);
   });
 
-  it('borra solo participantes sin consentimientos ni sesiones y con más de 1h', async () => {
+  it('borra solo participantes anónimos sin consentimientos ni sesiones y con más de 1h', async () => {
     await service.limpiarHuerfanos();
 
     expect(prisma.participante.deleteMany).toHaveBeenCalledWith({
       where: {
         createdAt: { lt: expect.any(Date) },
+        proyectoId: { not: null },
         consentimientos: { none: {} },
         sesiones: { none: {} },
       },

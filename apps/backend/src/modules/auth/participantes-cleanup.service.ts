@@ -25,6 +25,7 @@ export class ParticipantesCleanupService {
     const { count } = await this.prisma.participante.deleteMany({
       where: {
         createdAt: { lt: haceUnaHora },
+        proyectoId: { not: null },
         consentimientos: { none: {} },
         sesiones: { none: {} },
       },
