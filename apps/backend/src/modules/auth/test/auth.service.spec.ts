@@ -11,7 +11,7 @@ import { AuthService } from '../auth.service';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { ParticipanteJwtService } from '../participante-jwt.service';
 import { createHash } from 'crypto';
-import * as bcrypt from 'bcrypt';
+import bcrypt = require('bcrypt');
 
 describe('AuthService.registerParticipant', () => {
   let service: AuthService;
