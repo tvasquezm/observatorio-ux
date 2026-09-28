@@ -99,6 +99,8 @@ docker compose up --build
 
 Esto, en orden: construye las imágenes de `shared-types`, `backend` y `frontend`; levanta `db` (Postgres) y espera su healthcheck; compila `shared-types` en modo watch; aplica migraciones de Prisma; y levanta el frontend con Vite. El seed no se ejecuta al reiniciar para conservar cuentas y proyectos existentes. Para crear los datos demo, ejecuta `docker compose exec backend pnpm --filter backend seed` o activa explícitamente `SEED_ON_START=true` en desarrollo. En producción nunca se ejecuta el seed automático.
 
+Después de un `git pull` que cambie dependencias (`pnpm-lock.yaml`), basta `docker compose up`: cada servicio detecta el cambio al arrancar y reinstala solo lo suyo. Si un `node_modules` sigue inconsistente, ejecuta `docker compose down` y luego `docker compose up --build -V` para recrear los volúmenes de dependencias.
+
 - Backend: `http://localhost:3000/api` (Swagger en `/api/docs`)
 - Frontend: `http://localhost:5173`
 
