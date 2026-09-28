@@ -26,6 +26,10 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Fixes
 
+* **docker:** `docker compose up` reinstala las dependencias de cada servicio
+  cuando cambia `pnpm-lock.yaml`, sin necesidad de `down` ni `up --build -V`
+  tras un `git pull`.
+
 * **artifacts:** libera locks de edición al cancelar, cambiar de artefacto o
   abandonar la ruta, incluso si la adquisición termina de forma tardía.
 * **shared-types:** centraliza contratos de autenticación y Card Sorting; el
