@@ -52,6 +52,25 @@ const artifactJourneyMapId = 'f1e1b6a1-0030-4a11-9c00-000000000031';
 const artifactMomentosCriticosId = 'f1e1b6a1-0030-4a11-9c00-000000000032';
 
 async function main() {
+  // H3 (auditoría 2026-09-24): este seed crea usuarios y datos DEMO con
+  // contraseñas por defecto si no se setean las variables SEED_*. Viaja en
+  // la imagen de producción (Dockerfile copia prisma/), así que si alguien
+  // lo corre ahí sin definir las 3 variables, terminan esas contraseñas
+  // demo en producción. Para crear el primer admin real en producción usar
+  // `pnpm run bootstrap:admin` (bootstrap-admin.ts), no este seed.
+  if (process.env.NODE_ENV === 'production') {
+    const requeridas = ['SEED_PASSWORD', 'SEED_PROFESOR_PASSWORD', 'SEED_ADMIN_PASSWORD'];
+    const faltantes = requeridas.filter((clave) => !process.env[clave]);
+    if (faltantes.length > 0) {
+      console.error(
+        `Este seed crea datos y usuarios DEMO. En producción hace falta definir: ${faltantes.join(', ')}. ` +
+          'Si lo que necesitas es crear el primer administrador, usa "pnpm run bootstrap:admin" en vez de este seed.',
+      );
+      process.exitCode = 1;
+      return;
+    }
+  }
+
   const passwordHash = await bcrypt.hash(demoPassword, 12);
 
   const [estudiante1, estudiante2, estudiante3] = await Promise.all(
@@ -478,14 +497,14 @@ async function main() {
 
   console.log('Seed listo. Estudiantes (mismo proyecto, contraseña demo):');
   [estudiante1, estudiante2, estudiante3].forEach((e) => console.log(`  - ${e.email}`));
-  console.log(`Contraseña demo: ${demoPassword}`);
+  console.log('(Contraseña: la definida en SEED_PASSWORD, o el default de desarrollo si no se seteó.)');
   console.log('Sala demo: estudiante1 y estudiante2 inscritos, estudiante3 SIN sala (bloqueado, Fase 5).');
   console.log(`Proyecto demo: ${project.id}`);
   console.log('---');
   console.log(`Usuario profesor (prueba): ${profesor.email}`);
-  console.log(`Contraseña profesor: ${profesorPassword}`);
+  console.log('(Contraseña: la definida en SEED_PROFESOR_PASSWORD, o el default de desarrollo si no se seteó.)');
   console.log(`Usuario administrador (prueba): ${adminEmail}`);
-  console.log(`Contraseña administrador: ${adminPassword}`);
+  console.log('(Contraseña: la definida en SEED_ADMIN_PASSWORD, o el default de desarrollo si no se seteó.)');
   console.log(`Proyecto profesor: ${profesorProject.id}`);
 }
 

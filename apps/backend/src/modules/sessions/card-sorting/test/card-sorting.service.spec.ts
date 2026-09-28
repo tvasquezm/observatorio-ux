@@ -21,7 +21,7 @@ describe('CardSortingService.submitResult', () => {
       update: jest.Mock;
     };
     card: { findMany: jest.Mock };
-    category: { findUnique: jest.Mock; create: jest.Mock };
+    category: { findUnique: jest.Mock; findMany: jest.Mock; create: jest.Mock };
     cardGrouping: { createMany: jest.Mock };
   };
 
@@ -58,7 +58,7 @@ describe('CardSortingService.submitResult', () => {
         update: jest.fn(),
       },
       card: { findMany: jest.fn() },
-      category: { findUnique: jest.fn(), create: jest.fn() },
+      category: { findUnique: jest.fn(), findMany: jest.fn(), create: jest.fn() },
       cardGrouping: { createMany: jest.fn() },
     };
 
@@ -145,5 +145,58 @@ describe('CardSortingService.submitResult', () => {
 
     expect(tx.cardGrouping.createMany).toHaveBeenCalledTimes(1);
     expect(result.estado).toBe(EstadoSesion.COMPLETADO);
+  });
+
+  it('con categoriaId trae las categorías en un solo findMany por lote (sin N+1)', async () => {
+    tx.researchSession.findUnique.mockResolvedValue(sesionDeEjemplo);
+    tx.card.findMany.mockResolvedValue([{ id: 'card-1' }, { id: 'card-2' }]);
+    tx.researchSession.update.mockResolvedValue(undefined);
+    tx.category.findMany.mockResolvedValue([
+      { id: 'cat-a', sessionId: 'estudio-1' },
+      { id: 'cat-b', sessionId: 'estudio-1' },
+    ]);
+
+    const finalSession = { ...sesionDeEjemplo, estado: EstadoSesion.COMPLETADO };
+    tx.researchSession.findUniqueOrThrow
+      .mockReset()
+      .mockResolvedValueOnce({ id: 'estudio-1', tipoCardSorting: 'CERRADO' })
+      .mockResolvedValueOnce(finalSession);
+
+    const result = await service.submitResult(
+      SESION_ID,
+      [
+        { categoriaId: 'cat-a', cardIds: ['card-1'] },
+        { categoriaId: 'cat-b', cardIds: ['card-2'] },
+      ],
+      userDueño,
+    );
+
+    expect(tx.category.findMany).toHaveBeenCalledTimes(1);
+    expect(tx.category.findMany).toHaveBeenCalledWith({
+      where: { id: { in: ['cat-a', 'cat-b'] } },
+    });
+    expect(tx.category.findUnique).not.toHaveBeenCalled();
+    expect(tx.cardGrouping.createMany).toHaveBeenCalledTimes(1);
+    expect(result.estado).toBe(EstadoSesion.COMPLETADO);
+  });
+
+  it('RECHAZA si categoriaId no pertenece al estudio (misma validación tras el batch fetch)', async () => {
+    tx.researchSession.findUnique.mockResolvedValue(sesionDeEjemplo);
+    tx.card.findMany.mockResolvedValue([{ id: 'card-1' }]);
+    tx.category.findMany.mockResolvedValue([
+      { id: 'cat-otro-estudio', sessionId: 'otro-estudio' },
+    ]);
+    tx.researchSession.findUniqueOrThrow.mockResolvedValue({
+      id: 'estudio-1',
+      tipoCardSorting: 'CERRADO',
+    });
+
+    await expect(
+      service.submitResult(
+        SESION_ID,
+        [{ categoriaId: 'cat-otro-estudio', cardIds: ['card-1'] }],
+        userDueño,
+      ),
+    ).rejects.toThrow('La categoría no pertenece a este estudio.');
   });
 });

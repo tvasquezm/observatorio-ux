@@ -91,6 +91,20 @@ Vitest/Testing Library son nuevas de este sprint y no están en un
 
 ---
 
+## Prueba de carga (k6, Fase 6 de `docs/PLAN_REMEDIACION_AUDITORIA.md`)
+
+Requiere `k6` instalado en el host y un proyecto + estudio de Card Sorting
+ya sembrados (no crea datos).
+
+| Comando | Cuándo usarlo |
+|---|---|
+| `BASE_URL=http://localhost PROYECTO_ID=<uuid> ESTUDIO_ID=<uuid> k6 run tests/load/participante.k6.js` | Simula hasta 200 participantes concurrentes en el flujo access → consent → join → results. |
+
+`BASE_URL` debe apuntar al stack completo detrás de nginx (no directo al
+backend), para incluir los límites de `deploy/nginx/default.conf`.
+
+---
+
 ## Frontend
 
 Siempre ejecutar `pnpm add`/`install` **desde dentro del contenedor**, nunca

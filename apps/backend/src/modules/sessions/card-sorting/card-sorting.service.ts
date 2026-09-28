@@ -541,6 +541,26 @@ export class CardSortingService {
       const categoryCache = new Map<string, string>();
       const groupings: { cardId: string; categoryId: string }[] = [];
 
+      // Trae de una sola vez todas las categorías predefinidas referenciadas
+      // por `grupos`, en vez de un findUnique por grupo dentro del loop
+      // (N+1: un Card Sorting con 30 tarjetas podía disparar hasta 30
+      // queries secuenciales en la misma transacción).
+      const requestedCategoryIds = [
+        ...new Set(
+          grupos
+            .map((group) => group.categoriaId)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      ];
+      const existingCategories = requestedCategoryIds.length
+        ? await tx.category.findMany({
+            where: { id: { in: requestedCategoryIds } },
+          })
+        : [];
+      const categoriesById = new Map(
+        existingCategories.map((category) => [category.id, category]),
+      );
+
       for (const group of grupos) {
         if (!group.categoriaId && !group.categoriaNombre?.trim()) {
           throw new BadRequestException(
@@ -550,9 +570,7 @@ export class CardSortingService {
 
         let categoryId: string;
         if (group.categoriaId) {
-          const category = await tx.category.findUnique({
-            where: { id: group.categoriaId },
-          });
+          const category = categoriesById.get(group.categoriaId);
           if (!category || category.sessionId !== study.id) {
             throw new BadRequestException('La categoría no pertenece a este estudio.');
           }
@@ -614,6 +632,6 @@ export class CardSortingService {
         where: { id: participanteSesionId },
         include: { agrupaciones: { include: { card: true, category: true } } },
       });
-    });
+    }, { maxWait: 5000, timeout: 10000 });
   }
 }

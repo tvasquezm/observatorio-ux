@@ -4,13 +4,14 @@
 // proyecto sea rechazado, y que el registro sea idempotente.
 
 import { Test } from '@nestjs/testing';
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { AuthService } from '../auth.service';
 import { PrismaService } from '../../../core/database/prisma.service';
 import { ParticipanteJwtService } from '../participante-jwt.service';
 import { createHash } from 'crypto';
+import bcrypt = require('bcrypt');
 
 describe('AuthService.registerParticipant', () => {
   let service: AuthService;
@@ -216,15 +217,28 @@ describe('AuthService.registerParticipant', () => {
     });
   });
 
-  it('registra consentimiento sin whitelist para un participante de acceso abierto (Fase 1)', async () => {
-    prisma.participante.findUnique.mockResolvedValue({ id: 'participante-anonimo' });
+  it('registra consentimiento sin whitelist para un participante de acceso abierto con resumeToken válido (Fase 1 + H4)', async () => {
+    const resumeToken = 'resume-token-seguro-con-mas-de-32-caracteres';
+    const resumeTokenHash = createHash('sha256').update(resumeToken).digest('hex');
+    prisma.participante.findUnique.mockResolvedValue({
+      id: 'participante-anonimo',
+      proyectoId: PROYECTO_ID,
+      resumeTokenHash,
+    });
     prisma.proyecto.findUnique.mockResolvedValue({ id: PROYECTO_ID, deletedAt: null });
     prisma.participanteWhitelist.findFirst.mockResolvedValue(null);
     prisma.consentimiento.findFirst.mockResolvedValue(null);
     prisma.consentimiento.create.mockResolvedValue({ id: 'consent-abierto' });
 
     await expect(
-      service.registerParticipantConsent('participante-anonimo', PROYECTO_ID, true, '1.0'),
+      service.registerParticipantConsent(
+        'participante-anonimo',
+        PROYECTO_ID,
+        true,
+        '1.0',
+        undefined,
+        resumeToken,
+      ),
     ).resolves.toEqual({ id: 'consent-abierto' });
 
     expect(prisma.consentimiento.create).toHaveBeenCalledWith({
@@ -235,6 +249,66 @@ describe('AuthService.registerParticipant', () => {
         version: '1.0',
       },
     });
+  });
+
+  it('rechaza registrar consentimiento si el participante abierto pertenece a otro proyecto', async () => {
+    const resumeToken = 'resume-token-seguro-con-mas-de-32-caracteres';
+    prisma.participante.findUnique.mockResolvedValue({
+      id: 'participante-anonimo',
+      proyectoId: 'proyecto-distinto',
+      resumeTokenHash: createHash('sha256').update(resumeToken).digest('hex'),
+    });
+    prisma.proyecto.findUnique.mockResolvedValue({ id: PROYECTO_ID, deletedAt: null });
+    prisma.participanteWhitelist.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.registerParticipantConsent(
+        'participante-anonimo',
+        PROYECTO_ID,
+        true,
+        '1.0',
+        undefined,
+        resumeToken,
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.consentimiento.create).not.toHaveBeenCalled();
+  });
+
+  it('H4: rechaza registrar consentimiento de acceso abierto sin resumeToken', async () => {
+    prisma.participante.findUnique.mockResolvedValue({
+      id: 'participante-anonimo',
+      proyectoId: PROYECTO_ID,
+      resumeTokenHash: createHash('sha256').update('otro-token-valido-de-32-caracteres').digest('hex'),
+    });
+    prisma.proyecto.findUnique.mockResolvedValue({ id: PROYECTO_ID, deletedAt: null });
+    prisma.participanteWhitelist.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.registerParticipantConsent('participante-anonimo', PROYECTO_ID, true, '1.0'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.consentimiento.create).not.toHaveBeenCalled();
+  });
+
+  it('H4: rechaza registrar consentimiento de acceso abierto con resumeToken incorrecto', async () => {
+    prisma.participante.findUnique.mockResolvedValue({
+      id: 'participante-anonimo',
+      proyectoId: PROYECTO_ID,
+      resumeTokenHash: createHash('sha256').update('token-correcto-de-32-caracteres-o-mas').digest('hex'),
+    });
+    prisma.proyecto.findUnique.mockResolvedValue({ id: PROYECTO_ID, deletedAt: null });
+    prisma.participanteWhitelist.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.registerParticipantConsent(
+        'participante-anonimo',
+        PROYECTO_ID,
+        true,
+        '1.0',
+        undefined,
+        'token-incorrecto-de-32-caracteres-o-mas',
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.consentimiento.create).not.toHaveBeenCalled();
   });
 
   it('rechaza registrar consentimiento si el proyecto no existe', async () => {
@@ -297,16 +371,25 @@ describe('AuthService.accessParticipant', () => {
   let service: AuthService;
   let prisma: {
     proyecto: { findUnique: jest.Mock };
-    participante: { create: jest.Mock };
+    participante: { create: jest.Mock; count: jest.Mock };
   };
   let participanteJwt: { sign: jest.Mock };
 
   const PROYECTO_ID = 'proyecto-1';
+  const ORIGINAL_LIMIT_ENV = process.env.PARTICIPANTS_ACCESS_LIMIT_PER_HOUR;
+
+  afterEach(() => {
+    if (ORIGINAL_LIMIT_ENV === undefined) {
+      delete process.env.PARTICIPANTS_ACCESS_LIMIT_PER_HOUR;
+    } else {
+      process.env.PARTICIPANTS_ACCESS_LIMIT_PER_HOUR = ORIGINAL_LIMIT_ENV;
+    }
+  });
 
   beforeEach(async () => {
     prisma = {
       proyecto: { findUnique: jest.fn() },
-      participante: { create: jest.fn() },
+      participante: { create: jest.fn(), count: jest.fn().mockResolvedValue(0) },
     };
     participanteJwt = { sign: jest.fn().mockResolvedValue('token-firmado') };
 
@@ -347,8 +430,11 @@ describe('AuthService.accessParticipant', () => {
 
     const result = await service.accessParticipant(PROYECTO_ID);
 
+    expect(prisma.participante.count).toHaveBeenCalledWith({
+      where: { proyectoId: PROYECTO_ID, createdAt: { gte: expect.any(Date) } },
+    });
     expect(prisma.participante.create).toHaveBeenCalledWith({
-      data: { resumeTokenHash: expect.stringMatching(/^[a-f0-9]{64}$/) },
+      data: { resumeTokenHash: expect.stringMatching(/^[a-f0-9]{64}$/), proyectoId: PROYECTO_ID },
     });
     expect(participanteJwt.sign).toHaveBeenCalledWith({
       sub: 'participante-anonimo',
@@ -362,6 +448,37 @@ describe('AuthService.accessParticipant', () => {
       participant: { id: 'participante-anonimo', proyectoId: PROYECTO_ID },
     });
     expect(result.resume_token).toHaveLength(43);
+  });
+
+  it('rechaza el acceso (429) si el proyecto ya alcanzó el límite por hora (H5)', async () => {
+    process.env.PARTICIPANTS_ACCESS_LIMIT_PER_HOUR = '300';
+    prisma.proyecto.findUnique.mockResolvedValue({ id: PROYECTO_ID, deletedAt: null });
+    prisma.participante.count.mockResolvedValue(300);
+
+    await expect(service.accessParticipant(PROYECTO_ID)).rejects.toMatchObject({
+      status: 429,
+    });
+    expect(prisma.participante.create).not.toHaveBeenCalled();
+  });
+
+  it('permite el acceso si todavía no se alcanzó el límite configurado', async () => {
+    process.env.PARTICIPANTS_ACCESS_LIMIT_PER_HOUR = '5';
+    prisma.proyecto.findUnique.mockResolvedValue({ id: PROYECTO_ID, deletedAt: null });
+    prisma.participante.count.mockResolvedValue(4);
+    prisma.participante.create.mockResolvedValue({ id: 'participante-anonimo' });
+
+    await expect(service.accessParticipant(PROYECTO_ID)).resolves.toBeDefined();
+    expect(prisma.participante.create).toHaveBeenCalled();
+  });
+
+  it('usa el default de 300 cuando no hay env var configurada', async () => {
+    delete process.env.PARTICIPANTS_ACCESS_LIMIT_PER_HOUR;
+    prisma.proyecto.findUnique.mockResolvedValue({ id: PROYECTO_ID, deletedAt: null });
+    prisma.participante.count.mockResolvedValue(300);
+
+    await expect(service.accessParticipant(PROYECTO_ID)).rejects.toMatchObject({
+      status: 429,
+    });
   });
 });
 
@@ -399,6 +516,7 @@ describe('AuthService reanuda un participante anónimo', () => {
     service = moduleRef.get(AuthService);
     prisma.participante.findUnique.mockResolvedValue({
       id: PARTICIPANTE_ID,
+      proyectoId: PROYECTO_ID,
       resumeTokenHash: RESUME_HASH,
     });
     prisma.participanteWhitelist.findFirst.mockResolvedValue(null);
@@ -432,5 +550,163 @@ describe('AuthService reanuda un participante anónimo', () => {
       ),
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(prisma.consentimiento.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('rechaza reanudar el participante en otro proyecto', async () => {
+    prisma.participante.findUnique.mockResolvedValue({
+      id: PARTICIPANTE_ID,
+      proyectoId: 'proyecto-distinto',
+      resumeTokenHash: RESUME_HASH,
+    });
+
+    await expect(
+      service.issueParticipantToken(
+        PARTICIPANTE_ID,
+        PROYECTO_ID,
+        undefined,
+        false,
+        RESUME_TOKEN,
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.consentimiento.findFirst).not.toHaveBeenCalled();
+  });
+});
+
+// H6: timing/normalización de login.
+describe('AuthService.login', () => {
+  let service: AuthService;
+  let prisma: { usuario: { findUnique: jest.Mock } };
+
+  beforeEach(async () => {
+    prisma = { usuario: { findUnique: jest.fn() } };
+
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        AuthService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: JwtService, useValue: { signAsync: jest.fn().mockResolvedValue('jwt-evaluador') } },
+        { provide: ParticipanteJwtService, useValue: { sign: jest.fn() } },
+        { provide: ConfigService, useValue: { get: jest.fn() } },
+      ],
+    }).compile();
+
+    service = moduleRef.get(AuthService);
+  });
+
+  it('normaliza el email (mayúsculas/espacios) antes de buscarlo', async () => {
+    prisma.usuario.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.login('  Usuario@UX.utem.CL  ', 'cualquier-cosa'),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+
+    expect(prisma.usuario.findUnique).toHaveBeenCalledWith({
+      where: { email: 'usuario@ux.utem.cl' },
+    });
+  });
+
+  it('H6: corre bcrypt.compare aunque el usuario no exista (mismo costo de timing)', async () => {
+    const compareSpy = jest.spyOn(bcrypt, 'compare');
+    prisma.usuario.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.login('no-existe@ux.utem.cl', 'cualquier-cosa'),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+
+    expect(compareSpy).toHaveBeenCalledTimes(1);
+    compareSpy.mockRestore();
+  });
+
+  it('rechaza contraseña incorrecta para un usuario que sí existe', async () => {
+    const passwordHash = await bcrypt.hash('la-correcta-1234', 10);
+    prisma.usuario.findUnique.mockResolvedValue({
+      id: 'user-1',
+      email: 'docente@ux.utem.cl',
+      passwordHash,
+      rol: 'DOCENTE',
+    });
+
+    await expect(
+      service.login('docente@ux.utem.cl', 'incorrecta'),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('acepta la contraseña correcta y devuelve el token', async () => {
+    const passwordHash = await bcrypt.hash('la-correcta-1234', 10);
+    prisma.usuario.findUnique.mockResolvedValue({
+      id: 'user-1',
+      nombre: 'Docente Uno',
+      email: 'docente@ux.utem.cl',
+      passwordHash,
+      rol: 'DOCENTE',
+    });
+
+    await expect(service.login('docente@ux.utem.cl', 'la-correcta-1234')).resolves.toEqual({
+      access_token: 'jwt-evaluador',
+      user: {
+        id: 'user-1',
+        nombre: 'Docente Uno',
+        email: 'docente@ux.utem.cl',
+        rol: 'DOCENTE',
+      },
+    });
+  });
+});
+
+// H2: los endpoints de token de prueba solo deben funcionar en desarrollo.
+describe('AuthService — gating de tokens de prueba (H2)', () => {
+  let prisma: {
+    usuario: { findFirst: jest.Mock };
+    consentimiento: { findFirst: jest.Mock };
+    participante: { findUnique: jest.Mock };
+    participanteWhitelist: { findFirst: jest.Mock };
+  };
+  let config: { get: jest.Mock };
+
+  const buildService = async () => {
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        AuthService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: JwtService, useValue: { signAsync: jest.fn().mockResolvedValue('jwt-evaluador') } },
+        { provide: ParticipanteJwtService, useValue: { sign: jest.fn().mockResolvedValue('jwt-participante') } },
+        { provide: ConfigService, useValue: config },
+      ],
+    }).compile();
+    return moduleRef.get<AuthService>(AuthService);
+  };
+
+  beforeEach(() => {
+    prisma = {
+      usuario: { findFirst: jest.fn().mockResolvedValue({ id: 'user-1', email: 'a@ux.utem.cl', rol: 'ADMIN' }) },
+      consentimiento: {
+        findFirst: jest.fn().mockResolvedValue({
+          participanteId: 'participante-1',
+          proyectoId: 'proyecto-1',
+          aceptado: true,
+        }),
+      },
+      participante: { findUnique: jest.fn().mockResolvedValue({ id: 'participante-1' }) },
+      participanteWhitelist: { findFirst: jest.fn().mockResolvedValue(null) },
+    };
+  });
+
+  it.each(['production', 'test', undefined])(
+    'rechaza test-token y test-participant-token cuando NODE_ENV=%s',
+    async (nodeEnv) => {
+      config = { get: jest.fn().mockReturnValue(nodeEnv) };
+      const service = await buildService();
+
+      await expect(service.issueDevelopmentEvaluatorToken()).rejects.toBeInstanceOf(NotFoundException);
+      await expect(service.issueDevelopmentParticipantToken()).rejects.toBeInstanceOf(NotFoundException);
+    },
+  );
+
+  it('permite test-token y test-participant-token solo cuando NODE_ENV=development', async () => {
+    config = { get: jest.fn().mockReturnValue('development') };
+    const service = await buildService();
+
+    await expect(service.issueDevelopmentEvaluatorToken()).resolves.toBeDefined();
+    await expect(service.issueDevelopmentParticipantToken()).resolves.toBeDefined();
   });
 });
