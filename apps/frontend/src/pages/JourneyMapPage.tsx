@@ -8,8 +8,6 @@ import {
   useUpdateJourney,
   useDeleteJourney,
   useJourneys,
-  useLockJourney,
-  useUnlockJourney,
 } from '../features/journey-map/hooks/useJourneyMapQueries';
 import {
   addPhase,
@@ -22,8 +20,13 @@ import {
 import { ArtifactsApiError } from '../shared/api/artifacts.api';
 import { notify } from '../shared/api/toast';
 import { useConfirm } from '../shared/api/confirm';
-import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { puedeEditarArtefactos } from '../shared/auth/permisos';
+import { useActivePerspective } from '../shared/auth/useActivePerspective';
+import { useAuthStore } from '../features/auth/store/useAuthStore';
+import { useProject } from '../features/projects/hooks/useProjectsQueries';
+import { TechniquePageHeader } from '../shared/components/TechniquePageHeader';
+import { useArtifactEditLock } from '../shared/hooks/useArtifactEditLock';
+import { useUnsavedChanges } from '../shared/hooks/useUnsavedChanges';
 
 const MIN_FASES = 3;
 
@@ -44,45 +47,45 @@ export function JourneyMapPage() {
   const { mutate: crear, isPending: isCreating, error: createError } = useCreateJourney(proyectoId);
   const { mutate: actualizar, isPending: isUpdating, error: updateError } = useUpdateJourney(proyectoId);
   const { mutate: eliminar, error: deleteError } = useDeleteJourney(proyectoId);
-  const { mutate: lockJourney } = useLockJourney(proyectoId);
-  const { mutate: unlockJourney } = useUnlockJourney(proyectoId);
+  const editLock = useArtifactEditLock(proyectoId);
   const confirm = useConfirm();
-  const puedeEditar = puedeEditarArtefactos(useAuthStore((s) => s.user));
+  const user = useAuthStore((state) => state.user);
+  const { data: proyecto } = useProject(proyectoId);
+  const puedeEditar = puedeEditarArtefactos(useActivePerspective(), user?.id, proyecto?.creadoPorId);
   const error = listError ?? createError ?? updateError ?? deleteError;
 
   const [form, setForm] = useState<JourneyMapContenido>(contenidoVacio());
   const [mostrarForm, setMostrarForm] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [editandoVersion, setEditandoVersion] = useState<number | null>(null);
   const [readOnly, setReadOnly] = useState(false);
+  useUnsavedChanges(mostrarForm, form, isCreating || isUpdating);
 
   function resetForm() {
-    if (editandoId) unlockJourney(editandoId);
+    editLock.release();
     setForm(contenidoVacio());
     setEditandoId(null);
+    setEditandoVersion(null);
     setMostrarForm(false);
     setReadOnly(false);
   }
 
   function handleIniciarEditar(journey: JourneyMapArtifact) {
-    // Usamos el artefactoLogicoId para versionar la edición
-    const artefactoId = journey.artefactoLogicoId || journey.id;
+    // El endpoint de versiones recibe el ID de la fila abierta.
+    const artefactoId = journey.id;
     setEditandoId(artefactoId);
+    setEditandoVersion(journey.version);
     setForm(journey.contenido);
     setMostrarForm(true);
     setReadOnly(false);
 
-    lockJourney(
-      { artefactoId },
-      {
-        onError: (err) => {
-          const msg = err instanceof ArtifactsApiError && err.status === 409
-            ? 'Otro usuario está editando este journey map ahora mismo.'
-            : 'No se pudo bloquear el journey map para editar.';
-          notify.error(msg);
-          setReadOnly(true);
-        },
-      },
-    );
+    void editLock.acquire(artefactoId).catch((err) => {
+      const msg = err instanceof ArtifactsApiError && err.status === 409
+        ? 'Otro usuario está editando este journey map ahora mismo.'
+        : 'No se pudo bloquear el journey map para editar.';
+      notify.error(msg);
+      setReadOnly(true);
+    });
   }
 
   function actualizarFase(index: number, campo: keyof Phase, valor: string) {
@@ -113,7 +116,7 @@ export function JourneyMapPage() {
     if (editandoId) {
       const idAEditar = editandoId;
       actualizar(
-        { artefactoId: idAEditar, contenido: form },
+        { artefactoId: idAEditar, contenido: form, expectedVersion: editandoVersion ?? undefined },
         {
           onSuccess: resetForm,
         }
@@ -127,13 +130,12 @@ export function JourneyMapPage() {
 
   return (
     <div className="fade">
-      <div className="page-head">
-        <div>
-          <span className="kicker">EXPERIENCIA DE PRINCIPIO A FIN</span>
-          <h1>Journey Maps</h1>
-          <p>Visualiza el recorrido completo y encuentra el momento en que la experiencia pierde confianza.</p>
-        </div>
-        {puedeEditar && (
+      <TechniquePageHeader
+        label="EXPERIENCIA DE PRINCIPIO A FIN"
+        labelVariant="kicker"
+        title="Journey Maps"
+        description="Visualiza el recorrido completo y encuentra el momento en que la experiencia pierde confianza."
+        action={puedeEditar ? (
           <button
             className="primary"
             onClick={() => {
@@ -143,19 +145,19 @@ export function JourneyMapPage() {
           >
             {mostrarForm ? 'Cancelar' : '+ Nuevo journey map'}
           </button>
-        )}
-      </div>
+        ) : undefined}
+      />
 
       {puedeEditar && mostrarForm && (
         <div className="panel mb-16">
           <form onSubmit={handleSubmit} className="form-grid">
             <h2>{editandoId ? 'Editar Journey Map' : 'Nuevo Journey Map'}</h2>
-            {readOnly && (
+            {(readOnly || editLock.lockLost) && (
               <p className="error-text">
                 Este journey map está bloqueado por otro usuario. No puedes editarlo en este momento.
               </p>
             )}
-            <fieldset disabled={readOnly} className="readonly-fieldset">
+            <fieldset disabled={readOnly || editLock.lockLost} className="readonly-fieldset">
 
             <div className="form-grid-2">
               <input

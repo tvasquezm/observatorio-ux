@@ -41,6 +41,12 @@ export class ProjectsController {
     return this.projects.findAll(user);
   }
 
+  @Get('admin/overview')
+  @Roles('ADMIN')
+  adminOverview(@CurrentUser() user: AuthenticatedUser) {
+    return this.projects.adminOverview(user);
+  }
+
   @Get(':id')
   findOne(
     @Param('id', ParseUUIDPipe) id: string,
@@ -56,6 +62,15 @@ export class ProjectsController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.projects.update(id, dto, user);
+  }
+
+  @Delete(':id')
+  @Roles('ADMIN')
+  remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.projects.remove(id, user);
   }
 
   @Post(':id/participantes')

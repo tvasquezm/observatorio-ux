@@ -48,6 +48,13 @@ email: profesor@test.com
 password: profesor123
 ```
 
+Cuenta administradora para comprobar las tres perspectivas:
+
+```text
+email: admin@test.com
+password: admin1234
+```
+
 Contraseña configurable vía `SEED_PROFESOR_PASSWORD` en `.env` si no querés
 usar el default. Ver `apps/backend/prisma/seed.ts`.
 
@@ -60,21 +67,48 @@ usar el default. Ver `apps/backend/prisma/seed.ts`.
 1. `POST /api/auth/login` con `email` y `password` para obtener un token de evaluador.
 2. Usar el token como `Authorization: Bearer <token>`.
 3. Crear o consultar proyectos desde `/api/projects`.
+
+### Participante — acceso público abierto (por defecto, desde Fase 1)
+
+Sin whitelist ni datos personales. Cualquiera con el `proyectoId` (compartido vía
+link o QR) puede entrar:
+
+1. `POST /api/auth/participants/access` con `{ "proyectoId": "..." }`. Crea un
+   `Participante` sin metadata y devuelve `access_token` + `participant.id`
+   directamente — no hay paso de "registro" separado.
+2. Registrar su consentimiento con `POST /api/auth/participants/consent` usando
+   `participanteId`, `proyectoId`, `aceptado` y `version` (sin `codigoInvitacion`:
+   este flujo no usa whitelist). Sigue siendo obligatorio — es requisito legal/
+   ético, no un dato de contacto.
+3. Usar el `access_token` en `POST /api/card-sorting/sessions/:id/join` — este
+   paso vuelve a exigir que exista consentimiento aceptado para el proyecto.
+4. Enviar los resultados con `POST /api/card-sorting/sessions/:id/results`.
+
+### Participante — flujo previo con whitelist/email (se mantiene para invitaciones controladas)
+
+Vigente cuando el docente quiere restringir quién participa (p. ej. Evaluación
+Heurística con invitaciones nominales):
+
 4. Cargar participantes autorizados con `POST /api/projects/:id/participantes`.
    El cuerpo tiene la forma `{ "participantes": [{ "email": "...", "nombre": "..." }] }`.
+   La respuesta incluye un `codigoInvitacion` aleatorio por cada entrada nueva; se muestra
+   una sola vez y debe compartirse de forma privada con la persona correspondiente.
 5. Crear una sesión Card Sorting desde `POST /api/card-sorting/sessions`.
-6. El participante se registra con `POST /api/auth/participants/register`.
+6. El participante se registra con `POST /api/auth/participants/register`, incluyendo su
+   `codigoInvitacion`.
 7. Registrar su consentimiento con `POST /api/auth/participants/consent` usando
-   `participanteId`, `proyectoId`, `aceptado` y `version`.
+   `participanteId`, `proyectoId`, `aceptado`, `version` y `codigoInvitacion`.
 8. Solicitar `POST /api/auth/participants/token` con `participanteId` y
-   `proyectoId`.
+   `proyectoId` y `codigoInvitacion`.
 9. Usar ese token en `POST /api/card-sorting/sessions/:id/join`.
 10. Enviar los resultados con `POST /api/card-sorting/sessions/:id/results`.
 
-El registro exige que el email esté en la whitelist y la emisión del token
-vuelve a comprobar esa autorización. La verificación de que la persona controla
-el email requiere añadir un mecanismo de invitación o verificación por correo;
-el endpoint actual no envía emails por sí solo.
+El registro exige que el email esté en la whitelist y que el código de invitación
+coincida con su hash almacenado. El consentimiento y la emisión del token vuelven
+a comprobar ambos datos cuando existe una entrada de whitelist asociada; el código
+en texto plano nunca se guarda en la base de datos. Si el participante entró por
+el acceso abierto (sin whitelist), `POST /api/auth/participants/consent` no exige
+ningún código.
 
 En desarrollo también existen `GET /api/auth/test-token` y
 `GET /api/auth/test-participant-token`, que generan tokens a partir de los datos
@@ -123,6 +157,56 @@ Requiere que el artefacto no esté bloqueado por otro usuario. `findAll`
 excluye por defecto los artefactos con `deletedAt` seteado — no hay
 parámetro para incluirlos vía esta ruta.
 
+## Equipos (Fase 4)
+
+```text
+POST   /api/salas/:salaId/equipos
+GET    /api/salas/:salaId/equipos
+GET    /api/salas/:salaId/equipos/:equipoId
+PATCH  /api/salas/:salaId/equipos/:equipoId
+DELETE /api/salas/:salaId/equipos/:equipoId
+POST   /api/salas/:salaId/equipos/:equipoId/miembros
+DELETE /api/salas/:salaId/equipos/:equipoId/miembros/:usuarioId
+```
+
+`Sala` suma dos campos configurables solo por el DOCENTE dueño o `ADMIN`
+(vía el `PATCH /api/salas/:id` existente): `permiteCreacionEquipos`
+(boolean, toggle) y `limiteIntegrantesEquipo` (entero opcional, `null` =
+sin límite).
+
+**Permisos:**
+- **Crear equipo:** el DOCENTE dueño de la sala y `ADMIN` siempre pueden.
+  Un `ESTUDIANTE` solo puede si `sala.permiteCreacionEquipos === true` y
+  está inscrito en la sala (mismo chequeo por email que usa
+  `SalasService.findAll` contra `SalaEstudiante`). Si el creador es
+  `ESTUDIANTE`, queda agregado automáticamente como primer miembro.
+- **Leer (listar/ver):** dueño de la sala, `ADMIN`, o cualquier estudiante
+  inscrito en la sala (sin depender del toggle — leer no es crear).
+- **Editar / eliminar / gestionar miembros:** el creador del equipo, el
+  DOCENTE dueño de la sala, o `ADMIN`.
+- **Salir del equipo:** cualquier miembro puede quitarse a sí mismo
+  (`DELETE .../miembros/:usuarioId` con su propio id), sin necesidad de ser
+  gestor.
+
+`limiteIntegrantesEquipo` se valida al agregar un miembro nuevo (rechaza
+con `409` si el equipo ya está lleno). Eliminar un equipo es **hard
+delete** real (borra `EquipoMiembro` y luego el `Equipo`) — a diferencia
+de `UxArtifact`/`Sala`/`Proyecto`, un equipo no es evidencia de
+investigación y no necesita ventana de recuperación.
+
+`POST .../miembros` recibe `{ email }` (antes `{ usuarioId }`) — el
+backend resuelve el `Usuario` por email, mismo patrón que
+`ProjectsService.addMember`. El frontend no tiene forma de conocer el
+UUID de un usuario, así que el contrato por email es el único viable
+para esa pantalla.
+
+**Frontend:** tab "Equipos" en `SalaDetallePage` (`features/equipos/`).
+DOCENTE dueño/ADMIN: toggle `permiteCreacionEquipos` +
+`limiteIntegrantesEquipo` (reusa `PATCH /salas/:id`), CRUD de equipos,
+agregar/quitar miembro por email. ESTUDIANTE: ve los equipos de su sala;
+si el toggle está activo puede crear el suyo (queda de primer miembro
+automáticamente, ver arriba) y salir del suyo; no gestiona equipos ajenos.
+
 Los valores admitidos para `tipo` son `PERSONA`, `JOURNEY_MAP` y
 `MOMENTOS_CRITICOS`. El campo `contenido` es JSON y permite que cada técnica
 conserve su estructura específica. Las nuevas versiones se almacenan como
@@ -148,6 +232,95 @@ usuario). Ver `docs/ARCHITECTURE.md` §Sprint 4.
 
 Para probar estos endpoints se puede importar
 `postman/ux-artifacts.postman_collection.json`.
+
+## Proyectos — permisos de creación/edición (Fase 5)
+
+`Sala` suma `permiteCreacionProyectos` (boolean, toggle), configurable solo
+por el DOCENTE dueño o `ADMIN` vía el `PATCH /api/salas/:id` existente
+(mismo patrón que `permiteCreacionEquipos` de Fase 4).
+
+**Crear proyecto (`POST /api/projects`):**
+- DOCENTE dueño de cualquier sala y `ADMIN` siempre pueden, con o sin
+  `salaId` en el body.
+- `ESTUDIANTE` debe enviar `salaId` en el body. Se rechaza (`403`) si la
+  sala no tiene `permiteCreacionProyectos === true`, o si el estudiante no
+  está inscrito en ella (mismo chequeo por email contra `SalaEstudiante`
+  que usa Equipos). El proyecto queda creado con ese `salaId`.
+
+**Editar proyecto (`PATCH /api/projects/:id`):** un `DOCENTE` no puede
+editar un proyecto cuyo creador (`creadoPor`) tiene `rol === 'ESTUDIANTE'`
+(`403`), salvo que el `DOCENTE` sea además `ADMIN`. No depende de si el
+DOCENTE es dueño de la sala del proyecto.
+
+**Login de ESTUDIANTE (`POST /api/auth/login`):** se rechaza (`403`) si el
+estudiante no está inscrito (por email, `SalaEstudiante`) en ninguna sala
+"activa": no eliminada (`deletedAt: null`) y, si tiene `fechaFin`, todavía
+no vencida (`fechaFin >= ahora`). Una sala sin `fechaFin` se considera
+siempre activa. Se revalida en cada login, no solo la primera vez.
+
+**Frontend:** el login condicionado no requirió cambios — `LoginPage` ya
+mostraba `error.message` inline y `useLogin` ya disparaba `notify.error`,
+así que el mensaje del backend se ve tal cual. Sí hacía falta en
+`ProjectsPage`: el form de creación no tenía forma de mandar `salaId`, así
+que un ESTUDIANTE nunca podía crear proyecto (el 403 del backend era
+correcto pero no había manera de evitarlo). Ahora, si el rol activo es
+ESTUDIANTE, el form muestra un `<select>` con sus salas que tengan
+`permiteCreacionProyectos === true` (via nuevo `useSalas()` en
+`useSalasQueries.ts`); si no tiene ninguna, muestra el aviso y deshabilita
+el submit. También se agregó `onError` a `useUpdateProject` (no lo tenía)
+para que un DOCENTE que intenta editar un proyecto creado por un
+ESTUDIANTE vea el motivo del 403 en vez de que falle en silencio.
+
+**Login con Google (`GET /api/auth/google` y `/api/auth/google/callback`):**
+opcional, solo para EVALUADOR. Se habilita únicamente si están las tres
+variables `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` y `GOOGLE_CALLBACK_URL`;
+sin ellas el botón del login vuelve a `/login?error=google_no_disponible`.
+Reglas (`AuthService.loginOrCreateFromGoogle`):
+
+- Solo se aceptan emails verificados por Google (`email_verified`).
+- Usuario existente: mismas reglas que el login por password (un ESTUDIANTE
+  necesita una Sala activa). Su `rol` nunca se modifica.
+- Email sin usuario: se crea como `ESTUDIANTE` (sin `passwordHash`) solo si
+  figura en una Sala activa (`SalaEstudiante`); si no, `403`.
+- Google nunca crea `DOCENTE` ni `ADMIN`.
+- Emite las mismas cookies `evaluadorToken`/`csrfToken` que `POST /auth/login`
+  y redirige a `CORS_ORIGIN`. Los rechazos redirigen a
+  `/login?error=google_sin_acceso|google_fallo`.
+- El callback tiene límite de 20 requests/minuto por IP.
+
+## Comentarios
+
+```text
+POST   /api/projects/:proyectoId/comments
+GET    /api/projects/:proyectoId/comments
+PATCH  /api/projects/:proyectoId/comments/:comentarioId
+DELETE /api/projects/:proyectoId/comments/:comentarioId
+```
+
+`proyectoId` es obligatorio; `artefactoLogicoId` es opcional y se puede
+enviar al crear (body) o filtrar al listar (`?artefactoLogicoId=`). Se
+guarda el `artefactoLogicoId` (no el `id` de una versión puntual del
+`UxArtifact`) para que el comentario siga siendo válido aunque el
+artefacto se versione.
+
+**Permisos:** crear y listar requieren acceso al proyecto (dueño, `ADMIN` o
+`ProyectoMiembro`, vía `ProjectAccessService.assertAccess`). Editar
+(`PATCH`) y eliminar (`DELETE`) están restringidos al propio autor del
+comentario o a `ADMIN`.
+
+`DELETE` es soft delete (marca `deletedAt`); `findAll` excluye por defecto
+los comentarios eliminados. No hay hilos/respuestas anidadas ni
+notificaciones — comentario plano por proyecto/artefacto.
+
+`findAll` incluye `autor: { id, nombre, email }` (antes solo devolvía
+`autorId`) — lo necesita el frontend para mostrar quién comentó.
+
+**Frontend:** tab "Comentarios" en `ProjectDetailLayout` →
+`pages/ProjectCommentsPage.tsx` (`features/comments/`). Alcance de esta
+fase: comentarios generales del proyecto, sin filtro por
+`artefactoLogicoId` en la UI (el backend ya lo soporta si se necesita
+después). Crear disponible para cualquiera con acceso al proyecto;
+editar/borrar solo el propio autor o `ADMIN`, igual que el backend.
 
 ## Manejo de errores estandarizado
 

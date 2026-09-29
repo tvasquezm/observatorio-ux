@@ -226,7 +226,7 @@ Ese endpoint **no existe**. `ArtifactsController` solo expone `POST /projects/:p
 
 ---
 
-## Sprint 5 — Robustez del lock pesimista + acceso multi-usuario mínimo
+## Ronda 5 — Robustez del lock pesimista + acceso multi-usuario mínimo
 
 Foco del sprint: cerrar los cabos sueltos que dejó F1 (Sprint 4) al conectar el lock a la UI, y resolver el problema de fondo de que el modelo de acceso a proyectos solo soportaba un usuario por proyecto — lo que impedía probar el lock entre usuarios reales distintos.
 
@@ -258,9 +258,9 @@ Detalle en `docs/AUDIT_LOG.md` (F5) y `docs/CAMBIOS.md` (§Ronda 5).
 
 ---
 
-## Sprint 6 — Acceso a proyectos consolidado + gestión de miembros (Fase 2, backend)
+## Ronda 6 — Acceso a proyectos consolidado + gestión de miembros (Fase 2, backend)
 
-Foco: cerrar los dos "pendiente acotado" que dejó el Sprint 5 (F5) — el modelo `ProyectoMiembro` existía pero (a) `ProjectsService`/`CardSortingService`/`EvaluacionHeuristicaService` no lo reconocían, cada uno con su propio chequeo `creadoPorId`/ADMIN duplicado, y (b) no había forma de gestionar la membresía salvo por seed o base de datos directa.
+Foco: cerrar los dos "pendiente acotado" que dejó la Ronda 5 (F5) — el modelo `ProyectoMiembro` existía pero (a) `ProjectsService`/`CardSortingService`/`EvaluacionHeuristicaService` no lo reconocían, cada uno con su propio chequeo `creadoPorId`/ADMIN duplicado, y (b) no había forma de gestionar la membresía salvo por seed o base de datos directa.
 
 ### De 4 chequeos duplicados a un servicio compartido
 
@@ -295,9 +295,9 @@ Al mover el chequeo de `ArtifactsService` al servicio compartido, se revisó su 
 
 ---
 
-## Sprint 7 — Fase 1: sesión expirada, ConfirmDialog, múltiples incidentes
+## Ronda 7 — Fase 1: sesión expirada, ConfirmDialog, múltiples incidentes
 
-*(Documentado retroactivamente en el Sprint 8 — este trabajo se hizo en una sesión anterior que no se volcó a la documentación en su momento.)*
+*(Documentado retroactivamente en la Ronda 8 — este trabajo se hizo en una sesión anterior que no se volcó a la documentación en su momento.)*
 
 Foco: los 3 ítems de "UX y robustez de sesión" del plan original de Fase 1, sin tocar el modelo de datos ni el backend.
 
@@ -309,15 +309,15 @@ Foco: los 3 ítems de "UX y robustez de sesión" del plan original de Fase 1, si
 
 ---
 
-## Sprint 8 — UI de miembros, Vitest, y cierre de documentación
+## Ronda 8 — UI de miembros, Vitest, y cierre de documentación
 
-Foco: los "pendiente real" que el Sprint 6 dejó explícitos (UI de miembros, tests de frontend), más instalar Vitest desde cero (no existía), más ponerse al día con la documentación de la Fase 1 (Sprint 7, arriba).
+Foco: los "pendiente real" que la Ronda 6 dejó explícitos (UI de miembros, tests de frontend), más instalar Vitest desde cero (no existía), más ponerse al día con la documentación de la Fase 1 (Ronda 7, arriba).
 
 ### UI "Miembros del proyecto"
 
-Sin sorpresas de diseño: el backend (Sprint 6) ya definía la forma exacta de los 3 endpoints, así que el trabajo fue directo — cliente API + hooks react-query (mismo patrón que el resto de `useProjectsQueries.ts`) + una página nueva. La única decisión real fue **dónde** ocultar los controles de administración: se comparan `useAuthStore().user.id`/`.rol` contra `proyecto.creadoPorId` en el cliente, para no mostrar un formulario de "agregar miembro" o un botón "Quitar" que el backend igual va a rechazar con `403`. Esto es UX, no seguridad — el enforcement real sigue siendo `assertOwnerOrAdmin` en el backend; si alguien arma el request a mano igual se lo rechaza.
+Sin sorpresas de diseño: el backend (Ronda 6) ya definía la forma exacta de los 3 endpoints, así que el trabajo fue directo — cliente API + hooks react-query (mismo patrón que el resto de `useProjectsQueries.ts`) + una página nueva. La única decisión real fue **dónde** ocultar los controles de administración: se comparan `useAuthStore().user.id`/`.rol` contra `proyecto.creadoPorId` en el cliente, para no mostrar un formulario de "agregar miembro" o un botón "Quitar" que el backend igual va a rechazar con `403`. Esto es UX, no seguridad — el enforcement real sigue siendo `assertOwnerOrAdmin` en el backend; si alguien arma el request a mano igual se lo rechaza.
 
-Se encontró de paso que `projects.api.ts` tenía su propio `request()` (no comparte código con `artifacts.api.ts`) y nunca había recibido el fix de sesión expirada (401) del Sprint 7 — se aplicó el mismo criterio ahí también, por consistencia, no porque se haya encontrado un bug reportado.
+Se encontró de paso que `projects.api.ts` tenía su propio `request()` (no comparte código con `artifacts.api.ts`) y nunca había recibido el fix de sesión expirada (401) de la Ronda 7 — se aplicó el mismo criterio ahí también, por consistencia, no porque se haya encontrado un bug reportado.
 
 ### Vitest, instalado por primera vez
 
@@ -327,7 +327,7 @@ El frontend no tenía ninguna infraestructura de testing. Se evaluó no meter Je
 
 Se agregó un único `data-testid` a la matriz 3×3 (`celda-{impacto}-{frecuencia}`) exclusivamente para poder verificar agrupación desde el test — no cambia el comportamiento visual ni de accesibilidad, es un hook de testing puro.
 
-**Verificado, no solo revisado a mano:** a diferencia de sesiones anteriores donde no fue posible instalar dependencias (ver limitación del Sprint 6), acá sí se pudo — se copió `apps/frontend` fuera del monorepo (para que `npm install` no intentara resolver el protocolo `workspace:` de paquetes hermanos) y se corrió tanto `npx vitest run` (3/3 tests pasan) como `npx tsc --noEmit` (sin errores) sobre el resultado real, no sobre una lectura manual del código. La instalación fue en una copia de trabajo — el repo real necesita su propio `pnpm install` para bajar estas devDependencies nuevas.
+**Verificado, no solo revisado a mano:** a diferencia de sesiones anteriores donde no fue posible instalar dependencias (ver limitación de la Ronda 6), acá sí se pudo — se copió `apps/frontend` fuera del monorepo (para que `npm install` no intentara resolver el protocolo `workspace:` de paquetes hermanos) y se corrió tanto `npx vitest run` (3/3 tests pasan) como `npx tsc --noEmit` (sin errores) sobre el resultado real, no sobre una lectura manual del código. La instalación fue en una copia de trabajo — el repo real necesita su propio `pnpm install` para bajar estas devDependencies nuevas.
 
 ### Documentación
 
@@ -353,13 +353,259 @@ Foco: cruzar 3 reglas de negocio del documento maestro contra el código real de
 
 **Regla 1 (Centralización por `proyectoId`):** cumplía sin cambios — `App.tsx` anida las 5 técnicas + analítica/miembros/participantes bajo `/proyectos/:proyectoId`, `ProjectDetailLayout` inyecta `proyectoId` vía `useOutletContext`, todas las páginas hijas lo consumen de ahí. Sin brecha, sin código nuevo.
 
-**Regla 2 (DOCENTE no edita artefactos de estudiante — "la visibilidad no implica permiso"):** ver `docs/AUDIT_LOG.md` J1. `ArtifactsController` daba a DOCENTE los mismos permisos de escritura que a ESTUDIANTE sobre `create`/`createVersion`/`acquireLock`/`releaseLock`/`remove` — solo `assertAccess` (dueño/ADMIN/miembro) filtraba, sin distinguir rol. Cerrado acotando `@Roles(...)` por método (DOCENTE queda solo en los `GET`) y agregando el mismo gating en frontend (`shared/auth/permisos.ts` + `PersonasPage`/`JourneyMapPage`/`MomentosCriticosPage`) para no mostrar controles que el backend igual iba a rechazar — mismo criterio ya usado en Sprint 8 para miembros de proyecto.
+**Regla 2 (DOCENTE no edita artefactos de estudiante — "la visibilidad no implica permiso"):** ver `docs/AUDIT_LOG.md` J1. `ArtifactsController` daba a DOCENTE los mismos permisos de escritura que a ESTUDIANTE sobre `create`/`createVersion`/`acquireLock`/`releaseLock`/`remove` — solo `assertAccess` (dueño/ADMIN/miembro) filtraba, sin distinguir rol. Cerrado acotando `@Roles(...)` por método (DOCENTE queda solo en los `GET`) y agregando el mismo gating en frontend (`shared/auth/permisos.ts` + `PersonasPage`/`JourneyMapPage`/`MomentosCriticosPage`) para no mostrar controles que el backend igual iba a rechazar — mismo criterio ya usado en la Ronda 8 para miembros de proyecto.
 
-**Regla 3 (evaluadorToken y participanteToken "estrictamente separados"):** ver `docs/AUDIT_LOG.md` J2. En frontend ya cumplía (`api-client.ts` solo participante/Bearer/localStorage, `artifacts.api.ts` solo evaluador/cookie httpOnly+CSRF). En backend, `JwtStrategy` firmaba y validaba ambos tipos de token con el mismo `jwt.secret` — el propio comentario del archivo decía "el mismo secreto firma ambos". La única barrera real entre uno y otro era el claim `actor`, no dos mecanismos de firma independientes. Cerrado con secreto y estrategia Passport separados (`JWT_PARTICIPANTE_SECRET`, `JwtParticipanteStrategy`, `ParticipanteJwtService`) — nueva env var **obligatoria**, documentado como *breaking change* en `CHANGELOG.md` y en `docs/sprints/sprint4-auth-roles.md`.
+**Regla 3 (evaluadorToken y participanteToken "estrictamente separados"):** ver `docs/AUDIT_LOG.md` J2. En frontend ya cumplía (`api-client.ts` solo participante/Bearer en `sessionStorage`; `evaluator-client.ts` solo evaluador/cookie httpOnly+CSRF). En backend, `JwtStrategy` firmaba y validaba ambos tipos de token con el mismo `jwt.secret` — el propio comentario del archivo decía "el mismo secreto firma ambos". La única barrera real entre uno y otro era el claim `actor`, no dos mecanismos de firma independientes. Cerrado con secreto y estrategia Passport separados (`JWT_PARTICIPANTE_SECRET`, `JwtParticipanteStrategy`, `ParticipanteJwtService`) — nueva env var **obligatoria**, documentado como *breaking change* en `CHANGELOG.md` y en `docs/sprints/sprint4-auth-roles.md`.
 
 **Pendiente real, no cerrado en este sprint:**
 - No se auditaron con el mismo detalle Card Sorting ni Evaluación Heurística contra la Regla 2 — el hallazgo se acotó a los 3 artefactos versionados (`UxArtifact`: persona/journey-map/momentos-críticos), que es donde el documento maestro habla explícitamente de "lienzos" de estudiante.
-- No se corrió el flujo manual completo (login DOCENTE/ESTUDIANTE + intento de escritura con Postman) al cierre de esta sesión — quedó como checklist en `docs/sprints/sprint4-auth-roles.md`, no verificado end-to-end acá.
+- ~~No existía una comprobación repetible del flujo completo por rol.~~ Cerrado
+  el 10-09-2026 con Playwright: login DOCENTE/ESTUDIANTE, recorrido por
+  proyecto y las cinco técnicas, acceso a Analítica para DOCENTE y redirección
+  de ESTUDIANTE. La misma suite se ejecuta en escritorio (1440×900) y móvil
+  táctil (390×844), comprobando que la página no produzca overflow horizontal.
+
+---
+
+## Sesión de trabajo — cierre verificable del Sprint 4 oficial
+
+Se contrastaron los entregables D1–D8 del backlog con el repositorio actual.
+No había un conflicto de Git en D2/D5: la confusión provenía de que el Audit
+Log reutilizaba esos identificadores para hallazgos del Sprint 3. Las entradas
+históricas ahora se llaman AUD-D1–AUD-D5.
+
+**D2 (dashboard):** `ProjectsService` ya entregaba `_count.sesiones`, pero el
+tipo `Proyecto` del frontend descartaba esa parte del contrato y el dashboard
+mostraba un contador fijo de técnicas. El tipo y la interfaz ahora consumen el
+conteo real, tanto en el resumen como en la actividad reciente, con prueba de
+regresión.
+
+**D4 (componentes comunes):** se extrajo `TechniquePageHeader` como una frontera
+pequeña y reutilizable por Personas, Journey Map y Momentos Críticos. Conserva
+el DOM, las clases y las acciones preexistentes; no introduce colores ni un
+diseño visual nuevo.
+
+**D5 (integración):** los checkout de Windows convertían `entrypoint.sh` a CRLF
+y `/bin/sh` fallaba antes de ejecutar migraciones. `.gitattributes` fija LF para
+todos los scripts `.sh`. La CI suma tests del frontend y auditoría de
+dependencias altas/críticas; las dependencias vulnerables detectadas fueron
+actualizadas o fijadas mediante overrides del workspace.
+
+**Verificación local:** 69 tests de backend, 13 tests de frontend y los builds
+de backend, frontend y `shared-types` pasan. `pnpm audit` informa cero
+vulnerabilidades conocidas. D7 y R4 siguen pendientes porque no se encontró el
+capítulo 2 ni un acta fuente que permita completarlos sin fabricar evidencia.
+
+---
+
+## Sesión de trabajo — acceso estudiantil de solo lectura a Salas
+
+`SalaEstudiante` continúa siendo un registro liviano, sin una relación directa
+con `Usuario`. Para que una cuenta ESTUDIANTE pueda reconocer sus salas sin
+migrar datos ni duplicar identidades, la autorización cruza en tiempo de
+consulta el correo normalizado de la sesión autenticada con la restricción
+única `SalaEstudiante(salaId, email)`.
+
+Esta asociación concede únicamente lectura de la sala y del listado de
+proyectos alojados. Crear o editar salas, administrar estudiantes y
+crear/vincular/desvincular proyectos sigue exigiendo DOCENTE o ADMIN en el
+backend. El frontend replica esa separación para no mostrar acciones que la API
+rechazaría, pero la frontera de seguridad permanece en `SalasController` y
+`SalasService`.
+
+### Creación centralizada y semántica de unión
+
+La creación de un proyecto tiene un único punto de entrada en `/proyectos`.
+El Dashboard solo navega hacia el listado y una Sala únicamente permite
+vincular un proyecto ya existente. Esto evita formularios equivalentes con
+comportamientos divergentes y mantiene una sola mutación de creación expuesta
+por la interfaz.
+
+`Unirse a la sala` es una acción exclusiva de la vista ESTUDIANTE. No descubre
+salas públicas: se muestra sobre el resultado ya filtrado por el correo
+autenticado y el detalle vuelve a comprobar la invitación. DOCENTE y ADMIN usan
+la acción distinta `Administrar sala`; la diferencia visual no sustituye los
+controles de autorización del backend.
+
+## Fase 3 (Plan de ajustes) — Módulo Comentarios (backend)
+
+Nueva entidad `Comentario`, independiente de `UxArtifact`. Alcance definido
+sin resumen previo disponible (ver `docs/PLAN_AJUSTES.md §FASE 3`):
+
+- `proyectoId` obligatorio; `artefactoLogicoId` opcional. Se referencia el
+  artefacto **lógico** (no el `id` de una fila de versión puntual), igual
+  criterio que usa `UxArtifact.artefactoLogicoId` internamente, para que un
+  comentario no quede huérfano cuando el artefacto se versiona.
+- Solo `Usuario` (ESTUDIANTE/DOCENTE/ADMIN) comenta — `Participante` (sin
+  cuenta) queda fuera de este alcance, no estaba en el contexto original.
+- Acceso vía `ProjectAccessService.assertAccess` (dueño/ADMIN/miembro) para
+  crear y listar — mismo servicio ya compartido con Artifacts/Projects.
+- Editar y eliminar (soft delete, mismo patrón que Sala/Proyecto/UxArtifact)
+  quedan restringidos al propio autor o `ADMIN`, chequeo propio del módulo
+  (no delegado a `ProjectAccessService`, que no distingue autoría de
+  comentario).
+- Sin hilos/respuestas anidadas ni notificaciones — comentario plano.
+- Nuevo módulo `modules/comments` (`CommentsModule`/`Service`/`Controller`/
+  `Dto`), registrado en `AppModule`. Endpoints y detalle de permisos en
+  `docs/BACKEND.md §Comentarios`.
+- Sin frontend en esta fase — no estaba definido en el plan original; el
+  plan solo marca frontend explícito para Fases 1, 6 y 7.
+
+**Actualización (frontend):** agregado en sesión posterior. Tab
+"Comentarios" en `ProjectDetailLayout` → `features/comments/` +
+`pages/ProjectCommentsPage.tsx`, mismo patrón que `features/projects/`.
+Requirió un cambio chico en el backend: `CommentsService.findAll` ahora
+incluye `autor: { id, nombre, email }` (antes solo `autorId`, insuficiente
+para mostrar quién comentó). No se implementó filtro por
+`artefactoLogicoId` en la UI — queda para cuando exista una vista que
+comente sobre un artefacto puntual.
+
+**No verificado en este entorno:** no fue posible correr `prisma generate`
+ni compilar (`tsc`) porque el dominio de descarga de engines de Prisma
+(`binaries.prisma.sh`) está bloqueado por la configuración de red del
+sandbox. La migración SQL se escribió a mano siguiendo el formato de las
+migraciones anteriores del proyecto, y el código se revisó manualmente
+contra los patrones ya existentes (`ArtifactsModule`/`ProjectAccessService`).
+Verificar con `pnpm --filter backend prisma generate` y
+`pnpm --filter backend build` en un entorno con esa red disponible antes de
+mergear.
+
+**Actualización:** verificado por el usuario en su máquina — `prisma
+generate`, `nest build`, `prisma migrate deploy` (contra Postgres real) y
+`pnpm --filter backend test comments` (14/14) pasaron sin errores.
+
+## Fase 4 (Plan de ajustes) — Módulo Equipos (backend)
+
+Entidades nuevas `Equipo`/`EquipoMiembro` + dos campos nuevos en `Sala`
+(`permiteCreacionEquipos`, `limiteIntegrantesEquipo`). Alcance definido
+por Claude a partir del titular de la Fase 4 en `docs/PLAN_AJUSTES.md`
+(mismo criterio que en Fase 3 — sin resumen previo disponible):
+
+- Un `Equipo` vive dentro de una `Sala` (`salaId` obligatorio), no de un
+  `Proyecto` — el plan original no vincula equipos a proyectos, así que no
+  se agregó esa relación.
+- `permiteCreacionEquipos` (toggle) y `limiteIntegrantesEquipo` (límite)
+  se editan reutilizando el `PATCH /salas/:id` ya existente, no un
+  endpoint nuevo — evita duplicar el mecanismo de autorización
+  (`assertOwnerOrAdmin`) que `SalasService.update` ya tenía.
+- Regla de creación: DOCENTE dueño/ADMIN siempre; ESTUDIANTE solo con el
+  toggle activo y estando inscrito en la sala (reutiliza el chequeo por
+  email de `SalasService.findAll`, no se duplicó como campo nuevo).
+- Gestión (editar/eliminar/miembros) restringida al creador del equipo,
+  DOCENTE dueño, o ADMIN — regla propia del módulo, no delegada a un
+  servicio compartido tipo `ProjectAccessService` porque la noción de
+  "acceso" acá es distinta (equipo, no proyecto).
+- Salir del equipo (quitarse a uno mismo) no requiere ser gestor —
+  distinto de "quitar a otro miembro", que sí lo requiere.
+- Eliminar equipo es **hard delete** real, a diferencia del resto de
+  entidades del sistema (que usan soft delete) — un equipo es una
+  agrupación operativa, no evidencia de investigación.
+- Nuevo módulo `modules/equipos` (`EquiposModule`/`Service`/`Controller`/
+  `Dto`), anidado como `salas/:salaId/equipos`, registrado en `AppModule`.
+- Sin frontend en esta fase, mismo criterio que Fase 3.
+
+Detalle de endpoints y permisos en `docs/BACKEND.md §Equipos (Fase 4)`.
+Tests unitarios en `equipos.service.spec.ts` (creación por rol/toggle,
+límite de integrantes, gestión vs. autogestión, hard delete).
+
+**No verificado en el sandbox:** mismo bloqueo de red que la Fase 3
+(`binaries.prisma.sh`); revisado manualmente contra los patrones
+existentes. Verificar con `pnpm --filter backend prisma generate` +
+`pnpm --filter backend build` + `pnpm --filter backend test equipos` en un
+entorno con esa red disponible.
+
+**Actualización (frontend):** agregado en sesión posterior, junto con el
+frontend de Comentarios (Fase 3). Tab "Equipos" en `SalaDetallePage` +
+`features/equipos/`. Requirió un cambio de contrato en el backend:
+`AddMiembroEquipoDto` pasó de `{ usuarioId }` (UUID) a `{ email }` — el
+frontend no tenía forma de conocer el UUID de un estudiante, y el
+endpoint no tenía consumidores todavía, así que el cambio fue seguro
+(mismo patrón que `ProjectsService.addMember`). Se actualizaron los 4
+tests de `addMiembro` en `equipos.service.spec.ts` para reflejar el nuevo
+contrato (sin cambios en lo que verifican, solo en el input). También se
+reestructuró la rama ESTUDIANTE de `SalaDetallePage` (antes solo lectura
+sin tabs) para agregar la tab de Equipos junto a la de Proyectos.
 
 
 
+## Fase 5 (Plan de ajustes) — Permisos de Proyecto + login condicionado
+
+Alcance acotado en conversación con el usuario antes de codear (el titular
+del plan en `docs/PLAN_AJUSTES.md` era ambiguo sobre cómo se asocia la
+sala al crear el proyecto y qué significa "sala activa"):
+
+- Nuevo campo `Sala.permiteCreacionProyectos` (toggle), mismo patrón que
+  `permiteCreacionEquipos` — editable vía el `PATCH /salas/:id` existente,
+  no un endpoint nuevo.
+- `CreateProjectDto` suma `salaId` opcional. DOCENTE/ADMIN sin cambio de
+  comportamiento. `ESTUDIANTE` debe enviar `salaId`; se valida sala activa
+  (no soft-deleted), toggle activo, e inscripción del estudiante en la
+  sala (mismo chequeo por email que Equipos) — si falta algo, `403`/`404`.
+- `ProjectsService.update()`: `DOCENTE` no puede editar un proyecto cuyo
+  `creadoPor.rol === 'ESTUDIANTE'`, salvo que también sea `ADMIN`. No
+  depende de si el DOCENTE es dueño de la sala del proyecto — el titular
+  del plan no distinguía eso.
+- "La materia lo requiere" (texto original del plan): descartado, no
+  existe entidad Materia en el schema.
+- Extra pedido por el usuario en la misma fase: `AuthService.login()`
+  rechaza a un `ESTUDIANTE` si no está inscrito en ninguna Sala "activa"
+  (`deletedAt: null` y, si tiene `fechaFin`, no vencida; sin `fechaFin` =
+  siempre activa). Se revalida en cada login.
+- Sin frontend en esta fase (no estaba en el alcance pedido).
+
+Detalle de endpoints y permisos en
+`docs/BACKEND.md §Proyectos — permisos de creación/edición (Fase 5)`.
+
+**No verificado en el sandbox:** mismo bloqueo de red que Fase 3/4
+(no se pudo instalar el monorepo con `pnpm`; `npm` no resuelve los
+`workspace:*` del `package.json`). Revisado manualmente contra los
+patrones existentes (Equipos/Fase 4). Verificar con
+`pnpm --filter backend prisma generate` + `pnpm --filter backend build`
++ tests de `projects` y `auth` en un entorno con esa red disponible.
+
+**Actualización (frontend):** agregado en sesión posterior, junto con el
+resto (Fases 3 y 4). No hizo falta tocar el login (ver
+`docs/BACKEND.md §Proyectos — permisos de creación/edición (Fase 5)`).
+Cambios: `ProjectsPage` suma selector de sala para ESTUDIANTE al crear
+(`useSalas()` nuevo en `features/salas/hooks/`), y `useUpdateProject`
+suma `onError` (faltaba) para que se vea el 403 cuando un DOCENTE intenta
+editar un proyecto de un ESTUDIANTE.
+
+## Sprint 5 oficial — Panel administrativo
+
+> Este Sprint 5 corresponde al cronograma oficial. No debe confundirse con la
+> “Fase 5” histórica del plan de ajustes descrita arriba.
+
+El panel `/admin` consolida gestión de cuentas, proyectos y avance de sesiones.
+Las capacidades administrativas sensibles aplican defensa en profundidad:
+`RoleRoute` en el frontend, `RolesGuard` en el controlador y chequeos de rol en
+el servicio. Así, ocultar la navegación no se confunde con autorización real.
+
+Los proyectos eliminados por ADMIN usan `deletedAt` (Soft Delete). Esta decisión
+preserva la trazabilidad de sesiones y artefactos, y evita que una operación de
+administración destruya evidencia del proceso de investigación.
+
+## Sprint 6 oficial — Despliegue reproducible
+
+La infraestructura separa explícitamente desarrollo y producción mediante
+targets multi-stage en ambos Dockerfiles. El target productivo del backend
+ejecuta el JavaScript compilado y aplica migraciones con `prisma migrate deploy`;
+el del frontend entrega únicamente los archivos generados por Vite mediante
+Nginx. El seed y los servidores en modo watch quedan limitados al target de
+desarrollo.
+
+`docker-compose.production.yml` define cuatro servicios con responsabilidades
+aisladas: PostgreSQL, API NestJS, servidor estático y reverse proxy. Solo el
+reverse proxy publica un puerto. Nginx mantiene frontend y `/api` bajo el mismo
+origen, lo que simplifica CORS y evita incorporar la dirección interna del
+backend al bundle del navegador.
+
+Los servicios declaran healthchecks y dependencias condicionadas a estado
+saludable. La base debe aceptar conexiones antes de que el backend aplique las
+migraciones; backend y frontend deben estar saludables antes de iniciar el
+proxy. El workflow repite un despliegue desde cero y consulta los tres puntos
+observables (`/nginx-health`, `/api/health` y `/`) en cada push.
+
+Se actualizó la línea base a Node.js 24 LTS en Docker, CI y `engines`. El detalle
+operativo y el estado F1–F8/R6 están en
+`docs/sprints/sprint6-despliegue.md`.

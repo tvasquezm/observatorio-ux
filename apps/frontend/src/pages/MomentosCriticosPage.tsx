@@ -6,8 +6,6 @@ import {
   useUpdateCriticalMoment,
   useDeleteCriticalMoment,
   useCriticalMoments,
-  useLockCriticalMoment,
-  useUnlockCriticalMoment,
 } from '../features/momentos-criticos/hooks/useMomentosCriticosQueries';
 import {
   addIncidente,
@@ -19,8 +17,13 @@ import {
 import { ArtifactsApiError } from '../shared/api/artifacts.api';
 import { notify } from '../shared/api/toast';
 import { useConfirm } from '../shared/api/confirm';
-import { useAuthStore } from '../features/auth/store/useAuthStore';
+import { TechniquePageHeader } from '../shared/components/TechniquePageHeader';
 import { puedeEditarArtefactos } from '../shared/auth/permisos';
+import { useActivePerspective } from '../shared/auth/useActivePerspective';
+import { useAuthStore } from '../features/auth/store/useAuthStore';
+import { useProject } from '../features/projects/hooks/useProjectsQueries';
+import { useArtifactEditLock } from '../shared/hooks/useArtifactEditLock';
+import { useUnsavedChanges } from '../shared/hooks/useUnsavedChanges';
 
 const MIN_INCIDENTES = 1; // MomentosCriticosSchema exige mínimo 1
 
@@ -49,10 +52,11 @@ export function MomentosCriticosPage() {
   const { mutate: crear, isPending: isCreating, error: createError } = useCreateCriticalMoment(proyectoId);
   const { mutate: actualizar, isPending: isUpdating, error: updateError } = useUpdateCriticalMoment(proyectoId);
   const { mutate: eliminar, error: deleteError } = useDeleteCriticalMoment(proyectoId);
-  const { mutate: lockCriticalMoment } = useLockCriticalMoment(proyectoId);
-  const { mutate: unlockCriticalMoment } = useUnlockCriticalMoment(proyectoId);
+  const editLock = useArtifactEditLock(proyectoId);
   const confirm = useConfirm();
-  const puedeEditar = puedeEditarArtefactos(useAuthStore((s) => s.user));
+  const user = useAuthStore((state) => state.user);
+  const { data: proyecto } = useProject(proyectoId);
+  const puedeEditar = puedeEditarArtefactos(useActivePerspective(), user?.id, proyecto?.creadoPorId);
   const error = listError ?? createError ?? updateError ?? deleteError;
 
   const [form, setForm] = useState<MomentosCriticosContenido>(contenidoVacio());
@@ -63,20 +67,24 @@ export function MomentosCriticosPage() {
   const [mostrarForm, setMostrarForm] = useState(false);
   const [vistaMatriz, setVistaMatriz] = useState(false);
   const [editandoArtefactoId, setEditandoArtefactoId] = useState<string | null>(null);
+  const [editandoVersion, setEditandoVersion] = useState<number | null>(null);
   const [readOnly, setReadOnly] = useState(false);
+  useUnsavedChanges(mostrarForm, { form, accionesInputs }, isCreating || isUpdating);
 
   function resetForm() {
-    if (editandoArtefactoId) unlockCriticalMoment(editandoArtefactoId);
+    editLock.release();
     setForm(contenidoVacio());
     setAccionesInputs(['']);
     setEditandoArtefactoId(null);
+    setEditandoVersion(null);
     setMostrarForm(false);
     setReadOnly(false);
   }
 
   function handleStartEdit(m: MomentosCriticosArtifact) {
-    const artefactoId = m.artefactoLogicoId || m.id;
+    const artefactoId = m.id;
     setEditandoArtefactoId(artefactoId);
+    setEditandoVersion(m.version);
     setForm(m.contenido);
     setAccionesInputs(
       m.contenido.incidentes.map((inc) => (inc.accionesSugeridas ? inc.accionesSugeridas.join(', ') : '')),
@@ -84,18 +92,13 @@ export function MomentosCriticosPage() {
     setMostrarForm(true);
     setReadOnly(false);
 
-    lockCriticalMoment(
-      { artefactoId },
-      {
-        onError: (err) => {
-          const msg = err instanceof ArtifactsApiError && err.status === 409
-            ? 'Otro usuario está editando este momento crítico ahora mismo.'
-            : 'No se pudo bloquear el momento crítico para editar.';
-          notify.error(msg);
-          setReadOnly(true);
-        },
-      },
-    );
+    void editLock.acquire(artefactoId).catch((err) => {
+      const msg = err instanceof ArtifactsApiError && err.status === 409
+        ? 'Otro usuario está editando este momento crítico ahora mismo.'
+        : 'No se pudo bloquear el momento crítico para editar.';
+      notify.error(msg);
+      setReadOnly(true);
+    });
   }
 
   function actualizarIncidente(index: number, campo: keyof IncidenteCritico, valor: string) {
@@ -140,7 +143,7 @@ export function MomentosCriticosPage() {
     if (editandoArtefactoId) {
       const idAEditar = editandoArtefactoId;
       actualizar(
-        { artefactoId: idAEditar, contenido: payload },
+        { artefactoId: idAEditar, contenido: payload, expectedVersion: editandoVersion ?? undefined },
         {
           onSuccess: resetForm,
         }
@@ -165,7 +168,12 @@ export function MomentosCriticosPage() {
 
   return (
     <div className="artifact-page">
-      <div className="page-head"><div><span className="eyebrow">TÉCNICA DE INVESTIGACIÓN</span><h1>Momentos críticos</h1><p>Prioriza los incidentes que más afectan la experiencia de tus usuarios.</p></div><span className="status-pill">Matriz de impacto</span></div>
+      <TechniquePageHeader
+        label="TÉCNICA DE INVESTIGACIÓN"
+        title="Momentos críticos"
+        description="Prioriza los incidentes que más afectan la experiencia de tus usuarios."
+        action={<span className="status-pill">Matriz de impacto</span>}
+      />
     <div className="panel">
       <div className="panel-head">
         <h2>Momentos Críticos</h2>
@@ -194,12 +202,12 @@ export function MomentosCriticosPage() {
       {puedeEditar && mostrarForm && (
         <form onSubmit={handleSubmit} className="entity-card form">
           <h3>{editandoArtefactoId ? 'Editar Momento Crítico' : 'Nuevo Momento Crítico'}</h3>
-          {readOnly && (
+          {(readOnly || editLock.lockLost) && (
             <p className="error-text">
               Este momento crítico está bloqueado por otro usuario. No puedes editarlo en este momento.
             </p>
           )}
-          <fieldset disabled={readOnly} className="readonly-fieldset">
+          <fieldset disabled={readOnly || editLock.lockLost} className="readonly-fieldset">
           <div className="form-grid-2">
             <input
               placeholder="Nombre del perfil de usuario *"

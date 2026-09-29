@@ -356,7 +356,7 @@ Cuarta sesión de chat registrada en este documento (continúa de §1–9, con v
 
 ### 10.1 Test roto + Prisma Client desactualizado
 
-Ver **D1** y **D2** en `docs/AUDIT_LOG.md`. Resumen: un `sed -i` mal aplicado rompió la estructura del archivo de test; corregido a mano tras inspección línea por línea. Después, el mismo test falló por segunda causa distinta (Prisma Client desactualizado, no relacionado al `sed`) — `pnpm prisma generate` lo resolvió. 25/25 tests pasando al cierre de ese tramo.
+Ver **AUD-D1** y **AUD-D2** en `docs/AUDIT_LOG.md`. Resumen: un `sed -i` mal aplicado rompió la estructura del archivo de test; corregido a mano tras inspección línea por línea. Después, el mismo test falló por segunda causa distinta (Prisma Client desactualizado, no relacionado al `sed`) — `pnpm prisma generate` lo resolvió. 25/25 tests pasando al cierre de ese tramo.
 
 ### 10.2 Auditoría del repo antes de escribir código
 
@@ -364,7 +364,7 @@ Se corrieron ~6 rondas de `find`/`cat`/`grep` (mismo criterio que documenta `§2
 
 - `apps/frontend` **ya existía** con `features/{persona,journey-map,momentos-criticos,card-sorting}` completos (api + hooks + store, patrón consistente) — nada de eso se reescribió.
 - `pages/` y `layouts/` estaban vacíos (solo `.gitkeep`) — confirmando que `§8.4` (pendiente #2 y #3) nunca se completó.
-- Ver **D3** en el Audit Log: `main.tsx`/`App.tsx` ya asumían `react-router-dom`, cerrando el conflicto de `§9.1`, pero la dependencia no estaba instalada.
+- Ver **AUD-D3** en el Audit Log: `main.tsx`/`App.tsx` ya asumían `react-router-dom`, cerrando el conflicto de `§9.1`, pero la dependencia no estaba instalada.
 - No había ningún store/servicio de auth de EVALUADOR — solo el de PARTICIPANTE (`shared/api/api-client.ts`). `shared/api/artifacts.api.ts` ya tenía un TODO explícito esperando esa pieza.
 
 ### 10.3 Troubleshooting de arranque (esta sesión, en vivo — no son bugs de código, quedan acá y no en el Audit Log)
@@ -375,7 +375,7 @@ Orden real de bloqueos, del más al menos evidente:
 2. Igual patrón en el puerto `5174` (instancia zombie de `pnpm dev` local, con su propio `.env` vacío — leía `apps/frontend/.env`, no el `.env` raíz que sí usa `docker-compose.yml`). Causó un 404 confuso en el login que en un primer momento parecía bug de código; no lo era.
 3. `PrismaClientInitializationError: Can't reach database server` → el servicio de Windows `com.docker.service` estaba `Stopped` pese a que la GUI de Docker Desktop mostraba "running". Ni reiniciar la app ni reiniciar el PC lo resolvió — hizo falta `Start-Service com.docker.service` desde PowerShell como administrador.
 4. Confirmado que `docker-compose.yml` levanta los 4 servicios completos (`frontend`, `backend`, `shared-types`, `db`) — correr los `pnpm` locales en paralelo a Docker es la causa raíz de los puntos 1 y 2, no un bug de la app.
-5. Ver **D4** y **D5** en el Audit Log (Vite sin `host: true`, `.env` sin `/api`).
+5. Ver **AUD-D4** y **AUD-D5** en el Audit Log (Vite sin `host: true`, `.env` sin `/api`).
 6. Al instalar `react-router-dom` desde Windows (host) en vez de desde dentro del contenedor, `pnpm` tiró `ERR_PNPM_UNEXPECTED_STORE` al intentar instalar algo más dentro del contenedor — el store de pnpm del host y el del contenedor no coinciden. Resuelto con `docker compose exec frontend pnpm install` (reinstala todo desde el store correcto). **Nota para el equipo:** instalar dependencias nuevas del frontend siempre desde dentro del contenedor (`docker compose exec frontend pnpm --filter frontend add <paquete>`), nunca desde el host, mientras el stack corra en Docker.
 
 ### 10.4 Archivos escritos en esta sesión (frontend)

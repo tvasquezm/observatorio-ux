@@ -12,6 +12,7 @@ import { AuthenticatedUser } from '../../auth/types/authenticated-user.interface
 describe('ProjectsService', () => {
   let service: ProjectsService;
   let prisma: {
+    $transaction: jest.Mock;
     proyecto: {
       create: jest.Mock;
       findMany: jest.Mock;
@@ -20,6 +21,11 @@ describe('ProjectsService', () => {
     };
     proyectoMiembro: {
       findUnique: jest.Mock;
+    };
+    participanteWhitelist: {
+      findUnique: jest.Mock;
+      create: jest.Mock;
+      update: jest.Mock;
     };
   };
 
@@ -31,6 +37,7 @@ describe('ProjectsService', () => {
     id: PROYECTO_ID,
     nombre: 'Observatorio UX',
     creadoPorId: DUEÑO_ID,
+    creadoPor: { rol: 'DOCENTE' },
   };
 
   const userDueño: AuthenticatedUser = { id: DUEÑO_ID, rol: 'DOCENTE' } as AuthenticatedUser;
@@ -39,6 +46,7 @@ describe('ProjectsService', () => {
 
   beforeEach(async () => {
     prisma = {
+      $transaction: jest.fn((callback) => callback(prisma)),
       proyecto: {
         create: jest.fn(),
         findMany: jest.fn(),
@@ -47,6 +55,11 @@ describe('ProjectsService', () => {
       },
       proyectoMiembro: {
         findUnique: jest.fn(),
+      },
+      participanteWhitelist: {
+        findUnique: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
       },
     };
 
@@ -74,23 +87,82 @@ describe('ProjectsService', () => {
   });
 
   describe('findAll', () => {
-    it('un usuario normal solo ve SUS proyectos (filtra por creadoPorId)', async () => {
+    it('un usuario normal ve proyectos propios y proyectos donde es miembro', async () => {
       prisma.proyecto.findMany.mockResolvedValue([proyectoDeEjemplo]);
 
       await service.findAll(userDueño);
 
       expect(prisma.proyecto.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { creadoPorId: DUEÑO_ID } }),
+        expect.objectContaining({
+          where: {
+            deletedAt: null,
+            OR: [
+              { creadoPorId: DUEÑO_ID },
+              { miembros: { some: { usuarioId: DUEÑO_ID } } },
+              { sala: { profesorId: DUEÑO_ID } },
+            ],
+          },
+        }),
       );
     });
 
-    it('ADMIN ve todos los proyectos (sin filtro where)', async () => {
+    it('ADMIN ve todos los proyectos (sin filtro adicional, solo excluye eliminados)', async () => {
       prisma.proyecto.findMany.mockResolvedValue([proyectoDeEjemplo]);
 
       await service.findAll(userAdmin);
 
       expect(prisma.proyecto.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: undefined }),
+        expect.objectContaining({ where: { deletedAt: null } }),
+      );
+    });
+  });
+
+  describe('adminOverview', () => {
+    it('devuelve proyectos con sesiones y autor para el panel administrativo', async () => {
+      prisma.proyecto.findMany.mockResolvedValue([proyectoDeEjemplo]);
+
+      await expect(service.adminOverview(userAdmin)).resolves.toEqual([proyectoDeEjemplo]);
+      expect(prisma.proyecto.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { deletedAt: null },
+          select: expect.objectContaining({
+            creadoPor: expect.any(Object),
+            sesiones: expect.any(Object),
+          }),
+        }),
+      );
+    });
+
+    it('rechaza el resumen si el servicio recibe un rol no administrador', async () => {
+      expect(() => service.adminOverview(userDueño)).toThrow(ForbiddenException);
+      expect(prisma.proyecto.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('remove (DELETE /projects/:id)', () => {
+    it('elimina de forma lógica cuando lo solicita un administrador', async () => {
+      prisma.proyecto.findUnique.mockResolvedValue({ id: PROYECTO_ID, deletedAt: null });
+      prisma.proyecto.update.mockResolvedValue({ id: PROYECTO_ID });
+
+      await expect(service.remove(PROYECTO_ID, userAdmin)).resolves.toEqual({ eliminado: true });
+      expect(prisma.proyecto.update).toHaveBeenCalledWith({
+        where: { id: PROYECTO_ID },
+        data: { deletedAt: expect.any(Date) },
+      });
+    });
+
+    it('rechaza la eliminación si no la solicita un administrador', async () => {
+      await expect(service.remove(PROYECTO_ID, userDueño)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      expect(prisma.proyecto.update).not.toHaveBeenCalled();
+    });
+
+    it('devuelve 404 para un proyecto inexistente o ya eliminado', async () => {
+      prisma.proyecto.findUnique.mockResolvedValue(null);
+
+      await expect(service.remove(PROYECTO_ID, userAdmin)).rejects.toBeInstanceOf(
+        NotFoundException,
       );
     });
   });
@@ -120,12 +192,51 @@ describe('ProjectsService', () => {
       );
     });
 
+    it('el docente dueño de la sala puede ver un proyecto alojado en ella', async () => {
+      const docenteSala = {
+        id: 'docente-sala',
+        rol: 'DOCENTE',
+      } as AuthenticatedUser;
+      const proyectoDeEstudiante = {
+        ...proyectoDeEjemplo,
+        creadoPorId: 'estudiante-1',
+        sala: { profesorId: docenteSala.id },
+      };
+      prisma.proyecto.findUnique.mockResolvedValue(proyectoDeEstudiante);
+
+      await expect(service.findOne(PROYECTO_ID, docenteSala)).resolves.toEqual(
+        proyectoDeEstudiante,
+      );
+    });
+
     it('devuelve 404 si el proyecto no existe', async () => {
       prisma.proyecto.findUnique.mockResolvedValue(null);
 
       await expect(service.findOne('no-existe', userDueño)).rejects.toBeInstanceOf(
         NotFoundException,
       );
+    });
+  });
+
+  describe('invitaciones de participantes', () => {
+    it('devuelve el código una sola vez y almacena únicamente su hash', async () => {
+      prisma.proyecto.findUnique.mockResolvedValue(proyectoDeEjemplo);
+      prisma.participanteWhitelist.findUnique.mockResolvedValue(null);
+      prisma.participanteWhitelist.create.mockResolvedValue({ id: 'invitacion-1' });
+
+      const result = await service.addToWhitelist(
+        PROYECTO_ID,
+        { participantes: [{ email: ' Persona@Ejemplo.cl ' }] },
+        userDueño,
+      );
+
+      expect(result.agregados).toBe(1);
+      expect(result.invitaciones[0].email).toBe('persona@ejemplo.cl');
+      expect(result.invitaciones[0].codigoInvitacion.length).toBeGreaterThanOrEqual(16);
+
+      const data = prisma.participanteWhitelist.create.mock.calls[0][0].data;
+      expect(data.codigoInvitacionHash).toMatch(/^[a-f0-9]{64}$/);
+      expect(data.codigoInvitacionHash).not.toBe(result.invitaciones[0].codigoInvitacion);
     });
   });
 

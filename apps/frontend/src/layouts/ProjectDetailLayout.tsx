@@ -5,7 +5,9 @@
 // cada página individual).
 
 import { NavLink, Outlet, useParams } from 'react-router-dom';
+import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { useProject } from '../features/projects/hooks/useProjectsQueries';
+import { canViewAnalytics, resolvePerspective } from '../shared/auth/perspectivas';
 
 const SUB_NAV = [
   { to: '', label: 'Resumen', end: true },
@@ -14,6 +16,7 @@ const SUB_NAV = [
   { to: 'momentos-criticos', label: 'Momentos Críticos' },
   { to: 'card-sorting', label: 'Card Sorting' },
   { to: 'evaluacion-heuristica', label: 'Evaluación Heurística' },
+  { to: 'comentarios', label: 'Comentarios' },
   { to: 'analitica', label: 'Analítica' },
   { to: 'miembros', label: 'Miembros' },
   { to: 'participantes', label: 'Participantes' },
@@ -26,6 +29,15 @@ export interface ProjectOutletContext {
 export function ProjectDetailLayout() {
   const { proyectoId } = useParams<{ proyectoId: string }>();
   const { data: proyecto } = useProject(proyectoId ?? null);
+  const { user, perspectiveRole } = useAuthStore();
+  const activeRole = user ? resolvePerspective(user.rol, perspectiveRole) : null;
+  const canManageParticipants =
+    !!user && (activeRole === 'ADMIN' || user.id === proyecto?.creadoPorId);
+  const visibleItems = SUB_NAV.filter((item) => {
+    if (item.to === 'analitica') return !!activeRole && canViewAnalytics(activeRole);
+    if (item.to === 'participantes') return canManageParticipants;
+    return true;
+  });
 
   if (!proyectoId) return <p>Proyecto no especificado.</p>;
 
@@ -39,25 +51,21 @@ export function ProjectDetailLayout() {
         </div>
       </div>
 
-      <nav style={{ display: 'flex', gap: 6, borderBottom: '1px solid var(--line)', margin: '0 0 16px', flexWrap: 'wrap' }}>
-        {SUB_NAV.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.end}
-            style={({ isActive }) => ({
-              padding: '8px 12px',
-              textDecoration: 'none',
-              color: isActive ? 'var(--teal)' : '#557582',
-              borderBottom: isActive ? '2px solid var(--teal)' : '2px solid transparent',
-              fontWeight: isActive ? 700 : 400,
-              fontSize: 13,
-            })}
-          >
-            {item.label}
-          </NavLink>
-        ))}
-      </nav>
+      <div className="project-subnav-shell">
+        <nav className="project-subnav" aria-label="Secciones del proyecto" aria-describedby="project-subnav-hint" tabIndex={0}>
+          {visibleItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.end}
+              className={({ isActive }) => `project-subnav-link${isActive ? ' active' : ''}`}
+            >
+              {item.label}
+            </NavLink>
+          ))}
+        </nav>
+        <span id="project-subnav-hint" className="project-subnav-hint">Desliza para ver más secciones →</span>
+      </div>
 
       <Outlet context={{ proyectoId } satisfies ProjectOutletContext} />
     </div>

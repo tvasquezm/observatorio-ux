@@ -50,10 +50,12 @@ export function useUpdatePersona(proyectoId: string) {
     mutationFn: ({
       artefactoId,
       contenido,
+      expectedVersion,
     }: {
       artefactoId: string;
       contenido: PersonaContenido;
-    }) => updatePersona(proyectoId, artefactoId, contenido),
+      expectedVersion?: number;
+    }) => updatePersona(proyectoId, artefactoId, contenido, expectedVersion),
     onSuccess: (persona) => {
       queryClient.setQueryData(
         personaKeys.detail(proyectoId, persona.artefactoLogicoId),

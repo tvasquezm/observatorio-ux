@@ -29,6 +29,10 @@ const profesorPassword = process.env.SEED_PROFESOR_PASSWORD || 'profesor123';
 const profesorId = 'f1e1b6a1-0000-4a11-9c00-000000000001';
 const profesorEmail = 'profesor@test.com';
 const profesorProjectId = 'f1e1b6a1-0001-4a11-9c00-000000000002';
+const salaId = 'f1e1b6a1-0006-4a11-9c00-000000000007';
+const adminId = 'a1e1b6a1-0000-4a11-9c00-000000000001';
+const adminEmail = 'admin@test.com';
+const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'admin1234';
 const cardSortingEstudioId = 'f1e1b6a1-0002-4a11-9c00-000000000003';
 const cardSortingParticipanteSesionId = 'f1e1b6a1-0003-4a11-9c00-000000000004';
 const heuristicaSesionId = 'f1e1b6a1-0004-4a11-9c00-000000000005';
@@ -48,6 +52,25 @@ const artifactJourneyMapId = 'f1e1b6a1-0030-4a11-9c00-000000000031';
 const artifactMomentosCriticosId = 'f1e1b6a1-0030-4a11-9c00-000000000032';
 
 async function main() {
+  // H3 (auditoría 2026-09-24): este seed crea usuarios y datos DEMO con
+  // contraseñas por defecto si no se setean las variables SEED_*. Viaja en
+  // la imagen de producción (Dockerfile copia prisma/), así que si alguien
+  // lo corre ahí sin definir las 3 variables, terminan esas contraseñas
+  // demo en producción. Para crear el primer admin real en producción usar
+  // `pnpm run bootstrap:admin` (bootstrap-admin.ts), no este seed.
+  if (process.env.NODE_ENV === 'production') {
+    const requeridas = ['SEED_PASSWORD', 'SEED_PROFESOR_PASSWORD', 'SEED_ADMIN_PASSWORD'];
+    const faltantes = requeridas.filter((clave) => !process.env[clave]);
+    if (faltantes.length > 0) {
+      console.error(
+        `Este seed crea datos y usuarios DEMO. En producción hace falta definir: ${faltantes.join(', ')}. ` +
+          'Si lo que necesitas es crear el primer administrador, usa "pnpm run bootstrap:admin" en vez de este seed.',
+      );
+      process.exitCode = 1;
+      return;
+    }
+  }
+
   const passwordHash = await bcrypt.hash(demoPassword, 12);
 
   const [estudiante1, estudiante2, estudiante3] = await Promise.all(
@@ -123,6 +146,19 @@ async function main() {
   // ------------------------------------------------------------
   const profesorPasswordHash = await bcrypt.hash(profesorPassword, 12);
 
+  const adminPasswordHash = await bcrypt.hash(adminPassword, 12);
+  await prisma.usuario.upsert({
+    where: { email: adminEmail },
+    update: { nombre: 'Administrador de Prueba', rol: Rol.ADMIN, passwordHash: adminPasswordHash },
+    create: {
+      id: adminId,
+      nombre: 'Administrador de Prueba',
+      email: adminEmail,
+      rol: Rol.ADMIN,
+      passwordHash: adminPasswordHash,
+    },
+  });
+
   const profesor = await prisma.usuario.upsert({
     where: { email: profesorEmail },
     update: {
@@ -154,6 +190,28 @@ async function main() {
     },
   });
 
+  // --- Sala del profesor (Fase 5/6): login de ESTUDIANTE exige sala activa.
+  // Solo estudiante1 y estudiante2 quedan inscritos — estudiante3 queda sin
+  // sala a propósito, para probar el bloqueo de login (Fase 5).
+  const sala = await prisma.sala.upsert({
+    where: { id: salaId },
+    update: { nombre: 'Sala Demo 2026', periodo: '2026-1', profesorId: profesor.id },
+    create: {
+      id: salaId,
+      nombre: 'Sala Demo 2026',
+      periodo: '2026-1',
+      profesorId: profesor.id,
+    },
+  });
+
+  for (const est of [estudiante1, estudiante2]) {
+    await prisma.salaEstudiante.upsert({
+      where: { salaId_email: { salaId: sala.id, email: est.email } },
+      update: { nombre: est.nombre },
+      create: { salaId: sala.id, nombre: est.nombre, email: est.email },
+    });
+  }
+
   const participanteDemo = await prisma.participante.upsert({
     where: { id: participanteDemoId },
     update: { metadata: { perfil: 'Participante Demo', edad: 25 } },
@@ -183,40 +241,70 @@ async function main() {
   }
 
   // --- Técnica 1: Card Sorting (estudio + sesión de participante completada) ---
-  // Se limpian hijos del estudio para que el seed sea re-ejecutable sin duplicar.
-  await prisma.cardGrouping.deleteMany({
-    where: { participanteSesionId: cardSortingParticipanteSesionId },
-  });
-  await prisma.category.deleteMany({ where: { sessionId: cardSortingEstudioId } });
-  await prisma.card.deleteMany({ where: { sessionId: cardSortingEstudioId } });
-  await prisma.researchSession.deleteMany({
-    where: { id: { in: [cardSortingParticipanteSesionId, cardSortingEstudioId] } },
-  });
-
-  const cardSortingEstudio = await prisma.researchSession.create({
-    data: {
-      id: cardSortingEstudioId,
+  // Upserts deliberados: reiniciar el entorno no debe borrar respuestas reales.
+  const cardSortingEstudio = await prisma.researchSession.upsert({
+    where: { id: cardSortingEstudioId },
+    update: {
       proyectoId: profesorProject.id,
       evaluadorId: profesor.id,
+      nombre: 'Card Sorting',
       tipo: TipoSesion.CARD_SORTING,
       estado: EstadoSesion.EN_PROGRESO,
       actor: ActorSesion.EVALUADOR,
       tipoCardSorting: TipoCardSorting.CERRADO,
-      cardsDefinidas: {
-        create: cardIds.map((id, i) => ({ id, etiqueta: `Tarjeta ${i + 1}` })),
-      },
-      categoriasDefinidas: {
-        create: categoryIds.map((id, i) => ({
-          id,
-          nombre: `Categoría ${i + 1}`,
-          esPredefinida: true,
-        })),
-      },
+    },
+    create: {
+      id: cardSortingEstudioId,
+      proyectoId: profesorProject.id,
+      evaluadorId: profesor.id,
+      nombre: 'Card Sorting',
+      tipo: TipoSesion.CARD_SORTING,
+      estado: EstadoSesion.EN_PROGRESO,
+      actor: ActorSesion.EVALUADOR,
+      tipoCardSorting: TipoCardSorting.CERRADO,
     },
   });
 
-  await prisma.researchSession.create({
-    data: {
+  for (let index = 0; index < cardIds.length; index += 1) {
+    await prisma.card.upsert({
+      where: { id: cardIds[index] },
+      update: { sessionId: cardSortingEstudio.id, etiqueta: `Tarjeta ${index + 1}` },
+      create: {
+        id: cardIds[index],
+        sessionId: cardSortingEstudio.id,
+        etiqueta: `Tarjeta ${index + 1}`,
+      },
+    });
+  }
+
+  for (let index = 0; index < categoryIds.length; index += 1) {
+    await prisma.category.upsert({
+      where: { id: categoryIds[index] },
+      update: {
+        sessionId: cardSortingEstudio.id,
+        nombre: `Categoría ${index + 1}`,
+        esPredefinida: true,
+      },
+      create: {
+        id: categoryIds[index],
+        sessionId: cardSortingEstudio.id,
+        nombre: `Categoría ${index + 1}`,
+        esPredefinida: true,
+      },
+    });
+  }
+
+  const cardSortingParticipanteSesion = await prisma.researchSession.upsert({
+    where: { id: cardSortingParticipanteSesionId },
+    update: {
+      proyectoId: profesorProject.id,
+      tipo: TipoSesion.CARD_SORTING,
+      estado: EstadoSesion.COMPLETADO,
+      actor: ActorSesion.PARTICIPANTE,
+      participanteId: participanteDemo.id,
+      estudioId: cardSortingEstudio.id,
+    },
+    create: {
       id: cardSortingParticipanteSesionId,
       proyectoId: profesorProject.id,
       tipo: TipoSesion.CARD_SORTING,
@@ -225,16 +313,31 @@ async function main() {
       participanteId: participanteDemo.id,
       estudioId: cardSortingEstudio.id,
       completadoAt: new Date(),
-      agrupaciones: {
-        create: [
-          { cardId: cardIds[0], categoryId: categoryIds[0] },
-          { cardId: cardIds[1], categoryId: categoryIds[0] },
-          { cardId: cardIds[2], categoryId: categoryIds[1] },
-          { cardId: cardIds[3], categoryId: categoryIds[1] },
-        ],
-      },
     },
   });
+
+  const seedGroupings = [
+    { cardId: cardIds[0], categoryId: categoryIds[0] },
+    { cardId: cardIds[1], categoryId: categoryIds[0] },
+    { cardId: cardIds[2], categoryId: categoryIds[1] },
+    { cardId: cardIds[3], categoryId: categoryIds[1] },
+  ];
+  for (const grouping of seedGroupings) {
+    await prisma.cardGrouping.upsert({
+      where: {
+        participanteSesionId_cardId: {
+          participanteSesionId: cardSortingParticipanteSesion.id,
+          cardId: grouping.cardId,
+        },
+      },
+      update: { categoryId: grouping.categoryId },
+      create: {
+        participanteSesionId: cardSortingParticipanteSesion.id,
+        cardId: grouping.cardId,
+        categoryId: grouping.categoryId,
+      },
+    });
+  }
 
   // --- Técnica 2: Evaluación Heurística ---
   await prisma.researchSession.upsert({
@@ -292,7 +395,7 @@ async function main() {
       artefactoLogicoId: artifactPersonaId,
       version: 1,
       contenido: {
-        nombre: 'María Pérez',
+        nombreCompleto: 'María Pérez',
         edad: 28,
         ocupacion: 'Diseñadora UX Junior',
         objetivos: ['Encontrar información rápido', 'Completar tareas sin fricción'],
@@ -394,11 +497,14 @@ async function main() {
 
   console.log('Seed listo. Estudiantes (mismo proyecto, contraseña demo):');
   [estudiante1, estudiante2, estudiante3].forEach((e) => console.log(`  - ${e.email}`));
-  console.log(`Contraseña demo: ${demoPassword}`);
+  console.log('(Contraseña: la definida en SEED_PASSWORD, o el default de desarrollo si no se seteó.)');
+  console.log('Sala demo: estudiante1 y estudiante2 inscritos, estudiante3 SIN sala (bloqueado, Fase 5).');
   console.log(`Proyecto demo: ${project.id}`);
   console.log('---');
   console.log(`Usuario profesor (prueba): ${profesor.email}`);
-  console.log(`Contraseña profesor: ${profesorPassword}`);
+  console.log('(Contraseña: la definida en SEED_PROFESOR_PASSWORD, o el default de desarrollo si no se seteó.)');
+  console.log(`Usuario administrador (prueba): ${adminEmail}`);
+  console.log('(Contraseña: la definida en SEED_ADMIN_PASSWORD, o el default de desarrollo si no se seteó.)');
   console.log(`Proyecto profesor: ${profesorProject.id}`);
 }
 

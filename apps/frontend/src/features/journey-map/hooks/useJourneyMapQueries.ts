@@ -50,10 +50,12 @@ export function useUpdateJourney(proyectoId: string) {
     mutationFn: ({
       artefactoId,
       contenido,
+      expectedVersion,
     }: {
       artefactoId: string;
       contenido: JourneyMapContenido;
-    }) => updateJourney(proyectoId, artefactoId, contenido),
+      expectedVersion?: number;
+    }) => updateJourney(proyectoId, artefactoId, contenido, expectedVersion),
     onSuccess: (journey) => {
       queryClient.setQueryData(
         journeyKeys.detail(proyectoId, journey.artefactoLogicoId),

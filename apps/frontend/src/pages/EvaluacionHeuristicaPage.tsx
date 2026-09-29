@@ -51,7 +51,7 @@ export function EvaluacionHeuristicaPage() {
         <div className="page-head">
           <div>
             <span className="kicker">EVALUACIÓN HEURÍSTICA</span>
-            <h1>Hallazgos heurísticos</h1>
+            <h2>Hallazgos heurísticos</h2>
             <p>Registra problemas de usabilidad con evidencia, severidad y una recomendación accionable.</p>
           </div>
         </div>
@@ -71,49 +71,64 @@ export function EvaluacionHeuristicaPage() {
       <div className="page-head">
         <div>
           <span className="kicker">EVALUACIÓN HEURÍSTICA · SESIÓN ACTIVA</span>
-          <h1>Hallazgos heurísticos</h1>
+          <h2>Hallazgos heurísticos</h2>
           <p>Registra problemas de usabilidad con evidencia, severidad y una recomendación accionable.</p>
         </div>
       </div>
 
       <div className="panel mb-16">
         <form onSubmit={handleSubmit} className="form-grid" style={{ maxWidth: 520 }}>
-          <input
-            placeholder="Código de heurística (ej. H4) *"
-            value={hallazgo.heuristicaId}
-            onChange={(e) => setHallazgo({ ...hallazgo, heuristicaId: e.target.value })}
-            required
-            className="input-sm"
-          />
-          <textarea
-            placeholder="Descripción del problema"
-            value={hallazgo.descripcion}
-            onChange={(e) => setHallazgo({ ...hallazgo, descripcion: e.target.value })}
-            className="textarea-sm"
-          />
-          <div className="form-grid-2">
-            <select
-              value={hallazgo.severidad}
-              onChange={(e) => setHallazgo({ ...hallazgo, severidad: Number(e.target.value) as HallazgoHeuristicaInput['severidad'] })}
-              className="input-sm"
-            >
-              {Object.entries(SEVERIDAD_INFO).map(([valor, info]) => (
-                <option key={valor} value={valor}>{valor} — {info.label}</option>
-              ))}
-            </select>
+          <label className="field">
+            Código de heurística
             <input
-              placeholder="Evidencia (opcional)"
-              value={hallazgo.evidencia ?? ''}
-              onChange={(e) => setHallazgo({ ...hallazgo, evidencia: e.target.value })}
+              placeholder="Ej. H4"
+              value={hallazgo.heuristicaId}
+              onChange={(e) => setHallazgo({ ...hallazgo, heuristicaId: e.target.value })}
+              required
               className="input-sm"
             />
+          </label>
+          <label className="field">
+            Descripción del problema
+            <textarea
+              placeholder="Describe el problema observado"
+              value={hallazgo.descripcion}
+              onChange={(e) => setHallazgo({ ...hallazgo, descripcion: e.target.value })}
+              className="textarea-sm"
+            />
+          </label>
+          <div className="form-grid-2">
+            <label className="field">
+              Severidad
+              <select
+                value={hallazgo.severidad}
+                onChange={(e) => setHallazgo({ ...hallazgo, severidad: Number(e.target.value) as HallazgoHeuristicaInput['severidad'] })}
+                className="input-sm"
+              >
+                {Object.entries(SEVERIDAD_INFO).map(([valor, info]) => (
+                  <option key={valor} value={valor}>{valor} — {info.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              Evidencia (opcional)
+              <input
+                placeholder="Enlace o referencia"
+                value={hallazgo.evidencia ?? ''}
+                onChange={(e) => setHallazgo({ ...hallazgo, evidencia: e.target.value })}
+                className="input-sm"
+              />
+            </label>
           </div>
-          <input
-            placeholder="Recomendación"
-            value={hallazgo.recomendacion ?? ''}
-            onChange={(e) => setHallazgo({ ...hallazgo, recomendacion: e.target.value })}
-            className="input-sm"
-          />
+          <label className="field">
+            Recomendación
+            <input
+              placeholder="Propón una acción concreta"
+              value={hallazgo.recomendacion ?? ''}
+              onChange={(e) => setHallazgo({ ...hallazgo, recomendacion: e.target.value })}
+              className="input-sm"
+            />
+          </label>
           <button type="submit" className="primary btn-start" disabled={guardando}>
             {guardando ? 'Guardando…' : '+ Agregar hallazgo'}
           </button>

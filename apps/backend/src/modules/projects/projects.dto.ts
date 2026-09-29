@@ -17,6 +17,10 @@ export class CreateProjectDto {
   @IsOptional()
   @IsString()
   descripcion?: string;
+
+  @IsOptional()
+  @IsString()
+  salaId?: string;
 }
 
 export class UpdateProjectDto {

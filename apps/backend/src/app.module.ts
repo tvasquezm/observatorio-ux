@@ -13,8 +13,13 @@ import { RolesGuard } from './core/guards/roles.guard';
 import { AuthModule } from './modules/auth/auth.module';
 import { ArtifactsModule } from './modules/artifacts/artifacts.module';
 import { ProjectsModule } from './modules/projects/projects.module';
+import { ReportsModule } from './modules/reports/reports.module';
 import { SessionsModule } from './modules/sessions/sessions.module';
 import { HealthController } from './health.controller';
+import { SalasModule } from './modules/salas/salas.module';
+import { CommentsModule } from './modules/comments/comments.module';
+import { EquiposModule } from './modules/equipos/equipos.module';
+import { UsersModule } from './modules/users/users.module';
 
 @Module({
   imports: [
@@ -35,7 +40,12 @@ import { HealthController } from './health.controller';
     AuthModule,
     ArtifactsModule,
     ProjectsModule,
+    ReportsModule,
     SessionsModule,
+    SalasModule,
+    CommentsModule,
+    EquiposModule,
+    UsersModule,
   ],
   providers: [
     RolesGuard,

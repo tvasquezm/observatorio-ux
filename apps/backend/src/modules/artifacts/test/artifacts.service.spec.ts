@@ -168,7 +168,20 @@ describe('ArtifactsService', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it('permite crear a un ADMIN aunque no sea el dueño del proyecto', async () => {
+    it('lanza ForbiddenException si un ADMIN intenta crear sin ser dueño del proyecto (regla: ESTUDIANTE o dueño editan)', async () => {
+      prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
+
+      await expect(
+        service.create(
+          'proy-1',
+          { tipo: TipoArtefacto.PERSONA, contenido: {} } as any,
+          adminUser,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.uxArtifact.create).not.toHaveBeenCalled();
+    });
+
+    it('permite crear al DOCENTE dueño del proyecto (acceso de demostración sobre su propio proyecto)', async () => {
       prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
       (PersonaSchema.parse as jest.Mock).mockReturnValue(undefined);
       prisma.uxArtifact.create.mockResolvedValue({ id: 'art-2' });
@@ -176,7 +189,7 @@ describe('ArtifactsService', () => {
       const result = await service.create(
         'proy-1',
         { tipo: TipoArtefacto.PERSONA, contenido: {} } as any,
-        adminUser,
+        ownerUser,
       );
 
       expect(result).toEqual({ id: 'art-2' });
@@ -228,6 +241,9 @@ describe('ArtifactsService', () => {
 
       const result = await service.findOne('art-1', ownerUser);
       expect(result).toEqual({ id: 'art-1', proyectoId: 'proy-1' });
+      expect(prisma.uxArtifact.findUnique).toHaveBeenCalledWith({
+        where: { id: 'art-1', deletedAt: null },
+      });
     });
   });
 
@@ -311,6 +327,21 @@ describe('ArtifactsService', () => {
 
       expect(result).toEqual({ id: 'art-1', version: 3 });
     });
+
+    it('rechaza guardar sobre una versión desactualizada', async () => {
+      prisma.uxArtifact.findUnique.mockResolvedValue(baseArtifact);
+      prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
+      prisma.uxArtifact.findFirst.mockResolvedValue({ ...baseArtifact, version: 4 });
+
+      await expect(
+        service.createVersion(
+          'art-1',
+          { contenido: {}, expectedVersion: 2 },
+          ownerUser,
+        ),
+      ).rejects.toThrow(ConflictException);
+      expect(prisma.uxArtifact.create).not.toHaveBeenCalled();
+    });
   });
 
   // Cierra B4/B9/B14: antes de estos tests, lockedById/lockedUntil se leían
@@ -337,7 +368,11 @@ describe('ArtifactsService', () => {
 
       expect(prisma.uxArtifact.updateMany).toHaveBeenCalledWith({
         where: { artefactoLogicoId: 'logico-1' },
-        data: { deletedAt: expect.any(Date) },
+        data: {
+          deletedAt: expect.any(Date),
+          lockedById: null,
+          lockedUntil: null,
+        },
       });
     });
 
@@ -413,7 +448,7 @@ describe('ArtifactsService', () => {
       prisma.uxArtifact.updateMany.mockResolvedValue({ count: 3 });
 
       await expect(service.softDelete('art-1', ownerUser)).resolves.toBeDefined();
-      expect(prisma.uxArtifact.updateMany).toHaveBeenCalled();
+      expect(prisma.uxArtifact.updateMany).not.toHaveBeenCalled();
     });
   });
 
@@ -571,32 +606,31 @@ describe('ArtifactsService', () => {
       expect(prisma.uxArtifact.update).not.toHaveBeenCalled();
     });
 
-    it('ADMIN puede liberar el lock de cualquier usuario', async () => {
+    it('lanza ForbiddenException si un ADMIN (no dueño) intenta liberar el lock de otro usuario', async () => {
       prisma.uxArtifact.findUnique.mockResolvedValue(lockedArtifact);
       prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
       prisma.uxArtifact.findFirst.mockResolvedValue(lockedArtifact);
-      prisma.uxArtifact.update.mockResolvedValue({
-        ...lockedArtifact,
-        lockedById: null,
-        lockedUntil: null,
-      });
 
-      const result = await service.releaseLock('art-1', adminUser);
-      expect(result.lockedById).toBeNull();
+      await expect(service.releaseLock('art-1', adminUser)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(prisma.uxArtifact.update).not.toHaveBeenCalled();
     });
 
-    it('liberar un lock ya expirado no falla aunque lo pida otro usuario con acceso al proyecto (ADMIN)', async () => {
-      // "otherUser" (DOCENTE que no es dueño del proyecto) directamente no
-      // pasaría ni el chequeo de acceso al proyecto (assertProjectAccess),
-      // así que el escenario realista de "otro usuario libera un lock ya
-      // expirado" es un ADMIN, que sí tiene acceso a cualquier proyecto.
+    it('liberar un lock ya expirado no falla si lo pide el DOCENTE dueño del proyecto, aunque no sea quien lo tenía', async () => {
+      // El dueño del proyecto (ownerUser) sí puede editar (regla: ESTUDIANTE
+      // o dueño), así que puede liberar un lock expirado que en su momento
+      // tomó otro colaborador — liberar sigue siendo idempotente ante un
+      // lock vencido, sin importar de quién era.
       prisma.uxArtifact.findUnique.mockResolvedValue({
         ...lockedArtifact,
+        lockedById: 'user-otro-estudiante',
         lockedUntil: new Date(Date.now() - 60_000),
       });
       prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
       prisma.uxArtifact.findFirst.mockResolvedValue({
         ...lockedArtifact,
+        lockedById: 'user-otro-estudiante',
         lockedUntil: new Date(Date.now() - 60_000),
       });
       prisma.uxArtifact.update.mockResolvedValue({
@@ -605,7 +639,7 @@ describe('ArtifactsService', () => {
         lockedUntil: null,
       });
 
-      const result = await service.releaseLock('art-1', adminUser);
+      const result = await service.releaseLock('art-1', ownerUser);
       expect(result.lockedById).toBeNull();
     });
   });

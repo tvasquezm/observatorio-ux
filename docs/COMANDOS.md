@@ -6,13 +6,22 @@ que se usa cada uno. No reemplaza `BACKEND.md`, `comandos-backend.md` ni
 
 ---
 
+## Login con Google (opcional)
+
+Definir en el `.env` de la raíz `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` y
+`GOOGLE_CALLBACK_URL` (ver `env.example`). Crear el ID de cliente en Google
+Cloud Console: APIs y servicios > Credenciales > ID de cliente OAuth
+(Aplicación web), con `GOOGLE_CALLBACK_URL` como URI de redirección
+autorizada. Si quedan vacías, el login con Google queda deshabilitado.
+
 ## Docker (flujo principal)
 
 | Comando | Cuándo usarlo |
 |---|---|
 | `cp env.example .env` | Primera vez que clonás el repo. Crea tu `.env` local a partir de los defaults de desarrollo. |
-| `docker compose up --build` | Primer arranque, o cuando cambiaste un `Dockerfile` o agregaste una dependencia nueva (`package.json`). Reconstruye imágenes y levanta db + shared-types + backend + frontend. |
-| `docker compose up` | Arranques normales del día a día, sin cambios de dependencias. |
+| `docker compose up --build` | Primer arranque, o cuando cambiaste un `Dockerfile`. Reconstruye imágenes y levanta db + shared-types + backend + frontend. |
+| `docker compose up` | Arranques normales del día a día. También tras un `git pull` que cambió dependencias: cada servicio compara el hash de `pnpm-lock.yaml` al arrancar y reinstala solo lo suyo si cambió. |
+| `docker compose down` + `docker compose up --build -V` | Último recurso si un `node_modules` quedó inconsistente pese a lo anterior. `-V` recrea los volúmenes anónimos de dependencias (no toca los datos de Postgres). |
 | `docker compose up -d` | Igual que arriba, pero en segundo plano (no bloquea la terminal). |
 | `docker compose logs -f` | Ver logs de todos los servicios en tiempo real (útil si levantaste con `-d`). |
 | `docker compose logs -f backend` | Ver logs solo del backend (o `frontend`, `db`), cuando ya sabés dónde está el problema. |
@@ -91,6 +100,20 @@ Vitest/Testing Library son nuevas de este sprint y no están en un
 
 ---
 
+## Prueba de carga (k6, Fase 6 de `docs/PLAN_REMEDIACION_AUDITORIA.md`)
+
+Requiere `k6` instalado en el host y un proyecto + estudio de Card Sorting
+ya sembrados (no crea datos).
+
+| Comando | Cuándo usarlo |
+|---|---|
+| `BASE_URL=http://localhost PROYECTO_ID=<uuid> ESTUDIO_ID=<uuid> k6 run tests/load/participante.k6.js` | Simula hasta 200 participantes concurrentes en el flujo access → consent → join → results. |
+
+`BASE_URL` debe apuntar al stack completo detrás de nginx (no directo al
+backend), para incluir los límites de `deploy/nginx/default.conf`.
+
+---
+
 ## Frontend
 
 Siempre ejecutar `pnpm add`/`install` **desde dentro del contenedor**, nunca
@@ -129,13 +152,37 @@ públicos, visibles en este mismo repositorio.
 | Estudiante 2 | `estudiante2@ux.utem.cl` | `Demo1234!` | Miembro del mismo proyecto demo — sirve para probar acceso/lock concurrente con Estudiante 1 y 3. |
 | Estudiante 3 | `estudiante3@ux.utem.cl` | `Demo1234!` | Miembro del mismo proyecto demo — mismo propósito que arriba. |
 | Docente (profesor) | `profesor@test.com` | `profesor123` | Pensado para QA manual — trae un proyecto propio con las 5 técnicas UX ya cargadas (Card Sorting, Evaluación Heurística, Persona, Journey Map, Momentos Críticos). |
+| Administrador | `admin@test.com` | `admin1234` | Permite probar las perspectivas Estudiante, Docente y Administrador. Configurable con `SEED_ADMIN_PASSWORD`. |
 
 Las passwords son configurables vía `.env`: `SEED_PASSWORD` (las 3 cuentas
 de estudiante comparten esa misma variable) y `SEED_PROFESOR_PASSWORD`, si
 no querés usar el default.
 
+---
 
+## Flujo con Pull Request y CI
 
-### comandos para agregar usuarios de manera visual por emdio de prisma 
-cd apps/backend
-pnpm exec prisma studio
+`main` está protegida: los cambios entran por Pull Request y el CI debe pasar.
+El CI (`.github/workflows/ci.yml`) corre en cada PR y en cada push a `main`
+con tres jobs:
+
+| Job | Qué valida |
+|---|---|
+| `dependency-audit` | `pnpm audit --audit-level high` sobre `pnpm-lock.yaml`. Es el más rápido: falla antes de que termine el build. |
+| `build-and-test` | Migraciones contra Postgres real, tests de backend y frontend, build del frontend y E2E (escritorio + móvil). |
+| `deployment-smoke` | Construye y levanta `docker-compose.production.yml` desde cero y consulta `/nginx-health`, `/api/health` y `/`. |
+
+| Comando | Cuándo usarlo |
+|---|---|
+| `pnpm audit --audit-level high` | Reproducir en local lo que hace `dependency-audit` antes de abrir el PR. |
+| VS Code → paleta de comandos → `Git: Create Branch...` | Crear la rama de trabajo antes de commitear (no commitear directo en `main`). |
+| VS Code → Source Control → `Publish Branch` | Subir la rama y abrir el PR desde el aviso que muestra GitHub (`Compare & pull request`). |
+
+Cada PR trae una plantilla con un checklist (`.github/pull_request_template.md`).
+`.github/CODEOWNERS` solicita revisión automática cuando el PR toca auth,
+permisos, migraciones, `deploy/`, Dockerfiles o `.github/`.
+
+Dependabot (`.github/dependabot.yml`) abre cada lunes un PR agrupado con las
+actualizaciones menores y de parche de dependencias, actions y Dockerfiles.
+Sus PR pasan por el mismo CI: revisa que quede en verde antes de fusionar.
+Las vulnerabilidades se reportan de forma privada según `SECURITY.md`.

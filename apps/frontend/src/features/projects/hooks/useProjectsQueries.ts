@@ -3,7 +3,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createProject,
+  deleteProject,
   getProject,
+  getAdminProjectOverview,
   listProjects,
   updateProject,
   listMembers,
@@ -13,6 +15,7 @@ import {
   addToWhitelist,
   ProjectsApiError,
   type MiembroProyecto,
+  type AdminProjectOverview,
   type WhitelistEntry,
   type WhitelistEntradaInput,
 } from '../api/projects.api';
@@ -20,6 +23,7 @@ import { notify } from '../../../shared/api/toast';
 
 export const projectsKeys = {
   all: ['projects'] as const,
+  adminOverview: ['projects', 'admin', 'overview'] as const,
   detail: (id: string) => ['projects', id] as const,
   members: (id: string) => ['projects', id, 'miembros'] as const,
   whitelist: (id: string) => ['projects', id, 'participantes'] as const,
@@ -27,6 +31,13 @@ export const projectsKeys = {
 
 export function useProjects() {
   return useQuery({ queryKey: projectsKeys.all, queryFn: listProjects });
+}
+
+export function useAdminProjectOverview() {
+  return useQuery<AdminProjectOverview[]>({
+    queryKey: projectsKeys.adminOverview,
+    queryFn: getAdminProjectOverview,
+  });
 }
 
 export function useProject(id: string | null) {
@@ -40,8 +51,8 @@ export function useProject(id: string | null) {
 export function useCreateProject() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ nombre, descripcion }: { nombre: string; descripcion?: string }) =>
-      createProject(nombre, descripcion),
+    mutationFn: ({ nombre, descripcion, salaId }: { nombre: string; descripcion?: string; salaId?: string }) =>
+      createProject(nombre, descripcion, salaId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: projectsKeys.all });
       notify.success('Proyecto creado.');
@@ -60,6 +71,23 @@ export function useUpdateProject() {
     onSuccess: (p) => {
       qc.setQueryData(projectsKeys.detail(p.id), p);
       qc.invalidateQueries({ queryKey: projectsKeys.all });
+    },
+    onError: (err) => {
+      notify.error(err instanceof ProjectsApiError ? err.message : 'No se pudo editar el proyecto.');
+    },
+  });
+}
+
+export function useDeleteProject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: deleteProject,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: projectsKeys.all });
+      notify.success('Proyecto eliminado.');
+    },
+    onError: (err) => {
+      notify.error(err instanceof ProjectsApiError ? err.message : 'No se pudo eliminar el proyecto.');
     },
   });
 }

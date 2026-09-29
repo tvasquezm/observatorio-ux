@@ -1,12 +1,15 @@
 import {
   ConflictException,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Injectable,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../core/database/prisma.service';
 import { AuthenticatedUser } from './types/authenticated-user.interface';
@@ -14,12 +17,27 @@ import { ParticipanteJwtService } from './participante-jwt.service';
 
 @Injectable()
 export class AuthService {
+  // Hash fijo (no corresponde a ninguna contraseña real) usado solo para que
+  // bcrypt.compare corra con el mismo costo cuando el usuario no existe.
+  private static readonly DUMMY_PASSWORD_HASH = bcrypt.hashSync(
+    'dummy-password-for-constant-time-login',
+    10,
+  );
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly participanteJwt: ParticipanteJwtService,
     private readonly config: ConfigService,
   ) {}
+
+  private assertInvitationCode(codigo: string, esperado?: string | null) {
+    const recibido = createHash('sha256').update(codigo).digest();
+    const esperadoBuffer = esperado ? Buffer.from(esperado, 'hex') : Buffer.alloc(recibido.length);
+    if (!esperado || esperadoBuffer.length !== recibido.length || !timingSafeEqual(recibido, esperadoBuffer)) {
+      throw new ForbiddenException('El código de invitación no es válido.');
+    }
+  }
   /**
    * Autorregistro de un participante. Solo funciona si su email está en
    * la whitelist cargada por el docente/evaluador para ese proyecto.
@@ -30,6 +48,7 @@ export class AuthService {
     proyectoId: string,
     emailCrudo: string,
     nombre?: string,
+    codigoInvitacion?: string,
   ) {
     const email = emailCrudo.trim().toLowerCase();
 
@@ -44,6 +63,8 @@ export class AuthService {
             'Pídele al docente que lo agregue a la lista.',
         );
       }
+
+      this.assertInvitationCode(codigoInvitacion ?? '', entry.codigoInvitacionHash);
 
       if (entry.participanteId) {
         return { participanteId: entry.participanteId, yaRegistrado: true };
@@ -86,11 +107,75 @@ export class AuthService {
     });
   }
 
+  /**
+   * Fase 1 (PLAN_AJUSTES.md): punto de acceso público sin datos
+   * personales. Acceso 100% abierto por link/QR — decisión tomada por el
+   * usuario para reemplazar el registro con whitelist/email. Cualquiera
+   * con el proyectoId puede entrar: no valida whitelist ni código de
+   * invitación. Crea un Participante sin metadata y devuelve el token de
+   * sesión directo (mismo `participanteJwt` que `issueParticipantToken`).
+   *
+   * El consentimiento sigue siendo obligatorio, pero se exige más
+   * adelante en el flujo (ver `CardSortingService.joinSession`), no acá
+   * — así el participante puede navegar a la pantalla de consentimiento
+   * ya con sesión, en vez de recibir el token recién después de aceptar.
+   */
+  async accessParticipant(proyectoId: string) {
+    const proyecto = await this.prisma.proyecto.findUnique({
+      where: { id: proyectoId },
+    });
+
+    if (!proyecto || proyecto.deletedAt) {
+      throw new NotFoundException('El proyecto no existe.');
+    }
+
+    // H5 (Fase 7, PLAN_REMEDIACION_AUDITORIA.md): además del @Throttle por
+    // IP del controller (que no distingue proyectos), un límite por
+    // proyecto evita que un solo proyecto agote participantes anónimos vía
+    // múltiples IPs. No reemplaza al de IP, lo complementa.
+    const limite = Number.parseInt(
+      process.env.PARTICIPANTS_ACCESS_LIMIT_PER_HOUR ?? '',
+      10,
+    ) || 300;
+    const haceUnaHora = new Date(Date.now() - 60 * 60 * 1000);
+    const accesosUltimaHora = await this.prisma.participante.count({
+      where: { proyectoId, createdAt: { gte: haceUnaHora } },
+    });
+
+    if (accesosUltimaHora >= limite) {
+      throw new HttpException(
+        'Se alcanzó el límite de participantes por hora para este proyecto. Intenta más tarde.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    const resumeToken = randomBytes(32).toString('base64url');
+    const resumeTokenHash = createHash('sha256').update(resumeToken).digest('hex');
+    const participante = await this.prisma.participante.create({
+      data: { resumeTokenHash, proyectoId },
+    });
+
+    const accessToken = await this.participanteJwt.sign({
+      sub: participante.id,
+      actor: 'PARTICIPANTE',
+      rol: 'PARTICIPANTE',
+      proyectoId,
+    });
+
+    return {
+      access_token: accessToken,
+      resume_token: resumeToken,
+      participant: { id: participante.id, proyectoId },
+    };
+  }
+
   async registerParticipantConsent(
     participanteId: string,
     proyectoId: string,
     aceptado: boolean,
     version: string,
+    codigoInvitacion?: string,
+    resumeToken?: string,
   ) {
     const participante = await this.prisma.participante.findUnique({
       where: { id: participanteId },
@@ -100,14 +185,50 @@ export class AuthService {
       throw new NotFoundException('El participante no existe.');
     }
 
+    const proyecto = await this.prisma.proyecto.findUnique({ where: { id: proyectoId } });
+    if (!proyecto || proyecto.deletedAt) {
+      throw new NotFoundException('El proyecto no existe.');
+    }
+
+    // Fase 1 (PLAN_AJUSTES.md): si el participante entró por el acceso
+    // público abierto (accessParticipant), nunca existe una entrada de
+    // whitelist a su nombre — no hay código que validar. Si sí existe
+    // (flujo previo con invitación por email), se sigue exigiendo el
+    // código, igual que antes.
     const whitelistEntry = await this.prisma.participanteWhitelist.findFirst({
       where: { proyectoId, participanteId, usado: true },
     });
 
-    if (!whitelistEntry) {
-      throw new ForbiddenException(
-        'El participante no está autorizado para este proyecto.',
-      );
+    if (whitelistEntry) {
+      this.assertInvitationCode(codigoInvitacion ?? '', whitelistEntry.codigoInvitacionHash);
+    } else {
+      if (participante.proyectoId !== proyectoId) {
+        throw new ForbiddenException(
+          'El participante no pertenece a este proyecto.',
+        );
+      }
+
+      // Acceso abierto: sin whitelist, la única credencial posible es el
+      // resumeToken entregado en accessParticipant (mismo esquema que
+      // issueParticipantToken). Sin esto, cualquiera con el UUID del
+      // participante podía cambiar su consentimiento.
+      const receivedHash = resumeToken
+        ? createHash('sha256').update(resumeToken).digest()
+        : Buffer.alloc(32);
+      const expectedHash = participante.resumeTokenHash
+        ? Buffer.from(participante.resumeTokenHash, 'hex')
+        : Buffer.alloc(32, 1);
+
+      if (
+        !resumeToken ||
+        !participante.resumeTokenHash ||
+        receivedHash.length !== expectedHash.length ||
+        !timingSafeEqual(receivedHash, expectedHash)
+      ) {
+        throw new ForbiddenException(
+          'No se pudo validar la participación. Vuelve a ingresar desde el enlace original.',
+        );
+      }
     }
 
     const latestConsent = await this.prisma.consentimiento.findFirst({
@@ -127,34 +248,51 @@ export class AuthService {
     });
   }
   /**
-   * Login de EVALUADOR vía Google OAuth. Si el email no tiene Usuario
-   * registrado, lo crea automáticamente con rol ESTUDIANTE.
+   * Login de EVALUADOR vía Google OAuth. El email ya viene verificado por
+   * Google (GoogleStrategy).
    *
    * Reglas de negocio (no relajar sin aprobación explícita):
-   * 1. Aislamiento por proyecto: el `create` de abajo NO debe tocar
-   *    ninguna relación (proyectosCreados, proyectosMiembro, etc.). El
-   *    usuario nuevo nace sin proyectos asociados — no ve ni edita nada
-   *    hasta que un DOCENTE/ADMIN lo enrole explícitamente en un Proyecto.
-   * 2. Sin auto-promoción de rol: el rol de un usuario nuevo por Google
-   *    es SIEMPRE 'ESTUDIANTE', sin excepción ni heurística por dominio
-   *    de email. Pasar a DOCENTE/ADMIN es un cambio manual en la BD (o
-   *    desde el panel admin del Sprint 5) — este flujo nunca escribe el
-   *    campo `rol` de un usuario ya existente.
+   * 1. Usuario existente: mismas reglas que el login por password (un
+   *    ESTUDIANTE necesita una Sala activa). Nunca se modifica su `rol`.
+   * 2. Email sin Usuario: solo se auto-crea como ESTUDIANTE si el email
+   *    figura en una Sala activa (SalaEstudiante). Sin sala → 403.
+   * 3. Sin auto-promoción: Google nunca crea DOCENTE ni ADMIN, ni por
+   *    heurística de dominio de email.
+   * 4. Aislamiento por proyecto: el `create` no toca relaciones; el usuario
+   *    nuevo nace sin proyectos propios.
    */
   async loginOrCreateFromGoogle(emailCrudo: string, nombreCrudo?: string) {
     const email = emailCrudo.trim().toLowerCase();
 
     let user = await this.prisma.usuario.findUnique({ where: { email } });
 
-    if (!user) {
-      user = await this.prisma.usuario.create({
-        data: {
-          email,
-          nombre: nombreCrudo?.trim() || email,
-          rol: 'ESTUDIANTE',
-          // Sin passwordHash: esta cuenta solo puede entrar por Google.
-        },
-      });
+    if (user) {
+      if (user.rol === 'ESTUDIANTE') {
+        await this.assertEstudianteTieneSalaActiva(user.email);
+      }
+    } else {
+      const inscripcion = await this.findSalaActivaDeEstudiante(email);
+      if (!inscripcion) {
+        throw new ForbiddenException(
+          'No tienes acceso al sistema: no estás inscrito en ninguna sala activa.',
+        );
+      }
+      try {
+        user = await this.prisma.usuario.create({
+          data: {
+            email,
+            nombre: inscripcion.nombre?.trim() || nombreCrudo?.trim() || email,
+            rol: 'ESTUDIANTE',
+            // Sin passwordHash: esta cuenta solo puede entrar por Google.
+          },
+        });
+      } catch (error) {
+        // Dos callbacks simultáneos del mismo email: el segundo choca con
+        // la unicidad de `email` (P2002); se reutiliza el usuario ya creado.
+        if ((error as { code?: string }).code !== 'P2002') throw error;
+        user = await this.prisma.usuario.findUnique({ where: { email } });
+        if (!user) throw error;
+      }
     }
 
     const accessToken = await this.signEvaluatorToken({
@@ -176,10 +314,24 @@ export class AuthService {
   }
 
   async login(email: string, password: string) {
-    const user = await this.prisma.usuario.findUnique({ where: { email } });
+    const user = await this.prisma.usuario.findUnique({
+      where: { email: email.trim().toLowerCase() },
+    });
 
-    if (!user?.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) {
+    // Si el usuario no existe, igual se corre un bcrypt.compare contra un
+    // hash dummy: sin esto, la ausencia de esa llamada es medible por
+    // timing y revela qué emails están registrados.
+    const passwordMatches = await bcrypt.compare(
+      password,
+      user?.passwordHash ?? AuthService.DUMMY_PASSWORD_HASH,
+    );
+
+    if (!user?.passwordHash || !passwordMatches) {
       throw new UnauthorizedException('Correo o contraseña incorrectos.');
+    }
+
+    if (user.rol === 'ESTUDIANTE') {
+      await this.assertEstudianteTieneSalaActiva(user.email);
     }
 
     const accessToken = await this.signEvaluatorToken({
@@ -203,7 +355,9 @@ export class AuthService {
   async issueParticipantToken(
     participanteId: string,
     proyectoId: string,
+    codigoInvitacion?: string,
     allowUnlisted = false,
+    resumeToken?: string,
   ) {
     const participante = await this.prisma.participante.findUnique({
       where: { id: participanteId },
@@ -218,10 +372,32 @@ export class AuthService {
         where: { proyectoId, participanteId, usado: true },
       });
 
-      if (!whitelistEntry) {
-        throw new ForbiddenException(
-          'El participante no está autorizado para este proyecto.',
-        );
+      if (whitelistEntry) {
+        this.assertInvitationCode(codigoInvitacion ?? '', whitelistEntry.codigoInvitacionHash);
+      } else {
+        if (participante.proyectoId !== proyectoId) {
+          throw new ForbiddenException(
+            'El participante no pertenece a este proyecto.',
+          );
+        }
+
+        const receivedHash = resumeToken
+          ? createHash('sha256').update(resumeToken).digest()
+          : Buffer.alloc(32);
+        const expectedHash = participante.resumeTokenHash
+          ? Buffer.from(participante.resumeTokenHash, 'hex')
+          : Buffer.alloc(32, 1);
+
+        if (
+          !resumeToken ||
+          !participante.resumeTokenHash ||
+          receivedHash.length !== expectedHash.length ||
+          !timingSafeEqual(receivedHash, expectedHash)
+        ) {
+          throw new ForbiddenException(
+            'No se pudo reanudar esta participación. Vuelve a ingresar desde el enlace original.',
+          );
+        }
       }
     }
 
@@ -245,12 +421,15 @@ export class AuthService {
 
     return {
       access_token: accessToken,
+      ...(resumeToken ? { resume_token: resumeToken } : {}),
       participant: { id: participante.id, proyectoId },
     };
   }
 
   async issueDevelopmentEvaluatorToken() {
-    if (this.config.get('app.nodeEnv') === 'production') {
+    // H2: antes bloqueaba solo 'production'; 'test' y cualquier otro valor
+    // pasaban. Ahora se permite únicamente en 'development'.
+    if (this.config.get('app.nodeEnv') !== 'development') {
       throw new NotFoundException();
     }
 
@@ -277,7 +456,8 @@ export class AuthService {
   }
 
   async issueDevelopmentParticipantToken() {
-    if (this.config.get('app.nodeEnv') === 'production') {
+    // H2: mismo gate que issueDevelopmentEvaluatorToken.
+    if (this.config.get('app.nodeEnv') !== 'development') {
       throw new NotFoundException();
     }
 
@@ -295,6 +475,7 @@ export class AuthService {
     return this.issueParticipantToken(
       consent.participanteId,
       consent.proyectoId,
+      undefined,
       true,
     );
   }
@@ -356,6 +537,36 @@ export class AuthService {
       email: user.email,
       rol: user.rol,
     };
+  }
+
+  /**
+   * Fase 5: ESTUDIANTE solo puede loguearse si está inscrito en al menos
+   * una Sala activa (no eliminada y, si tiene fechaFin, no vencida). Se
+   * revalida en cada login, no solo una vez.
+   */
+  private async assertEstudianteTieneSalaActiva(email: string) {
+    const salaActiva = await this.findSalaActivaDeEstudiante(email);
+
+    if (!salaActiva) {
+      throw new ForbiddenException(
+        'No tienes acceso al sistema: no estás inscrito en ninguna sala activa.',
+      );
+    }
+  }
+
+  private findSalaActivaDeEstudiante(email: string) {
+    const emailNormalizado = email.trim().toLowerCase();
+    const ahora = new Date();
+
+    return this.prisma.salaEstudiante.findFirst({
+      where: {
+        email: emailNormalizado,
+        sala: {
+          deletedAt: null,
+          OR: [{ fechaFin: null }, { fechaFin: { gte: ahora } }],
+        },
+      },
+    });
   }
 
   private signEvaluatorToken(user: AuthenticatedUser) {

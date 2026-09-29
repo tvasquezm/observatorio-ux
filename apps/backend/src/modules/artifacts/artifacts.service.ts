@@ -40,6 +40,7 @@ export class ArtifactsService {
     user: AuthenticatedUser,
   ) {
     await this.projectAccess.assertAccess(proyectoId, user);
+    await this.assertPuedeEditar(user, proyectoId);
     this.validateContenidoByTipo(dto.tipo, dto.contenido);
 
     return this.prisma.uxArtifact.create({
@@ -72,7 +73,7 @@ export class ArtifactsService {
 
   async findOne(artefactoId: string, user: AuthenticatedUser) {
     const artifact = await this.prisma.uxArtifact.findUnique({
-      where: { id: artefactoId },
+      where: { id: artefactoId, deletedAt: null },
     });
 
     if (!artifact) throw new NotFoundException('El artefacto no existe.');
@@ -91,17 +92,20 @@ export class ArtifactsService {
    * refresca deletedAt.
    */
   async softDelete(artefactoId: string, user: AuthenticatedUser) {
-    const artifact = await this.findOne(artefactoId, user);
+    const artifact = await this.findOneIncludingDeleted(artefactoId, user);
+    if (artifact.deletedAt) return artifact;
+    await this.assertPuedeEditar(user, artifact.proyectoId);
     const latest = await this.getLatestVersion(artifact.artefactoLogicoId, artifact);
 
     this.assertNotLockedByOther(latest, user);
 
+    const deletedAt = new Date();
     await this.prisma.uxArtifact.updateMany({
       where: { artefactoLogicoId: artifact.artefactoLogicoId },
-      data: { deletedAt: new Date() },
+      data: { deletedAt, lockedById: null, lockedUntil: null },
     });
 
-    return this.findOne(artefactoId, user);
+    return { ...artifact, deletedAt, lockedById: null, lockedUntil: null };
   }
 
   async createVersion(
@@ -110,6 +114,7 @@ export class ArtifactsService {
     user: AuthenticatedUser,
   ) {
     const artifact = await this.findOne(artefactoId, user);
+    await this.assertPuedeEditar(user, artifact.proyectoId);
     const latest = await this.getLatestVersion(artifact.artefactoLogicoId, artifact);
 
     // El chequeo de lock se hace siempre contra la ÚLTIMA versión del
@@ -118,22 +123,37 @@ export class ArtifactsService {
     // vigente sobre el estado actual del artefacto.
     this.assertNotLockedByOther(latest, user);
 
+    if (dto.expectedVersion !== undefined && latest.version !== dto.expectedVersion) {
+      throw new ConflictException(
+        `El artefacto cambió desde que lo abriste (versión actual: ${latest.version}). Recarga antes de guardar.`,
+      );
+    }
+
     // El tipo se hereda del artefacto lógico existente, no del DTO.
     this.validateContenidoByTipo(artifact.tipo, dto.contenido);
 
     // La nueva fila nace sin lock (lockedById/lockedUntil quedan null por
     // default del schema): guardar una versión cierra, de hecho, la sesión
     // de edición que originó el lock sobre la versión anterior.
-    return this.prisma.uxArtifact.create({
-      data: {
-        proyectoId: artifact.proyectoId,
-        tipo: artifact.tipo,
-        artefactoLogicoId: artifact.artefactoLogicoId,
-        version: latest.version + 1,
-        contenido: dto.contenido as Prisma.InputJsonValue,
-        autorId: user.id,
-      },
-    });
+    try {
+      return await this.prisma.uxArtifact.create({
+        data: {
+          proyectoId: artifact.proyectoId,
+          tipo: artifact.tipo,
+          artefactoLogicoId: artifact.artefactoLogicoId,
+          version: latest.version + 1,
+          contenido: dto.contenido as Prisma.InputJsonValue,
+          autorId: user.id,
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException(
+          'Otro usuario guardó una versión antes que tú. Recarga y vuelve a aplicar tus cambios.',
+        );
+      }
+      throw error;
+    }
   }
 
   /**
@@ -152,6 +172,7 @@ export class ArtifactsService {
     ttlSegundos?: number,
   ) {
     const artifact = await this.findOne(artefactoId, user);
+    await this.assertPuedeEditar(user, artifact.proyectoId);
     const latest = await this.getLatestVersion(artifact.artefactoLogicoId, artifact);
 
     this.assertNotLockedByOther(latest, user);
@@ -185,16 +206,19 @@ export class ArtifactsService {
 
   /**
    * Libera el lock sobre la última versión de un artefacto lógico. Solo
-   * quien lo tiene (o un ADMIN) puede liberarlo explícitamente; si ya expiró
-   * o nunca existió, no falla — liberar es idempotente.
+   * quien lo tiene puede liberarlo explícitamente; si ya expiró o nunca
+   * existió, no falla — liberar es idempotente. El bypass de ADMIN se quitó:
+   * la regla de negocio (Flujos de Usuario, Sprint 4) es "ESTUDIANTE o el
+   * DOCENTE dueño del proyecto editan, nadie más" (ver assertPuedeEditar).
    */
   async releaseLock(artefactoId: string, user: AuthenticatedUser) {
     const artifact = await this.findOne(artefactoId, user);
+    await this.assertPuedeEditar(user, artifact.proyectoId);
     const latest = await this.getLatestVersion(artifact.artefactoLogicoId, artifact);
 
     const lockActive = !!latest.lockedById && this.isLockActive(latest.lockedUntil);
 
-    if (lockActive && latest.lockedById !== user.id && user.rol !== 'ADMIN') {
+    if (lockActive && latest.lockedById !== user.id) {
       throw new ForbiddenException(
         'No puedes liberar un bloqueo que pertenece a otro usuario.',
       );
@@ -222,11 +246,50 @@ export class ArtifactsService {
     },
   >(artefactoLogicoId: string, fallback: T): Promise<T> {
     const latest = await this.prisma.uxArtifact.findFirst({
-      where: { artefactoLogicoId },
+      where: { artefactoLogicoId, deletedAt: null },
       orderBy: { version: 'desc' },
     });
 
     return (latest as T | null) ?? fallback;
+  }
+
+  /**
+   * Regla de oro (Flujos de Usuario, Sprint 4): "la visibilidad no implica
+   * permiso para modificar". Edita quien es ESTUDIANTE, o el DOCENTE/ADMIN
+   * que además es el creador del proyecto (creadoPorId === user.id) — el
+   * matiz acordado es que el dueño-docente conserva acceso de demostración
+   * sobre SU propio proyecto. Cualquier otro DOCENTE/ADMIN (sin ser dueño)
+   * queda en solo-observación, aunque `assertAccess` ya le haya permitido
+   * VER el proyecto (ADMIN siempre tiene acceso de lectura a todos).
+   */
+  private async assertPuedeEditar(
+    user: AuthenticatedUser,
+    proyectoId: string,
+  ): Promise<void> {
+    if (user.rol === 'ESTUDIANTE') return;
+
+    const project = await this.prisma.proyecto.findUnique({
+      where: { id: proyectoId, deletedAt: null },
+      select: { creadoPorId: true },
+    });
+
+    if (project?.creadoPorId === user.id) return;
+
+    throw new ForbiddenException(
+      'Solo un estudiante, o el dueño del proyecto, puede editar sus artefactos.',
+    );
+  }
+
+  private async findOneIncludingDeleted(
+    artefactoId: string,
+    user: AuthenticatedUser,
+  ) {
+    const artifact = await this.prisma.uxArtifact.findUnique({
+      where: { id: artefactoId },
+    });
+    if (!artifact) throw new NotFoundException('El artefacto no existe.');
+    await this.projectAccess.assertAccess(artifact.proyectoId, user);
+    return artifact;
   }
 
   private isLockActive(lockedUntil: Date | null): boolean {

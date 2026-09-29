@@ -1,23 +1,26 @@
 #!/bin/sh
 set -e
+# Este archivo debe conservar finales de línea LF; `.gitattributes` lo garantiza.
 # db ya está garantizado healthy por "depends_on: condition: service_healthy"
 # en docker-compose.yml, así que no hace falta esperar aquí.
+
+sh scripts/ensure-deps.sh backend
 
 echo "==> Aplicando migraciones de Prisma..."
 pnpm --filter backend exec prisma migrate deploy
 
-# El seed usa upsert() con una password hardcodeada (Demo1234!) — es correcto
-# y seguro re-ejecutarlo en cada arranque DE DESARROLLO, pero jamás debe
-# correr contra una base de producción: resetearía silenciosamente la
-# contraseña de un usuario real a un valor público y conocido por cualquiera
-# que lea el repo. Se gatea explícitamente por NODE_ENV, con el mismo
-# criterio que ya se usa para /auth/test-token (ver A4 en la auditoría /
-# docs/ARCHITECTURE.md).
-if [ "$NODE_ENV" = "production" ]; then
-  echo "==> NODE_ENV=production: se omite el seed automático."
-else
-  echo "==> Corriendo seed (NODE_ENV=$NODE_ENV)..."
+# El volumen de node_modules de desarrollo puede sobrevivir a una imagen nueva.
+# Regenerar aquí mantiene el cliente sincronizado con schema.prisma en cada arranque.
+echo "==> Generando cliente de Prisma..."
+pnpm --filter backend exec prisma generate
+
+# El seed modifica cuentas y datos demo: debe solicitarse explícitamente.
+# Reiniciar Docker no debe restablecer contraseñas ni proyectos guardados.
+if [ "$NODE_ENV" != "production" ] && [ "${SEED_ON_START:-false}" = "true" ]; then
+  echo "==> Corriendo seed de desarrollo solicitado..."
   pnpm --filter backend exec tsx prisma/seed.ts
+else
+  echo "==> Se conserva la base existente, sin seed automático."
 fi
 
 echo "==> Iniciando backend..."

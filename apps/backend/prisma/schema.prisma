@@ -58,10 +58,18 @@ model Proyecto {
   creadoPorId String
   createdAt   DateTime @default(now())
 
-  sesiones   ResearchSession[]
-  artefactos UxArtifact[]
-  whitelist  ParticipanteWhitelist[]
-  miembros   ProyectoMiembro[]
+  sesiones            ResearchSession[]
+  artefactos          UxArtifact[]
+  whitelist           ParticipanteWhitelist[]
+  miembros            ProyectoMiembro[]
+  comentarios         Comentario[]
+  participantesAcceso Participante[]
+  salaId              String?
+  sala                Sala?                   @relation(fields: [salaId], references: [id])
+
+  // Soft delete: se activa en cascada cuando su Sala se elimina (ver
+  // Sala.deletedAt). Los listados (findAll) lo excluyen por defecto.
+  deletedAt DateTime?
 
   @@map("proyectos")
 }
@@ -79,44 +87,60 @@ model ProyectoMiembro {
 }
 
 model Usuario {
-  id        String   @id @default(uuid())
-  nombre    String
-  email     String   @unique
+  id           String   @id @default(uuid())
+  nombre       String
+  email        String   @unique
   passwordHash String?
-  rol       Rol
-  createdAt DateTime @default(now())
+  rol          Rol
+  createdAt    DateTime @default(now())
 
-  proyectosCreados  Proyecto[]        @relation("ProyectosCreados")
-  sesionesEvaluador ResearchSession[] @relation("SesionesComoEvaluador")
-  artefactosAutor   UxArtifact[]      @relation("ArtefactosComoAutor")
+  proyectosCreados  Proyecto[]              @relation("ProyectosCreados")
+  sesionesEvaluador ResearchSession[]       @relation("SesionesComoEvaluador")
+  artefactosAutor   UxArtifact[]            @relation("ArtefactosComoAutor")
   whitelistCreada   ParticipanteWhitelist[]
   proyectosMiembro  ProyectoMiembro[]
+  comentariosAutor  Comentario[]            @relation("ComentariosComoAutor")
+  equiposCreados    Equipo[]                @relation("EquiposCreados")
+  equiposMiembro    EquipoMiembro[]         @relation("EquiposComoMiembro")
+  salas             Sala[]
+
   @@map("usuarios")
 }
 
 model Participante {
-  id        String   @id @default(uuid())
-  metadata  Json? // datos demográficos opcionales, anonimizables sin perder sesiones
-  createdAt DateTime @default(now())
+  id              String   @id @default(uuid())
+  metadata        Json? // datos demográficos opcionales, anonimizables sin perder sesiones
+  resumeTokenHash String? // credencial opaca para renovar una sesión anónima sin crear otro participante
+  createdAt       DateTime @default(now())
 
-  consentimientos Consentimiento[]
-  sesiones        ResearchSession[] @relation("SesionesComoParticipante")
+  // H5 (Fase 7, plan de remediación): nullable para no romper filas
+  // existentes (todas creadas antes de esta columna quedan sin proyecto).
+  // Permite el límite de accesos/hora por proyecto en accessParticipant.
+  proyecto   Proyecto? @relation(fields: [proyectoId], references: [id])
+  proyectoId String?
+
+  consentimientos   Consentimiento[]
+  sesiones          ResearchSession[]       @relation("SesionesComoParticipante")
   categoriasCreadas Category[]
-  whitelistEntries ParticipanteWhitelist[]
+  whitelistEntries  ParticipanteWhitelist[]
+
+  @@index([proyectoId, createdAt])
   @@map("participantes")
 }
+
 model ParticipanteWhitelist {
-  id         String   @id @default(uuid())
-  proyecto   Proyecto @relation(fields: [proyectoId], references: [id])
-  proyectoId String
-  email      String
-  nombre     String?
-  usado      Boolean  @default(false)
+  id                   String   @id @default(uuid())
+  proyecto             Proyecto @relation(fields: [proyectoId], references: [id])
+  proyectoId           String
+  email                String
+  nombre               String?
+  usado                Boolean  @default(false)
+  codigoInvitacionHash String?
 
   participante   Participante? @relation(fields: [participanteId], references: [id])
   participanteId String?
 
-  creadoPor   Usuario @relation(fields: [creadoPorId], references: [id])
+  creadoPor   Usuario  @relation(fields: [creadoPorId], references: [id])
   creadoPorId String
   createdAt   DateTime @default(now())
 
@@ -139,6 +163,81 @@ model Consentimiento {
   @@map("consentimientos")
 }
 
+model Sala {
+  id            String           @id @default(uuid())
+  nombre        String
+  periodo       String
+  instrucciones String?
+  fechaInicio   DateTime?
+  fechaFin      DateTime?
+  profesorId    String
+  profesor      Usuario          @relation(fields: [profesorId], references: [id])
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  proyectos     Proyecto[]
+  estudiantes   SalaEstudiante[]
+  equipos       Equipo[]
+
+  // Fase 4: toggle de creación de equipos por ESTUDIANTE (DOCENTE dueño
+  // siempre puede crear equipos, use o no este toggle). limiteIntegrantesEquipo
+  // nulo = sin límite; solo lo configura el DOCENTE dueño o ADMIN.
+  permiteCreacionEquipos  Boolean @default(false)
+  limiteIntegrantesEquipo Int?
+
+  // Fase 5: toggle de creación de proyectos por ESTUDIANTE (mismo patrón que
+  // permiteCreacionEquipos). DOCENTE dueño/ADMIN no dependen de este flag.
+  permiteCreacionProyectos Boolean @default(false)
+
+  // Soft delete con ventana de recuperación de 20 días (ver SalasService).
+  // Al eliminarse, cascada lógica a los Proyecto de la sala.
+  deletedAt DateTime?
+}
+
+// Registro liviano de estudiante inscrito en una sala. No es un Usuario
+// (sin login/password) — solo los datos que el profesor carga para hacer
+// seguimiento dentro de la sala.
+model SalaEstudiante {
+  id        String   @id @default(uuid())
+  sala      Sala     @relation(fields: [salaId], references: [id])
+  salaId    String
+  nombre    String?
+  email     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([salaId, email])
+  @@map("sala_estudiantes")
+}
+
+// Fase 4: equipo de estudiantes dentro de una Sala. Hard delete real (no es
+// evidencia de investigación como UxArtifact, no necesita ventana de
+// recuperación).
+model Equipo {
+  id          String   @id @default(uuid())
+  sala        Sala     @relation(fields: [salaId], references: [id])
+  salaId      String
+  nombre      String
+  creadoPor   Usuario  @relation("EquiposCreados", fields: [creadoPorId], references: [id])
+  creadoPorId String
+  createdAt   DateTime @default(now())
+
+  miembros EquipoMiembro[]
+
+  @@map("equipos")
+}
+
+model EquipoMiembro {
+  id        String   @id @default(uuid())
+  equipo    Equipo   @relation(fields: [equipoId], references: [id])
+  equipoId  String
+  usuario   Usuario  @relation("EquiposComoMiembro", fields: [usuarioId], references: [id])
+  usuarioId String
+  createdAt DateTime @default(now())
+
+  @@unique([equipoId, usuarioId])
+  @@map("equipo_miembros")
+}
+
 // ------------------------------------------------------------
 // GRUPO A — ResearchSession (transaccional)
 // ------------------------------------------------------------
@@ -147,6 +246,7 @@ model ResearchSession {
   id         String       @id @default(uuid())
   proyecto   Proyecto     @relation(fields: [proyectoId], references: [id])
   proyectoId String
+  nombre     String       @default("Card Sorting")
   tipo       TipoSesion
   estado     EstadoSesion @default(INVITADO)
 
@@ -156,19 +256,22 @@ model ResearchSession {
   evaluador      Usuario?      @relation("SesionesComoEvaluador", fields: [evaluadorId], references: [id])
   evaluadorId    String?
 
-  resultado Json? 
+  resultado Json?
 
   // --- NUEVO: 3FN CARD SORTING ---
   tipoCardSorting TipoCardSorting?
+  // Solo relevante en el estudio maestro (actor EVALUADOR): bloquea
+  // nuevos join/submit de participantes sin borrar nada.
+  cerrado         Boolean          @default(false)
 
   // Auto-relación Evaluador -> Participante
-  estudio   ResearchSession?  @relation("EstudioParticipantes", fields: [estudioId], references: [id])
-  estudioId String?
+  estudio                    ResearchSession?  @relation("EstudioParticipantes", fields: [estudioId], references: [id])
+  estudioId                  String?
   participantesDeEsteEstudio ResearchSession[] @relation("EstudioParticipantes")
 
-  cardsDefinidas       Card[]         @relation("SessionCards")
-  categoriasDefinidas  Category[]     @relation("SessionCategories")
-  agrupaciones         CardGrouping[] @relation("ParticipantGroupings")
+  cardsDefinidas      Card[]         @relation("SessionCards")
+  categoriasDefinidas Category[]     @relation("SessionCategories")
+  agrupaciones        CardGrouping[] @relation("ParticipantGroupings")
 
   createdAt    DateTime  @default(now())
   completadoAt DateTime?
@@ -241,7 +344,7 @@ model UxArtifact {
   proyecto          Proyecto      @relation(fields: [proyectoId], references: [id])
   proyectoId        String
   tipo              TipoArtefacto
-  artefactoLogicoId String 
+  artefactoLogicoId String
   version           Int           @default(1)
   contenido         Json
 
@@ -260,4 +363,27 @@ model UxArtifact {
 
   @@unique([artefactoLogicoId, version])
   @@map("ux_artifacts")
+}
+
+model Comentario {
+  id         String   @id @default(uuid())
+  proyecto   Proyecto @relation(fields: [proyectoId], references: [id])
+  proyectoId String
+
+  // Referencia al artefacto lógico (no a una fila de versión puntual), para
+  // que el comentario siga siendo válido aunque el artefacto se versione.
+  artefactoLogicoId String?
+
+  autor   Usuario @relation("ComentariosComoAutor", fields: [autorId], references: [id])
+  autorId String
+
+  texto String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Soft delete: mismo patrón que Sala/Proyecto/UxArtifact.
+  deletedAt DateTime?
+
+  @@map("comentarios")
 }

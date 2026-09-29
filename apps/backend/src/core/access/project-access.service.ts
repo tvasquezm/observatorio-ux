@@ -14,8 +14,8 @@ export class ProjectAccessService {
 
   /**
    * Lanza NotFoundException si el proyecto no existe, ForbiddenException
-   * si el usuario no es dueño, ADMIN, ni miembro. No lanza nada si tiene
-   * acceso.
+   * si el usuario no es dueño, ADMIN, miembro, ni docente dueño de la sala.
+   * No lanza nada si tiene acceso.
    */
   async assertAccess(
     proyectoId: string,
@@ -23,12 +23,13 @@ export class ProjectAccessService {
     mensajeForbidden = 'No tienes acceso a este proyecto.',
   ): Promise<void> {
     const project = await this.prisma.proyecto.findUnique({
-      where: { id: proyectoId },
-      select: { creadoPorId: true },
+      where: { id: proyectoId, deletedAt: null },
+      select: { creadoPorId: true, sala: { select: { profesorId: true } } },
     });
 
     if (!project) throw new NotFoundException('El proyecto no existe.');
     if (project.creadoPorId === user.id || user.rol === 'ADMIN') return;
+    if (project.sala?.profesorId === user.id) return;
 
     const esMiembro = await this.prisma.proyectoMiembro.findUnique({
       where: { proyectoId_usuarioId: { proyectoId, usuarioId: user.id } },
@@ -50,7 +51,7 @@ export class ProjectAccessService {
     mensajeForbidden = 'Solo el creador del proyecto o un administrador pueden hacer esto.',
   ): Promise<{ creadoPorId: string }> {
     const project = await this.prisma.proyecto.findUnique({
-      where: { id: proyectoId },
+      where: { id: proyectoId, deletedAt: null },
       select: { creadoPorId: true },
     });
 

@@ -5,21 +5,15 @@
 // otro token ('participanteToken') y otro endpoint de reanudación.
 
 import { csrfHeaders } from '../../../shared/api/csrf';
+import type {
+  EvaluatorRole,
+  EvaluatorUser,
+  LoginResponse,
+} from '@observatorio-ux/shared-types';
+
+export type { EvaluatorRole, EvaluatorUser, LoginResponse };
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
-
-export type EvaluatorRole = 'ESTUDIANTE' | 'DOCENTE' | 'ADMIN';
-
-export interface EvaluatorUser {
-  id: string;
-  nombre: string;
-  email: string;
-  rol: EvaluatorRole;
-}
-
-export interface LoginResponse {
-  user: EvaluatorUser;
-}
 
 export class AuthApiError extends Error {
   constructor(public readonly status: number, message: string) {
@@ -34,7 +28,10 @@ export async function login(email: string, password: string): Promise<LoginRespo
     res = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       credentials: 'include', // necesario para que el navegador guarde las cookies httpOnly `evaluadorToken`/`csrfToken` que emite el backend (cross-origin en dev: 5173 → 3000).
-      headers: { 'Content-Type': 'application/json' },
+      // Si existe otra pestaña autenticada, el navegador también envía su
+      // cookie de sesión en este login. En ese caso el middleware CSRF exige
+      // el token correspondiente aunque esta pestaña muestre /login.
+      headers: { 'Content-Type': 'application/json', ...csrfHeaders('POST') },
       body: JSON.stringify({ email, password }),
     });
   } catch {

@@ -11,13 +11,22 @@
 //   POST /api/card-sorting/sessions/:id/join
 //   POST /api/card-sorting/sessions/:id/results
 
-import { csrfHeaders } from '../../../shared/api/csrf';
+import { evaluatorRequest } from '../../../shared/api/evaluator-client';
+import type {
+  CreateCardSortingSessionPayload,
+  SubmitCardSortingGrupo,
+  SubmitCardSortingResultPayload,
+  TipoCardSorting,
+} from '@observatorio-ux/shared-types';
 
-const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
+export type {
+  CreateCardSortingSessionPayload,
+  SubmitCardSortingGrupo,
+  SubmitCardSortingResultPayload,
+  TipoCardSorting,
+};
 
 // --- Tipos que reflejan las entidades reales del schema.prisma ---
-
-export type TipoCardSorting = 'ABIERTO' | 'CERRADO';
 
 export interface Card {
   id: string;
@@ -52,7 +61,9 @@ export interface CardGrouping {
 // metodologías.
 export interface CardSortingSession {
   id: string;
+  evaluadorId?: string | null;
   proyectoId: string;
+  nombre: string;
   tipo: 'CARD_SORTING';
   tipoCardSorting: TipoCardSorting | null;
   estado: 'INVITADO' | 'EN_PROGRESO' | 'COMPLETADO' | 'ABANDONADO';
@@ -63,25 +74,9 @@ export interface CardSortingSession {
   agrupaciones: CardGrouping[];
   createdAt: string;
   completadoAt: string | null;
-}
-
-// --- Payloads de entrada, espejo de los DTOs Zod del backend ---
-
-export interface CreateCardSortingSessionPayload {
-  proyectoId: string;
-  tipo: TipoCardSorting;
-  tarjetas: string[];
-  categorias?: string[];
-}
-
-export interface SubmitCardSortingGrupo {
-  categoriaId?: string;
-  categoriaNombre?: string;
-  cardIds: string[];
-}
-
-export interface SubmitCardSortingResultPayload {
-  grupos: SubmitCardSortingGrupo[];
+  // Fase: cierre de estudio — solo tiene sentido en el estudio maestro.
+  cerrado: boolean;
+  respuestasCount?: number;
 }
 
 // --- Manejo de errores ---
@@ -98,40 +93,12 @@ export class CardSortingApiError extends Error {
   }
 }
 
-async function parseErrorMessage(res: Response): Promise<string> {
-  try {
-    const body = await res.json();
-    return body?.message ?? `Error HTTP ${res.status}`;
-  } catch {
-    return `Error HTTP ${res.status}`;
-  }
-}
-
 async function request<T>(path: string, init: RequestInit): Promise<T> {
-  let res: Response;
-
-  try {
-    res = await fetch(`${API_BASE}${path}`, {
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        // Solo pega para las llamadas de EVALUADOR (createCardSortingSession):
-        // getCsrfToken() no encuentra la cookie `csrfToken` en el flujo de
-        // PARTICIPANTE (nunca se emite ahí), así que en esos casos esto no
-        // agrega nada — inofensivo.
-        ...csrfHeaders(init.method),
-      },
-      ...init,
-    });
-  } catch {
-    throw new CardSortingApiError(0, 'No se pudo conectar con el servidor.');
-  }
-
-  if (!res.ok) {
-    throw new CardSortingApiError(res.status, await parseErrorMessage(res));
-  }
-
-  return res.json() as Promise<T>;
+  return evaluatorRequest<T>(
+    path,
+    init,
+    (status, message) => new CardSortingApiError(status, message),
+  );
 }
 
 // --- Funciones puras exportadas ---
@@ -163,27 +130,47 @@ export function getCardSortingSession(
 }
 
 /**
- * Participante anónimo se une a un estudio: crea su propia sesión hija.
- * Ruta pública en el backend (no requiere JWT de Usuario).
+ * Estudio maestro ya existente para un proyecto (si lo hay). Permite
+ * restaurar la pantalla del evaluador al recargar o volver a entrar,
+ * sin depender solo del resultado en memoria de createSession.
  */
-export function joinCardSortingSession(
-  estudioId: string,
-  participanteId: string,
-): Promise<CardSortingSession> {
-  return request<CardSortingSession>(
-    `/card-sorting/sessions/${estudioId}/join`,
-    {
-      method: 'POST',
-      body: JSON.stringify({ participanteId }),
-    },
+export function getCardSortingSessionByProyecto(
+  proyectoId: string,
+): Promise<CardSortingSession | null> {
+  return request<CardSortingSession | null>(
+    `/card-sorting/sessions?proyectoId=${proyectoId}`,
+    { method: 'GET' },
   );
 }
 
 /**
- * Participante envía su resultado de agrupamiento. El backend deriva el
- * participanteId de la sesión en el servidor (no viaja en el body, ver
- * ADR de seguridad IDOR).
+ * Todos los estudios maestros ya creados para un proyecto (no solo el
+ * más reciente) — permite al evaluador tener varios estudios de Card
+ * Sorting en paralelo para el mismo proyecto.
  */
+export function getCardSortingEstudiosByProyecto(
+  proyectoId: string,
+): Promise<CardSortingSession[]> {
+  return request<CardSortingSession[]>(
+    `/card-sorting/sessions/proyecto/${proyectoId}/todos`,
+    { method: 'GET' },
+  );
+}
+
+/**
+ * Evaluador cierra (o reabre) el estudio maestro: bloquea nuevos
+ * join/submit de participantes sin borrar nada.
+ */
+export function cerrarCardSortingEstudio(
+  estudioId: string,
+  cerrado: boolean,
+): Promise<CardSortingSession> {
+  return request<CardSortingSession>(`/card-sorting/sessions/${estudioId}/cerrar`, {
+    method: 'PATCH',
+    body: JSON.stringify({ cerrado }),
+  });
+}
+
 export interface CardSortingFrecuenciaCategoria {
   nombre: string;
   count: number;
@@ -196,7 +183,31 @@ export interface CardSortingCluster {
   acuerdo: number;
 }
 
+export interface CardSortingMatrix {
+  categorias: string[];
+  filas: Array<{ tarjeta: string; valores: number[] }>;
+}
+
+export interface CardSortingPorCarta {
+  tarjeta: string;
+  categoriasCount: number;
+  categorias: Array<{ nombre: string; frecuencia: number }>;
+}
+
+export interface CardSortingPorCategoria {
+  nombre: string;
+  cardsCount: number;
+  cartas: Array<{ tarjeta: string; frecuencia: number }>;
+}
+
 export interface CardSortingAnalytics {
+  estudio: {
+    id: string;
+    proyectoId: string;
+    nombre: string;
+    cerrado: boolean;
+    createdAt: string;
+  };
   participantesCount: number;
   cardsCount: number;
   acuerdoGlobal: number;
@@ -204,6 +215,11 @@ export interface CardSortingAnalytics {
   matrizSimilitud: number[][];
   frecuenciaPorCategoria: CardSortingFrecuenciaCategoria[];
   clusters: CardSortingCluster[];
+  categorias: string[];
+  resultsMatrix: CardSortingMatrix;
+  popularPlacementsMatrix: CardSortingMatrix;
+  porCarta: CardSortingPorCarta[];
+  porCategoria: CardSortingPorCategoria[];
 }
 
 /**
@@ -215,17 +231,4 @@ export function getCardSortingAnalytics(estudioId: string): Promise<CardSortingA
   return request<CardSortingAnalytics>(`/card-sorting/sessions/${estudioId}/analytics`, {
     method: 'GET',
   });
-}
-
-export function submitCardSortingResult(
-  participanteSesionId: string,
-  grupos: SubmitCardSortingGrupo[],
-): Promise<CardSortingSession> {
-  return request<CardSortingSession>(
-    `/card-sorting/sessions/${participanteSesionId}/results`,
-    {
-      method: 'POST',
-      body: JSON.stringify({ grupos } satisfies SubmitCardSortingResultPayload),
-    },
-  );
 }

@@ -1,0 +1,54 @@
+version: 2
+
+updates:
+  # Dependencias del monorepo pnpm (raíz, apps/* y packages/*). Un solo PR
+  # agrupado por semana para no saturar la revisión; las actualizaciones de
+  # seguridad siguen llegando aparte y sin agrupar.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      timezone: "America/Santiago"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Actions de .github/workflows (fijadas a SHA: Dependabot actualiza el SHA
+  # y el comentario de versión).
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      timezone: "America/Santiago"
+    commit-message:
+      prefix: "ci"
+    groups:
+      actions:
+        patterns:
+          - "*"
+
+  # Imágenes base de los Dockerfile.
+  - package-ecosystem: "docker"
+    directory: "/apps/backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      timezone: "America/Santiago"
+    commit-message:
+      prefix: "chore(docker)"
+
+  - package-ecosystem: "docker"
+    directory: "/apps/frontend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      timezone: "America/Santiago"
+    commit-message:
+      prefix: "chore(docker)"

@@ -12,7 +12,7 @@ Plataforma SaaS para la ejecución, gestión y análisis matemático de metodolo
 
 Trabajo de título de **Ingeniería en Computación (UTEM)**. Centraliza en un solo lugar cinco metodologías de UX Research —Evaluación Heurística, Card Sorting, Perfil de Persona, Journey Map y Mapa de Momentos Críticos—, con autenticación por roles, gestión de proyectos y un modelo de datos pensado para el análisis, no solo el almacenamiento.
 
-> **Estado:** en desarrollo activo (Sprint 1 y 2 de 13, ya cerrados). Antes de auditar o contribuir, revisa [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), donde se documentan las decisiones de arquitectura y los hallazgos de auditoría técnica.
+> **Estado:** en desarrollo activo. Los entregables técnicos de los Sprints 1–6 están implementados; las reuniones y validaciones humanas pendientes se registran por separado. Antes de auditar o contribuir, revisa [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Tabla de contenidos
 
@@ -46,7 +46,7 @@ La interfaz usa un sistema de diseño propio, **Academic Minimalism**: paleta mo
 - **Backend:** NestJS, Prisma ORM, PostgreSQL, validación con Zod (`nestjs-zod`)
 - **Frontend:** React (Vite), TypeScript, Zustand, TanStack Query, Tailwind CSS
 - **Concurrencia:** bloqueo pesimista con TTL para edición de artefactos (`POST`/`DELETE .../artifacts/:id/lock`) + constraints a nivel de base de datos
-- **Infra de desarrollo:** Docker Compose (`db`, `shared-types` en watch mode, `backend`, `frontend`)
+- **Infra:** Docker Compose para desarrollo y despliegue productivo con Nginx como reverse proxy
 - **Reportería:** PDF por proyecto + exportación JSON (Sprint 7)
 - **Pruebas de carga:** k6, objetivo 200 usuarios concurrentes (Sprint 8)
 
@@ -97,7 +97,9 @@ Los valores por defecto ya funcionan para desarrollo local con Docker (incluye `
 docker compose up --build
 ```
 
-Esto, en orden: construye las imágenes de `shared-types`, `backend` y `frontend`; levanta `db` (Postgres) y espera su healthcheck; compila `shared-types` en modo watch; aplica migraciones de Prisma; corre el seed **solo si `NODE_ENV` no es `production`**; y levanta el frontend con Vite.
+Esto, en orden: construye las imágenes de `shared-types`, `backend` y `frontend`; levanta `db` (Postgres) y espera su healthcheck; compila `shared-types` en modo watch; aplica migraciones de Prisma; y levanta el frontend con Vite. El seed no se ejecuta al reiniciar para conservar cuentas y proyectos existentes. Para crear los datos demo, ejecuta `docker compose exec backend pnpm --filter backend seed` o activa explícitamente `SEED_ON_START=true` en desarrollo. En producción nunca se ejecuta el seed automático.
+
+Después de un `git pull` que cambie dependencias (`pnpm-lock.yaml`), basta `docker compose up`: cada servicio detecta el cambio al arrancar y reinstala solo lo suyo. Si un `node_modules` sigue inconsistente, ejecuta `docker compose down` y luego `docker compose up --build -V` para recrear los volúmenes de dependencias.
 
 - Backend: `http://localhost:3000/api` (Swagger en `/api/docs`)
 - Frontend: `http://localhost:5173`
@@ -109,7 +111,7 @@ docker compose down -v
 ```
 
 <details>
-<summary>Alternativa sin Docker (Node.js 20+, pnpm 9+, PostgreSQL 15+ local)</summary>
+<summary>Alternativa sin Docker (Node.js 24+, pnpm 10.34.5+, PostgreSQL 15+ local)</summary>
 
 ```bash
 pnpm install
@@ -134,29 +136,58 @@ pnpm --filter frontend dev
 ```
 </details>
 
+### Despliegue productivo
+
+El stack productivo sirve frontend y API desde un único puerto y no ejecuta
+datos demo. La guía completa está en
+[`docs/sprints/sprint6-despliegue.md`](docs/sprints/sprint6-despliegue.md).
+
+```bash
+cp env.production.example .env.production
+# Reemplazar secretos, contraseña, DATABASE_URL y CORS_ORIGIN.
+docker compose --env-file .env.production -f docker-compose.production.yml up -d --build --wait --wait-timeout 180
+```
+
+Con el puerto predeterminado, la aplicación queda en `http://localhost:8080`.
+Para publicación real se requiere HTTPS delante de Nginx.
+
 ## Testing
 
 ```bash
-pnpm --filter backend test        # unitarios (57 tests, 6 suites — en verde)
-pnpm -r test                      # corre "test" en todos los workspaces que lo definan
+pnpm --filter backend test        # pruebas unitarias del backend
+pnpm --filter frontend test       # componentes, hooks y permisos del frontend
+pnpm -r test                      # corre las pruebas de todos los workspaces
 ```
 
-> ⚠️ Todavía no existen tests e2e (`test:e2e`) ni tests de frontend — son parte del
-> backlog pendiente, no scripts ya implementados. Antes de correr `pnpm -r test`
-> desde la raíz, tené en cuenta que solo `apps/backend` define ese script hoy;
-> `apps/frontend` y `packages/shared-types` no lo tienen todavía.
->
-> Cobertura actualmente mínima en varios módulos — ampliarla es parte del backlog.
+Las pruebas E2E cubren el recorrido `login → proyecto → 5 técnicas`, la
+restricción de Analítica para estudiantes y la ausencia de desbordamiento en
+escritorio (1440×900) y móvil táctil (390×844):
+
+```bash
+docker compose up -d db           # Playwright prepara migraciones y seed
+# Solo la primera vez: crea la base aislada que usa el recorrido E2E
+docker compose exec db psql -U postgres -d postgres -c "CREATE DATABASE observatorio_ux_e2e"
+pnpm exec playwright install chromium  # solo la primera vez
+pnpm test:e2e                     # escritorio + móvil
+pnpm test:e2e:mobile              # solo viewport móvil
+pnpm test:e2e:desktop             # solo escritorio
+```
+
+Playwright usa por defecto los puertos 5174/3001 y la base `observatorio_ux_e2e`.
+Si se configuran `E2E_BASE_URL` y `E2E_BACKEND_URL`, puede reutilizar servidores de prueba existentes. El seed exige una base cuyo nombre termine en `_e2e` o `_test`.
+En CI levanta ambos servicios, ejecuta las pruebas y conserva capturas, video y
+trace cuando hay una falla.
 
 ## CI
 
 Cada `push` a `main` y cada Pull Request disparan un workflow de GitHub
 Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) que corre,
 contra un Postgres real: build de `shared-types`, `prisma generate` +
-`migrate deploy`, los tests del backend, y el build del frontend. No requiere
-ninguna acción manual — se ve en la pestaña **Actions** del repo, o como
-check ✅/❌ directo en la página del Pull Request. Si falla, el log de cada
-paso está ahí mismo.
+`migrate deploy`, tests del backend/frontend, E2E responsive y auditoría de
+dependencias. Un segundo job construye y prueba el stack productivo completo
+desde cero. No requiere ninguna acción manual — se ve en la pestaña
+**Actions** del repo, o como check ✅/❌ directo en la página del Pull Request.
+Si falla, el log de cada paso está ahí mismo.
 
 ## Documentación adicional
 
@@ -172,11 +203,16 @@ paso está ahí mismo.
 - [`docs/comandos-backend.md`](docs/comandos-backend.md) — flujo de backend sin Docker (Node/pnpm local)
 - [`docs/Guia_Prueba_E2E_Card_Sorting_Participantes.md`](docs/Guia_Prueba_E2E_Card_Sorting_Participantes.md) — prueba E2E de Card Sorting con participantes
 - [`docs/deuda-tecnica-heuristica.md`](docs/deuda-tecnica-heuristica.md) — registro histórico de deuda técnica del módulo de Evaluación Heurística (03/08/2026) — la mayoría de esos ítems ya están resueltos, revisar `ARCHITECTURE.md` para el estado vigente
+- [`docs/dudas-profesor.md`](docs/dudas-profesor.md) — dudas y pendientes que dependen de información que solo puede confirmar el profesor (incluye D7 y R4)
 
 **Registros por sprint** (`docs/sprints/`):
 - [`docs/sprints/GUIA-IA-DOCUMENTACION.md`](docs/sprints/GUIA-IA-DOCUMENTACION.md) — convenciones para asistentes de IA (nomenclatura, vocabulario técnico, qué doc actualizar)
 - [`docs/sprints/sprint3-herramientas-ux.md`](docs/sprints/sprint3-herramientas-ux.md) — Sprint 3, Persona/Journey Map/Momentos Críticos
 - [`docs/sprints/sprint4-auth-roles.md`](docs/sprints/sprint4-auth-roles.md) — Sprint 4, roles + segregación de auth
+- [`docs/sprints/sprint4-referencias-marco-teorico.md`](docs/sprints/sprint4-referencias-marco-teorico.md) — referencias complementarias y texto puente para el capítulo 2
+- [`docs/sprints/sprint5-panel-administrativo.md`](docs/sprints/sprint5-panel-administrativo.md) — alcance, decisiones y estado verificable del panel administrativo
+- [`docs/sprints/sprint5-pauta-evaluacion-usabilidad.md`](docs/sprints/sprint5-pauta-evaluacion-usabilidad.md) — pauta borrador lista para revisión del profesor
+- [`docs/sprints/sprint6-despliegue.md`](docs/sprints/sprint6-despliegue.md) — despliegue productivo reproducible, operación y estado F1–F8/R6
 
 - [`postman/`](postman/) — colecciones Postman por módulo (token de prueba vía `/auth/test-token`, deshabilitado automáticamente cuando `NODE_ENV=production`)
 

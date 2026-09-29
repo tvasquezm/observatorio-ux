@@ -2,10 +2,12 @@ import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsEnum,
   IsOptional,
   IsString,
   IsUUID,
+  MaxLength,
   MinLength,
   ValidateNested,
 } from 'class-validator';
@@ -30,6 +32,11 @@ class CategoriaDto {
 export class CreateCardSortingSessionDto {
   @IsUUID()
   proyectoId!: string;
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(120)
+  nombre!: string;
 
   @IsOptional()
   @IsEnum(CardSortingTypeDto)
@@ -70,4 +77,9 @@ export class SubmitCardSortingResultDto {
   @ValidateNested({ each: true })
   @Type(() => GrupoDto)
   grupos!: GrupoDto[];
+}
+
+export class CerrarEstudioDto {
+  @IsBoolean()
+  cerrado!: boolean;
 }

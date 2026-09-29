@@ -12,16 +12,30 @@ export const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string().valid('development', 'test', 'production').required(),
   PORT: Joi.number().port().default(3000),
   DATABASE_URL: Joi.string().required(),
-  JWT_SECRET: Joi.string().min(16).required(),
+  JWT_SECRET: Joi.string().when('NODE_ENV', {
+    is: 'production',
+    then: Joi.string().min(32),
+    otherwise: Joi.string().min(16),
+  }).required(),
   JWT_EXPIRES_IN: Joi.string().default('1h'),
   // Distinto de JWT_SECRET a propósito: evaluadorToken y participanteToken
   // deben poder validarse por separado (Regla de negocio: Segregación de Auth).
-  JWT_PARTICIPANTE_SECRET: Joi.string().min(16).required(),
+  JWT_PARTICIPANTE_SECRET: Joi.string()
+    .when('NODE_ENV', {
+      is: 'production',
+      then: Joi.string().min(32),
+      otherwise: Joi.string().min(16),
+    })
+    .invalid(Joi.ref('JWT_SECRET'))
+    .required()
+    .messages({ 'any.invalid': 'JWT_PARTICIPANTE_SECRET debe ser distinto de JWT_SECRET' }),
   JWT_PARTICIPANTE_EXPIRES_IN: Joi.string().default('4h'),
   CORS_ORIGIN: Joi.string().default('http://localhost:5173'),
 
-  // ==== Google OAuth (login de EVALUADOR) ====
-  GOOGLE_CLIENT_ID: Joi.string().required(),
-  GOOGLE_CLIENT_SECRET: Joi.string().required(),
-  GOOGLE_CALLBACK_URL: Joi.string().uri().required(),
+  // ==== Google OAuth (login de EVALUADOR) — opcional ====
+  // Si faltan, el botón "Continuar con Google" redirige al login con un
+  // aviso; no impide arrancar. Para habilitarlo deben estar las tres.
+  GOOGLE_CLIENT_ID: Joi.string().allow('').optional(),
+  GOOGLE_CLIENT_SECRET: Joi.string().allow('').optional(),
+  GOOGLE_CALLBACK_URL: Joi.string().uri().allow('').optional(),
 });

@@ -2,6 +2,8 @@
 //
 // Wrapper delgado sobre shared/api/artifacts.api.ts para tipo PERSONA.
 
+import type { Persona as PersonaContenido } from '@observatorio-ux/shared-types';
+
 import {
   acquireLock,
   createArtifact,
@@ -14,40 +16,33 @@ import {
   type UxArtifact,
 } from '../../../shared/api/artifacts.api';
 
-// Espejo de PersonaSchema (packages/shared-types/src/domains/persona.ts).
-// Se duplica en vez de importar el paquete compartido, siguiendo el mismo
-// criterio que features/card-sorting/api/card-sorting.api.ts: el frontend
-// no depende del build de shared-types para sus tipos de UI.
-export interface PersonaContenido {
-  nombreCompleto: string;
-  edad?: number;
-  ocupacion?: string;
-  fotografiaUrl?: string;
-  acercaDe?: string;
-  familia?: string;
-  hobbies: string[];
-  habilidades: string[];
-  objetivos: string[];
-  necesidades: string[];
-  motivaciones: string[];
-  frustraciones: string[];
-  comportamientos: string[];
-  contextoDeUso?: string;
-  expectativas: string[];
-}
+export type { PersonaContenido };
 
 export type PersonaArtifact = UxArtifact<PersonaContenido>;
 
-export async function listPersonas(proyectoId: string): Promise<PersonaArtifact[]> {
-  const items = await listArtifacts<PersonaContenido>(proyectoId, 'PERSONA');
-  return dedupeLatestVersions(items);
+function normalizePersona(artifact: PersonaArtifact): PersonaArtifact {
+  const content = artifact.contenido as PersonaContenido & { nombre?: string };
+  // Compatibilidad de lectura con fichas demo anteriores al esquema actual.
+  return { ...artifact, contenido: {
+    ...content,
+    nombreCompleto: content.nombreCompleto || content.nombre || 'Persona sin nombre',
+    hobbies: content.hobbies ?? [], habilidades: content.habilidades ?? [],
+    objetivos: content.objetivos ?? [], necesidades: content.necesidades ?? [],
+    motivaciones: content.motivaciones ?? [], frustraciones: content.frustraciones ?? [],
+    comportamientos: content.comportamientos ?? [], expectativas: content.expectativas ?? [],
+  } };
 }
 
-export function getPersona(
+export async function listPersonas(proyectoId: string): Promise<PersonaArtifact[]> {
+  const items = await listArtifacts<PersonaContenido>(proyectoId, 'PERSONA');
+  return dedupeLatestVersions(items).map(normalizePersona);
+}
+
+export async function getPersona(
   proyectoId: string,
   artefactoId: string,
 ): Promise<PersonaArtifact> {
-  return getArtifact<PersonaContenido>(proyectoId, artefactoId);
+  return normalizePersona(await getArtifact<PersonaContenido>(proyectoId, artefactoId));
 }
 
 export function createPersona(
@@ -61,8 +56,9 @@ export function updatePersona(
   proyectoId: string,
   artefactoId: string,
   contenido: PersonaContenido,
+  expectedVersion?: number,
 ): Promise<PersonaArtifact> {
-  return createArtifactVersion<PersonaContenido>(proyectoId, artefactoId, contenido);
+  return createArtifactVersion<PersonaContenido>(proyectoId, artefactoId, contenido, expectedVersion);
 }
 
 export function lockPersona(

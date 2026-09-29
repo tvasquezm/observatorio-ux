@@ -24,6 +24,8 @@ cuando hace falta más detalle.
   todas con `Demo1234!`.
 - Usuario DOCENTE de prueba (login simple para QA manual, con un proyecto
   ya cargado con las 5 técnicas): `profesor@test.com` / `profesor123`.
+- Cuenta administradora (permite probar las tres perspectivas):
+  `admin@test.com` / `admin1234`.
   Ver `docs/BACKEND.md`.
 
 ## 2. Autenticación en el frontend
@@ -55,9 +57,9 @@ cuando hace falta más detalle.
   montar. Si la cookie expiró o fue revocada, `checkSession()` corrige el
   estado aunque la caché diga lo contrario.
 - El flujo de **PARTICIPANTE** (`shared/api/api-client.ts`) es aparte y
-  sigue con Bearer token en `localStorage` (`participanteToken`) — eso no
-  cambió, es un diseño distinto a propósito (ver comentario en ese
-  archivo). No mezclar los dos patrones.
+  usa Bearer token en `sessionStorage` (`participanteToken`). Así se puede
+  reanudar dentro de la misma pestaña sin conservar una credencial sensible
+  después de cerrar la sesión del navegador. No mezclar los dos patrones.
 
 ## 3. Estructura de carpetas (patrón a seguir)
 
@@ -162,11 +164,13 @@ con el mockup sin reinventar estilos sueltos por página.
 
 1. ~~Falta la vista de edición en Personas/Journey Map/Momentos Críticos.~~
    **Resuelto (Sprint 4):** las 3 páginas ya llaman `lock`/`update`/`unlock`
-   end-to-end, con manejo de `409` (solo lectura + toast). Sigue pendiente:
-   liberar el lock también al desmontar el componente sin guardar/cancelar
-   explícitamente (hoy depende del TTL de 5 min como red de seguridad).
-2. **No hay authStore de evaluador.** `getAuthToken()` en `artifacts.api.ts`
-   es un placeholder sobre `localStorage` directo.
+   end-to-end, con manejo de `409` (solo lectura + toast).
+   **Resuelto (Sprint 4):** `useArtifactEditLock` libera el lock al cancelar,
+   cambiar de artefacto o desmontar la ruta, incluida la carrera donde el
+   `POST /lock` responde después de abandonar la pantalla. El TTL de 5 min
+   queda únicamente como red de seguridad ante una pérdida de conexión.
+2. ~~No hay authStore de evaluador.~~ **Resuelto (Sprint 4):** existe
+   `useAuthStore`; la sesión se valida con `GET /auth/me` y cookie `httpOnly`.
 3. **`EvaluacionHeuristicaController` sigue en español**, sin alias en
    inglés — pendiente de decisión de equipo, no tocar sin avisar.
 4. Deuda técnica específica de Evaluación Heurística (backend) en

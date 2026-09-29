@@ -10,22 +10,25 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@tanstack/react-query": "^5.62.0",
+    "@observatorio-ux/shared-types": "workspace:*",
+    "@tanstack/react-query": "^5.103.2",
+    "pdfmake": "^0.3.11",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^7.18.3",
+    "react-router-dom": "^7.18.4",
     "zustand": "^5.0.2"
   },
   "devDependencies": {
-    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.1.0",
     "@testing-library/user-event": "^14.5.2",
+    "@types/pdfmake": "^0.3.3",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
     "jsdom": "^25.0.1",
     "typescript": "^5.9.2",
-    "vite": "^6.0.3",
-    "vitest": "^2.1.8"
+    "vite": "^8.3.1",
+    "vitest": "^4.1.11"
   }
 }

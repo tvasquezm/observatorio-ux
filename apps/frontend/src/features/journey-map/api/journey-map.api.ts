@@ -1,5 +1,10 @@
 // apps/frontend/src/features/journey-map/api/journey-map.api.ts
 
+import type {
+  JourneyMap as JourneyMapContenido,
+  Phase,
+  UserProfile,
+} from '@observatorio-ux/shared-types';
 import {
   acquireLock,
   createArtifact,
@@ -12,27 +17,8 @@ import {
   type UxArtifact,
 } from '../../../shared/api/artifacts.api';
 
-// Espejo de journey-map.ts en shared-types.
-export type Emocion = 'Positiva' | 'Neutral' | 'Negativa';
-
-export interface UserProfile {
-  id: string;
-  nombre: string;
-  rol: string;
-}
-
-export interface Phase {
-  nombre: string;
-  touchpoints: string[];
-  pensamientos: string[];
-  emocion: Emocion;
-  oportunidades: string[];
-}
-
-export interface JourneyMapContenido {
-  perfilUsuario: UserProfile;
-  fases: Phase[]; // mínimo 3, según JourneyMapSchema
-}
+export type Emocion = Phase['emocion'];
+export type { JourneyMapContenido, Phase, UserProfile };
 
 export type JourneyMapArtifact = UxArtifact<JourneyMapContenido>;
 
@@ -59,8 +45,9 @@ export function updateJourney(
   proyectoId: string,
   artefactoId: string,
   contenido: JourneyMapContenido,
+  expectedVersion?: number,
 ): Promise<JourneyMapArtifact> {
-  return createArtifactVersion<JourneyMapContenido>(proyectoId, artefactoId, contenido);
+  return createArtifactVersion<JourneyMapContenido>(proyectoId, artefactoId, contenido, expectedVersion);
 }
 
 export function lockJourney(

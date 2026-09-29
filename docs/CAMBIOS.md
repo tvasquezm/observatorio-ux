@@ -3,6 +3,139 @@
 Todo acá parte de TUS archivos reales que subiste, con ediciones mínimas
 y quirúrgicas. No hay archivos inventados desde cero salvo los indicados.
 
+## Ronda 14 (Sesión — creación centralizada y acceso por invitación)
+
+1. **Un único punto para crear proyectos.** Se retiraron las acciones repetidas
+   del Dashboard y el formulario duplicado dentro del detalle de Sala. La
+   pantalla `Proyectos` conserva una sola acción `Nuevo proyecto`, que revela
+   un formulario compacto únicamente cuando se solicita. En las Salas solo se
+   vinculan proyectos existentes.
+   - `apps/frontend/src/pages/DashboardPage.tsx`
+   - `apps/frontend/src/pages/ProjectsPage.tsx`
+   - `apps/frontend/src/features/salas/pages/SalaDetallePage.tsx`
+
+2. **Acciones de Sala diferenciadas por rol.** Una cuenta ESTUDIANTE ve
+   `Unirse a la sala` solo sobre las salas donde su correo fue invitado. El
+   docente o administrador ve `Administrar sala`; no se presenta la acción de
+   unión como si fuera estudiante.
+   - `apps/frontend/src/features/salas/pages/ProfesorSalasPage.tsx`
+
+3. **Restricción verificada en la API y la interfaz.** El listado estudiantil
+   continúa filtrado por `SalaEstudiante.email`, y el detalle vuelve a validar
+   esa inscripción: conocer o pegar la URL de otra sala no concede acceso.
+   Se agregaron pruebas para el formulario único y para las etiquetas por rol.
+   - `apps/backend/src/modules/salas/salas.service.ts`
+   - `apps/frontend/src/pages/__tests__/ProjectsPage.test.tsx`
+   - `apps/frontend/src/features/salas/pages/ProfesorSalasPage.test.tsx`
+
+## Ronda 13 (Sesión — Analítica oscura y acceso estudiantil a Salas)
+
+1. **Analítica general corregida en modo oscuro.** Las tarjetas KPI, sus
+   etiquetas, valores, estados y pistas de las barras dejaron de usar fondos y
+   textos claros fijos. Ahora consumen los tokens semánticos de superficie,
+   texto, estado positivo y borde de cada tema.
+   - `apps/frontend/src/styles/theme.css`
+
+2. **Salas visibles para estudiantes, sin permisos de gestión.** La navegación
+   y las rutas aceptan la perspectiva ESTUDIANTE. El listado cambia su texto y
+   oculta por completo `Crear sala` y `Editar`; cada tarjeta presenta una acción
+   explícita `Unirse a la sala`.
+   - `apps/frontend/src/App.tsx`
+   - `apps/frontend/src/shared/auth/perspectivas.ts`
+   - `apps/frontend/src/features/salas/pages/ProfesorSalasPage.tsx`
+
+3. **Detalle de sala de solo lectura.** Al entrar, el estudiante ve nombre,
+   período, docente, fechas, instrucciones y proyectos asignados. No se montan
+   formularios para crear/vincular proyectos ni controles sobre estudiantes.
+   El detalle y los formularios docentes también usan superficies e inputs
+   compatibles con modo claro y oscuro.
+   - `apps/frontend/src/features/salas/pages/SalaDetallePage.tsx`
+   - `apps/frontend/src/features/salas/api/salas.api.ts`
+   - `apps/frontend/src/features/salas/hooks/useSalasQueries.ts`
+
+4. **Autorización por inscripción.** `GET /salas` devuelve a un estudiante solo
+   las salas donde su correo autenticado aparece registrado. `GET /salas/:id`
+   y `GET /salas/:id/proyectos` aplican el mismo control; las mutaciones siguen
+   restringidas a DOCENTE/ADMIN.
+   - `apps/backend/src/modules/salas/salas.controller.ts`
+   - `apps/backend/src/modules/salas/salas.service.ts`
+
+5. **Pruebas de regresión.** Se cubrieron filtro por correo, acceso autorizado
+   y denegado al detalle, además de la ausencia de controles de creación y
+   edición en la vista del estudiante.
+   - `apps/backend/src/modules/salas/test/salas.service.spec.ts`
+   - `apps/frontend/src/features/salas/pages/ProfesorSalasPage.test.tsx`
+
+## Ronda 12 (Sesión — contraste de temas y edición de Salas)
+
+1. **Momentos Críticos legible en claro y oscuro.** Se reemplazaron los
+   colores fijos de la matriz 3x3, las incidencias y la subnavegación del
+   proyecto por tokens semánticos con variantes para ambos temas. También se
+   ajustó el color de peligro y el foco visible para conservar contraste en
+   botones, enlaces y controles.
+   - `apps/frontend/src/styles/theme.css`
+   - `apps/frontend/src/layouts/ProjectDetailLayout.tsx`
+
+2. **Edición de Salas desde el listado del docente.** Cada sala ahora expone
+   una acción `Editar` que reutiliza el formulario y permite modificar nombre,
+   período, instrucciones, fecha de inicio y fecha de término. Las fechas se
+   precargan en hora local y se envían al backend en formato ISO.
+   - `apps/frontend/src/features/salas/pages/ProfesorSalasPage.tsx`
+   - `apps/frontend/src/features/salas/api/salas.api.ts`
+
+3. **Endpoint de actualización con autorización y validación.** Se agregó
+   `PATCH /salas/:id`, restringido al docente propietario o a un administrador.
+   Las actualizaciones parciales validan el rango completo, incluyendo la fecha
+   ya guardada cuando solo se modifica uno de los extremos.
+   - `apps/backend/src/modules/salas/dto/sala.dto.ts`
+   - `apps/backend/src/modules/salas/salas.controller.ts`
+   - `apps/backend/src/modules/salas/salas.service.ts`
+
+4. **Pruebas de regresión.** Se cubrió la precarga y envío de fechas desde la
+   interfaz, la actualización del propietario, la validación de fechas
+   parciales y el rechazo de un docente ajeno.
+   - `apps/frontend/src/features/salas/pages/ProfesorSalasPage.test.tsx`
+   - `apps/backend/src/modules/salas/test/salas.service.spec.ts`
+
+## Ronda 11 (Sesión — Sprint 4, fix de test de `useAuthStore`)
+
+1. **`leerUserGuardado()` explotaba al importar el módulo en test.**
+   `useAuthStore.ts` corre `leerUserGuardado()` a nivel de módulo (fuera de
+   cualquier acción del store), y esa función llamaba `localStorage.getItem`
+   directo. En el entorno de `PerspectiveRoute.test.tsx` (que usa el store
+   REAL, no mockeado, a diferencia de `MomentosCriticosPage.test.tsx`)
+   `localStorage` no estaba garantizado como funcional en el instante del
+   `import`, lo que rompía la suite con `TypeError: localStorage.getItem is
+   not a function`. Se agregó un guard (`typeof localStorage === 'undefined'
+   || typeof localStorage.getItem !== 'function'` → `null`) antes de leer,
+   sin cambiar el comportamiento en runtime real (el navegador siempre tiene
+   `localStorage` funcional). Ver `docs/AUDIT_LOG.md` K1.
+   - `apps/frontend/src/features/auth/store/useAuthStore.ts`
+
+## Ronda 10 (cierre verificable del Sprint 4 oficial)
+
+1. **D2 — dashboard conectado a sesiones reales.** El contrato `Proyecto`
+   ahora incluye `_count.sesiones`/`_count.artefactos`, datos que el backend
+   ya devolvía. El dashboard suma y muestra las sesiones por proyecto; se
+   agregó una prueba de regresión con dos proyectos.
+2. **D4 — componente compartido sin rediseño.** Se extrajo
+   `TechniquePageHeader` y se reutiliza en Personas, Journey Map y Momentos
+   Críticos conservando las mismas clases, colores, textos y acciones.
+3. **D5 — arranque y validación transversal.** `.gitattributes` obliga LF en
+   scripts de shell y evita que Windows rompa `entrypoint.sh`. CI ahora ejecuta
+   tests de frontend, bloquea vulnerabilidades altas o críticas y usa las
+   acciones oficiales actuales sobre runtime Node 24.
+4. **Dependencias.** Vitest se actualizó a una versión corregida y se fijaron
+   versiones transitivas seguras de `fast-uri`, `multer` y `brace-expansion`.
+   Resultado local: 69/69 tests de backend, 13/13 tests de frontend, builds de
+   backend/frontend/shared-types y `pnpm audit` sin vulnerabilidades conocidas.
+5. **Trazabilidad.** Los antiguos hallazgos de auditoría D1–D5 pasan a llamarse
+   AUD-D1–AUD-D5 para no colisionar con los entregables D1–D8 del backlog.
+
+Permanecen pendientes D7 (referencias del capítulo 2) y R4 (acta con profesor):
+no existe evidencia fuente suficiente en los archivos disponibles y no se
+inventaron referencias ni reuniones.
+
 ## Ronda 9 (auditoría Flujos de Usuario maestro — roles y segregación de Auth)
 
 Corresponde al Sprint 4 real del equipo. Se documenta como "Sesión de
@@ -450,3 +583,38 @@ con red real (o Docker, como en sprints anteriores) para confirmar esas
   Si tu equipo dispara ese tipo de excepción manual en algún servicio,
   el formulario no podrá resaltar un input específico para ese caso —
   es información que el propio `throw` manual nunca tuvo.
+
+## 14-09-2026 — Sprint 5 oficial: panel administrativo
+
+- `users`: listado seguro de cuentas y cambio de rol con salvaguardas.
+- `projects`: resumen administrativo y Soft Delete exclusivo de ADMIN.
+- `AdminProfesoresPage`: panel unificado de cuentas, permisos, proyectos y
+  progreso de sesiones; navegación principal renombrada a “Administración”.
+- Tests: servicios de usuarios/proyectos, componentes administrativos y acceso
+  E2E denegado para estudiantes.
+- Documentación: referencias complementarias de Sprint 4, pauta de evaluación
+  y registro verificable de Sprint 5.
+
+## 14-09-2026 — Sprint 6 oficial: despliegue reproducible
+
+- `apps/backend/Dockerfile`: targets multi-stage de desarrollo, build y
+  producción sobre Node.js 24; imagen ejecutable con Nest compilado y Prisma.
+- `apps/backend/entrypoint.prod.sh`: migraciones automáticas sin seed antes de
+  iniciar el backend productivo.
+- `apps/frontend/Dockerfile`: build estático con Vite y runtime Nginx.
+- `apps/frontend/nginx.static.conf`: entrega de assets, healthcheck y fallback
+  de rutas de la SPA.
+- `docker-compose.production.yml`: stack aislado `db` + `backend` + `frontend`
+  + `nginx`, con volumen persistente, healthchecks y orden de arranque.
+- `deploy/nginx/default.conf`: reverse proxy de `/api/*` al backend y del resto
+  al frontend bajo un único origen.
+- `env.production.example`: contrato explícito de variables productivas sin
+  secretos reales; corregida además la instrucción de copia en `env.example`.
+- `.github/workflows/ci.yml`: Node.js 24 y nuevo smoke test que construye,
+  levanta, consulta y destruye el stack desde cero.
+- `package.json`: requisito mínimo actualizado a Node.js 24.
+- `README.md`, `docs/ARCHITECTURE.md`, `docs/dudas-profesor.md` y
+  `docs/sprints/sprint6-despliegue.md`: arquitectura, instalación, operación y
+  estado F1–F8 documentados; R6 permanece pendiente por depender del profesor.
+- `docs/ARCHITECTURE.md`: los encabezados históricos “Sprint 5–8” se corrigieron
+  a “Ronda 5–8” para no mezclarlos con el cronograma oficial.

@@ -4,6 +4,44 @@ All notable changes to this project will be documented in this file. See [commit
 
 ## Unreleased
 
+### Features
+
+* **auth:** login con Google OAuth para evaluadores (opcional, requiere
+  `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` y `GOOGLE_CALLBACK_URL`). Exige
+  email verificado por Google, respeta el requisito de Sala activa para
+  ESTUDIANTE y solo auto-crea cuentas ESTUDIANTE con email inscrito en una
+  sala activa; nunca crea ni promueve DOCENTE/ADMIN.
+
+* **auth:** límite de 300 participantes anónimos/hora por proyecto en
+  `accessParticipant` (configurable con `PARTICIPANTS_ACCESS_LIMIT_PER_HOUR`)
+  y limpieza horaria de participantes huérfanos sin consentimiento ni
+  sesión (Fase 7 del plan de remediación, H5).
+
+* **load-test:** agrega `tests/load/participante.k6.js` (Fase 6 del plan de
+  remediación) — prueba de carga del flujo access → consent → join →
+  results con rampa hasta 200 VUs.
+
+* **e2e:** incorpora Playwright para validar login, proyecto, las cinco
+  técnicas UX, restricciones por rol y responsive en escritorio/móvil.
+* **responsive:** reorganiza navegación, formularios y acciones para pantallas
+  táctiles, con targets mínimos de 44 px y soporte de safe areas.
+* **salas:** el docente dueño de una sala ahora puede ver los proyectos,
+  sesiones y analítica de sus estudiantes, y comentar en sus artefactos. No
+  puede editar artefactos, cerrar estudios ni gestionar miembros: eso sigue
+  reservado al creador del proyecto o a un ADMIN.
+
+### Fixes
+
+* **docker:** `docker compose up` reinstala las dependencias de cada servicio
+  cuando cambia `pnpm-lock.yaml`, sin necesidad de `down` ni `up --build -V`
+  tras un `git pull`.
+
+* **artifacts:** libera locks de edición al cancelar, cambiar de artefacto o
+  abandonar la ruta, incluso si la adquisición termina de forma tardía.
+* **shared-types:** centraliza contratos de autenticación y Card Sorting; el
+  formulario de Card Sorting ahora envía tarjetas/categorías con el shape que
+  valida el backend.
+
 ### BREAKING CHANGE
 
 * **auth:** nueva env var obligatoria `JWT_PARTICIPANTE_SECRET` (Regla de

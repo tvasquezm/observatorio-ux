@@ -9,7 +9,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Routes, Route, Outlet } from 'react-router-dom';
+import { createMemoryRouter, RouterProvider, Outlet } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MomentosCriticosPage } from '../MomentosCriticosPage';
 import { ArtifactsApiError } from '../../shared/api/artifacts.api';
@@ -44,13 +44,10 @@ function renderPage() {
   const qc = new QueryClient();
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={['/proyectos/p1/momentos-criticos']}>
-        <Routes>
-          <Route path="/proyectos/:proyectoId" element={<Outlet context={{ proyectoId: 'p1' }} />}>
-            <Route path="momentos-criticos" element={<MomentosCriticosPage />} />
-          </Route>
-        </Routes>
-      </MemoryRouter>
+      <RouterProvider router={createMemoryRouter([{
+        path: '/proyectos/:proyectoId', element: <Outlet context={{ proyectoId: 'p1' }} />,
+        children: [{ path: 'momentos-criticos', element: <MomentosCriticosPage /> }],
+      }], { initialEntries: ['/proyectos/p1/momentos-criticos'] })} />
     </QueryClientProvider>,
   );
 }

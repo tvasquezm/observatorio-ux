@@ -1,13 +1,16 @@
 name: CI
 
 # Corre en cada push y en cada Pull Request. El objetivo es simple: si algo
-# rompe pnpm --filter backend test, el build de shared-types, o el build del
-# frontend, que se vea en rojo en el PR — no que alguien lo descubra días
-# después al clonar de cero.
+# rompe una prueba, un build, el script de arranque o introduce una dependencia
+# de severidad alta/crítica, que se vea en rojo en el PR — no que alguien lo
+# descubra días después al clonar de cero.
 on:
   push:
     branches: [main]
   pull_request:
+
+permissions:
+  contents: read
 
 # Si se pushean varios commits seguidos a la misma rama/PR, cancela la
 # corrida anterior en vez de dejarlas todas corriendo en paralelo.
@@ -16,8 +19,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Auditoría de dependencias como job propio: falla rápido (no espera el build
+  # ni los E2E) y se puede exigir como check requerido en el ruleset de main.
+  # Lee pnpm-lock.yaml; no necesita instalar dependencias.
+  dependency-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Habilitar pnpm (misma versión que apps/backend/Dockerfile)
+        run: corepack enable && corepack prepare pnpm@10.34.5 --activate
+
+      - name: Auditar dependencias de severidad alta o crítica
+        run: pnpm audit --audit-level high
+
   build-and-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     # Postgres real, igual que el que usa docker-compose.yml en local
     # (mismo tag: postgres:16-alpine), para que `prisma migrate deploy`
@@ -28,36 +49,37 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: observatorio_ux
+          POSTGRES_DB: observatorio_ux_e2e
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U postgres -d observatorio_ux"
+          --health-cmd "pg_isready -U postgres -d observatorio_ux_e2e"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
 
     env:
       NODE_ENV: test
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/observatorio_ux
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/observatorio_ux_e2e
       JWT_SECRET: ci_only_secret_not_for_real_use
+      JWT_PARTICIPANTE_SECRET: ci_only_participant_secret_not_for_real_use
       JWT_EXPIRES_IN: 1h
       PORT: 3000
       CORS_ORIGIN: http://localhost:5173
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # El Dockerfile del backend fija pnpm@9 vía corepack — se replica acá
+      # El Dockerfile del backend fija pnpm@10.34.5 vía corepack — se replica acá
       # para que CI use exactamente la misma versión que local/Docker.
       - name: Habilitar pnpm (misma versión que apps/backend/Dockerfile)
-        run: corepack enable && corepack prepare pnpm@9 --activate
+        run: corepack enable && corepack prepare pnpm@10.34.5 --activate
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'pnpm'
 
       - name: Instalar dependencias
@@ -72,8 +94,58 @@ jobs:
       - name: Aplicar migraciones (contra el Postgres del job)
         run: pnpm --filter backend exec prisma migrate deploy
 
+      - name: Validar scripts de arranque del backend
+        run: sh -n apps/backend/entrypoint.sh apps/backend/entrypoint.prod.sh
+
       - name: Tests del backend
         run: pnpm --filter backend test
 
+      - name: Tests del frontend
+        run: pnpm --filter frontend test
+
       - name: Build del frontend (tsc --noEmit + vite build)
         run: pnpm --filter frontend build
+
+      - name: Instalar Chromium para pruebas E2E
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Flujo E2E y responsive (escritorio + móvil)
+        run: pnpm test:e2e
+
+      - name: Guardar evidencia de Playwright si falla
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: evidencia-playwright
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+
+  deployment-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Validar configuración productiva
+        run: docker compose --env-file env.production.example -f docker-compose.production.yml config --quiet
+
+      - name: Construir y levantar desde cero
+        run: docker compose --env-file env.production.example -f docker-compose.production.yml up -d --build --wait --wait-timeout 180
+
+      - name: Verificar frontend, proxy y API
+        run: |
+          curl --fail --show-error http://localhost:8080/nginx-health
+          curl --fail --show-error http://localhost:8080/api/health
+          curl --fail --show-error http://localhost:8080/
+
+      - name: Mostrar logs si falla
+        if: failure()
+        run: docker compose --env-file env.production.example -f docker-compose.production.yml logs --no-color
+
+      - name: Limpiar contenedores y volumen
+        if: always()
+        run: docker compose --env-file env.production.example -f docker-compose.production.yml down -v

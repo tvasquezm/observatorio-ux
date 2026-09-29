@@ -1,8 +1,10 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { createHash, randomBytes } from 'crypto';
 import { PrismaService } from '../../core/database/prisma.service';
 import { ProjectAccessService } from '../../core/access/project-access.service';
 import { AuthenticatedUser } from '../auth/types/authenticated-user.interface';
@@ -20,21 +22,72 @@ export class ProjectsService {
     private readonly projectAccess: ProjectAccessService,
   ) {}
 
-  create(user: AuthenticatedUser, dto: CreateProjectDto) {
+  async create(user: AuthenticatedUser, dto: CreateProjectDto) {
+    if (user.rol === 'ESTUDIANTE') {
+      await this.assertEstudiantePuedeCrearProyecto(dto.salaId, user);
+    }
+
     return this.prisma.proyecto.create({
       data: {
         nombre: dto.nombre.trim(),
         descripcion: dto.descripcion?.trim(),
         creadoPorId: user.id,
+        ...(dto.salaId ? { salaId: dto.salaId } : {}),
       },
     });
   }
 
   findAll(user: AuthenticatedUser) {
     return this.prisma.proyecto.findMany({
-      where: user.rol === 'ADMIN' ? undefined : { creadoPorId: user.id },
+      where: {
+        deletedAt: null,
+        ...(user.rol === 'ADMIN'
+          ? {}
+          : {
+              OR: [
+                { creadoPorId: user.id },
+                { miembros: { some: { usuarioId: user.id } } },
+                { sala: { profesorId: user.id } },
+              ],
+            }),
+      },
       orderBy: { createdAt: 'desc' },
       include: { _count: { select: { sesiones: true, artefactos: true } } },
+    });
+  }
+
+  adminOverview(user: AuthenticatedUser) {
+    if (user.rol !== 'ADMIN') {
+      throw new ForbiddenException('Solo un administrador puede ver este resumen.');
+    }
+
+    return this.prisma.proyecto.findMany({
+      where: { deletedAt: null },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        nombre: true,
+        descripcion: true,
+        creadoPorId: true,
+        createdAt: true,
+        salaId: true,
+        creadoPor: {
+          select: { id: true, nombre: true, email: true, rol: true },
+        },
+        sesiones: {
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            nombre: true,
+            tipo: true,
+            estado: true,
+            actor: true,
+            createdAt: true,
+            completadoAt: true,
+          },
+        },
+        _count: { select: { artefactos: true } },
+      },
     });
   }
 
@@ -46,13 +99,28 @@ export class ProjectsService {
       include: { _count: { select: { sesiones: true, artefactos: true } } },
     });
 
-    if (!project) throw new NotFoundException('El proyecto no existe.');
+    if (!project || project.deletedAt) {
+      throw new NotFoundException('El proyecto no existe.');
+    }
 
     return project;
   }
 
   async update(id: string, dto: UpdateProjectDto, user: AuthenticatedUser) {
     await this.findOne(id, user);
+
+    if (user.rol === 'DOCENTE') {
+      const proyecto = await this.prisma.proyecto.findUnique({
+        where: { id },
+        select: { creadoPor: { select: { rol: true } } },
+      });
+
+      if (proyecto?.creadoPor.rol === 'ESTUDIANTE') {
+        throw new ForbiddenException(
+          'Un docente no puede editar un proyecto creado por un estudiante.',
+        );
+      }
+    }
 
     return this.prisma.proyecto.update({
       where: { id },
@@ -65,28 +133,94 @@ export class ProjectsService {
     });
   }
 
+  async remove(id: string, user: AuthenticatedUser) {
+    if (user.rol !== 'ADMIN') {
+      throw new ForbiddenException('Solo un administrador puede eliminar proyectos.');
+    }
+
+    const project = await this.prisma.proyecto.findUnique({
+      where: { id },
+      select: { id: true, deletedAt: true },
+    });
+    if (!project || project.deletedAt) {
+      throw new NotFoundException('El proyecto no existe.');
+    }
+
+    await this.prisma.proyecto.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+    return { eliminado: true };
+  }
+
   async addToWhitelist(
     id: string,
     dto: AddToWhitelistDto,
     user: AuthenticatedUser,
   ) {
-    await this.findOne(id, user);
+    await this.projectAccess.assertOwnerOrAdmin(
+      id,
+      user,
+      'Solo el creador del proyecto o un administrador pueden invitar participantes.',
+    );
 
-    const result = await this.prisma.participanteWhitelist.createMany({
-      data: dto.participantes.map((p) => ({
-        proyectoId: id,
-        email: p.email.trim().toLowerCase(),
-        nombre: p.nombre?.trim(),
-        creadoPorId: user.id,
-      })),
-      skipDuplicates: true,
+    const invitaciones = await this.prisma.$transaction(async (tx) => {
+      const creadas: Array<{ email: string; codigoInvitacion: string }> = [];
+      const participantesUnicos = new Map(
+        dto.participantes.map((participante) => [
+          participante.email.trim().toLowerCase(),
+          participante,
+        ]),
+      );
+
+      for (const [email, participante] of participantesUnicos) {
+        const existente = await tx.participanteWhitelist.findUnique({
+          where: { proyectoId_email: { proyectoId: id, email } },
+        });
+
+        // Volver a agregar una invitación todavía pendiente rota el código.
+        // Así el docente puede recuperarse si perdió el valor mostrado una vez.
+        if (existente?.participanteId) continue;
+
+        const codigoInvitacion = randomBytes(18).toString('base64url');
+        const codigoInvitacionHash = createHash('sha256').update(codigoInvitacion).digest('hex');
+
+        if (existente) {
+          await tx.participanteWhitelist.update({
+            where: { id: existente.id },
+            data: { codigoInvitacionHash },
+          });
+        } else {
+          await tx.participanteWhitelist.create({
+            data: {
+              proyectoId: id,
+              email,
+              nombre: participante.nombre?.trim(),
+              creadoPorId: user.id,
+              codigoInvitacionHash,
+            },
+          });
+        }
+
+        creadas.push({ email, codigoInvitacion });
+      }
+
+      return creadas;
     });
 
-    return { agregados: result.count, enviados: dto.participantes.length };
+    return {
+      agregados: invitaciones.length,
+      enviados: dto.participantes.length,
+      invitaciones,
+    };
   }
 
   async listWhitelist(id: string, user: AuthenticatedUser) {
-    await this.findOne(id, user);
+    await this.projectAccess.assertOwnerOrAdmin(
+      id,
+      user,
+      'Solo el creador del proyecto o un administrador pueden ver las invitaciones.',
+    );
 
     return this.prisma.participanteWhitelist.findMany({
       where: { proyectoId: id },
@@ -159,5 +293,42 @@ export class ProjectsService {
     await this.prisma.proyectoMiembro.delete({ where: { id: membresia.id } });
 
     return { eliminado: true };
+  }
+
+  /**
+   * Fase 5: ESTUDIANTE solo crea proyecto si la sala lo permite
+   * (`permiteCreacionProyectos`) y está inscrito en ella. Mismo patrón que
+   * EquiposService.assertPuedeCrear / assertEsEstudianteDeSala.
+   */
+  private async assertEstudiantePuedeCrearProyecto(
+    salaId: string | undefined,
+    user: AuthenticatedUser,
+  ) {
+    if (!salaId) {
+      throw new ForbiddenException(
+        'Los estudiantes solo pueden crear proyectos dentro de una sala que lo permita.',
+      );
+    }
+
+    const sala = await this.prisma.sala.findUnique({ where: { id: salaId } });
+    if (!sala || sala.deletedAt) {
+      throw new NotFoundException('La sala no existe.');
+    }
+
+    if (!sala.permiteCreacionProyectos) {
+      throw new ForbiddenException('Esta sala no permite que los estudiantes creen proyectos.');
+    }
+
+    if (!user.email) {
+      throw new ForbiddenException('No se pudo identificar el correo del estudiante.');
+    }
+
+    const inscrito = await this.prisma.salaEstudiante.findUnique({
+      where: { salaId_email: { salaId, email: user.email.trim().toLowerCase() } },
+    });
+
+    if (!inscrito) {
+      throw new ForbiddenException('El estudiante no pertenece a esta sala.');
+    }
   }
 }
