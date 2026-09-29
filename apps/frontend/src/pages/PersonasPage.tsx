@@ -20,15 +20,46 @@ import { useArtifactEditLock } from '../shared/hooks/useArtifactEditLock';
 import { useUnsavedChanges } from '../shared/hooks/useUnsavedChanges';
 
 const CAMPOS_LISTA: (keyof PersonaContenido)[] = [
-  'hobbies', 'habilidades', 'objetivos', 'necesidades',
-  'motivaciones', 'frustraciones', 'comportamientos', 'expectativas',
+  'hobbies',
+  'habilidades',
+  'objetivos',
+  'necesidades',
+  'motivaciones',
+  'frustraciones',
+  'comportamientos',
+  'expectativas',
+  'caracteristicasDistintivas',
+  'evidencia',
 ];
+
+const ETIQUETAS_CAMPOS: Record<string, string> = {
+  hobbies: 'Hobbies',
+  habilidades: 'Habilidades',
+  objetivos: 'Objetivos',
+  necesidades: 'Necesidades',
+  motivaciones: 'Motivaciones',
+  frustraciones: 'Frustraciones / barreras',
+  comportamientos: 'Comportamientos',
+  expectativas: 'Expectativas',
+  caracteristicasDistintivas: 'Características distintivas',
+  evidencia: 'Evidencia que sustenta el perfil',
+};
+
 
 function vacio(): PersonaContenido {
   return {
     nombreCompleto: '',
-    hobbies: [], habilidades: [], objetivos: [], necesidades: [],
-    motivaciones: [], frustraciones: [], comportamientos: [], expectativas: [],
+    hobbies: [],
+    habilidades: [],
+    objetivos: [],
+    necesidades: [],
+    motivaciones: [],
+    frustraciones: [],
+    comportamientos: [],
+    expectativas: [],
+    caracteristicasDistintivas: [],
+    evidencia: [],
+    estadoValidacion: 'PENDIENTE',
   };
 }
 
@@ -169,23 +200,104 @@ export function PersonasPage() {
               className="input-sm"
             />
           </div>
+
+          <input
+            placeholder="URL de fotografía"
+            aria-label="URL de fotografía"
+            type="url"
+            value={form.fotografiaUrl ?? ''}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              setForm({ ...form, fotografiaUrl: e.target.value || undefined })
+            }
+            className="input-sm"
+          />
+
+          <input
+            placeholder="Familia o contexto familiar"
+            aria-label="Familia o contexto familiar"
+            value={form.familia ?? ''}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              setForm({ ...form, familia: e.target.value })
+            }
+            className="input-sm"
+          />
+
           <textarea
-            placeholder="Acerca de..."
+            placeholder="Acerca de... Describe brevemente quién es y qué caracteriza a este perfil."
             aria-label="Acerca de"
             value={form.acercaDe ?? ''}
             onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setForm({ ...form, acercaDe: e.target.value })}
             className="textarea-sm"
           />
+
+          <textarea
+            placeholder="Contexto de uso: entorno, situación o condiciones en que interactúa con el servicio."
+            aria-label="Contexto de uso"
+            value={form.contextoDeUso ?? ''}
+            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+              setForm({ ...form, contextoDeUso: e.target.value })
+            }
+            className="textarea-sm"
+          />
+
+          <textarea
+            placeholder="Rol en el servicio: función que cumple y nivel de influencia."
+            aria-label="Rol en el servicio"
+            value={form.rolEnServicio ?? ''}
+            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+              setForm({ ...form, rolEnServicio: e.target.value })
+            }
+            className="textarea-sm"
+          />
+
+          <textarea
+            placeholder="Relación con el servicio: frecuencia, canales, conocimiento, voluntariedad y criticidad del objetivo."
+            aria-label="Relación con el servicio"
+            value={form.relacionConServicio ?? ''}
+            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+              setForm({ ...form, relacionConServicio: e.target.value })
+            }
+            className="textarea-sm"
+          />
+
           {CAMPOS_LISTA.map((campo) => (
             <input
               key={campo}
-              placeholder={`${campo} (separados por coma)`}
-              aria-label={campo}
+              placeholder={`${ETIQUETAS_CAMPOS[campo]} (separados por coma)`}
+              aria-label={ETIQUETAS_CAMPOS[campo]}
               value={listInputs[campo] ?? ''}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setListInputs({ ...listInputs, [campo]: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setListInputs({ ...listInputs, [campo]: e.target.value })
+              }
               className="input-sm"
             />
           ))}
+
+          <select
+            aria-label="Estado de validación"
+            value={form.estadoValidacion ?? 'PENDIENTE'}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+              setForm({
+                ...form,
+                estadoValidacion: e.target.value as PersonaContenido['estadoValidacion'],
+              })
+            }
+            className="input-sm"
+          >
+            <option value="PENDIENTE">Validación: pendiente</option>
+            <option value="VALIDADA">Validación: validada</option>
+          </select>
+
+          <textarea
+            placeholder="Observaciones de validación: comentarios o aspectos considerados al revisar el perfil."
+            aria-label="Observaciones de validación"
+            value={form.observacionesValidacion ?? ''}
+            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+              setForm({ ...form, observacionesValidacion: e.target.value })
+            }
+            className="textarea-sm"
+          />
+
           <button type="submit" className="primary" disabled={isPending}>
             {isPending ? 'Guardando…' : editandoId ? 'Actualizar persona' : 'Guardar persona'}
           </button>
