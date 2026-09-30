@@ -67,6 +67,10 @@ function sections(report: ProjectReport): Record<ReportMethod, Content[]> {
         ['Objetivos', person.objetivos], ['Necesidades', person.necesidades], ['Motivaciones', person.motivaciones],
         ['Frustraciones', person.frustraciones], ['Comportamientos', person.comportamientos],
         ['Contexto de uso', person.contextoDeUso], ['Expectativas', person.expectativas],
+        ['Rol en el servicio', person.rolEnServicio], ['Relación con el servicio', person.relacionConServicio],
+        ['Características distintivas', person.caracteristicasDistintivas], ['Evidencia', person.evidencia],
+        ['Estado de validación', person.estadoValidacion === 'VALIDADA' ? 'Validada' : 'Pendiente'],
+        ['Observaciones de validación', person.observacionesValidacion],
       ]),
     ]) ?? [],
     journey: report.journeys?.flatMap(({ contenido: journey, version }, i) => [

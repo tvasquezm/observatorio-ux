@@ -20,15 +20,56 @@ import { useArtifactEditLock } from '../shared/hooks/useArtifactEditLock';
 import { useUnsavedChanges } from '../shared/hooks/useUnsavedChanges';
 
 const CAMPOS_LISTA: (keyof PersonaContenido)[] = [
-  'hobbies', 'habilidades', 'objetivos', 'necesidades',
-  'motivaciones', 'frustraciones', 'comportamientos', 'expectativas',
+  'hobbies',
+  'habilidades',
+  'objetivos',
+  'necesidades',
+  'motivaciones',
+  'frustraciones',
+  'comportamientos',
+  'expectativas',
+  'caracteristicasDistintivas',
+  'evidencia',
 ];
+
+const ETIQUETAS_CAMPOS: Record<string, string> = {
+  hobbies: 'Hobbies',
+  habilidades: 'Habilidades',
+  objetivos: 'Objetivos',
+  necesidades: 'Necesidades',
+  motivaciones: 'Motivaciones',
+  frustraciones: 'Frustraciones / barreras',
+  comportamientos: 'Comportamientos',
+  expectativas: 'Expectativas',
+  caracteristicasDistintivas: 'Características distintivas',
+  evidencia: 'Evidencia que sustenta el perfil',
+  familia: 'Familia o contexto familiar',
+  fotografiaUrl: 'URL de fotografía',
+  contextoDeUso: 'Contexto de uso',
+  rolEnServicio: 'Rol en el servicio',
+  relacionConServicio: 'Relación con el servicio',
+  observacionesValidacion: 'Observaciones de validación',
+};
+
+const CAMPOS_CONTEXTO = [
+  'familia', 'fotografiaUrl', 'contextoDeUso', 'rolEnServicio',
+  'relacionConServicio', 'observacionesValidacion',
+] as const;
 
 function vacio(): PersonaContenido {
   return {
     nombreCompleto: '',
-    hobbies: [], habilidades: [], objetivos: [], necesidades: [],
-    motivaciones: [], frustraciones: [], comportamientos: [], expectativas: [],
+    hobbies: [],
+    habilidades: [],
+    objetivos: [],
+    necesidades: [],
+    motivaciones: [],
+    frustraciones: [],
+    comportamientos: [],
+    expectativas: [],
+    caracteristicasDistintivas: [],
+    evidencia: [],
+    estadoValidacion: 'PENDIENTE',
   };
 }
 
@@ -117,127 +158,242 @@ export function PersonasPage() {
 
   const isPending = isCreating || isUpdating;
 
+  function renderListFields(campos: (keyof PersonaContenido)[]) {
+    return campos.map((campo) => (
+      <label className="field" key={campo}>
+        {ETIQUETAS_CAMPOS[campo]}
+        <input
+          aria-label={ETIQUETAS_CAMPOS[campo]}
+          aria-describedby="persona-list-hint"
+          placeholder="Separa los elementos con comas"
+          value={listInputs[campo] ?? ''}
+          onChange={(e) => setListInputs({ ...listInputs, [campo]: e.target.value })}
+        />
+      </label>
+    ));
+  }
+
   return (
-    <div className="artifact-page">
+    <div className="artifact-page personas-page">
       <TechniquePageHeader
         label="TÉCNICA DE INVESTIGACIÓN"
         title="Personas"
         description="Construye perfiles claros para diseñar con las necesidades reales en mente."
-        action={<span className="status-pill">Artefactos versionados</span>}
-      />
-    <div className="panel">
-      <div className="panel-head">
-        <h2>Personas</h2>
-        {puedeEditar && (
-          <button className="secondary" onClick={() => { if (mostrarForm) resetForm(); else setMostrarForm(true); }}>
+        action={puedeEditar ? (
+          <button type="button" className={mostrarForm ? 'secondary' : 'primary'}
+            onClick={() => { if (mostrarForm) resetForm(); else setMostrarForm(true); }}>
             {mostrarForm ? 'Cancelar' : '+ Nueva persona'}
           </button>
-        )}
-      </div>
+        ) : <span className="short-id">Solo lectura</span>}
+      />
 
       {puedeEditar && mostrarForm && (
-        <form onSubmit={handleSubmit} className="entity-card form">
-          <h3>{editandoId ? 'Editar Persona' : 'Nueva Persona'}</h3>
+        <form onSubmit={handleSubmit} className="panel persona-editor" aria-labelledby="persona-editor-title">
+          <div className="persona-editor-head">
+            <div>
+              <span className="eyebrow">CONSTRUCCIÓN DEL PERFIL</span>
+              <h3 id="persona-editor-title">{editandoId ? 'Editar persona' : 'Nueva persona'}</h3>
+              <p>Describe a quién representa este perfil y qué evidencia lo sustenta.</p>
+            </div>
+            <span className="short-id">{editandoVersion ? `Versión ${editandoVersion}` : 'Nuevo perfil'}</span>
+          </div>
+          <p className="persona-form-note" id="persona-list-hint">
+            El nombre es obligatorio. En los campos de lista, separa cada elemento con una coma.
+          </p>
           {(readOnly || editLock.lockLost) && (
-            <p className="error-text">
+            <p className="inline-state inline-state--error" role="alert">
               Esta persona está bloqueada por otro usuario. No puedes editarla en este momento.
             </p>
           )}
           <fieldset disabled={readOnly || editLock.lockLost} className="readonly-fieldset">
-          <input
-            placeholder="Nombre completo *"
-            aria-label="Nombre completo"
-            value={form.nombreCompleto}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, nombreCompleto: e.target.value })}
-            required
-            className="input-sm"
-          />
-          <div className="form-grid-2">
-            <input
-              placeholder="Edad"
-              aria-label="Edad"
-              type="number"
-              value={form.edad ?? ''}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, edad: e.target.value ? Number(e.target.value) : undefined })}
-              className="input-sm"
-            />
-            <input
-              placeholder="Ocupación"
-              aria-label="Ocupación"
-              value={form.ocupacion ?? ''}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, ocupacion: e.target.value })}
-              className="input-sm"
-            />
-          </div>
-          <textarea
-            placeholder="Acerca de..."
-            aria-label="Acerca de"
-            value={form.acercaDe ?? ''}
-            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setForm({ ...form, acercaDe: e.target.value })}
-            className="textarea-sm"
-          />
-          {CAMPOS_LISTA.map((campo) => (
-            <input
-              key={campo}
-              placeholder={`${campo} (separados por coma)`}
-              aria-label={campo}
-              value={listInputs[campo] ?? ''}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setListInputs({ ...listInputs, [campo]: e.target.value })}
-              className="input-sm"
-            />
-          ))}
-          <button type="submit" className="primary" disabled={isPending}>
-            {isPending ? 'Guardando…' : editandoId ? 'Actualizar persona' : 'Guardar persona'}
-          </button>
+            <section className="persona-form-section" aria-labelledby="persona-identidad">
+              <div className="persona-section-intro">
+                <span className="persona-step" aria-hidden="true">01</span>
+                <h4 id="persona-identidad">Identidad y contexto personal</h4>
+                <p>Quién es, cómo vive y qué caracteriza su día a día.</p>
+              </div>
+              <div className="persona-fields">
+                <label className="field">
+                  Nombre completo <span aria-hidden="true">*</span>
+                  <input aria-label="Nombre completo" value={form.nombreCompleto} required maxLength={150}
+                    placeholder="Nombre del perfil"
+                    onChange={(e) => setForm({ ...form, nombreCompleto: e.target.value })} />
+                </label>
+                <label className="field">
+                  Edad
+                  <input type="number" min={0} max={120} step={1} value={form.edad ?? ''} placeholder="En años"
+                    onChange={(e) => setForm({ ...form, edad: e.target.value ? Number(e.target.value) : undefined })} />
+                </label>
+                <label className="field">
+                  Ocupación
+                  <input value={form.ocupacion ?? ''} maxLength={150} placeholder="Profesión, estudio o actividad"
+                    onChange={(e) => setForm({ ...form, ocupacion: e.target.value })} />
+                </label>
+                <label className="field">
+                  Familia o contexto familiar
+                  <input value={form.familia ?? ''} maxLength={500} placeholder="Contexto de convivencia"
+                    onChange={(e) => setForm({ ...form, familia: e.target.value })} />
+                </label>
+                <label className="field persona-field-wide">
+                  Acerca de
+                  <textarea value={form.acercaDe ?? ''} maxLength={2000} rows={3}
+                    placeholder="Describe brevemente quién es y qué caracteriza a este perfil."
+                    onChange={(e) => setForm({ ...form, acercaDe: e.target.value })} />
+                </label>
+                {renderListFields(['hobbies', 'habilidades'])}
+                <label className="field persona-field-wide">
+                  URL de fotografía
+                  <input type="url" value={form.fotografiaUrl ?? ''} placeholder="https://…"
+                    onChange={(e) => setForm({ ...form, fotografiaUrl: e.target.value || undefined })} />
+                </label>
+              </div>
+            </section>
+
+            <section className="persona-form-section" aria-labelledby="persona-necesidades">
+              <div className="persona-section-intro">
+                <span className="persona-step" aria-hidden="true">02</span>
+                <h4 id="persona-necesidades">Necesidades y comportamiento</h4>
+                <p>Qué busca conseguir, qué necesita y qué barreras encuentra.</p>
+              </div>
+              <div className="persona-fields">
+                {renderListFields(['objetivos', 'necesidades', 'motivaciones', 'frustraciones', 'comportamientos', 'expectativas'])}
+              </div>
+            </section>
+
+            <section className="persona-form-section" aria-labelledby="persona-servicio">
+              <div className="persona-section-intro">
+                <span className="persona-step" aria-hidden="true">03</span>
+                <h4 id="persona-servicio">Relación con el servicio</h4>
+                <p>Cómo interactúa y qué distingue este perfil de otros.</p>
+              </div>
+              <div className="persona-fields">
+                <label className="field">
+                  Contexto de uso
+                  <textarea value={form.contextoDeUso ?? ''} maxLength={1000} rows={3}
+                    placeholder="Entorno, situación o condiciones de uso."
+                    onChange={(e) => setForm({ ...form, contextoDeUso: e.target.value })} />
+                </label>
+                <label className="field">
+                  Rol en el servicio
+                  <textarea value={form.rolEnServicio ?? ''} maxLength={1000} rows={3}
+                    placeholder="Función que cumple y nivel de influencia."
+                    onChange={(e) => setForm({ ...form, rolEnServicio: e.target.value })} />
+                </label>
+                <label className="field persona-field-wide">
+                  Relación con el servicio
+                  <textarea value={form.relacionConServicio ?? ''} maxLength={1500} rows={3}
+                    placeholder="Frecuencia, canales y relevancia del servicio en su vida."
+                    onChange={(e) => setForm({ ...form, relacionConServicio: e.target.value })} />
+                </label>
+                <div className="persona-field-wide persona-fields">
+                  {renderListFields(['caracteristicasDistintivas'])}
+                </div>
+              </div>
+            </section>
+
+            <section className="persona-form-section" aria-labelledby="persona-evidencia">
+              <div className="persona-section-intro">
+                <span className="persona-step" aria-hidden="true">04</span>
+                <h4 id="persona-evidencia">Evidencia y validación</h4>
+                <p>Las fuentes y la revisión que respaldan la caracterización.</p>
+              </div>
+              <div className="persona-fields">
+                {renderListFields(['evidencia'])}
+                <label className="field">
+                  Estado de validación
+                  <select value={form.estadoValidacion ?? 'PENDIENTE'}
+                    onChange={(e) => setForm({ ...form, estadoValidacion: e.target.value as PersonaContenido['estadoValidacion'] })}>
+                    <option value="PENDIENTE">Pendiente de validar</option>
+                    <option value="VALIDADA">Validada</option>
+                  </select>
+                </label>
+                <label className="field persona-field-wide">
+                  Observaciones de validación
+                  <textarea value={form.observacionesValidacion ?? ''} maxLength={1500} rows={3}
+                    placeholder="Comentarios y aspectos considerados al revisar el perfil."
+                    onChange={(e) => setForm({ ...form, observacionesValidacion: e.target.value })} />
+                </label>
+              </div>
+            </section>
+            <div className="persona-form-actions">
+              <p>Guarda el perfil cuando hayas terminado de revisarlo.</p>
+              <button type="submit" className="primary" disabled={isPending}>
+                {isPending ? 'Guardando…' : editandoId ? 'Actualizar persona' : 'Guardar persona'}
+              </button>
+            </div>
           </fieldset>
         </form>
       )}
 
-      {isLoading && <p>Cargando…</p>}
-      {error && (
-        <p className="error-text">
-          {isListError ? 'No se pudo cargar las personas. ' : ''}
-          {(error as Error).message}
-        </p>
-      )}
+      {isLoading && <p role="status">Cargando perfiles…</p>}
+      {error && <p className="inline-state inline-state--error" role="alert">
+        {isListError ? 'No se pudo cargar las personas. ' : ''}{(error as Error).message}
+      </p>}
 
-      <div className="form-grid">
+      {personas && personas.length > 0 && (
+        <div className="persona-list-head">
+          <h3>Perfiles del proyecto</h3>
+          <span className="short-id">{personas.length} {personas.length === 1 ? 'perfil' : 'perfiles'}</span>
+        </div>
+      )}
+      <div className="persona-profile-grid">
         {personas?.map((p: PersonaArtifact) => (
-          <div key={p.id} className="entity-card">
-            <div className="row-between">
-              <b>{p.contenido.nombreCompleto}</b>
-              {puedeEditar && (
-                <div className="row-gap-sm">
-                  <button
-                    type="button"
-                    onClick={() => handleIniciarEditar(p)}
-                    className="link-btn link-btn--edit"
-                  >
-                    Editar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (await confirm('¿Estás seguro de eliminar esta versión?')) {
-                        eliminar(p.id);
-                      }
-                    }}
-                    className="link-btn link-btn--delete"
-                  >
-                    Eliminar
-                  </button>
-                </div>
-              )}
+          <article key={p.id} className="panel persona-profile" aria-labelledby={`persona-name-${p.id}`}>
+            <div className="persona-profile-head">
+              <span className="person-avatar persona-profile-avatar" aria-hidden="true">
+                {p.contenido.nombreCompleto.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase()}
+              </span>
+              <div className="persona-profile-identity">
+                <h3 id={`persona-name-${p.id}`}>{p.contenido.nombreCompleto}</h3>
+                <p>{[p.contenido.ocupacion, p.contenido.edad !== undefined ? `${p.contenido.edad} años` : null].filter(Boolean).join(' · ') || 'Sin datos demográficos registrados'}</p>
+              </div>
             </div>
-            {p.contenido.ocupacion && (
-              <small className="text-muted">
-                {p.contenido.ocupacion}{p.contenido.edad ? ` · ${p.contenido.edad} años` : ''}
-              </small>
+            <div className="persona-profile-meta">
+              <span className={p.contenido.estadoValidacion === 'VALIDADA' ? 'count' : 'short-id'}>
+                {p.contenido.estadoValidacion === 'VALIDADA' ? 'Validada' : 'Validación pendiente'}
+              </span>
+              <span className="text-muted-xs">Versión {p.version}</span>
+            </div>
+            {p.contenido.acercaDe && <p className="persona-profile-about">{p.contenido.acercaDe}</p>}
+            <div className="persona-profile-highlights">
+              <div><h4>Objetivos</h4><p>{p.contenido.objetivos?.[0] || 'Sin objetivos registrados'}</p></div>
+              <div><h4>Necesidades</h4><p>{p.contenido.necesidades?.[0] || 'Sin necesidades registradas'}</p></div>
+            </div>
+            <details className="persona-profile-details">
+              <summary>Ver perfil completo</summary>
+              <dl className="persona-detail-grid">
+                {CAMPOS_CONTEXTO.map((campo) => p.contenido[campo] && (
+                  <div key={campo}><dt>{ETIQUETAS_CAMPOS[campo]}</dt><dd>{p.contenido[campo]}</dd></div>
+                ))}
+                {CAMPOS_LISTA.map((campo) => {
+                  const valores = p.contenido[campo];
+                  return Array.isArray(valores) && valores.length > 0 ? (
+                    <div key={campo}>
+                      <dt>{ETIQUETAS_CAMPOS[campo]}</dt>
+                      <dd><ul>{valores.map((valor, index) => <li key={index}>{valor}</li>)}</ul></dd>
+                    </div>
+                  ) : null;
+                })}
+              </dl>
+            </details>
+            {puedeEditar && (
+              <div className="persona-profile-actions">
+                <button type="button" className="secondary" onClick={() => handleIniciarEditar(p)}>Editar</button>
+                <button type="button" className="text-button text-button--danger" onClick={async () => {
+                  if (await confirm('¿Estás seguro de eliminar esta versión?')) eliminar(p.id);
+                }}>Eliminar</button>
+              </div>
             )}
-          </div>
+          </article>
         ))}
-        {personas && personas.length === 0 && !isLoading && <p>No hay personas todavía.</p>}
       </div>
-    </div></div>
+      {personas && personas.length === 0 && !isLoading && !mostrarForm && (
+        <div className="empty-state persona-empty">
+          <span className="person-avatar persona-profile-avatar" aria-hidden="true">P</span>
+          <strong>No hay personas todavía</strong>
+          <p>{puedeEditar ? 'Usa «Nueva persona» para construir el primer perfil del proyecto.' : 'Los perfiles aparecerán aquí cuando el equipo los registre.'}</p>
+        </div>
+      )}
+    </div>
   );
 }

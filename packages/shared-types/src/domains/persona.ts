@@ -55,6 +55,50 @@ export const PersonaSchema = z.object({
     .optional()
     .describe('Entorno físico, temporal o sociocultural de la interacción.'),
   expectativas: z.array(z.string().min(1)).optional().default([]),
+
+  // ── 3. Relación con el servicio ────────────────────────────────────────
+  rolEnServicio: z
+    .string()
+    .max(1000)
+    .optional()
+    .describe(
+      'Rol que cumple la persona dentro del servicio y su nivel de influencia.'
+    ),
+  relacionConServicio: z
+    .string()
+    .max(1500)
+    .optional()
+    .describe(
+      'Relación actual con el servicio: tipo y frecuencia de interacción, canales, conocimiento y criticidad del objetivo.'
+    ),
+  caracteristicasDistintivas: z
+    .array(z.string().min(1))
+    .optional()
+    .default([])
+    .describe(
+      'Características relevantes que permiten diferenciar este perfil de otros.'
+    ),
+
+  // ── 4. Evidencia y validación del perfil ───────────────────────────────
+  evidencia: z
+    .array(z.string().min(1))
+    .optional()
+    .default([])
+    .describe(
+      'Fuentes o evidencias utilizadas para construir y fundamentar el perfil.'
+    ),
+  estadoValidacion: z
+    .enum(['PENDIENTE', 'VALIDADA'])
+    .optional()
+    .default('PENDIENTE')
+    .describe('Estado de validación de la caracterización del perfil.'),
+  observacionesValidacion: z
+    .string()
+    .max(1500)
+    .optional()
+    .describe(
+      'Observaciones asociadas al proceso de validación del perfil.'
+    ),
 });
 
 export type Persona = z.infer<typeof PersonaSchema>;
