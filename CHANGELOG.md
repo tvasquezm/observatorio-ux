@@ -4,13 +4,6 @@ All notable changes to this project will be documented in this file. See [commit
 
 ## Unreleased
 
-### Fixes
-
-* **reports:** usa las fuentes incluidas en pdfmake, restringe sesiones privadas
-  por evaluador y exporta las relaciones de Card Sorting en JSON/PDF.
-* **persona:** incluye los nuevos campos de evidencia, relación con el servicio
-  y validación en el PDF de la interfaz; conserva defaults al leer fichas antiguas.
-
 ### Features
 
 * **persona:** amplía la ficha con rol y relación con el servicio,
@@ -36,6 +29,15 @@ All notable changes to this project will be documented in this file. See [commit
   reservado al creador del proyecto o a un ADMIN.
 
 ### Fixes
+
+* **reports:** usa las fuentes incluidas en pdfmake, restringe sesiones privadas
+  por evaluador y exporta las relaciones de Card Sorting en JSON/PDF.
+* **persona:** incluye los nuevos campos de evidencia, relación con el servicio
+  y validación en el PDF de la interfaz; conserva defaults al leer fichas antiguas.
+
+* **docker:** `docker compose up` reinstala las dependencias de cada servicio
+  cuando cambia `pnpm-lock.yaml`, sin necesidad de `down` ni `up --build -V`
+  tras un `git pull`.
 
 * **artifacts:** libera locks de edición al cancelar, cambiar de artefacto o
   abandonar la ruta, incluso si la adquisición termina de forma tardía.
