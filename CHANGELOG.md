@@ -30,6 +30,9 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Fixes
 
+* **deps:** actualiza los overrides de brace-expansion, fast-uri y multer a
+  versiones corregidas; elimina las alertas encontradas por `pnpm audit`.
+
 * **reports:** usa las fuentes incluidas en pdfmake, restringe sesiones privadas
   por evaluador y exporta las relaciones de Card Sorting en JSON/PDF.
 * **persona:** incluye los nuevos campos de evidencia, relación con el servicio

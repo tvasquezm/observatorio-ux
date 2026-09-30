@@ -5,6 +5,10 @@ y quirúrgicas. No hay archivos inventados desde cero salvo los indicados.
 
 ## Revisión del PR #22 — Personas y reportes (30-09-2026)
 
+- `pnpm-workspace.yaml` y `pnpm-lock.yaml`: actualiza los overrides existentes
+  de brace-expansion, fast-uri y multer para resolver las alertas de auditoría.
+  La rama incorpora `main` y conserva las correcciones del módulo de reportes.
+
 - `apps/backend/src/modules/reports/reports.service.ts`: corrige las fuentes
   Roboto, limita sesiones según permisos e incluye las relaciones de Card Sorting.
   Los helpers PDF usan tipos derivados del reporte en lugar de `any[]`.
