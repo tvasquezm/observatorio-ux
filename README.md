@@ -211,6 +211,7 @@ Si falla, el log de cada paso está ahí mismo.
 - [`docs/sprints/sprint5-panel-administrativo.md`](docs/sprints/sprint5-panel-administrativo.md) — alcance, decisiones y estado verificable del panel administrativo
 - [`docs/sprints/sprint5-pauta-evaluacion-usabilidad.md`](docs/sprints/sprint5-pauta-evaluacion-usabilidad.md) — pauta borrador lista para revisión del profesor
 - [`docs/sprints/sprint6-despliegue.md`](docs/sprints/sprint6-despliegue.md) — despliegue productivo reproducible, operación y estado F1–F8/R6
+- [`docs/sprints/sprint7.md`](docs/sprints/sprint7.md) — exportación PDF/JSON por proyecto, datos incluidos y permisos
 
 - [`postman/`](postman/) — colecciones Postman por módulo (token de prueba vía `/auth/test-token`, deshabilitado automáticamente cuando `NODE_ENV=production`)
 

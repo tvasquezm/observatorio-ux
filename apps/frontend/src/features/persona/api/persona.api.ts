@@ -30,6 +30,8 @@ function normalizePersona(artifact: PersonaArtifact): PersonaArtifact {
     objetivos: content.objetivos ?? [], necesidades: content.necesidades ?? [],
     motivaciones: content.motivaciones ?? [], frustraciones: content.frustraciones ?? [],
     comportamientos: content.comportamientos ?? [], expectativas: content.expectativas ?? [],
+    caracteristicasDistintivas: content.caracteristicasDistintivas ?? [],
+    evidencia: content.evidencia ?? [], estadoValidacion: content.estadoValidacion ?? 'PENDIENTE',
   } };
 }
 

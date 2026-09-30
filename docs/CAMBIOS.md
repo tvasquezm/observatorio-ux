@@ -3,6 +3,21 @@
 Todo acá parte de TUS archivos reales que subiste, con ediciones mínimas
 y quirúrgicas. No hay archivos inventados desde cero salvo los indicados.
 
+## Revisión del PR #22 — Personas y reportes (30-09-2026)
+
+- `apps/backend/src/modules/reports/reports.service.ts`: corrige las fuentes
+  Roboto, limita sesiones según permisos e incluye las relaciones de Card Sorting.
+  Los helpers PDF usan tipos derivados del reporte en lugar de `any[]`.
+- `apps/backend/src/modules/reports/reports.service.spec.ts`: comprueba PDF real,
+  acceso, sesiones por rol, Card Sorting y proyectos inexistentes/eliminados.
+- `apps/frontend/src/features/persona/api/persona.api.ts`: completa los nuevos
+  defaults al leer Personas antiguas.
+- `apps/frontend/src/shared/utils/pdf.ts` y
+  `apps/frontend/src/features/reports/report-data.test.ts`: incorpora y verifica
+  los campos nuevos de Personas en el informe descargable.
+- `docs/sprints/sprint7.md`, `README.md` y `CHANGELOG.md`: documenta alcance real,
+  permisos, endpoints y correcciones; repara los bloques Markdown del Sprint 7.
+
 ## Ronda 14 (Sesión — creación centralizada y acceso por invitación)
 
 1. **Un único punto para crear proyectos.** Se retiraron las acciones repetidas
