@@ -5,6 +5,13 @@ y quirúrgicas. No hay archivos inventados desde cero salvo los indicados.
 
 ## Revisión del PR #22 — Personas y reportes (30-09-2026)
 
+- `apps/frontend/src/pages/PersonasPage.tsx` y `apps/frontend/src/styles/theme.css`:
+  formulario por secciones y fichas legibles con validación, objetivos,
+  necesidades y perfil completo desplegable. Reutiliza los tokens y componentes
+  existentes para escritorio, móvil y modo oscuro.
+- `apps/frontend/src/pages/__tests__/PersonasPage.test.tsx`: verifica conservación
+  del contenido al guardar, lectura docente sin permisos de edición y bloqueo
+  concurrente. La comprobación visual usa datos de ejemplo fuera de la aplicación.
 - `pnpm-workspace.yaml` y `pnpm-lock.yaml`: actualiza los overrides existentes
   de brace-expansion, fast-uri y multer para resolver las alertas de auditoría.
   La rama incorpora `main` y conserva las correcciones del módulo de reportes.

@@ -8,6 +8,9 @@ All notable changes to this project will be documented in this file. See [commit
 
 * **persona:** amplía la ficha con rol y relación con el servicio,
   características distintivas, evidencia y validación del perfil.
+* **persona:** organiza el formulario en cuatro secciones con etiquetas visibles
+  y presenta fichas con objetivos, necesidades y detalle desplegable; mantiene
+  la paleta, tipografías, modo oscuro y adaptación móvil del proyecto.
 * **reports:** incorpora endpoints PDF y JSON por proyecto, con control de acceso.
 
 * **auth:** límite de 300 participantes anónimos/hora por proyecto en
