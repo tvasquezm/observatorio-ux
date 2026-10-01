@@ -609,3 +609,18 @@ observables (`/nginx-health`, `/api/health` y `/`) en cada push.
 Se actualizó la línea base a Node.js 24 LTS en Docker, CI y `engines`. El detalle
 operativo y el estado F1–F8/R6 están en
 `docs/sprints/sprint6-despliegue.md`.
+
+## Estrategia de cache — Fase 1 (HTTP y navegador)
+
+El proxy Nginx responde las lecturas de `/api/` con `Cache-Control: no-store`:
+ni el navegador ni un caché compartido guardan datos de sesión o de proyectos,
+algo relevante en equipos de laboratorio compartidos. Las escrituras y las
+respuestas de error no llevan la cabecera.
+
+El contenedor estático sirve `/assets/` (archivos con hash de Vite) con
+`public, max-age=31536000, immutable`; `index.html` y las rutas de la SPA con
+`no-cache`, para que cada despliegue se vea sin vaciar el caché del navegador.
+
+En el cliente, TanStack Query mantiene `staleTime` global de 30 s. Los catálogos
+de docentes y cuentas (`usersKeys.docentes`, `usersKeys.accounts`) usan 5 min
+porque sus mutaciones ya invalidan la query. No se usan cookies nuevas.
