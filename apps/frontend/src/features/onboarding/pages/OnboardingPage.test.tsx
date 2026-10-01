@@ -81,4 +81,20 @@ describe('OnboardingPage reanuda Card Sorting', () => {
     expect(sessionStorage.getItem('participanteToken')).toBe('token-renovado');
     expect(accessProject).not.toHaveBeenCalled();
   });
+
+  it('en el consentimiento avisa que no usa cookies y enlaza a la privacidad', async () => {
+    vi.mocked(accessProject).mockResolvedValue({
+      access_token: 'token-nuevo',
+      resume_token: RESUME_TOKEN,
+      participant: { id: PARTICIPANT_ID, proyectoId: PROJECT_ID },
+    });
+    renderOnboarding();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Continuar al consentimiento' }));
+
+    expect(await screen.findByText(/No usamos cookies\./)).toBeInTheDocument();
+    const enlace = screen.getByRole('link', { name: 'Más información' });
+    expect(enlace).toHaveAttribute('href', '/privacidad');
+    expect(enlace).toHaveAttribute('target', '_blank');
+  });
 });

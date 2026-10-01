@@ -643,3 +643,20 @@ hasta 30 s en verse en las demás: ese es el momento de pasar a Redis.
 membresías y sala, tiene más de diez puntos de escritura (incluidas bajas en
 cascada) y cada consulta es por clave primaria. Retener un acceso revocado pesa
 más que el ahorro.
+
+## Estrategia de cache — Fase 4 (aviso de cookies y almacenamiento)
+
+La plataforma usa solo 2 cookies, ambas necesarias (`evaluadorToken` y
+`csrfToken`), y no incluye analítica ni seguimiento. Como son estrictamente
+necesarias no requieren consentimiento previo, pero sí informar al usuario:
+
+- `/privacidad` (`features/legal/pages/PrivacyPage.tsx`): página pública con las
+  cookies y el almacenamiento del navegador de evaluadores y participantes.
+- El login muestra un aviso breve con enlace a esa página.
+- El paso de consentimiento del participante indica que no se usan cookies y
+  que el navegador guarda un identificador temporal anónimo y el avance.
+- Los enlaces abren en otra pestaña para no perder el estado del participante.
+
+Cuando se agregue una cookie o clave de `localStorage`/`sessionStorage`, hay que
+actualizar `PrivacyPage`. Una cookie no esencial (analítica, seguimiento)
+requeriría además un banner con consentimiento previo.
