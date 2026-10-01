@@ -624,3 +624,22 @@ El contenedor estático sirve `/assets/` (archivos con hash de Vite) con
 En el cliente, TanStack Query mantiene `staleTime` global de 30 s. Los catálogos
 de docentes y cuentas (`usersKeys.docentes`, `usersKeys.accounts`) usan 5 min
 porque sus mutaciones ya invalidan la query. No se usan cookies nuevas.
+
+## Estrategia de cache — Fase 2 (identidad en el backend)
+
+Cada request autenticado ejecutaba una consulta por clave primaria para
+confirmar que el usuario o participante del token sigue existiendo. Ahora esa
+confirmación se guarda 30 s en un `TtlCache` en memoria (tope de 5000 entradas,
+descarta la más antigua) dentro de `AuthService`. Cambiar el rol o eliminar a un
+docente invalida la entrada al instante en el proceso; ver `docs/BACKEND.md`.
+
+No se agregó `@nestjs/cache-manager`: su almacén en memoria no tiene tope y
+exigiría sumar `keyv` y un LRU. La clase propia son 40 líneas, no toca el
+lockfile, y migrar a Redis cuando haya varias réplicas se limita a reemplazarla.
+Con varias réplicas cada una tendría su propia caché y un cambio de rol tardaría
+hasta 30 s en verse en las demás: ese es el momento de pasar a Redis.
+
+`assertAccess` (acceso por proyecto) queda sin cachear: depende de proyecto,
+membresías y sala, tiene más de diez puntos de escritura (incluidas bajas en
+cascada) y cada consulta es por clave primaria. Retener un acceso revocado pesa
+más que el ahorro.
