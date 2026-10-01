@@ -4,6 +4,8 @@ set -e
 # db ya está garantizado healthy por "depends_on: condition: service_healthy"
 # en docker-compose.yml, así que no hace falta esperar aquí.
 
+sh scripts/ensure-deps.sh backend
+
 echo "==> Aplicando migraciones de Prisma..."
 pnpm --filter backend exec prisma migrate deploy
 

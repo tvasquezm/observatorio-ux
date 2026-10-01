@@ -1,86 +1,74 @@
-Markdown
-# Documentación del Sprint 7: Reportes PDF y Exportación JSON
+# Sprint 7: reportes PDF y exportación JSON
 
-## 📋 Resumen del Sprint
-El Sprint 7 se enfoca en dotar a la plataforma del Observatorio UX de capacidades avanzadas de extracción de información analítica por proyecto. Esto incluye la generación y descarga de documentos formales en formato PDF utilizando datos en tiempo real, así como un endpoint dedicado a la exportación estructurada de datos en formato JSON para integraciones o respaldos.
+El backend permite exportar los datos guardados de un proyecto. La interfaz
+mantiene su exportador por técnicas; ambos incluyen los nuevos campos de
+Personas: relación y rol en el servicio, características distintivas, evidencia,
+estado y observaciones de validación.
 
----
+## Endpoints
 
-## 🚀 Endpoints Implementados
+| Método | Ruta | Respuesta |
+| --- | --- | --- |
+| GET | `/api/projects/:proyectoId/reports/json` | Objeto JSON del proyecto |
+| GET | `/api/projects/:proyectoId/reports/pdf` | Archivo PDF adjunto |
 
-### 1. Exportación de Datos en JSON
-Permite obtener una estructura consolidada con toda la información y métricas asociadas a un proyecto de investigación.
+Ambos requieren un UUID válido, autenticación de evaluador y rol ESTUDIANTE,
+DOCENTE o ADMIN. `ProjectAccessService.assertAccess` comprueba el acceso al
+proyecto antes de consultar sus datos. La autenticación acepta la cookie
+`evaluadorToken` o un Bearer de evaluador; el token de participante no habilita
+estos endpoints. Son consultas GET y no requieren un token CSRF.
 
-* **Ruta:** `GET /api/projects/:proyectoId/reports/json`
-* **Seguridad:** Autenticado mediante Cookie HttpOnly (`evaluadorToken`) o Bearer Token. Protegido por `JwtAuthGuard` y `RolesGuard`.
-* **Roles Permitidos:** `ESTUDIANTE`, `DOCENTE`, `ADMIN`.
-* **Respuesta de Ejemplo:**
-  ```json
-  {
-    "generatedAt": "2026-09-28T18:57:08.915Z",
-    "proyecto": {
-      "id": "2220b224-865d-4230-a484-19338c66b9e6",
-      "nombre": "Estudio de Arquitectura de Información 2026",
-      "descripcion": "Proyecto de prueba para validación de Card Sorting",
-      "createdAt": "2026-09-16T22:33:42.615Z",
-      "creador": {
-        "id": "c702fdcf-ff14-4e49-bcdf-620f1738bb01",
-        "nombre": "Estudiante Uno",
-        "email": "estudiante1@ux.utem.cl"
-      }
-    },
-    "resumen": {
-      "artefactos": 0,
-      "sesiones": 0,
-      "comentarios": 0
-    },
-    "artefactos": [],
-    "sesiones": [],
-    "comentarios": []
-  }
-2. Generación y Descarga de Reporte PDF
-Genera un documento binario en formato PDF basado en la plantilla y los datos reales del proyecto consultado.
+El PDF responde con `Content-Type: application/pdf`, `Content-Length` y
+`Content-Disposition: attachment; filename="reporte-proyecto-{proyectoId}.pdf"`.
+Las rutas pertenecen a `ReportsController`, registrado mediante `ReportsModule`;
+no se agregaron rutas a `ProjectsController`.
 
-Ruta: GET /api/projects/:proyectoId/reports/pdf
+## Datos y permisos
 
-Seguridad: Mismos mecanismos de autenticación y roles que el endpoint JSON.
+El JSON contiene `generatedAt`, `proyecto`, `resumen`, `artefactos`, `sesiones`
+y `comentarios`. El resumen cuenta únicamente los registros incluidos.
 
-Headers de Respuesta:
+- Los artefactos conservan todas las versiones no eliminadas, con autor y fecha.
+  El exportador de la interfaz utiliza las versiones vigentes.
+- Los comentarios excluyen los eliminados mediante Soft Delete.
+- Las sesiones heurísticas individuales se limitan al evaluador que exporta;
+  ADMIN puede exportar todas las del proyecto.
+- Card Sorting incluye los estudios propios y sus sesiones de participantes.
+  DOCENTE también puede exportar Card Sorting de las salas que administra,
+  siguiendo el permiso existente de lectura y analítica. No se exportan datos
+  de identificación de participantes.
+- Las tarjetas, categorías y agrupaciones se incluyen desde sus relaciones
+  Prisma, porque las respuestas de Card Sorting no se guardan en `resultado`.
+  `estudioId` permite asociar una respuesta con su estudio.
 
-Content-Type: application/pdf
+El PDF del backend presenta la información general, contenido de artefactos,
+sesiones y comentarios. Es una exportación de datos guardados: no calcula nuevas
+métricas agregadas. Usa las fuentes Roboto incluidas en
+`pdfmake/build/vfs_fonts`, sin archivos externos ni descargas en ejecución.
 
-Content-Disposition: attachment; filename="reporte-proyecto-{proyectoId}.pdf"
+## Comprobación
 
-🛠️️ Decisiones Arquitectónicas y Técnicas
-Prioridad de Enrutamiento en NestJS:
+Desde la raíz del monorepo:
 
-Para evitar conflictos con el comodín de rutas generales @Get(':id') en ProjectsController, las rutas específicas de reportes (:proyectoId/reports/json y :proyectoId/reports/pdf) se declararon explícitamente antes del decorador de búsqueda por ID individual.
+```bash
+pnpm --filter @observatorio-ux/shared-types build
+pnpm --filter backend test reports --runInBand
+pnpm --filter frontend test src/features/reports/report-data.test.ts
+```
 
-Seguridad y Autenticación Híbrida:
+Las pruebas verifican generación de un PDF real, rechazo de acceso, filtros por
+rol, exclusión de proyectos eliminados, inclusión de Card Sorting y los nuevos
+campos de Personas en el informe de la interfaz.
 
-Evaluadores (Profesores/Admins): Autenticados mediante la cookie evaluadorToken (HttpOnly) combinada con una estrategia Double-Submit Cookie para validación de mutaciones y peticiones seguras mediante x-csrf-token.
+Para una prueba manual, usar un proyecto accesible y un token de evaluador:
 
-Clientes externos / CLI / Swagger: Soporte de fallback compatible con autenticación tradicional Authorization: Bearer <token>.
-
-Manejo de Respuestas Binarias:
-
-El controlador intercepta el flujo nativo utilizando @Res() response: Response para inyectar los headers HTTP correspondientes al tamaño y tipo de archivo PDF generado antes de finalizar el stream con response.end(pdf).
-
-🧪 Guía rápida de pruebas (CLI / cURL)
-Puedes validar el correcto funcionamiento de los endpoints utilizando la terminal:
-
-Probar exportación JSON:
-Bash
-curl -s \
+```bash
+curl --fail --show-error \
   -H "Authorization: Bearer $TOKEN" \
-  http://localhost:3000/api/projects/2220b224-865d-4230-a484-19338c66b9e6/reports/json
-Descargar reporte PDF:
-Bash
-curl -s \
+  "http://localhost:3000/api/projects/$PROYECTO_ID/reports/json"
+
+curl --fail --show-error \
   -H "Authorization: Bearer $TOKEN" \
   -o reporte-prueba.pdf \
-  http://localhost:3000/api/projects/2220b224-865d-4230-a484-19338c66b9e6/reports/pdf
-Verificar integridad del PDF descargado:
-Bash
-file reporte-prueba.pdf
-# Resultado esperado: PDF document, version ...
+  "http://localhost:3000/api/projects/$PROYECTO_ID/reports/pdf"
+```
