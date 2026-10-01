@@ -1970,3 +1970,22 @@ input::placeholder, textarea::placeholder { color: color-mix(in srgb, var(--mute
   .project-subnav-hint { display: block; }
   .coverage-row { grid-template-columns: 110px minmax(80px, 1fr) 28px; gap: 8px; }
 }
+
+.login-note a, .consent-note a { color: inherit; text-decoration: underline; }
+
+.privacy { min-height: 100vh; padding: 40px 20px; background: var(--bg); }
+.privacy-card { max-width: 720px; margin: 0 auto; padding: 36px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); line-height: 1.6; }
+.privacy-card h1 { margin: 0 0 4px; font-size: 28px; }
+.privacy-card h2 { margin: 28px 0 8px; font-size: 18px; }
+.privacy-card p, .privacy-card li, .privacy-card dd { color: var(--muted); font-size: 14px; }
+.privacy-card dt { margin-top: 12px; color: var(--ink); font-size: 14px; }
+.privacy-card dd { margin: 4px 0 0; }
+.privacy-card ul { padding-left: 20px; }
+.privacy-card code { padding: 1px 6px; border-radius: 4px; background: var(--surface-muted); font-size: 13px; }
+.privacy-card .privacy-updated { margin: 0 0 18px; font-size: 12px; }
+
+@media (max-width: 768px) {
+  .privacy { padding: 16px 12px; }
+  .privacy-card { padding: 22px 18px; }
+  .privacy-card h1 { font-size: 24px; }
+}

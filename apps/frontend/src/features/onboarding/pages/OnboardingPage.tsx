@@ -10,7 +10,7 @@
 // sin trabajo de estilos/UI final, eso lo hace después el resto del equipo.
 
 import { useState } from 'react';
-import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import {
   accessProject,
   resumeProject,
@@ -248,6 +248,11 @@ export function OnboardingPage() {
             <div className="consent-note">
               <strong>Tú mantienes el control</strong>
               <p>Puedes rechazar la participación ahora. Si aceptas, podrás completar la actividad sin identificarte.</p>
+              <p>
+                Para que puedas retomar la actividad, tu navegador guarda un identificador temporal
+                anónimo y tu avance. No usamos cookies.{' '}
+                <Link to="/privacidad" target="_blank" rel="noopener noreferrer">Más información</Link>
+              </p>
             </div>
             <div className="participant-actions">
               <button type="button" className="primary" onClick={() => handleConsentir(true)} disabled={cargando}>{cargando ? 'Registrando decisión…' : 'Acepto participar'}</button>

@@ -27,6 +27,7 @@ const ProfesorSalasPage = lazy(() => import('./features/salas/pages/ProfesorSala
 const SalaDetallePage = lazy(() => import('./features/salas/pages/SalaDetallePage').then((m) => ({ default: m.SalaDetallePage })));
 const SalasEliminadasPage = lazy(() => import('./features/salas/pages/SalasEliminadasPage').then((m) => ({ default: m.SalasEliminadasPage })));
 const AdminProfesoresPage = lazy(() => import('./features/admin/pages/AdminProfesoresPage').then((m) => ({ default: m.AdminProfesoresPage })));
+const PrivacyPage = lazy(() => import('./features/legal/pages/PrivacyPage').then((m) => ({ default: m.PrivacyPage })));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })));
 
 export default function App() {
@@ -34,6 +35,7 @@ export default function App() {
     <Suspense fallback={<div className="route-loading" role="status">Cargando pantalla…</div>}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/privacidad" element={<PrivacyPage />} />
       {/* Público — participante sin cuenta (Fase 1, PLAN_AJUSTES.md) */}
       <Route path="/participar/:proyectoId" element={<OnboardingPage />} />
       <Route path="/participar/sesion/:sesionId" element={<ParticipantCardSortingPage />} />

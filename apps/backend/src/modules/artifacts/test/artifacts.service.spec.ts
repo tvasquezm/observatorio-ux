@@ -248,6 +248,36 @@ describe('ArtifactsService', () => {
   });
 
   describe('createVersion', () => {
+    it('RECHAZA modificar un JOURNEY_MAP', async () => {
+      prisma.uxArtifact.findUnique.mockResolvedValue({
+        id: 'art-1',
+        proyectoId: 'proy-1',
+        tipo: TipoArtefacto.JOURNEY_MAP,
+        artefactoLogicoId: 'logico-1',
+        version: 1,
+        lockedById: null,
+        lockedUntil: null,
+        deletedAt: null,
+      });
+      prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
+
+      await expect(
+        service.createVersion(
+          'art-1',
+          {
+            contenido: {},
+          } as any,
+          ownerUser,
+        ),
+      ).rejects.toThrow(
+        new ForbiddenException(
+          'Los Journey Maps son registros de evidencia y no pueden modificarse.',
+        ),
+      );
+
+      expect(prisma.uxArtifact.create).not.toHaveBeenCalled();
+    });
+
     const baseArtifact = {
       id: 'art-1',
       proyectoId: 'proy-1',
@@ -392,6 +422,22 @@ describe('ArtifactsService', () => {
       await expect(service.softDelete('art-1', otherUser)).rejects.toThrow(
         ForbiddenException,
       );
+      expect(prisma.uxArtifact.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('RECHAZA eliminar un JOURNEY_MAP', async () => {
+      prisma.uxArtifact.findUnique.mockResolvedValue({
+        ...baseArtifact,
+        tipo: TipoArtefacto.JOURNEY_MAP,
+      });
+      prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
+
+      await expect(service.softDelete('art-1', ownerUser)).rejects.toThrow(
+        new ForbiddenException(
+          'Los Journey Maps son registros de evidencia y no pueden eliminarse.',
+        ),
+      );
+
       expect(prisma.uxArtifact.updateMany).not.toHaveBeenCalled();
     });
 

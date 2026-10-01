@@ -120,6 +120,17 @@ respectivamente, cada uno con su propia estrategia Passport). Ambas env
 vars son obligatorias — el backend no arranca sin `JWT_PARTICIPANTE_SECRET`
 seteada (ver `docs/sprints/sprint4-auth-roles.md`).
 
+**Cache de identidad:** tras verificar la firma del token, `validateTokenPayload`
+confirma en la base que el usuario o participante existe. Ese resultado se guarda
+30 s en memoria (`TtlCache`, `src/core/cache/ttl-cache.ts`), por lo que un request
+repetido no vuelve a consultar. Para evaluadores se guarda `id`, `email` y `rol`;
+para participantes solo su existencia (el `proyectoId` sale siempre del token).
+`UsersService` llama a `AuthService.invalidateUser(id)` al cambiar el rol o
+eliminar a un docente, de modo que el cambio rige de inmediato en este proceso.
+Un borrado hecho por otra vía (por ejemplo la limpieza horaria de participantes
+huérfanos) se refleja como máximo 30 s después. Los usuarios inexistentes no se
+cachean.
+
 Para probar el flujo completo en Postman puedes importar
 `postman/backend-functional.postman_collection.json`.
 

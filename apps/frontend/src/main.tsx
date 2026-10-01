@@ -8,6 +8,7 @@ import App from './App';
 import { ToastContainer } from './shared/components/ToastContainer';
 import { ConfirmDialog } from './shared/components/ui/ConfirmDialog';
 import { AppErrorBoundary } from './shared/components/AppErrorBoundary';
+import { usersKeys } from './features/admin/hooks/useUsersQueries';
 
 // Instancia única de TanStack Query para toda la app. Si en algún punto
 // necesitas configurar retry/staleTime globales, es acá.
@@ -27,6 +28,11 @@ const queryClient = new QueryClient({
     mutations: { retry: false },
   },
 });
+
+// Catálogos que cambian poco y cuyas mutaciones ya invalidan la query.
+const STALE_CATALOGO = 5 * 60_000;
+queryClient.setQueryDefaults(usersKeys.docentes, { staleTime: STALE_CATALOGO });
+queryClient.setQueryDefaults(usersKeys.accounts, { staleTime: STALE_CATALOGO });
 
 const router = createBrowserRouter([{ path: '*', element: <><App /><ToastContainer /><ConfirmDialog /></> }]);
 

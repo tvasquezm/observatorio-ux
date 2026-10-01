@@ -1,331 +1,622 @@
-// apps/frontend/src/pages/JourneyMapPage.tsx
-
 import React, { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import type { ProjectOutletContext } from '../layouts/ProjectDetailLayout';
 import {
   useCreateJourney,
-  useUpdateJourney,
-  useDeleteJourney,
   useJourneys,
 } from '../features/journey-map/hooks/useJourneyMapQueries';
-import {
-  addPhase,
-  removePhase,
-  type Emocion,
-  type JourneyMapContenido,
-  type JourneyMapArtifact,
-  type Phase,
+import type {
+  JourneyMapContenido,
+  JourneyMapArtifact,
+  Phase,
 } from '../features/journey-map/api/journey-map.api';
-import { ArtifactsApiError } from '../shared/api/artifacts.api';
-import { notify } from '../shared/api/toast';
-import { useConfirm } from '../shared/api/confirm';
 import { puedeEditarArtefactos } from '../shared/auth/permisos';
 import { useActivePerspective } from '../shared/auth/useActivePerspective';
 import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { useProject } from '../features/projects/hooks/useProjectsQueries';
 import { TechniquePageHeader } from '../shared/components/TechniquePageHeader';
-import { useArtifactEditLock } from '../shared/hooks/useArtifactEditLock';
 import { useUnsavedChanges } from '../shared/hooks/useUnsavedChanges';
+
+const CAMPOS_LISTA: (keyof Phase)[] = [
+  'actividades',
+  'touchpoints',
+  'pensamientos',
+  'dificultades',
+  'ganancias',
+  'oportunidades',
+];
+
+const ETIQUETAS_CAMPOS: Record<string, string> = {
+  actividades: 'Actividades',
+  touchpoints: 'Puntos de contacto',
+  pensamientos: 'Pensamientos',
+  dificultades: 'Dificultades / puntos de dolor',
+  ganancias: 'Ganancias / aspectos positivos',
+  oportunidades: 'Oportunidades de mejora',
+};
 
 const MIN_FASES = 3;
 
 function faseVacia(nombre: string): Phase {
-  return { nombre, touchpoints: [], pensamientos: [], emocion: 'Neutral', oportunidades: [] };
+  return {
+    nombre,
+    actividades: [],
+    touchpoints: [],
+    pensamientos: [],
+    emocion: 'Neutral',
+    dificultades: [],
+    ganancias: [],
+    oportunidades: [],
+  };
 }
 
 function contenidoVacio(): JourneyMapContenido {
   return {
-    perfilUsuario: { id: crypto.randomUUID(), nombre: '', rol: '' },
-    fases: [faseVacia('Descubrimiento'), faseVacia('Consideración'), faseVacia('Decisión')],
+    perfilUsuario: {
+      id: crypto.randomUUID(),
+      nombre: '',
+      rol: '',
+    },
+    objetivo: '',
+    eventoInicio: '',
+    fases: [
+      faseVacia('Descubrimiento'),
+      faseVacia('Consideración'),
+      faseVacia('Decisión'),
+    ],
+    evidencia: [],
   };
 }
 
+function vacioListInputs(): Record<string, string> {
+  return CAMPOS_LISTA.reduce(
+    (acc, campo) => ({ ...acc, [campo]: '' }),
+    {},
+  );
+}
+
+
 export function JourneyMapPage() {
   const { proyectoId } = useOutletContext<ProjectOutletContext>();
-  const { data: journeys, isLoading, isError: isListError, error: listError } = useJourneys(proyectoId);
-  const { mutate: crear, isPending: isCreating, error: createError } = useCreateJourney(proyectoId);
-  const { mutate: actualizar, isPending: isUpdating, error: updateError } = useUpdateJourney(proyectoId);
-  const { mutate: eliminar, error: deleteError } = useDeleteJourney(proyectoId);
-  const editLock = useArtifactEditLock(proyectoId);
-  const confirm = useConfirm();
+
+  const {
+    data: journeyMaps,
+    isLoading,
+    isError: isListError,
+    error: listError,
+  } = useJourneys(proyectoId);
+
+  const {
+    mutate: crear,
+    isPending: isCreating,
+    error: createError,
+  } = useCreateJourney(proyectoId);
+
   const user = useAuthStore((state) => state.user);
   const { data: proyecto } = useProject(proyectoId);
-  const puedeEditar = puedeEditarArtefactos(useActivePerspective(), user?.id, proyecto?.creadoPorId);
-  const error = listError ?? createError ?? updateError ?? deleteError;
+
+  const puedeEditar = puedeEditarArtefactos(
+    useActivePerspective(),
+    user?.id,
+    proyecto?.creadoPorId,
+  );
+
+  const error = listError ?? createError;
 
   const [form, setForm] = useState<JourneyMapContenido>(contenidoVacio());
+  const [listInputs, setListInputs] = useState<Record<string, string>[]>(
+    [vacioListInputs()],
+  );
+  const [evidenciaInput, setEvidenciaInput] = useState('');
+  const [journeyConsultado, setJourneyConsultado] =
+    useState<JourneyMapArtifact | null>(null);
   const [mostrarForm, setMostrarForm] = useState(false);
-  const [editandoId, setEditandoId] = useState<string | null>(null);
-  const [editandoVersion, setEditandoVersion] = useState<number | null>(null);
-  const [readOnly, setReadOnly] = useState(false);
-  useUnsavedChanges(mostrarForm, form, isCreating || isUpdating);
+
+  useUnsavedChanges(
+    mostrarForm,
+    { form, listInputs, evidenciaInput },
+    isCreating,
+  );
 
   function resetForm() {
-    editLock.release();
     setForm(contenidoVacio());
-    setEditandoId(null);
-    setEditandoVersion(null);
+    setListInputs([vacioListInputs()]);
+    setEvidenciaInput('');
     setMostrarForm(false);
-    setReadOnly(false);
   }
 
-  function handleIniciarEditar(journey: JourneyMapArtifact) {
-    // El endpoint de versiones recibe el ID de la fila abierta.
-    const artefactoId = journey.id;
-    setEditandoId(artefactoId);
-    setEditandoVersion(journey.version);
-    setForm(journey.contenido);
-    setMostrarForm(true);
-    setReadOnly(false);
 
-    void editLock.acquire(artefactoId).catch((err) => {
-      const msg = err instanceof ArtifactsApiError && err.status === 409
-        ? 'Otro usuario está editando este journey map ahora mismo.'
-        : 'No se pudo bloquear el journey map para editar.';
-      notify.error(msg);
-      setReadOnly(true);
+  function actualizarFase(
+    index: number,
+    cambios: Partial<Phase>,
+  ) {
+    setForm((actual) => ({
+      ...actual,
+      fases: actual.fases.map((fase, i) =>
+        i === index ? { ...fase, ...cambios } : fase,
+      ),
+    }));
+  }
+
+  function actualizarLista(
+    faseIndex: number,
+    campo: keyof Phase,
+    valor: string,
+  ) {
+    const valores = valor
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    actualizarFase(faseIndex, {
+      [campo]: valores,
+    } as Partial<Phase>);
+
+    setListInputs((actual) => {
+      const copia = [...actual];
+      copia[faseIndex] = {
+        ...copia[faseIndex],
+        [campo]: valor,
+      };
+      return copia;
     });
   }
 
-  function actualizarFase(index: number, campo: keyof Phase, valor: string) {
-    const fases = [...form.fases];
-    if (campo === 'touchpoints' || campo === 'pensamientos' || campo === 'oportunidades') {
-      fases[index] = { ...fases[index], [campo]: valor.split(',').map((s) => s.trim()).filter(Boolean) };
-    } else if (campo === 'emocion') {
-      fases[index] = { ...fases[index], emocion: valor as Emocion };
-    } else {
-      fases[index] = { ...fases[index], nombre: valor };
-    }
-    setForm({ ...form, fases });
+  function agregarFase() {
+    setForm((actual) => ({
+      ...actual,
+      fases: [
+        ...actual.fases,
+        faseVacia(`Fase ${actual.fases.length + 1}`),
+      ],
+    }));
+
+    setListInputs((actual) => [
+      ...actual,
+      vacioListInputs(),
+    ]);
   }
 
-  function handleAgregarFase() {
-    setForm(addPhase(form, faseVacia(`Etapa ${form.fases.length + 1}`)));
-  }
-
-  function handleQuitarFase(index: number) {
+  function eliminarFase(index: number) {
     if (form.fases.length <= MIN_FASES) return;
-    setForm(removePhase(form, index));
+
+    setForm((actual) => ({
+      ...actual,
+      fases: actual.fases.filter((_, i) => i !== index),
+    }));
+
+    setListInputs((actual) =>
+      actual.filter((_, i) => i !== index),
+    );
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+
     if (!form.perfilUsuario.nombre.trim()) return;
 
-    if (editandoId) {
-      const idAEditar = editandoId;
-      actualizar(
-        { artefactoId: idAEditar, contenido: form, expectedVersion: editandoVersion ?? undefined },
-        {
-          onSuccess: resetForm,
-        }
-      );
-    } else {
-      crear(form, { onSuccess: resetForm });
-    }
+    const payload: JourneyMapContenido = {
+      ...form,
+      perfilUsuario: {
+        ...form.perfilUsuario,
+        nombre: form.perfilUsuario.nombre.trim(),
+        rol: form.perfilUsuario.rol.trim(),
+      },
+      objetivo: form.objetivo?.trim() || undefined,
+      eventoInicio: form.eventoInicio?.trim() || undefined,
+      evidencia: evidenciaInput
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean),
+      fases: form.fases.map((fase, index) => ({
+        ...fase,
+        nombre: fase.nombre.trim(),
+        actividades: (listInputs[index]?.actividades ?? '')
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean),
+        touchpoints: (listInputs[index]?.touchpoints ?? '')
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean),
+        pensamientos: (listInputs[index]?.pensamientos ?? '')
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean),
+        dificultades: (listInputs[index]?.dificultades ?? '')
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean),
+        ganancias: (listInputs[index]?.ganancias ?? '')
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean),
+        oportunidades: (listInputs[index]?.oportunidades ?? '')
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean),
+      })),
+    };
+
+    crear(payload, {
+      onSuccess: resetForm,
+    });
   }
 
-  const isPending = isCreating || isUpdating;
+  const isPending = isCreating;
 
   return (
-    <div className="fade">
+    <div className="artifact-page">
       <TechniquePageHeader
-        label="EXPERIENCIA DE PRINCIPIO A FIN"
-        labelVariant="kicker"
+        label="TÉCNICA DE INVESTIGACIÓN"
         title="Journey Maps"
-        description="Visualiza el recorrido completo y encuentra el momento en que la experiencia pierde confianza."
-        action={puedeEditar ? (
-          <button
-            className="primary"
-            onClick={() => {
-              if (mostrarForm) resetForm();
-              else setMostrarForm(true);
-            }}
-          >
-            {mostrarForm ? 'Cancelar' : '+ Nuevo journey map'}
-          </button>
-        ) : undefined}
+        description="Representa el recorrido de una persona usuaria para identificar actividades, emociones, dificultades y oportunidades de mejora."
+        action={<span className="status-pill">Artefactos versionados</span>}
       />
 
-      {puedeEditar && mostrarForm && (
-        <div className="panel mb-16">
-          <form onSubmit={handleSubmit} className="form-grid">
-            <h2>{editandoId ? 'Editar Journey Map' : 'Nuevo Journey Map'}</h2>
-            {(readOnly || editLock.lockLost) && (
-              <p className="error-text">
-                Este journey map está bloqueado por otro usuario. No puedes editarlo en este momento.
-              </p>
-            )}
-            <fieldset disabled={readOnly || editLock.lockLost} className="readonly-fieldset">
+      <div className="panel">
+        <div className="panel-head">
+          <h2>Journey Maps</h2>
 
-            <div className="form-grid-2">
-              <input
-                placeholder="Nombre del perfil de usuario *"
-                aria-label="Nombre del perfil de usuario"
-                value={form.perfilUsuario.nombre}
-                onChange={(e) => setForm({ ...form, perfilUsuario: { ...form.perfilUsuario, nombre: e.target.value } })}
-                required
-                className="input-sm"
-              />
-              <input
-                placeholder="Rol"
-                aria-label="Rol"
-                value={form.perfilUsuario.rol}
-                onChange={(e) => setForm({ ...form, perfilUsuario: { ...form.perfilUsuario, rol: e.target.value } })}
-                className="input-sm"
-              />
-            </div>
+          {puedeEditar && (
+            <button
+              className="secondary"
+              onClick={() => {
+                if (mostrarForm) resetForm();
+                else setMostrarForm(true);
+              }}
+            >
+              {mostrarForm ? 'Cancelar' : '+ Nuevo Journey Map'}
+            </button>
+          )}
+        </div>
 
-            <small className="text-muted">Etapas (mínimo {MIN_FASES}):</small>
-            {form.fases.map((fase, i) => (
-              <div key={i} className="mini-card">
-                <div className="row-between">
-                  <small className="text-muted">Etapa {i + 1}</small>
-                  <button
-                    type="button"
-                    onClick={() => handleQuitarFase(i)}
-                    disabled={form.fases.length <= MIN_FASES}
-                    title={form.fases.length <= MIN_FASES ? `El journey map debe conservar al menos ${MIN_FASES} etapas` : 'Quitar etapa'}
-                    className={`link-btn ${form.fases.length <= MIN_FASES ? 'text-muted' : 'link-btn--delete'}`}
-                    style={form.fases.length <= MIN_FASES ? { cursor: 'not-allowed' } : undefined}
-                  >
-                    Quitar etapa
-                  </button>
-                </div>
+        {puedeEditar && mostrarForm && (
+          <form onSubmit={handleSubmit} className="entity-card form">
+            <h3>Nuevo Journey Map</h3>
+
+            <fieldset>
+              <div
+                style={{
+                  gridColumn: '1 / -1',
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                  gap: '12px',
+                }}
+              >
                 <input
-                  placeholder="Nombre de la etapa"
-                  aria-label={`Nombre de la etapa ${i + 1}`}
-                  value={fase.nombre}
-                  onChange={(e) => actualizarFase(i, 'nombre', e.target.value)}
-                  className="input-xs"
+                  placeholder="Nombre del perfil de usuario *"
+                  aria-label="Nombre del perfil de usuario"
+                  value={form.perfilUsuario.nombre}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      perfilUsuario: {
+                        ...form.perfilUsuario,
+                        nombre: e.target.value,
+                      },
+                    })
+                  }
+                  required
+                  className="input-sm"
                 />
-                <div className="emotion-picker">
-                  <span>Estado emocional</span>
-                  {(['Negativa', 'Neutral', 'Positiva'] as Emocion[]).map((valor) => (
-                    <button
-                      key={valor}
-                      type="button"
-                      className={fase.emocion === valor ? 'active' : ''}
-                      onClick={() => actualizarFase(i, 'emocion', valor)}
-                    >
-                      {valor === 'Negativa' ? '−' : valor === 'Neutral' ? '•' : '+'}
-                    </button>
-                  ))}
-                  <small className="text-muted">{fase.emocion}</small>
-                </div>
+
                 <input
-                  placeholder="Touchpoints (separados por coma)"
-                  aria-label={`Touchpoints etapa ${i + 1}`}
-                  value={fase.touchpoints.join(', ')}
-                  onChange={(e) => actualizarFase(i, 'touchpoints', e.target.value)}
-                  className="input-xs"
-                />
-                <input
-                  placeholder="Pensamientos (separados por coma)"
-                  aria-label={`Pensamientos etapa ${i + 1}`}
-                  value={fase.pensamientos.join(', ')}
-                  onChange={(e) => actualizarFase(i, 'pensamientos', e.target.value)}
-                  className="input-xs"
-                />
-                <input
-                  placeholder="Oportunidades (separadas por coma)"
-                  aria-label={`Oportunidades etapa ${i + 1}`}
-                  value={fase.oportunidades.join(', ')}
-                  onChange={(e) => actualizarFase(i, 'oportunidades', e.target.value)}
-                  className="input-xs"
+                  placeholder="Rol del usuario *"
+                  aria-label="Rol del usuario"
+                  value={form.perfilUsuario.rol}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      perfilUsuario: {
+                        ...form.perfilUsuario,
+                        rol: e.target.value,
+                      },
+                    })
+                  }
+                  required
+                  className="input-sm"
                 />
               </div>
-            ))}
 
-            <button
-              type="button"
-              className="secondary btn-start"
-              onClick={handleAgregarFase}
-            >
-              + Agregar etapa
-            </button>
+              <div
+                style={{
+                  gridColumn: '1 / -1',
+                  display: 'grid',
+                  gap: '12px',
+                  marginTop: '8px',
+                }}
+              >
+                <textarea
+                  placeholder="Objetivo del recorrido: ¿qué busca lograr la persona?"
+                  aria-label="Objetivo del recorrido"
+                  value={form.objetivo ?? ''}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      objetivo: e.target.value,
+                    })
+                  }
+                  className="textarea-sm"
+                />
 
-            <button type="submit" className="primary btn-start" disabled={isPending}>
-              {isPending ? 'Guardando…' : editandoId ? 'Actualizar journey map' : 'Guardar journey map'}
-            </button>
+                <textarea
+                  placeholder="Evento de inicio: ¿qué situación da comienzo al recorrido?"
+                  aria-label="Evento de inicio"
+                  value={form.eventoInicio ?? ''}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      eventoInicio: e.target.value,
+                    })
+                  }
+                  className="textarea-sm"
+                />
+              </div>
+
+              {form.fases.map((fase, index) => (
+                <div
+                  key={index}
+                  className="entity-card"
+                  style={{
+                    gridColumn: '1 / -1',
+                  }}
+                >
+                  <div className="row-between">
+                    <h3>Fase {index + 1}</h3>
+
+                    {form.fases.length > MIN_FASES && (
+                      <button
+                        type="button"
+                        className="link-btn link-btn--delete"
+                        onClick={() => eliminarFase(index)}
+                      >
+                        Eliminar fase
+                      </button>
+                    )}
+                  </div>
+
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                      gap: '12px',
+                    }}
+                  >
+                    <input
+                      placeholder="Nombre de la fase"
+                      aria-label={`Nombre de la fase ${index + 1}`}
+                      value={fase.nombre}
+                      onChange={(e) =>
+                        actualizarFase(index, {
+                          nombre: e.target.value,
+                        })
+                      }
+                      className="input-sm"
+                      style={{ gridColumn: '1 / -1' }}
+                    />
+
+                    {CAMPOS_LISTA.map((campo) => (
+                      <input
+                        key={campo}
+                        placeholder={`${ETIQUETAS_CAMPOS[campo]} (separados por coma)`}
+                        aria-label={`${ETIQUETAS_CAMPOS[campo]} fase ${index + 1}`}
+                        value={listInputs[index]?.[campo] ?? ''}
+                        onChange={(e) =>
+                          actualizarLista(index, campo, e.target.value)
+                        }
+                        className="input-sm"
+                      />
+                    ))}
+
+                    <select
+                      aria-label={`Emoción fase ${index + 1}`}
+                      value={fase.emocion}
+                      onChange={(e) =>
+                        actualizarFase(index, {
+                          emocion: e.target.value as Phase['emocion'],
+                        })
+                      }
+                      className="input-sm"
+                    >
+                      <option value="Positiva">Emoción: positiva</option>
+                      <option value="Neutral">Emoción: neutral</option>
+                      <option value="Negativa">Emoción: negativa</option>
+                    </select>
+                  </div>
+                </div>
+              ))}
+
+              <button
+                type="button"
+                className="secondary"
+                onClick={agregarFase}
+                style={{ gridColumn: '1 / -1', width: 'fit-content' }}
+              >
+                + Agregar fase
+              </button>
+
+              <textarea
+                placeholder="Evidencia: fuentes, entrevistas, observaciones u otros antecedentes que sustentan el Journey Map (separados por coma)."
+                aria-label="Evidencia"
+                value={evidenciaInput}
+                onChange={(e) => setEvidenciaInput(e.target.value)}
+                className="textarea-sm"
+                style={{
+                  gridColumn: '1 / -1',
+                  width: '100%',
+                  minHeight: '120px',
+                  boxSizing: 'border-box',
+                }}
+              />
+
+              <button
+                type="submit"
+                className="primary"
+                disabled={isPending}
+                style={{ gridColumn: '1 / -1', width: 'fit-content' }}
+              >
+                {isPending ? 'Guardando…' : 'Guardar Journey Map'}
+              </button>
             </fieldset>
           </form>
-        </div>
-      )}
+        )}
 
-      {isLoading && <p>Cargando…</p>}
-      {error && (
-        <p className="error-text">
-          {isListError ? 'No se pudo cargar los journey maps. ' : ''}
-          {(error as Error).message}
-        </p>
-      )}
+        {isLoading && <p>Cargando…</p>}
 
-      {journeys && journeys.length === 0 && !isLoading && (
-        <div className="panel"><p>No hay journey maps todavía.</p></div>
-      )}
+        {error && (
+          <p className="error-text">
+            {isListError ? 'No se pudieron cargar los Journey Maps. ' : ''}
+            {(error as Error).message}
+          </p>
+        )}
 
-      {journeys?.map((j: JourneyMapArtifact) => {
-        const avg =
-          j.contenido.fases.reduce((acc, f) => acc + (f.emocion === 'Positiva' ? 5 : f.emocion === 'Neutral' ? 3 : 1), 0) /
-          j.contenido.fases.length;
-        return (
-          <article key={j.id} className="panel journey-board rise mb-16">
-            <div className="panel-head">
-              <div>
-                <span className="kicker">RECORRIDO DE {j.contenido.perfilUsuario.nombre.toUpperCase()}</span>
-                <h2>{j.contenido.perfilUsuario.rol || 'Journey Map'}</h2>
+        <div className="form-grid">
+          {journeyMaps?.map((journey: JourneyMapArtifact) => (
+            <div key={journey.id} className="entity-card">
+              <div className="row-between">
+                <div>
+                  <b>{journey.contenido.perfilUsuario.nombre}</b>
+
+                  <small className="text-muted">
+                    {journey.contenido.perfilUsuario.rol}
+                    {' · '}
+                    {journey.contenido.fases.length} fases
+                  </small>
+                </div>
+
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() =>
+                    setJourneyConsultado(
+                      journeyConsultado?.id === journey.id ? null : journey,
+                    )
+                  }
+                >
+                  {journeyConsultado?.id === journey.id
+                    ? 'Cerrar'
+                    : 'Consultar'}
+                </button>
               </div>
-              <div className="row-gap-md">
-                <span className="count">Emoción media {avg.toFixed(1)}/5</span>
-                {puedeEditar && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => handleIniciarEditar(j)}
-                      className="link-btn link-btn--edit"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        if (await confirm('¿Estás seguro de eliminar este journey map?')) {
-                          eliminar(j.id);
-                        }
-                      }}
-                      className="link-btn link-btn--delete"
-                    >
-                      Eliminar
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
 
-            <div className="journey-chart">
-              <div className="journey-axis">
-                <span>fluida</span>
-                <span>neutra</span>
-                <span>difícil</span>
-              </div>
-              <div className="journey-gridline" />
-              <div className="stage-row">
-                {j.contenido.fases.map((fase, i) => (
-                  <div key={i} className="stage active">
-                    <span className={`emotion ${fase.emocion}`}>
-                      {fase.emocion === 'Negativa' ? '−' : fase.emocion === 'Neutral' ? '•' : '+'}
-                    </span>
-                    <strong>{fase.nombre}</strong>
-                    <small>{fase.touchpoints[0] || 'Sin touchpoints'}</small>
+              {journey.contenido.objetivo && (
+                <p>{journey.contenido.objetivo}</p>
+              )}
+
+              {journeyConsultado?.id === journey.id && (
+                <div className="panel mt-16">
+                  <h3>Detalle del Journey Map</h3>
+
+                  {journey.contenido.eventoInicio && (
+                    <div>
+                      <strong>Evento de inicio</strong>
+                      <p>{journey.contenido.eventoInicio}</p>
+                    </div>
+                  )}
+
+                  {journey.contenido.objetivo && (
+                    <div>
+                      <strong>Objetivo del recorrido</strong>
+                      <p>{journey.contenido.objetivo}</p>
+                    </div>
+                  )}
+
+                  <h4>Recorrido</h4>
+
+                  <div className="form-grid">
+                    {journey.contenido.fases.map((fase, index) => (
+                      <div key={index} className="entity-card">
+                        <div className="row-between">
+                          <h4>
+                            Fase {index + 1}: {fase.nombre}
+                          </h4>
+
+                          <span className="status-pill">
+                            {fase.emocion}
+                          </span>
+                        </div>
+
+                        <div>
+                          <strong>Actividades</strong>
+                          <p>
+                            {fase.actividades.length > 0
+                              ? fase.actividades.join(', ')
+                              : 'Sin información registrada.'}
+                          </p>
+                        </div>
+
+                        <div>
+                          <strong>Puntos de contacto</strong>
+                          <p>
+                            {fase.touchpoints.length > 0
+                              ? fase.touchpoints.join(', ')
+                              : 'Sin información registrada.'}
+                          </p>
+                        </div>
+
+                        <div>
+                          <strong>Pensamientos</strong>
+                          <p>
+                            {fase.pensamientos.length > 0
+                              ? fase.pensamientos.join(', ')
+                              : 'Sin información registrada.'}
+                          </p>
+                        </div>
+
+                        <div>
+                          <strong>Dificultades / puntos de dolor</strong>
+                          <p>
+                            {fase.dificultades.length > 0
+                              ? fase.dificultades.join(', ')
+                              : 'Sin información registrada.'}
+                          </p>
+                        </div>
+
+                        <div>
+                          <strong>Ganancias / aspectos positivos</strong>
+                          <p>
+                            {fase.ganancias.length > 0
+                              ? fase.ganancias.join(', ')
+                              : 'Sin información registrada.'}
+                          </p>
+                        </div>
+
+                        <div>
+                          <strong>Oportunidades de mejora</strong>
+                          <p>
+                            {fase.oportunidades.length > 0
+                              ? fase.oportunidades.join(', ')
+                              : 'Sin información registrada.'}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+
+                  <div className="mt-16">
+                    <strong>Evidencia</strong>
+                    <p>
+                      {journey.contenido.evidencia.length > 0
+                        ? journey.contenido.evidencia.join(', ')
+                        : 'Sin evidencia registrada.'}
+                    </p>
+                  </div>
+
+                  <small className="text-muted">
+                    Registro de consulta. Este Journey Map no puede
+                    modificarse ni eliminarse.
+                  </small>
+                </div>
+              )}
             </div>
-          </article>
-        );
-      })}
+          ))}
+
+          {journeyMaps &&
+            journeyMaps.length === 0 &&
+            !isLoading && <p>No hay Journey Maps todavía.</p>}
+        </div>
+      </div>
     </div>
   );
 }
