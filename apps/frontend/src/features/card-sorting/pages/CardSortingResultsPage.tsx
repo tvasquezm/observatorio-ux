@@ -54,13 +54,12 @@ export function CardSortingResultsPage() {
         <div>
           <span className="kicker">CARD SORTING · RESULTADOS</span>
           <h2>{data.estudio.nombre}</h2>
-          <p>Compara patrones de clasificación y usa la evidencia para decidir la arquitectura de información.</p>
         </div>
         <Link
           className="secondary button-like"
           to={`/proyectos/${data.estudio.proyectoId}/card-sorting/${data.estudio.id}`}
         >
-          ← Volver al workspace
+          ← Volver al estudio
         </Link>
       </header>
 
@@ -81,7 +80,7 @@ export function CardSortingResultsPage() {
         <>
           <article className="panel">
             <div className="panel-head">
-              <div><span className="kicker">EXPLORAR</span><h2>Vistas del estudio</h2></div>
+              <div><h2>Resultados</h2></div>
               <button type="button" className="ghost" onClick={() => analyticsQuery.refetch()}>↺ Actualizar</button>
             </div>
 
@@ -136,7 +135,9 @@ export function CardSortingResultsPage() {
             </div>
           </article>
 
-          <section className="sort-layout mt-16">
+          <details className="panel cs-disclosure mt-16">
+            <summary>Más análisis</summary>
+            <section className="sort-layout">
             <article className="panel">
               <div className="panel-head"><div><span className="kicker">CATEGORÍAS</span><h2>Frecuencia de uso</h2></div></div>
               {data.frecuenciaPorCategoria.map((category) => (
@@ -160,7 +161,8 @@ export function CardSortingResultsPage() {
                 ))}
               </div>
             </article>
-          </section>
+            </section>
+          </details>
         </>
       )}
     </div>

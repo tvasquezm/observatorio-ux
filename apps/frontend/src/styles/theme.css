@@ -556,10 +556,19 @@ button { cursor: pointer; }
 
 /* ---------- Card Sorting unificado ---------- */
 .cs-study-form { max-width: 620px; }
-.cs-flow-list { display: grid; gap: 12px; padding: 0; margin: 18px 0 0; list-style: none; }
-.cs-flow-list li { display: grid; grid-template-columns: 30px 1fr; gap: 10px; align-items: start; }
-.cs-flow-list li > span { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 999px; background: color-mix(in srgb, var(--teal) 12%, var(--surface)); color: var(--teal); font-size: 11px; font-weight: 850; }
-.cs-flow-list p { margin: 4px 0 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
+.project-menu { margin-bottom: 24px; padding: 12px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.project-menu > summary, .cs-disclosure > summary { min-height: 44px; padding: 12px 0; color: var(--ink); cursor: pointer; font-weight: 700; }
+.project-menu > summary strong { margin-left: 16px; color: var(--teal); }
+.project-menu nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding-top: 12px; }
+.project-menu h2 { margin: 0 0 8px; color: var(--muted); font-size: 13px; }
+.project-menu-link { display: block; min-height: 44px; padding: 12px; border-radius: 8px; color: var(--ink); text-decoration: none; }
+.project-menu-link:hover, .project-menu-link.active { background: var(--surface-muted); color: var(--teal); }
+.cs-disclosure[open] > summary { margin-bottom: 16px; }
+.cs-help > summary { min-height: 32px; padding: 6px 0; cursor: pointer; color: var(--teal); }
+@media (max-width: 480px) {
+  .project-menu nav { grid-template-columns: 1fr; }
+  .project-menu > summary strong { display: block; margin: 6px 0 0 16px; }
+}
 .cs-study-list { display: grid; gap: 8px; }
 .cs-study-row { display: grid; grid-template-columns: minmax(220px, 1fr) auto auto 18px; gap: 16px; align-items: center; width: 100%; padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); text-align: left; transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease; }
 .cs-study-row:hover { border-color: color-mix(in srgb, var(--teal) 45%, var(--line)); box-shadow: var(--shadow); transform: translateY(-1px); }
@@ -2031,4 +2040,4 @@ input::placeholder, textarea::placeholder { color: color-mix(in srgb, var(--mute
   --perspective-text: var(--ink);
 }
 :root[data-contrast='high'] :is(.kicker, .crumb, .text-muted-sm, .field, .page-head p,
-  .cs-flow-list p, .cs-study-row small, .cs-study-row time) { color: var(--muted); }
+  .cs-study-row small, .cs-study-row time) { color: var(--muted); }

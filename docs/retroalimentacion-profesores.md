@@ -12,8 +12,14 @@ evaluadores. Ningún formulario registra una decisión formal de aceptación.
   con mensajes que permitan corregir campos vacíos, tarjetas repetidas,
   categorías repetidas y estudios cerrados sin categorías. Conservar los
   datos del formulario cuando hay un error.
-- Textos: simplificar las instrucciones y acciones de configuración de Card
-  Sorting, conservando la diferencia entre estudios abiertos y cerrados.
+- Navegación: menú desplegable de secciones del proyecto, agrupado en Proyecto
+  y Técnicas, con la sección actual visible y las restricciones de acceso
+  existentes. Todos los accesos disponibles se pueden ver sin desplazamiento
+  horizontal.
+- Información: en Card Sorting, abrir la configuración solo al crear un estudio;
+  consultar la ayuda, el enlace completo y los análisis complementarios cuando
+  se necesitan. Mantener visibles los mensajes de error y la advertencia de
+  que la práctica no forma parte de los resultados.
 - Contraste: ofrecer alto contraste y contraste normal, con preferencia
   persistente e independiente del modo claro u oscuro.
 

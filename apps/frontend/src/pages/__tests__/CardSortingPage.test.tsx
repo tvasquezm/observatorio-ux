@@ -15,6 +15,7 @@ function configure(cards = 'Biblioteca\nCalendario') {
     path: '/', element: <Outlet context={{ proyectoId: projectId }} />,
     children: [{ index: true, element: <CardSortingPage /> }],
   }])} />);
+  fireEvent.click(screen.getByText('Nuevo estudio'));
   fireEvent.change(screen.getByLabelText('Nombre del estudio'), { target: { value: ' Navegación ' } });
   fireEvent.change(screen.getByLabelText('Tarjetas (una por línea)'), { target: { value: cards } });
 }
@@ -24,6 +25,16 @@ function submit() {
 beforeEach(() => vi.clearAllMocks());
 
 describe('Configuración de Card Sorting', () => {
+  it('mantiene la configuración cerrada hasta que se necesita y conserva el borrador al plegarla', () => {
+    configure();
+    const summary = screen.getByText('Nuevo estudio');
+    fireEvent.click(summary);
+    expect(summary.closest('details')).not.toHaveAttribute('open');
+    fireEvent.click(summary);
+    expect(screen.getByLabelText('Nombre del estudio')).toHaveValue(' Navegación ');
+    expect(screen.getByLabelText('Tarjetas (una por línea)')).toHaveValue('Biblioteca\nCalendario');
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+  });
   it('explica el error y conserva las tarjetas repetidas para poder corregirlas', () => {
     configure('Biblioteca\n biblioteca ');
     submit();

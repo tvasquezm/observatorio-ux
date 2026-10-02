@@ -65,22 +65,12 @@ export function CardSortingPage() {
     <div className="fade">
       <header className="page-head">
         <div>
-          <span className="kicker">ARQUITECTURA DE INFORMACIÓN</span>
           <h2>Card Sorting</h2>
-          <p>
-            Prepara las tarjetas, invita participantes y revisa cómo las agrupan.
-          </p>
         </div>
       </header>
 
-      <section className="sort-layout">
-        <article className="panel sort-board">
-          <div className="panel-head">
-            <div>
-              <span className="kicker">NUEVO ESTUDIO</span>
-              <h2>Configurar tarjetas y categorías</h2>
-            </div>
-          </div>
+      <details className="panel cs-disclosure">
+        <summary>Nuevo estudio</summary>
 
           <form onSubmit={handleSubmit} className="form-grid cs-study-form">
             <label className="field">
@@ -99,10 +89,15 @@ export function CardSortingPage() {
             <label className="field">
               Tipo de estudio
               <select value={type} onChange={(event) => setType(event.target.value as TipoCardSorting)}>
-                <option value="ABIERTO">Abierto — cada participante crea sus categorías</option>
-                <option value="CERRADO">Cerrado — usa categorías predefinidas</option>
+                <option value="ABIERTO">Abierto</option>
+                <option value="CERRADO">Cerrado</option>
               </select>
             </label>
+
+            <details className="cs-help">
+              <summary>¿Qué tipo elegir?</summary>
+              <p className="text-muted-sm">Abierto: los participantes crean las categorías. Cerrado: tú las defines.</p>
+            </details>
 
             <label className="field">
               Tarjetas (una por línea)
@@ -145,25 +140,12 @@ export function CardSortingPage() {
               {createStudy.isPending ? 'Creando estudio…' : 'Crear estudio'}
             </button>
           </form>
-        </article>
-
-        <aside className="panel sort-analysis">
-          <span className="kicker">FLUJO</span>
-          <h2>Cómo realizar el estudio</h2>
-          <ol className="cs-flow-list">
-            <li><span>1</span><p><strong>Configura</strong> las tarjetas y el tipo de estudio.</p></li>
-            <li><span>2</span><p><strong>Prueba</strong> la interacción antes de compartir.</p></li>
-            <li><span>3</span><p><strong>Invita</strong> participantes y solicita su consentimiento.</p></li>
-            <li><span>4</span><p><strong>Analiza</strong> matrices, categorías y consenso.</p></li>
-          </ol>
-        </aside>
-      </section>
+      </details>
 
       <section className="panel mt-16">
         <div className="panel-head">
           <div>
-            <span className="kicker">ESTUDIOS DEL PROYECTO</span>
-            <h2>Continuar un Card Sorting</h2>
+            <h2>Estudios</h2>
           </div>
           <span className="count">{studies.length}</span>
         </div>
