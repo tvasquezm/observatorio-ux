@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
+import { CreateCardSortingSessionPayloadSchema } from '@observatorio-ux/shared-types';
 import {
   useCardSortingEstudiosByProyecto,
   useCreateCardSortingSession,
@@ -24,6 +25,7 @@ export function CardSortingPage() {
   const [type, setType] = useState<TipoCardSorting>('ABIERTO');
   const [cardsText, setCardsText] = useState('');
   const [categoriesText, setCategoriesText] = useState('');
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -38,18 +40,19 @@ export function CardSortingPage() {
       .filter(Boolean)
       .map((nombre) => ({ nombre }));
 
-    if (!name.trim() || cards.length === 0 || (type === 'CERRADO' && categories.length === 0)) {
+    const configuration = CreateCardSortingSessionPayloadSchema.safeParse({
+      proyectoId, nombre: name, tipo: type, tarjetas: cards,
+      categorias: type === 'CERRADO' ? categories : undefined,
+    });
+    if (!configuration.success) {
+      setValidationErrors(Object.fromEntries(
+        configuration.error.issues.map((issue) => [String(issue.path[0]), issue.message]),
+      ));
       return;
     }
-
+    setValidationErrors({});
     createStudy.mutate(
-      {
-        proyectoId,
-        nombre: name.trim(),
-        tipo: type,
-        tarjetas: cards,
-        categorias: type === 'CERRADO' ? categories : undefined,
-      },
+      configuration.data,
       {
         onSuccess: (study) => {
           navigate(`/proyectos/${proyectoId}/card-sorting/${study.id}`);
@@ -62,23 +65,12 @@ export function CardSortingPage() {
     <div className="fade">
       <header className="page-head">
         <div>
-          <span className="kicker">ARQUITECTURA DE INFORMACIÓN</span>
           <h2>Card Sorting</h2>
-          <p>
-            Crea estudios abiertos o cerrados, compártelos con participantes y analiza cada
-            clasificación como evidencia independiente.
-          </p>
         </div>
       </header>
 
-      <section className="sort-layout">
-        <article className="panel sort-board">
-          <div className="panel-head">
-            <div>
-              <span className="kicker">NUEVO ESTUDIO</span>
-              <h2>Configurar tarjetas y categorías</h2>
-            </div>
-          </div>
+      <details className="panel cs-disclosure">
+        <summary>Nuevo estudio</summary>
 
           <form onSubmit={handleSubmit} className="form-grid cs-study-form">
             <label className="field">
@@ -89,16 +81,23 @@ export function CardSortingPage() {
                 placeholder="Ej. Navegación del portal estudiantil"
                 maxLength={120}
                 required
+                aria-invalid={!!validationErrors.nombre}
+                aria-describedby={validationErrors.nombre ? 'cs-configuration-error' : undefined}
               />
             </label>
 
             <label className="field">
               Tipo de estudio
               <select value={type} onChange={(event) => setType(event.target.value as TipoCardSorting)}>
-                <option value="ABIERTO">Abierto — cada participante crea sus categorías</option>
-                <option value="CERRADO">Cerrado — usa categorías predefinidas</option>
+                <option value="ABIERTO">Abierto</option>
+                <option value="CERRADO">Cerrado</option>
               </select>
             </label>
+
+            <details className="cs-help">
+              <summary>¿Qué tipo elegir?</summary>
+              <p className="text-muted-sm">Abierto: los participantes crean las categorías. Cerrado: tú las defines.</p>
+            </details>
 
             <label className="field">
               Tarjetas (una por línea)
@@ -108,6 +107,8 @@ export function CardSortingPage() {
                 onChange={(event) => setCardsText(event.target.value)}
                 required
                 className="textarea-lg"
+                aria-invalid={!!validationErrors.tarjetas}
+                aria-describedby={validationErrors.tarjetas ? 'cs-configuration-error' : undefined}
               />
             </label>
 
@@ -120,37 +121,31 @@ export function CardSortingPage() {
                   onChange={(event) => setCategoriesText(event.target.value)}
                   required
                   className="textarea-md"
+                  aria-invalid={!!validationErrors.categorias}
+                  aria-describedby={validationErrors.categorias ? 'cs-configuration-error' : undefined}
                 />
               </label>
             )}
 
-            {createStudy.error && (
+            {Object.keys(validationErrors).length > 0 && (
+              <p id="cs-configuration-error" role="alert" className="error-text">
+                {Object.values(validationErrors).join(' ')}
+              </p>
+            )}
+            {createStudy.error && Object.keys(validationErrors).length === 0 && (
               <p role="alert" className="error-text">{createStudy.error.message}</p>
             )}
 
             <button type="submit" className="primary" disabled={createStudy.isPending}>
-              {createStudy.isPending ? 'Creando estudio…' : 'Crear y abrir el workspace →'}
+              {createStudy.isPending ? 'Creando estudio…' : 'Crear estudio'}
             </button>
           </form>
-        </article>
-
-        <aside className="panel sort-analysis">
-          <span className="kicker">FLUJO</span>
-          <h2>De la configuración a la evidencia</h2>
-          <ol className="cs-flow-list">
-            <li><span>1</span><p><strong>Configura</strong> las tarjetas y el tipo de estudio.</p></li>
-            <li><span>2</span><p><strong>Prueba</strong> la interacción antes de compartir.</p></li>
-            <li><span>3</span><p><strong>Comparte</strong> el enlace con consentimiento informado.</p></li>
-            <li><span>4</span><p><strong>Analiza</strong> matrices, categorías y consenso.</p></li>
-          </ol>
-        </aside>
-      </section>
+      </details>
 
       <section className="panel mt-16">
         <div className="panel-head">
           <div>
-            <span className="kicker">ESTUDIOS DEL PROYECTO</span>
-            <h2>Continuar un Card Sorting</h2>
+            <h2>Estudios</h2>
           </div>
           <span className="count">{studies.length}</span>
         </div>

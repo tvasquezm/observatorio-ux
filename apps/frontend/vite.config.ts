@@ -4,6 +4,8 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
 
   return {
+    // El contrato compartido se compila a CommonJS para el backend.
+    optimizeDeps: { include: ['@observatorio-ux/shared-types'] },
     server: {
       host: true,
       port: 5173,
