@@ -55,7 +55,7 @@ export function CardSortingResultsPage() {
   }
 
   return (
-    <div className="fade">
+    <div className="fade cs-results">
       <header className="page-head">
         <div>
           <span className="kicker">CARD SORTING · RESULTADOS</span>
@@ -71,10 +71,10 @@ export function CardSortingResultsPage() {
       </header>
 
       <section className="analytics-kpis" aria-label="Resumen del estudio">
-        <article className="analytics-kpi"><span>PARTICIPANTES</span><strong>{data.participantesCount}</strong><small>clasificaciones completadas</small></article>
-        <article className="analytics-kpi"><span>TARJETAS</span><strong>{data.cardsCount}</strong><small>elementos evaluados</small></article>
-        <article className="analytics-kpi"><span>ACUERDO GLOBAL</span><strong>{data.acuerdoGlobal}%</strong><small>similitud promedio</small></article>
-        <article className="analytics-kpi"><span>CATEGORÍAS</span><strong>{data.categorias.length}</strong><small>nombres consolidados</small></article>
+        <article className="analytics-kpi"><span>Participantes</span><strong>{data.participantesCount}</strong><small>clasificaciones completadas</small></article>
+        <article className="analytics-kpi"><span>Tarjetas</span><strong>{data.cardsCount}</strong><small>elementos evaluados</small></article>
+        <article className="analytics-kpi"><span>Acuerdo global</span><strong>{data.acuerdoGlobal}%</strong><small>similitud promedio</small></article>
+        <article className="analytics-kpi"><span>Categorías</span><strong>{data.categorias.length}</strong><small>nombres consolidados</small></article>
       </section>
 
       <p
@@ -95,7 +95,7 @@ export function CardSortingResultsPage() {
         <>
           <article className="panel">
             <div className="panel-head">
-              <div><span className="kicker">EXPLORAR</span><h2>Vistas del estudio</h2></div>
+              <h2>Vistas del estudio</h2>
               <button type="button" className="ghost" onClick={() => analyticsQuery.refetch()}>↺ Actualizar</button>
             </div>
 
@@ -152,7 +152,7 @@ export function CardSortingResultsPage() {
 
           <section className="sort-layout mt-16">
             <article className="panel">
-              <div className="panel-head"><div><span className="kicker">CATEGORÍAS</span><h2>Frecuencia de uso</h2></div></div>
+              <div className="panel-head"><h2>Frecuencia de uso</h2></div>
               {data.frecuenciaPorCategoria.map((category) => (
                 <div key={category.nombre} className="frequency-row">
                   <b>{category.nombre}</b>
@@ -163,7 +163,7 @@ export function CardSortingResultsPage() {
             </article>
 
             <article className="panel">
-              <div className="panel-head"><div><span className="kicker">CONSENSO</span><h2>Agrupaciones dominantes</h2></div></div>
+              <div className="panel-head"><h2>Agrupaciones dominantes</h2></div>
               <p className="text-muted-sm">
                 Una tarjeta tiene consenso cuando más del {data.umbrales.consenso}% de los participantes la ubicó en la misma categoría (criterio del curso).
               </p>
@@ -199,7 +199,7 @@ function CardsTable({ data }: { data: CardSortingPorCarta[] }) {
         <tr key={row.tarjeta}>
           <th scope="row">{row.tarjeta}</th>
           <td>{row.categoriasCount}</td>
-          <td>{row.categorias.map((category) => <span key={category.nombre} className="cs-inline-result">{category.nombre} · {category.frecuencia}</span>)}</td>
+          <td>{row.categorias.map((category) => <span key={category.nombre} className="cs-inline-result">{category.nombre} ({category.frecuencia})</span>)}</td>
         </tr>
       ))}</tbody>
     </table></div>
@@ -215,7 +215,7 @@ function CategoriesTable({ data }: { data: CardSortingPorCategoria[] }) {
         <tr key={row.nombre}>
           <th scope="row">{row.nombre}</th>
           <td>{row.cardsCount}</td>
-          <td>{row.cartas.map((card) => <span key={card.tarjeta} className="cs-inline-result">{card.tarjeta} · {card.frecuencia}</span>)}</td>
+          <td>{row.cartas.map((card) => <span key={card.tarjeta} className="cs-inline-result">{card.tarjeta} ({card.frecuencia})</span>)}</td>
         </tr>
       ))}</tbody>
     </table></div>
@@ -244,7 +244,11 @@ function MatrixTable({
           {row.valores.map((value, index) => (
             <td
               key={matrix.categorias[index]}
-              className={heat && value > 0 ? 'cs-matrix-cell heat' : 'cs-matrix-cell'}
+              className={[
+                'cs-matrix-cell',
+                heat && value > 0 ? 'heat' : '',
+                heat && row.tarjeta === matrix.categorias[index] ? 'cs-matrix-diag' : '',
+              ].filter(Boolean).join(' ')}
               style={heat ? ({ '--cell-intensity': value / 100 } as CSSProperties) : undefined}
             >
               {value > 0 || row.tarjeta === matrix.categorias[index] ? format(value) : '—'}

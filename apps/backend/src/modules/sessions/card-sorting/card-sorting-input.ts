@@ -27,6 +27,12 @@ function listar(valores: string[]): string {
   return valores.length > 5 ? `${mostrados} y ${valores.length - 5} más` : mostrados;
 }
 
+export function validarPreguntas(preguntas: string[]): void {
+  if (preguntas.some((valor) => valor.trim() === '')) {
+    throw new BadRequestException('Las preguntas no pueden estar vacías.');
+  }
+}
+
 export function validarEntradaEstudio(
   esCerrado: boolean,
   tarjetas: string[],

@@ -115,7 +115,7 @@ export class CardSortingController {
     @Body() dto: SubmitCardSortingResultDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.cardSortingService.submitResult(id, dto.grupos, user);
+    return this.cardSortingService.submitResult(id, dto.grupos, user, dto.respuestas ?? []);
   }
 }
 

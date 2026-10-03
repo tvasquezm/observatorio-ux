@@ -25,6 +25,13 @@ class TarjetaDto {
   etiqueta!: string;
 }
 
+class PreguntaDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(300)
+  texto!: string;
+}
+
 class CategoriaDto {
   @IsString()
   @MinLength(1)
@@ -57,6 +64,14 @@ export class CreateCardSortingSessionDto {
   @ValidateNested({ each: true })
   @Type(() => CategoriaDto)
   categorias?: CategoriaDto[];
+
+  // Paso 6 del curso: 0 a 5 preguntas opcionales para el participante.
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(5)
+  @ValidateNested({ each: true })
+  @Type(() => PreguntaDto)
+  preguntas?: PreguntaDto[];
 }
 
 class GrupoDto {
@@ -75,12 +90,28 @@ class GrupoDto {
   cardIds!: string[];
 }
 
+class RespuestaDto {
+  @IsUUID()
+  questionId!: string;
+
+  @IsString()
+  @MaxLength(1000)
+  respuesta!: string;
+}
+
 export class SubmitCardSortingResultDto {
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => GrupoDto)
   grupos!: GrupoDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(5)
+  @ValidateNested({ each: true })
+  @Type(() => RespuestaDto)
+  respuestas?: RespuestaDto[];
 }
 
 export class CerrarEstudioDto {

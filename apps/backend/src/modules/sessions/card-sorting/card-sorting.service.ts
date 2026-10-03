@@ -19,7 +19,7 @@ import {
   CardSortingTypeDto,
   CreateCardSortingSessionDto,
 } from './dto/card-sorting.dto';
-import { normalizarTexto, validarEntradaEstudio } from './card-sorting-input';
+import { normalizarTexto, validarEntradaEstudio, validarPreguntas } from './card-sorting-input';
 
 // Criterio del curso (no estándar de la industria): una tarjeta tiene consenso
 // si más del 50% de los participantes la ubicó en la misma categoría.
@@ -28,6 +28,8 @@ export const UMBRAL_CONSENSO = 0.5;
 // similitud y ≥30 la estabiliza (Tullis & Wood; Lantz et al. 2019).
 export const MUESTRA_MINIMA = 15;
 export const MUESTRA_ESTABLE = 30;
+
+export type RespuestaPregunta = { questionId: string; respuesta: string };
 
 export type Grupo = {
   categoriaId?: string;
@@ -125,6 +127,7 @@ export class CardSortingService {
       dto.tarjetas.map((tarjeta) => tarjeta.etiqueta),
       (dto.categorias ?? []).map((categoria) => categoria.nombre),
     );
+    validarPreguntas((dto.preguntas ?? []).map((pregunta) => pregunta.texto));
 
     const participantSession = await this.prisma.researchSession.create({
       data: {
@@ -149,6 +152,14 @@ export class CardSortingService {
                 })),
               }
             : undefined,
+        preguntas: dto.preguntas?.length
+          ? {
+              create: dto.preguntas.map((pregunta, orden) => ({
+                texto: pregunta.texto.trim(),
+                orden,
+              })),
+            }
+          : undefined,
       },
       include: { cardsDefinidas: true, categoriasDefinidas: true },
     });
@@ -249,8 +260,15 @@ export class CardSortingService {
       include: {
         cardsDefinidas: true,
         categoriasDefinidas: true,
+        preguntas: { orderBy: { orden: 'asc' } },
         agrupaciones: { include: { card: true, category: true } },
-        estudio: { include: { cardsDefinidas: true, categoriasDefinidas: true } },
+        estudio: {
+          include: {
+            cardsDefinidas: true,
+            categoriasDefinidas: true,
+            preguntas: { orderBy: { orden: 'asc' } },
+          },
+        },
         proyecto: { select: { sala: { select: { profesorId: true } } } },
       },
     });
@@ -283,6 +301,17 @@ export class CardSortingService {
       where: { id: estudioId },
       include: {
         cardsDefinidas: true,
+        // Solo respuestas de participantes completados; sin identificar a la persona.
+        preguntas: {
+          orderBy: { orden: 'asc' },
+          include: {
+            respuestas: {
+              where: { participanteSesion: { estado: EstadoSesion.COMPLETADO } },
+              orderBy: { createdAt: 'asc' },
+              select: { respuesta: true },
+            },
+          },
+        },
         proyecto: { select: { sala: { select: { profesorId: true } } } },
       },
     });
@@ -527,6 +556,12 @@ export class CardSortingService {
       popularPlacementsMatrix,
       porCarta,
       porCategoria,
+      preguntas: (estudio.preguntas ?? []).map((pregunta) => ({
+        id: pregunta.id,
+        texto: pregunta.texto,
+        orden: pregunta.orden,
+        respuestas: pregunta.respuestas.map((r) => r.respuesta),
+      })),
     };
   }
 
@@ -534,6 +569,7 @@ export class CardSortingService {
     participanteSesionId: string,
     grupos: Grupo[],
     user: AuthenticatedUser,
+    respuestas: RespuestaPregunta[] = [],
   ) {
     return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const session = await tx.researchSession.findUnique({
@@ -644,12 +680,41 @@ export class CardSortingService {
         );
       }
 
+      // Respuestas a preguntas del evaluador: se validan ANTES de escribir nada;
+      // si alguna falla, la transacción completa se revierte.
+      const answers: { questionId: string; respuesta: string }[] = [];
+      if (respuestas.length > 0) {
+        const questions = await tx.cardSortingQuestion.findMany({
+          where: { sessionId: study.id },
+          select: { id: true },
+        });
+        const validQuestionIds = new Set(questions.map((q) => q.id));
+        const seenQuestionIds = new Set<string>();
+        for (const item of respuestas) {
+          if (!validQuestionIds.has(item.questionId)) {
+            throw new BadRequestException('Una pregunta no pertenece a este estudio.');
+          }
+          if (seenQuestionIds.has(item.questionId)) {
+            throw new BadRequestException('Una pregunta no puede responderse dos veces.');
+          }
+          seenQuestionIds.add(item.questionId);
+          const texto = item.respuesta.trim();
+          if (texto !== '') answers.push({ questionId: item.questionId, respuesta: texto });
+        }
+      }
+
       await tx.cardGrouping.createMany({
         data: groupings.map((grouping) => ({
           ...grouping,
           participanteSesionId,
         })),
       });
+
+      if (answers.length > 0) {
+        await tx.cardSortingAnswer.createMany({
+          data: answers.map((answer) => ({ ...answer, participanteSesionId })),
+        });
+      }
 
       await tx.researchSession.update({
         where: { id: participanteSesionId },

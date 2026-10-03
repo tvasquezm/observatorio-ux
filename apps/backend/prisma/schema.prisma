@@ -272,6 +272,8 @@ model ResearchSession {
   cardsDefinidas      Card[]         @relation("SessionCards")
   categoriasDefinidas Category[]     @relation("SessionCategories")
   agrupaciones        CardGrouping[] @relation("ParticipantGroupings")
+  preguntas           CardSortingQuestion[] @relation("SessionQuestions")
+  respuestasPreguntas CardSortingAnswer[]   @relation("ParticipantAnswers")
 
   createdAt    DateTime  @default(now())
   completadoAt DateTime?
@@ -333,6 +335,36 @@ model CardGrouping {
   @@unique([participanteSesionId, cardId])
   @@index([categoryId, participanteSesionId])
   @@map("card_groupings")
+}
+
+// Preguntas del evaluador (paso 6 del curso). Definidas en el estudio maestro;
+// las respuestas cuelgan de la sesión del participante (anónimo).
+model CardSortingQuestion {
+  id        String          @id @default(uuid())
+  session   ResearchSession @relation("SessionQuestions", fields: [sessionId], references: [id])
+  sessionId String
+  texto     String
+  orden     Int
+  createdAt DateTime        @default(now())
+
+  respuestas CardSortingAnswer[]
+
+  @@unique([sessionId, orden])
+  @@map("card_sorting_questions")
+}
+
+model CardSortingAnswer {
+  id                   String              @id @default(uuid())
+  participanteSesion   ResearchSession     @relation("ParticipantAnswers", fields: [participanteSesionId], references: [id])
+  participanteSesionId String
+  question             CardSortingQuestion @relation(fields: [questionId], references: [id])
+  questionId           String
+  respuesta            String
+  createdAt            DateTime            @default(now())
+
+  @@unique([participanteSesionId, questionId])
+  @@index([questionId])
+  @@map("card_sorting_answers")
 }
 
 // ------------------------------------------------------------
