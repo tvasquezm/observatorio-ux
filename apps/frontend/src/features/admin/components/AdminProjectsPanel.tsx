@@ -80,7 +80,6 @@ export function AdminProjectsPanel() {
     <section className="panel admin-section" aria-labelledby="admin-projects-title">
       <div className="panel-head">
         <div>
-          <span className="eyebrow">Portafolio</span>
           <h2 id="admin-projects-title">Proyectos y avance</h2>
           <p className="section-description">
             Gestiona proyectos y revisa el estado de sus sesiones de investigación.

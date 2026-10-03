@@ -26,7 +26,6 @@ export function UserAccountsPanel() {
     <section className="panel admin-section" aria-labelledby="accounts-title">
       <div className="panel-head">
         <div>
-          <span className="eyebrow">Permisos</span>
           <h2 id="accounts-title">Cuentas y roles</h2>
           <p className="section-description">
             Revisa las cuentas registradas y ajusta su nivel de acceso.

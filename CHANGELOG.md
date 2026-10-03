@@ -62,6 +62,9 @@ All notable changes to this project will be documented in this file. See [commit
   datos; los avisos, notas y callouts pasan del borde lateral de color a un
   fondo tintado, y los avisos de error, éxito e información se distinguen por
   borde y fondo.
+* **ui:** quita las etiquetas decorativas sobre los títulos en proyectos,
+  comentarios, salas, administración y el flujo del participante; las tarjetas
+  de proyecto dejan de repetir su estado ya visible en el conteo de sesiones.
 
 * **deps:** actualiza los overrides de brace-expansion, fast-uri y multer a
   versiones corregidas; elimina las alertas encontradas por `pnpm audit`.

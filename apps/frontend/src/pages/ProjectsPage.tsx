@@ -73,7 +73,7 @@ export function ProjectsPage() {
   return (
     <div>
       <div className="page-head">
-        <div><span className="eyebrow">ESPACIOS DE TRABAJO</span><h1>Proyectos</h1><p>Organiza tus investigaciones y accede a todas sus técnicas.</p></div>
+        <div><h1>Proyectos</h1><p>Organiza tus investigaciones y accede a todas sus técnicas.</p></div>
         <div className="page-head-actions">
           <span className="count">{proyectos?.length ?? 0} en total</span>
           <button
@@ -90,7 +90,7 @@ export function ProjectsPage() {
 
       {mostrandoCreacion && (
         <form id="crear-proyecto" onSubmit={handleSubmit} className="create-project panel">
-          <div><span className="eyebrow">DATOS BÁSICOS</span><h2>Crear proyecto</h2></div>
+          <div><h2>Crear proyecto</h2></div>
           <div className="form-row">
             <label className="sr-only" htmlFor="nuevo-proyecto-nombre">Nombre del proyecto</label>
             <input
@@ -155,7 +155,7 @@ export function ProjectsPage() {
           <article key={p.id} className="project-card">
             <Link to={`/proyectos/${p.id.replace(/^\//, '')}`} className="project-card-main">
               <span className={`project-dot ${['blue', 'green', 'orange'][index % 3]}`}>{p.nombre[0]?.toUpperCase()}</span>
-              <div><span className="project-kicker">{(p._count?.sesiones ?? 0) > 0 ? 'CON SESIONES REGISTRADAS' : 'LISTO PARA INICIAR'}</span><h3>{p.nombre}</h3>{p.descripcion && <p>{p.descripcion}</p>}</div>
+              <div><h3>{p.nombre}</h3>{p.descripcion && <p>{p.descripcion}</p>}</div>
               <span className="arrow">→</span>
             </Link>
             <div className="project-card-foot"><span>{p._count?.sesiones ?? 0} sesiones · {p._count?.artefactos ?? 0} artefactos</span><button type="button" className="text-button" onClick={() => iniciarEdicion(p)}>Editar</button></div>

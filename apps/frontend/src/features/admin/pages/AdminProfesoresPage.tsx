@@ -140,7 +140,7 @@ export function AdminProfesoresPage() {
   return (
     <div className="fade admin-page">
       <header className="page-head">
-        <div><span className="eyebrow">Administración</span><h1>Panel administrativo</h1><p>Gestiona cuentas, permisos, proyectos y el avance de las sesiones.</p></div>
+        <div><h1>Panel administrativo</h1><p>Gestiona cuentas, permisos, proyectos y el avance de las sesiones.</p></div>
         <div className="page-summary" aria-label="Resumen de usuarios"><span><strong>{docentes?.length ?? 0}</strong> docentes</span><span><strong>{estudiantes?.length ?? 0}</strong> estudiantes</span></div>
       </header>
 
@@ -150,18 +150,18 @@ export function AdminProfesoresPage() {
 
       <div className="admin-layout">
         <aside className="panel admin-create-panel">
-          <span className="eyebrow">Nuevo acceso</span><h2>Crear docente</h2>
+          <h2>Crear docente</h2>
           <p className="section-description">Entrega un acceso inicial para que una persona gestione investigación y docencia.</p>
           <CrearDocenteForm />
         </aside>
 
         <div className="admin-lists">
           <section className="panel" aria-labelledby="docentes-title">
-            <div className="panel-head"><div><span className="eyebrow">Equipo docente</span><h2 id="docentes-title">Docentes registrados</h2></div><span className="count">{docentes?.length ?? 0}</span></div>
+            <div className="panel-head"><div><h2 id="docentes-title">Docentes registrados</h2></div><span className="count">{docentes?.length ?? 0}</span></div>
             <DocentesList />
           </section>
           <section className="panel" aria-labelledby="estudiantes-title">
-            <div className="panel-head"><div><span className="eyebrow">Participación</span><h2 id="estudiantes-title">Estudiantes registrados</h2></div><span className="count">{estudiantes?.length ?? 0}</span></div>
+            <div className="panel-head"><div><h2 id="estudiantes-title">Estudiantes registrados</h2></div><span className="count">{estudiantes?.length ?? 0}</span></div>
             <EstudiantesList />
           </section>
         </div>

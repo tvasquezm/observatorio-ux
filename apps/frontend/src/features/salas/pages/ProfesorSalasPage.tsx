@@ -167,7 +167,6 @@ export const ProfesorSalasPage: React.FC = () => {
     <div className="salas-page">
       <div className="salas-header">
         <div>
-          <span className="eyebrow">Espacios académicos</span>
           <h1>{puedeGestionar ? 'Salas de proyecto UX' : 'Mis salas'}</h1>
           <p>
             {puedeGestionar

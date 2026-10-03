@@ -70,7 +70,6 @@ export function ProjectCommentsPage() {
   return (
     <div className="comments-page">
       <section className="comments-intro">
-        <span className="eyebrow">Conversación del proyecto</span>
         <h2>Comentarios</h2>
         <p>Deja decisiones, preguntas o contexto para que el equipo pueda retomarlos después.</p>
       </section>

@@ -74,7 +74,6 @@ export function SalaDetallePage() {
         <>
           <header className="sala-detail-hero">
             <div>
-              <span className="kicker">{esEstudiante ? 'MI SALA' : 'GESTIÓN DE SALA'}</span>
               <h1>{sala.nombre}</h1>
               <p>{sala.instrucciones || 'Esta sala todavía no tiene instrucciones.'}</p>
             </div>
@@ -173,7 +172,6 @@ function ProyectosDeSalaLectura({ salaId }: { salaId: string }) {
     <section className="sala-student-panel" aria-labelledby="proyectos-sala-title">
       <div className="sala-section-head">
         <div>
-          <span className="kicker">CONTENIDO</span>
           <h2 id="proyectos-sala-title">Proyectos de la sala</h2>
         </div>
         <span className="count">{proyectos?.length ?? 0} en total</span>
@@ -705,7 +703,6 @@ function EquiposDeSalaEstudiante({ salaId, sala }: { salaId: string; sala: Sala 
     <section className="sala-student-panel" aria-labelledby="equipos-sala-title">
       <div className="sala-section-head">
         <div>
-          <span className="kicker">CONTENIDO</span>
           <h2 id="equipos-sala-title">Equipos de la sala</h2>
         </div>
         <span className="count">{equipos?.length ?? 0} en total</span>

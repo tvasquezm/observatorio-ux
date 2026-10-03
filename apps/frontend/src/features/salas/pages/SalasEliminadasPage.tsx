@@ -48,7 +48,6 @@ export function SalasEliminadasPage() {
     <div className="salas-page recycle-page">
       <div className="salas-header">
         <div>
-          <span className="eyebrow">Recuperación</span>
           <h1>Salas eliminadas</h1>
           <p>Las salas permanecen disponibles durante {DIAS_VENTANA_RECUPERACION} días antes de vencer.</p>
         </div>

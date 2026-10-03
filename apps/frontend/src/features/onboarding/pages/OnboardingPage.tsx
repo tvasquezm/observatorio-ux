@@ -226,7 +226,6 @@ export function OnboardingPage() {
 
         {paso === 'acceso' && (
           <div className="participant-step">
-            <span className="eyebrow">Estudio de experiencia usuaria</span>
             <h1>Tu perspectiva ayuda a mejorar el diseño.</h1>
             <p>No necesitas crear una cuenta ni compartir tu nombre o correo. El acceso es anónimo y toma solo unos segundos.</p>
             <ul className="participant-trust-list">
@@ -242,7 +241,6 @@ export function OnboardingPage() {
 
         {paso === 'consentimiento' && (
           <div className="participant-step">
-            <span className="eyebrow">Antes de comenzar</span>
             <h1>Consentimiento informado</h1>
             <p>Tu participación es anónima y voluntaria. Las respuestas se usarán únicamente para analizar patrones de experiencia usuaria.</p>
             <div className="consent-note">

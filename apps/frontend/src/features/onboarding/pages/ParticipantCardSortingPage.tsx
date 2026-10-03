@@ -236,7 +236,6 @@ export function ParticipantCardSortingPage() {
     return (
       <main className="onboarding participant-entry">
         <section className="participant-card participant-intro" aria-labelledby="participant-intro-title">
-          <span className="eyebrow">Card Sorting · Participación anónima</span>
           <h1 id="participant-intro-title">{sesion.estudio.nombre}</h1>
           <ul>
             <li>No hay respuestas correctas: agrupa las tarjetas según cómo las relacionas tú.</li>
@@ -250,7 +249,7 @@ export function ParticipantCardSortingPage() {
             <li>
               Son {sesion.estudio.cardsDefinidas.length} tarjetas y debes ubicarlas todas antes de enviar.
             </li>
-            <li>Tu avance se guarda en este dispositivo. No escribas datos personales.</li>
+            <li>Tu participación es anónima y tu avance se guarda en este dispositivo. No escribas datos personales.</li>
           </ul>
           <button type="button" className="primary" onClick={() => setIntroVista(true)}>
             Comenzar
@@ -265,7 +264,6 @@ export function ParticipantCardSortingPage() {
       <header className="participant-study-head">
         <img src="/brand/uxlab-observatorio.webp" width="1760" height="440" alt="UXLab Observatorio" />
         <div>
-          <span className="eyebrow">Card Sorting · Participación anónima</span>
           <h1>{sesion.estudio.nombre}</h1>
           <p>Organiza todas las tarjetas según la relación que encuentres entre ellas. Tu avance se guarda en este dispositivo.</p>
         </div>

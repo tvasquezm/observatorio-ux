@@ -76,6 +76,23 @@ y quirúrgicas. No hay archivos inventados desde cero salvo los indicados.
   (quedan el `border-bottom` de 3 px de la cabecera del informe y la fuente
   Inter, decidida en la fase 1).
 
+
+## Auditoría UI/UX — Fase 5b: kickers de proyectos, salas, admin y participantes (03-10-2026)
+
+- Se quitan los `kicker`/`eyebrow` decorativos de `ProjectsPage`,
+  `ProjectCommentsPage`, `ProfesorSalasPage`, `SalasEliminadasPage`,
+  `SalaDetallePage`, `AdminProjectsPanel`, `UserAccountsPanel`,
+  `AdminProfesoresPage`, `OnboardingPage` y `ParticipantCardSortingPage`.
+- `ProjectsPage`: desaparece la etiqueta de estado de cada tarjeta
+  ("Con sesiones registradas" / "Listo para iniciar"); el pie de la tarjeta ya
+  muestra el conteo de sesiones y artefactos.
+- `ParticipantCardSortingPage`: el aviso de anonimato que daba la etiqueta pasa a la
+  lista de la introducción ("Tu participación es anónima…").
+- `theme.css`: se eliminan `.project-kicker`, `.participant-step .eyebrow` y los
+  tres ajustes `.kicker` de `.salas-header`, `.sala-detail-hero` y
+  `.sala-section-head`. Quedan `.kicker`/`.eyebrow` y `.decision .kicker` para
+  borrarlos en 5c, cuando no haya más usos.
+
 ## Auditoría UI/UX — Fase 4b-1: tablas, viewport, movimiento y estilos en línea (03-10-2026)
 
 - `<th>` con `scope="col"` en las 12 cabeceras de las tablas de
