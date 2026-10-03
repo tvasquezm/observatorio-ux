@@ -93,6 +93,21 @@ y quirúrgicas. No hay archivos inventados desde cero salvo los indicados.
   `.sala-section-head`. Quedan `.kicker`/`.eyebrow` y `.decision .kicker` para
   borrarlos en 5c, cuando no haya más usos.
 
+## Auditoría UI/UX — Fase 5c: kickers de técnicas y cierre de la fase 5 (03-10-2026)
+
+- Se quitan los `kicker` decorativos de `CardSortingPage`,
+  `CardSortingWorkspacePage`, `CardSortingResultsPage`,
+  `EvaluacionHeuristicaPage` y `AnalyticsPage` (13 usos). Cada título de
+  sección ya dice lo que decía la etiqueta; en `CardSortingWorkspacePage` el
+  estado lo da el texto en negrita contiguo, y en `CardSortingResultsPage` el
+  título "Aún no hay resultados".
+- `EvaluacionHeuristicaPage`: el id de la heurística en cada hallazgo era dato,
+  no decoración, y se conserva como texto secundario (`.text-muted-xs`). La
+  etiqueta "sesión activa" desaparece sin reemplazo.
+- `theme.css`: se eliminan `.eyebrow`, `.kicker` (los dos bloques) y
+  `.decision .kicker`. `style: 'eyebrow'` de `pdf.ts` es un estilo de pdfmake y
+  no cambia. `.decision` y `.insight` quedan sin uso en TSX y fuera de plan.
+
 ## Auditoría UI/UX — Fase 4b-1: tablas, viewport, movimiento y estilos en línea (03-10-2026)
 
 - `<th>` con `scope="col"` en las 12 cabeceras de las tablas de

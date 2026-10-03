@@ -50,7 +50,6 @@ export function EvaluacionHeuristicaPage() {
       <div className="fade">
         <div className="page-head">
           <div>
-            <span className="kicker">EVALUACIÓN HEURÍSTICA</span>
             <h2>Hallazgos heurísticos</h2>
             <p>Registra problemas de usabilidad con evidencia, severidad y una recomendación accionable.</p>
           </div>
@@ -70,7 +69,6 @@ export function EvaluacionHeuristicaPage() {
     <div className="fade">
       <div className="page-head">
         <div>
-          <span className="kicker">EVALUACIÓN HEURÍSTICA · SESIÓN ACTIVA</span>
           <h2>Hallazgos heurísticos</h2>
           <p>Registra problemas de usabilidad con evidencia, severidad y una recomendación accionable.</p>
         </div>
@@ -138,7 +136,6 @@ export function EvaluacionHeuristicaPage() {
       <div className="panel">
         <div className="panel-head">
           <div>
-            <span className="kicker">ANALÍTICA ESPECÍFICA</span>
             <h2>Hallazgos registrados</h2>
           </div>
           <span className="count">{validados}/{sesion?.resultado.length ?? 0} de baja severidad</span>
@@ -154,7 +151,7 @@ export function EvaluacionHeuristicaPage() {
             <article key={h.id} className="finding rise">
               <div className="finding-head">
                 <span className={`badge ${info.badgeClass}`}>{info.label}</span>
-                <span className="kicker">{h.heuristicaId}</span>
+                <span className="text-muted-xs">{h.heuristicaId}</span>
               </div>
               {h.descripcion && <h3>{h.descripcion}</h3>}
               <div className="finding-grid">

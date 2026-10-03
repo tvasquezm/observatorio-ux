@@ -65,6 +65,9 @@ All notable changes to this project will be documented in this file. See [commit
 * **ui:** quita las etiquetas decorativas sobre los títulos en proyectos,
   comentarios, salas, administración y el flujo del participante; las tarjetas
   de proyecto dejan de repetir su estado ya visible en el conteo de sesiones.
+* **ui:** quita las etiquetas decorativas sobre los títulos en card sorting
+  (estudios, workspace y resultados), evaluación heurística y analítica, y
+  elimina el estilo `.kicker`/`.eyebrow`, que ya no tiene usos.
 
 * **deps:** actualiza los overrides de brace-expansion, fast-uri y multer a
   versiones corregidas; elimina las alertas encontradas por `pnpm audit`.

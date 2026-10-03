@@ -155,7 +155,6 @@ export function CardSortingPage() {
     <div className="fade">
       <header className="page-head">
         <div>
-          <span className="kicker">ARQUITECTURA DE INFORMACIÓN</span>
           <h2>Card Sorting</h2>
           <p>
             Crea estudios abiertos o cerrados, compártelos con participantes y analiza cada
@@ -168,7 +167,6 @@ export function CardSortingPage() {
         <article className="panel sort-board">
           <div className="panel-head">
             <div>
-              <span className="kicker">NUEVO ESTUDIO</span>
               <h2>Configurar tarjetas y categorías</h2>
             </div>
           </div>
@@ -262,7 +260,6 @@ export function CardSortingPage() {
       <section className="panel mt-16">
         <div className="panel-head">
           <div>
-            <span className="kicker">ESTUDIOS DEL PROYECTO</span>
             <h2>Continuar un Card Sorting</h2>
           </div>
           <span className="count">{studies.length}</span>

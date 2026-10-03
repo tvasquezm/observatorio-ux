@@ -144,12 +144,6 @@ button { cursor: pointer; }
 }
 .login-logo { display: block; width: min(270px, 100%); height: auto; margin: 0 0 18px; }
 .login-art-logo { display: block; width: min(340px, 100%); height: auto; margin: 0 0 20px; }
-.eyebrow, .kicker {
-  display: block; margin-top: 22px;
-  font-size: 12px; font-weight: 800; letter-spacing: .08em;
-  text-transform: uppercase; color: var(--muted);
-}
-.kicker { margin-top: 0; }
 .fade { animation: fade .35s ease both; }
 .rise { animation: rise .45s ease both; }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
@@ -458,7 +452,6 @@ button { cursor: pointer; }
 .tech-card small { display: block; margin-top: 12px; font-size: 12px; font-weight: 800; color: var(--muted); }
 .recent-grid { display: grid; grid-template-columns: 1.35fr .65fr; gap: 16px; margin-top: 18px; }
 .decision { background: linear-gradient(145deg, var(--navy), var(--navy-3)); color: #fff; }
-.decision .kicker { color: var(--on-navy-muted); }
 .decision h2 { color: #fff; font-size: 20px; line-height: 1.1; }
 .decision p { font-size: 12px; line-height: 1.6; color: var(--on-navy); }
 .decision .secondary { background: #ffffff18; color: #fff; border-color: #ffffff60; }
@@ -1463,10 +1456,6 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 }
 .page-head p, .salas-header p, .comments-intro p, .participant-step > p, .participant-study-head p {
   max-width: 65ch; color: var(--muted); font-size: 13px; line-height: 1.65; text-wrap: pretty;
-}
-.eyebrow, .kicker {
-  display: inline-block; color: var(--teal); font-size: 12px; font-weight: 800;
-  text-transform: uppercase; letter-spacing: .08em;
 }
 .page-summary { display: flex; gap: 8px; flex-wrap: wrap; }
 .page-summary span { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--muted); font-size: 12px; }

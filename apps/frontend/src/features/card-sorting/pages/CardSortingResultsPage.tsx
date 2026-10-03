@@ -70,7 +70,6 @@ export function CardSortingResultsPage() {
     <div className="fade cs-results">
       <header className="page-head">
         <div>
-          <span className="kicker">CARD SORTING · RESULTADOS</span>
           <h2>{data.estudio.nombre}</h2>
           <p>Compara patrones de clasificación y usa la evidencia para decidir la arquitectura de información.</p>
         </div>
@@ -99,7 +98,6 @@ export function CardSortingResultsPage() {
 
       {data.participantesCount === 0 ? (
         <article className="panel">
-          <span className="kicker">SIN RESPUESTAS</span>
           <h2>Aún no hay resultados</h2>
           <p className="text-muted-sm">Comparte el enlace del workspace. Las visualizaciones aparecerán cuando llegue la primera clasificación.</p>
         </article>

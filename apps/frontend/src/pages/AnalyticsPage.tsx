@@ -57,7 +57,6 @@ export function AnalyticsPage() {
     <div className="fade">
       <div className="page-head">
         <div>
-          <span className="kicker">LECTURA TRANSVERSAL</span>
           <h2>Analítica general</h2>
           <p>Lectura conjunta de artefactos, estudios, participantes y hallazgos registrados en este proyecto.</p>
         </div>
@@ -93,7 +92,7 @@ export function AnalyticsPage() {
 
           <article className="panel analytics-coverage">
             <div className="panel-head">
-              <div><span className="kicker">COBERTURA</span><h3>Evidencia por método</h3></div>
+              <div><h3>Evidencia por método</h3></div>
               <span className="count">{methodsWithEvidence} de 5 activos</span>
             </div>
             {evidence.map((item) => (
@@ -108,7 +107,6 @@ export function AnalyticsPage() {
           <article className="panel">
             <div className="panel-head">
               <div>
-                <span className="kicker">HALLAZGOS</span>
                 <h3>Distribución por severidad</h3>
               </div>
               <span className="count">{data.hallazgosTotal} en total</span>
