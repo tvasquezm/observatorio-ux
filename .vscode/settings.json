@@ -1,3 +1,7 @@
 {
-  "github.copilot.chat.localeOverride": "es"
+  "github.copilot.chat.localeOverride": "es",
+  "chat.utilitySmallModel": "copilot/claude-haiku-4.5",
+  "github.copilot.chat.commitMessageGeneration.instructions": [
+    { "file": ".vscode/copilot-commit-message-instructions.md" }
+  ]
 }
