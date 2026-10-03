@@ -3,6 +3,20 @@
 Todo acá parte de TUS archivos reales que subiste, con ediciones mínimas
 y quirúrgicas. No hay archivos inventados desde cero salvo los indicados.
 
+## Auditoría UI/UX — Fase 1: contraste y tipografía (03-10-2026)
+
+- `apps/frontend/src/styles/theme.css`: `--muted` pasa de `#68778b` a `#5c6b7f`
+  y se oscurecen 41 grises de texto del tema claro hasta ≥4,5:1; los
+  selectores sin override en modo oscuro reciben uno con `var(--muted)`.
+  El piso de `font-size` sube a 12 px (144 declaraciones), se quitan
+  mayúsculas con tracking de etiquetas chicas (se mantienen en
+  `.kicker`/`.eyebrow` hasta la fase 5), `.secondary.danger` usa
+  `--danger-text` y los placeholders usan `var(--muted)`. El selector de
+  perspectiva se ensancha para etiquetas de 12 px.
+- `apps/frontend/package.json` y `apps/frontend/src/main.tsx`: Inter
+  autoalojada con `@fontsource-variable/inter` (compatible con la CSP
+  `font-src 'self'`). Requiere `pnpm install` y commitear `pnpm-lock.yaml`.
+
 ## Revisión del PR #22 — Personas y reportes (30-09-2026)
 
 - `apps/frontend/src/pages/PersonasPage.tsx` y `apps/frontend/src/styles/theme.css`:

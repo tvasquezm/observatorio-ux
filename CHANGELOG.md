@@ -33,6 +33,11 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Fixes
 
+* **ui:** contraste AA en el texto secundario (tokens y grises del tema
+  claro), tamaño mínimo de texto de 12 px, menos mayúsculas con tracking y
+  fuente Inter autoalojada (`@fontsource-variable/inter`, requiere
+  `pnpm install`).
+
 * **deps:** actualiza los overrides de brace-expansion, fast-uri y multer a
   versiones corregidas; elimina las alertas encontradas por `pnpm audit`.
 

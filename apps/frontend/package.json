@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@fontsource-variable/inter": "^5.0.0",
     "@observatorio-ux/shared-types": "workspace:*",
     "@tanstack/react-query": "^5.103.2",
     "pdfmake": "^0.3.11",
