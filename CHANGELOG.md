@@ -47,6 +47,9 @@ All notable changes to this project will be documented in this file. See [commit
 * **ui:** reemplaza los glifos Unicode usados como íconos (`◆ ✣ ▣ ⚑ ◌ ⌁ ✚ ▦ ✦ ⌕`)
   por un set de íconos SVG propio (`Icon`), sin dependencias nuevas. Los
   íconos decorativos quedan ocultos para lectores de pantalla.
+* **ui:** el breadcrumb es una `<nav>` con enlaces y el nombre real del
+  proyecto, y cada pantalla fija un título de documento propio
+  (`useDocumentTitle`).
 
 * **deps:** actualiza los overrides de brace-expansion, fast-uri y multer a
   versiones corregidas; elimina las alertas encontradas por `pnpm audit`.

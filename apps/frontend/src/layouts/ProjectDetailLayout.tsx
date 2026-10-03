@@ -9,7 +9,7 @@ import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { useProject } from '../features/projects/hooks/useProjectsQueries';
 import { canViewAnalytics, resolvePerspective } from '../shared/auth/perspectivas';
 
-const SUB_NAV = [
+export const SUB_NAV = [
   { to: '', label: 'Resumen', end: true },
   { to: 'personas', label: 'Personas' },
   { to: 'journey-map', label: 'Journey Map' },

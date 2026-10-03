@@ -46,6 +46,25 @@ y quirúrgicas. No hay archivos inventados desde cero salvo los indicados.
 - `apps/frontend/src/styles/theme.css`: `.icon`, `.nav-icon` con token
   `--on-navy-muted` y el ícono de la opción activa hereda el color del texto.
 
+
+## Auditoría UI/UX — Fase 4a: navegación y títulos (03-10-2026)
+
+- `apps/frontend/src/shared/hooks/useDocumentTitle.ts` (nuevo):
+  `useDocumentTitle(title)` fija `document.title` como
+  `{title} · Observatorio UX`.
+- `apps/frontend/src/layouts/AppLayout.tsx`: el breadcrumb pasa a
+  `<nav aria-label="Ruta de navegación">` con lista, enlaces a los niveles
+  padre y `aria-current="page"` en la página actual. Muestra el nombre real
+  del proyecto (`useProject`, misma caché que `ProjectDetailLayout`) y la
+  sección. El título del documento se deriva de la misma ruta.
+- `apps/frontend/src/layouts/ProjectDetailLayout.tsx`: exporta `SUB_NAV` para
+  reutilizar las etiquetas de sección.
+- `apps/frontend/src/styles/theme.css`: estilos de `.crumb ol/li/a`. La nav
+  móvil en segunda fila con los 4 ítems visibles ya existía (`.side-nav` en
+  `@media (max-width: 768px)`), no se toca.
+- Tests: `useDocumentTitle.test.tsx` y `AppLayout.test.tsx` (breadcrumb y
+  título por ruta).
+
 ## Revisión del PR #22 — Personas y reportes (30-09-2026)
 
 - `apps/frontend/src/pages/PersonasPage.tsx` y `apps/frontend/src/styles/theme.css`:

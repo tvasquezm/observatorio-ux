@@ -1,8 +1,11 @@
 // apps/frontend/src/layouts/AppLayout.tsx
 
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useMatch, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../features/auth/store/useAuthStore';
+import { useProject } from '../features/projects/hooks/useProjectsQueries';
+import { useDocumentTitle } from '../shared/hooks/useDocumentTitle';
+import { SUB_NAV } from './ProjectDetailLayout';
 import { canViewAnalytics, canViewSalas, resolvePerspective } from '../shared/auth/perspectivas';
 import { ProfilePerspectiveSwitcher } from '../shared/components/ProfilePerspectiveSwitcher';
 import { PerspectivePreviewNotice } from '../shared/components/PerspectivePreviewNotice';
@@ -20,9 +23,27 @@ const CRUMB_LABELS: Record<string, string> = {
   '/': 'Dashboard',
   '/proyectos': 'Proyectos',
   '/salas': 'Salas',
+  '/salas/eliminadas': 'Eliminadas',
   '/admin': 'Administración',
   '/admin/profesores': 'Profesores',
 };
+
+interface Crumb {
+  label: string;
+  to?: string;
+}
+
+function buildCrumbs(pathname: string, proyectoId: string | undefined, rest: string | undefined, projectName: string | undefined): Crumb[] {
+  if (proyectoId) {
+    const section = SUB_NAV.find((item) => item.to !== '' && item.to === rest?.split('/')[0]);
+    const project: Crumb = { label: projectName ?? 'Proyecto', to: section ? `/proyectos/${proyectoId}` : undefined };
+    return [{ label: 'Proyectos', to: '/proyectos' }, project, ...(section ? [{ label: section.label }] : [])];
+  }
+  if (pathname === '/salas/eliminadas') return [{ label: 'Salas', to: '/salas' }, { label: 'Eliminadas' }];
+  if (pathname.startsWith('/salas/')) return [{ label: 'Salas', to: '/salas' }, { label: 'Detalle de sala' }];
+  if (pathname === '/admin/profesores') return [{ label: 'Administración', to: '/admin' }, { label: 'Profesores' }];
+  return [{ label: CRUMB_LABELS[pathname] ?? 'Observatorio UX' }];
+}
 
 export function AppLayout() {
   const { user, perspectiveRole, setPerspective, logout } = useAuthStore();
@@ -33,7 +54,11 @@ export function AppLayout() {
     return savedTheme === 'dark' || (savedTheme === null && window.matchMedia('(prefers-color-scheme: dark)').matches);
   });
   const [exportOpen, setExportOpen] = useState(false);
-  const crumb = CRUMB_LABELS[location.pathname] ?? 'Proyecto';
+  const projectMatch = useMatch('/proyectos/:proyectoId/*');
+  const proyectoId = projectMatch?.params.proyectoId;
+  const { data: proyecto } = useProject(proyectoId ?? null);
+  const crumbs = buildCrumbs(location.pathname, proyectoId, projectMatch?.params['*'], proyecto?.nombre);
+  useDocumentTitle([...crumbs].reverse().map((item) => item.label).join(' · '));
   const activeRole = user ? resolvePerspective(user.rol, perspectiveRole) : null;
   const visibleNavItems = NAV_ITEMS.filter((item) => {
     if (item.to === '/salas') return !!activeRole && canViewSalas(activeRole);
@@ -107,9 +132,16 @@ export function AppLayout() {
 
       <main className="main">
         <div className="top">
-          <span className="crumb">
-            Observatorio UX <b>›</b> <strong>{crumb}</strong>
-          </span>
+          <nav className="crumb" aria-label="Ruta de navegación">
+            <ol>
+              <li><Link to="/">Observatorio UX</Link></li>
+              {crumbs.map((item, index) => (
+                <li key={`${index}-${item.label}`}>
+                  {item.to ? <Link to={item.to}>{item.label}</Link> : <strong aria-current="page">{item.label}</strong>}
+                </li>
+              ))}
+            </ol>
+          </nav>
           <div className="top-actions">
             {user && activeRole && (
               <ProfilePerspectiveSwitcher

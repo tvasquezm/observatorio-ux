@@ -1970,3 +1970,11 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
   .project-subnav-hint { display: block; }
   .coverage-row { grid-template-columns: 110px minmax(80px, 1fr) 28px; gap: 8px; }
 }
+
+/* Breadcrumb: <nav><ol> con enlaces; el último elemento es la página actual */
+.crumb ol { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; margin: 0; padding: 0; list-style: none; }
+.crumb li { min-width: 0; overflow-wrap: anywhere; }
+.crumb li + li::before { content: '›'; margin-right: 8px; color: var(--muted); }
+.crumb a { color: var(--muted); text-decoration: none; }
+.crumb a:hover { color: var(--ink); text-decoration: underline; }
+.crumb a:focus-visible { outline: 3px solid color-mix(in srgb, var(--teal) 35%, transparent); outline-offset: 2px; border-radius: 3px; }
