@@ -44,6 +44,10 @@ All notable changes to this project will be documented in this file. See [commit
   overrides del modo oscuro. Corrige el hover del botón primario deshabilitado,
   que cambiaba a verde-azulado.
 
+* **ui:** reemplaza los glifos Unicode usados como íconos (`◆ ✣ ▣ ⚑ ◌ ⌁ ✚ ▦ ✦ ⌕`)
+  por un set de íconos SVG propio (`Icon`), sin dependencias nuevas. Los
+  íconos decorativos quedan ocultos para lectores de pantalla.
+
 * **deps:** actualiza los overrides de brace-expansion, fast-uri y multer a
   versiones corregidas; elimina las alertas encontradas por `pnpm audit`.
 

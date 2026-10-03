@@ -7,6 +7,7 @@ import type { Proyecto } from '../features/projects/api/projects.api';
 import { useSalas } from '../features/salas/hooks/useSalasQueries';
 import { useActivePerspective } from '../shared/auth/useActivePerspective';
 import { useUnsavedChanges } from '../shared/hooks/useUnsavedChanges';
+import { Icon } from '../shared/components/ui/Icon';
 
 export function ProjectsPage() {
   const { data: proyectos, isLoading } = useProjects();
@@ -161,7 +162,7 @@ export function ProjectsPage() {
             {editando === p.id && <form onSubmit={guardarEdicion} className="inline-edit"><label className="sr-only" htmlFor={`editar-proyecto-nombre-${p.id}`}>Nombre del proyecto</label><input id={`editar-proyecto-nombre-${p.id}`} className="text-input" value={edicion.nombre} onChange={(e) => setEdicion({ ...edicion, nombre: e.target.value })} required /><label className="sr-only" htmlFor={`editar-proyecto-descripcion-${p.id}`}>Descripción del proyecto</label><input id={`editar-proyecto-descripcion-${p.id}`} className="text-input" value={edicion.descripcion} onChange={(e) => setEdicion({ ...edicion, descripcion: e.target.value })} placeholder="Descripción" /><div className="form-actions"><button className="primary" disabled={isUpdating}>Guardar</button><button className="secondary" type="button" onClick={() => setEditando(null)}>Cancelar</button></div></form>}
           </article>
         ))}
-        {proyectos && filtrados.length === 0 && <div className="panel empty-state"><span>⌕</span><p>{busqueda ? 'No hay proyectos que coincidan con la búsqueda.' : 'No hay proyectos todavía.'}</p></div>}
+        {proyectos && filtrados.length === 0 && <div className="panel empty-state"><span><Icon name="search" size={28} /></span><p>{busqueda ? 'No hay proyectos que coincidan con la búsqueda.' : 'No hay proyectos todavía.'}</p></div>}
       </div>
     </div>
   );

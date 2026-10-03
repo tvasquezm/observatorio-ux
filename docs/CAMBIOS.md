@@ -31,6 +31,21 @@ y quirúrgicas. No hay archivos inventados desde cero salvo los indicados.
   oscuro que los tokens vuelven redundantes (botón primario, `.crumb`,
   `.role`/`.count`, `.node`, textos secundarios y el bloque de la fase 1).
 
+## Auditoría UI/UX — Fase 3: íconos SVG (03-10-2026)
+
+- `apps/frontend/src/shared/components/ui/Icon.tsx` (nuevo): componente
+  `Icon({ name, size?, title? })` con 10 íconos SVG propios (trazo 1.8,
+  `currentColor`). Decorativo por defecto (`aria-hidden`); con `title` expone
+  nombre accesible.
+- `apps/frontend/src/layouts/AppLayout.tsx`,
+  `apps/frontend/src/pages/DashboardPage.tsx`,
+  `apps/frontend/src/pages/ProjectOverviewPage.tsx` y
+  `apps/frontend/src/pages/ProjectsPage.tsx`: usan `Icon` en la navegación, las
+  tarjetas de técnica y el estado vacío de proyectos. La flecha `→` de las
+  tarjetas pasa a `aria-hidden`.
+- `apps/frontend/src/styles/theme.css`: `.icon`, `.nav-icon` con token
+  `--on-navy-muted` y el ícono de la opción activa hereda el color del texto.
+
 ## Revisión del PR #22 — Personas y reportes (30-09-2026)
 
 - `apps/frontend/src/pages/PersonasPage.tsx` y `apps/frontend/src/styles/theme.css`:

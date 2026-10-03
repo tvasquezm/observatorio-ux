@@ -5,15 +5,16 @@ import { useProjects } from '../features/projects/hooks/useProjectsQueries';
 import { useSalas } from '../features/salas/hooks/useSalasQueries';
 import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { PERSPECTIVE_LABELS, resolvePerspective } from '../shared/auth/perspectivas';
+import { Icon } from '../shared/components/ui/Icon';
 
 const DOT_COLORS = ['blue', 'green', 'orange'] as const;
 
 const TECHNIQUES = [
-  { to: 'personas', label: 'Personas', icon: '◌', desc: 'Necesidades, motivaciones y escenarios reales', cls: 'c2' },
-  { to: 'journey-map', label: 'Journey map', icon: '⌁', desc: 'Acciones, emociones y oportunidades por etapa', cls: 'c4' },
-  { to: 'momentos-criticos', label: 'Momentos críticos', icon: '✚', desc: 'Impacto, frecuencia y priorización cualitativa', cls: 'c5' },
-  { to: 'card-sorting', label: 'Card sorting', icon: '▦', desc: 'Agrupaciones, categorías y nivel de consenso', cls: 'c1' },
-  { to: 'evaluacion-heuristica', label: 'Hallazgos heurísticos', icon: '✦', desc: 'Severidad, evidencia y recomendaciones accionables', cls: 'c3' },
+  { to: 'personas', label: 'Personas', icon: 'personas', desc: 'Necesidades, motivaciones y escenarios reales', cls: 'c2' },
+  { to: 'journey-map', label: 'Journey map', icon: 'journey', desc: 'Acciones, emociones y oportunidades por etapa', cls: 'c4' },
+  { to: 'momentos-criticos', label: 'Momentos críticos', icon: 'momentos', desc: 'Impacto, frecuencia y priorización cualitativa', cls: 'c5' },
+  { to: 'card-sorting', label: 'Card sorting', icon: 'card-sorting', desc: 'Agrupaciones, categorías y nivel de consenso', cls: 'c1' },
+  { to: 'evaluacion-heuristica', label: 'Hallazgos heurísticos', icon: 'heuristica', desc: 'Severidad, evidencia y recomendaciones accionables', cls: 'c3' },
 ] as const;
 
 function fechaHoy() {
@@ -116,7 +117,7 @@ export function DashboardPage() {
             to={activo ? `/proyectos/${activo.id.replace(/^\//, '')}/${t.to}` : '/proyectos'}
             className={`tech-card rise ${t.cls}`}
           >
-            <span className="tech-glyph">{t.icon}</span>
+            <span className="tech-glyph"><Icon name={t.icon} size={20} /></span>
             <h3>{t.label}</h3>
             <p>{t.desc}</p>
             <small>Ver método y análisis →</small>

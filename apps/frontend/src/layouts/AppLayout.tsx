@@ -6,13 +6,14 @@ import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { canViewAnalytics, canViewSalas, resolvePerspective } from '../shared/auth/perspectivas';
 import { ProfilePerspectiveSwitcher } from '../shared/components/ProfilePerspectiveSwitcher';
 import { PerspectivePreviewNotice } from '../shared/components/PerspectivePreviewNotice';
+import { Icon, type IconName } from '../shared/components/ui/Icon';
 const ExportReportDialog = lazy(() => import('../features/reports/ExportReportDialog').then((module) => ({ default: module.ExportReportDialog })));
 
-const NAV_ITEMS = [
-  { to: '/', label: 'Dashboard', icon: '◆', end: true },
-  { to: '/proyectos', label: 'Proyectos', icon: '✣', end: false },
-  { to: '/salas', label: 'Salas', icon: '▣', end: false },
-  { to: '/admin', label: 'Administración', icon: '⚑', end: false },
+const NAV_ITEMS: ReadonlyArray<{ to: string; label: string; icon: IconName; end: boolean }> = [
+  { to: '/', label: 'Dashboard', icon: 'dashboard', end: true },
+  { to: '/proyectos', label: 'Proyectos', icon: 'proyectos', end: false },
+  { to: '/salas', label: 'Salas', icon: 'salas', end: false },
+  { to: '/admin', label: 'Administración', icon: 'admin', end: false },
 ];
 
 const CRUMB_LABELS: Record<string, string> = {
@@ -86,7 +87,7 @@ export function AppLayout() {
               end={item.end}
               className={({ isActive }) => `nav-btn${isActive ? ' active' : ''}`}
             >
-              <span className="nav-icon">{item.icon}</span>
+              <span className="nav-icon"><Icon name={item.icon} size={17} /></span>
               {item.label}
             </NavLink>
           ))}
