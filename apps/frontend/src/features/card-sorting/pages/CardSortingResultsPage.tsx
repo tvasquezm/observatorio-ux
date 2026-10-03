@@ -2,13 +2,15 @@ import type { CSSProperties } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import type {
   CardSortingMatrix,
+  CardSortingParticipante,
   CardSortingPreguntaResultado,
   CardSortingPorCarta,
   CardSortingPorCategoria,
 } from '../api/card-sorting.api';
 import { useCardSortingAnalytics } from '../hooks/useCardSortingQueries';
+import { descargarCsv, matrizACsv, similitudACsv } from '../card-sorting-csv';
 
-type ResultsTab = 'cards' | 'categories' | 'results' | 'popular' | 'similarity' | 'answers';
+type ResultsTab = 'cards' | 'categories' | 'results' | 'popular' | 'similarity' | 'participants' | 'answers';
 
 const TABS: Array<{ id: ResultsTab; label: string }> = [
   { id: 'cards', label: 'Tarjetas' },
@@ -16,6 +18,7 @@ const TABS: Array<{ id: ResultsTab; label: string }> = [
   { id: 'results', label: 'Matriz de resultados' },
   { id: 'popular', label: 'Ubicaciones populares' },
   { id: 'similarity', label: 'Similitud' },
+  { id: 'participants', label: 'Participantes' },
 ];
 
 // Solo aparece si el estudio definió preguntas para el participante.
@@ -101,7 +104,15 @@ export function CardSortingResultsPage() {
           <article className="panel">
             <div className="panel-head">
               <h2>Vistas del estudio</h2>
-              <button type="button" className="ghost" onClick={() => analyticsQuery.refetch()}>↺ Actualizar</button>
+              <div className="cs-panel-actions">
+                <button type="button" className="ghost" onClick={() => descargarCsv('card-sorting-matriz-resultados.csv', matrizACsv(data.resultsMatrix))}>
+                  Descargar CSV · resultados
+                </button>
+                <button type="button" className="ghost" onClick={() => descargarCsv('card-sorting-similitud.csv', similitudACsv(data.tarjetas, data.matrizSimilitud))}>
+                  Descargar CSV · similitud
+                </button>
+                <button type="button" className="ghost" onClick={() => analyticsQuery.refetch()}>↺ Actualizar</button>
+              </div>
             </div>
 
             <div className="cs-analysis-tabs" role="tablist" aria-label="Vistas de resultados">
@@ -138,6 +149,7 @@ export function CardSortingResultsPage() {
               tabIndex={0}
             >
               {activeTab === 'cards' && <CardsTable data={data.porCarta} />}
+              {activeTab === 'participants' && <ParticipantsList data={data.participantes ?? []} />}
               {activeTab === 'answers' && <AnswersList data={data.preguntas} />}
               {activeTab === 'categories' && <CategoriesTable data={data.porCategoria} />}
               {activeTab === 'results' && <MatrixTable title="Cantidad de ubicaciones" matrix={data.resultsMatrix} format={String} />}
@@ -283,5 +295,21 @@ function AnswersList({ data }: { data: CardSortingPreguntaResultado[] }) {
         </section>
       ))}
     </div>
+  );
+}
+
+function ParticipantsList({ data }: { data: CardSortingParticipante[] }) {
+  return (
+    <div className="cs-table-wrap"><table className="cs-table">
+      <caption className="sr-only">Clasificación de cada participante (anónima)</caption>
+      <thead><tr><th>Participante</th><th>Categorías</th><th>Grupos</th></tr></thead>
+      <tbody>{data.map((participante) => (
+        <tr key={participante.orden}>
+          <th scope="row">Participante {participante.orden}</th>
+          <td>{participante.categoriasCount}</td>
+          <td>{participante.grupos.map((grupo) => <span key={grupo.categoria} className="cs-inline-result">{grupo.categoria}: {grupo.tarjetas.join(', ')}</span>)}</td>
+        </tr>
+      ))}</tbody>
+    </table></div>
   );
 }

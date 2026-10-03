@@ -2037,3 +2037,4 @@ input::placeholder, textarea::placeholder { color: color-mix(in srgb, var(--mute
 .cs-results .cs-answer-block li { padding: 8px 0; border-top: 1px solid var(--line); color: var(--ink); font-size: 13px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
 .cs-questions { display: grid; gap: 10px; }
 .cs-questions textarea { min-height: 70px; }
+.cs-results .cs-panel-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }

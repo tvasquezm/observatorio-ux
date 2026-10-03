@@ -92,6 +92,57 @@ describe('CardSortingService analytics y ciclo de vida', () => {
     expect(analytics.popularPlacementsMatrix.filas[0].valores).toEqual([100]);
   });
 
+  it('devuelve la vista anónima por participante, en orden y sin identificadores', async () => {
+    const { prisma, service } = createService();
+    prisma.researchSession.findUnique.mockResolvedValue({
+      id: 'estudio-1',
+      nombre: 'Navegación',
+      proyectoId: 'proyecto-1',
+      evaluadorId: user.id,
+      tipo: TipoSesion.CARD_SORTING,
+      actor: ActorSesion.EVALUADOR,
+      cerrado: false,
+      createdAt: new Date('2026-09-13T12:00:00Z'),
+      cardsDefinidas: [
+        { id: 'card-1', etiqueta: 'Biblioteca' },
+        { id: 'card-2', etiqueta: 'Calendario' },
+      ],
+    });
+    prisma.researchSession.findMany.mockResolvedValue([{ id: 'p-1' }, { id: 'p-2' }]);
+    const g = (p: string, c: string, label: string, cat: string) => ({
+      participanteSesionId: p,
+      cardId: c,
+      card: { id: c, etiqueta: label },
+      category: { id: `${p}-${cat}`, nombre: cat },
+    });
+    prisma.cardGrouping.findMany.mockResolvedValue([
+      g('p-1', 'card-1', 'Biblioteca', 'Servicios'),
+      g('p-1', 'card-2', 'Calendario', 'Servicios'),
+      g('p-2', 'card-1', 'Biblioteca', 'Recursos'),
+      g('p-2', 'card-2', 'Calendario', 'Agenda'),
+    ]);
+
+    const analytics = await service.getAnalytics('estudio-1', user);
+
+    expect(prisma.researchSession.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: [{ completadoAt: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
+      }),
+    );
+    expect(analytics.participantes).toEqual([
+      { orden: 1, categoriasCount: 1, grupos: [{ categoria: 'Servicios', tarjetas: ['Biblioteca', 'Calendario'] }] },
+      {
+        orden: 2,
+        categoriasCount: 2,
+        grupos: [
+          { categoria: 'Agenda', tarjetas: ['Calendario'] },
+          { categoria: 'Recursos', tarjetas: ['Biblioteca'] },
+        ],
+      },
+    ]);
+    expect(JSON.stringify(analytics.participantes)).not.toContain('p-1');
+  });
+
   it('permite cerrar y volver a abrir el estudio sin borrar resultados', async () => {
     const { prisma, service } = createService();
     prisma.researchSession.findUnique.mockResolvedValue({

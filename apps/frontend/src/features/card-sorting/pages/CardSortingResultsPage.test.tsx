@@ -21,6 +21,10 @@ let data: CardSortingAnalytics = {
   popularPlacementsMatrix: { categorias: ['Servicios'], filas: [{ tarjeta: 'Biblioteca', valores: [100] }] },
   porCarta: [{ tarjeta: 'Biblioteca', categoriasCount: 2, categorias: [{ nombre: 'A', frecuencia: 2 }, { nombre: 'B', frecuencia: 1 }] }],
   porCategoria: [],
+  participantes: [
+    { orden: 1, categoriasCount: 1, grupos: [{ categoria: 'Servicios', tarjetas: ['Biblioteca', 'Becas'] }] },
+    { orden: 2, categoriasCount: 2, grupos: [{ categoria: 'Ayudas', tarjetas: ['Becas'] }, { categoria: 'Recursos', tarjetas: ['Biblioteca'] }] },
+  ],
   preguntas: [],
 } as unknown as CardSortingAnalytics;
 
@@ -53,7 +57,7 @@ describe('CardSortingResultsPage (minimalista)', () => {
 
   it('etiquetas de KPI en minúscula (sin mayúsculas fijas)', () => {
     setup();
-    expect(screen.getByText('Participantes')).toBeTruthy();
+    expect(screen.getByText('Participantes', { selector: 'span' })).toBeTruthy();
     expect(screen.queryByText('PARTICIPANTES')).toBeNull();
   });
 
@@ -114,5 +118,30 @@ describe('CardSortingResultsPage · respuestas del participante', () => {
   it('?vista=answers sin preguntas cae en Tarjetas', () => {
     setup('/r/e1?vista=answers');
     expect(screen.getByRole('tab', { name: 'Tarjetas' }).getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('pestaña Participantes: filas anónimas con sus grupos', () => {
+    setup('/r/e1?vista=participants');
+    expect(screen.getByRole('tab', { name: 'Participantes' }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByText('Participante 1')).toBeTruthy();
+    expect(screen.getByText('Participante 2')).toBeTruthy();
+    expect(screen.getByText('Ayudas: Becas')).toBeTruthy();
+  });
+
+  it('descarga el CSV de resultados y el de similitud', async () => {
+    const blobs: Blob[] = [];
+    Object.assign(URL, { createObjectURL: (b: Blob) => { blobs.push(b); return 'blob:x'; }, revokeObjectURL: vi.fn() });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Descargar CSV · resultados' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Descargar CSV · similitud' }));
+    expect(click).toHaveBeenCalledTimes(2);
+    const texto = await new Promise<string>((resolve) => {
+      const lector = new FileReader();
+      lector.onload = () => resolve(String(lector.result));
+      lector.readAsText(blobs[1]);
+    });
+    expect(texto).toContain('Tarjeta,Biblioteca,Becas');
+    expect(texto).toContain('Biblioteca,100,40');
   });
 });

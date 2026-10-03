@@ -341,6 +341,8 @@ export class CardSortingService {
         estado: EstadoSesion.COMPLETADO,
       },
       select: { id: true },
+      // Orden estable: define el número anónimo "Participante n".
+      orderBy: [{ completadoAt: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
     });
 
     const groupings = await this.prisma.cardGrouping.findMany({
@@ -532,6 +534,28 @@ export class CardSortingService {
       };
     });
 
+    // Vista por participante, anónima: solo número de orden (sin id ni datos
+    // de la persona). Cada grupo lista las tarjetas en el orden del estudio.
+    const participantesVista = participantes.map((participante, indice) => {
+      const asignaciones = porParticipante.get(participante.id) ?? new Map<string, string>();
+      const grupos = new Map<string, string[]>();
+      for (const card of cards) {
+        const categoriaKey = asignaciones.get(card.id);
+        if (!categoriaKey) continue;
+        grupos.set(categoriaKey, [...(grupos.get(categoriaKey) ?? []), card.etiqueta]);
+      }
+      return {
+        orden: indice + 1,
+        categoriasCount: grupos.size,
+        grupos: [...grupos.entries()]
+          .map(([categoriaKey, tarjetas]) => ({
+            categoria: nombresCategoria.get(categoriaKey) ?? categoriaKey,
+            tarjetas,
+          }))
+          .sort((a, b) => a.categoria.localeCompare(b.categoria, 'es')),
+      };
+    });
+
     return {
       estudio: {
         id: estudio.id,
@@ -559,6 +583,7 @@ export class CardSortingService {
       popularPlacementsMatrix,
       porCarta,
       porCategoria,
+      participantes: participantesVista,
       preguntas: (estudio.preguntas ?? []).map((pregunta) => ({
         id: pregunta.id,
         texto: pregunta.texto,

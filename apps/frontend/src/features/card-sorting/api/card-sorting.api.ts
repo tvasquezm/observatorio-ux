@@ -215,6 +215,12 @@ export interface CardSortingPreguntaResultado {
   respuestas: string[];
 }
 
+export interface CardSortingParticipante {
+  orden: number;
+  categoriasCount: number;
+  grupos: Array<{ categoria: string; tarjetas: string[] }>;
+}
+
 export interface CardSortingAnalytics {
   estudio: {
     id: string;
@@ -238,6 +244,7 @@ export interface CardSortingAnalytics {
   popularPlacementsMatrix: CardSortingMatrix;
   porCarta: CardSortingPorCarta[];
   porCategoria: CardSortingPorCategoria[];
+  participantes: CardSortingParticipante[];
   preguntas: CardSortingPreguntaResultado[];
 }
 
