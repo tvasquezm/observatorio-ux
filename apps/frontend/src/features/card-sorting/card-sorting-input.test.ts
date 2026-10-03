@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  agregarLinea,
   analizarEntrada,
   estadoCantidadTarjetas,
+  quitarElemento,
   validarEstudio,
 } from './card-sorting-input';
 
@@ -63,5 +65,23 @@ describe('validarEstudio', () => {
     expect(validarEstudio({ nombre: 'E', esCerrado: false, tarjetas: analizarEntrada('A\na', 100), categorias: vacio })).toMatch(/duplicadas/);
     const muchas = analizarEntrada(Array.from({ length: 101 }, (_, i) => `T${i}`).join('\n'), 100);
     expect(validarEstudio({ nombre: 'E', esCerrado: false, tarjetas: muchas, categorias: vacio })).toBe('El máximo es 100 tarjetas.');
+  });
+});
+
+describe('agregarLinea y quitarElemento', () => {
+  it('agrega como línea nueva y limpia el valor', () => {
+    expect(agregarLinea('A\nB', '  C ')).toBe('A\nB\nC');
+    expect(agregarLinea('', 'C')).toBe('C');
+    expect(agregarLinea('A\n\n', 'C')).toBe('A\nC');
+  });
+
+  it('ignora valores vacíos', () => {
+    expect(agregarLinea('A', '   ')).toBe('A');
+  });
+
+  it('quita el n-ésimo elemento no vacío, igual que analizarEntrada', () => {
+    const texto = 'A\n\nB\n  \nC';
+    expect(quitarElemento(texto, 1)).toBe('A\n\n  \nC');
+    expect(analizarEntrada(quitarElemento(texto, 2), 100).items).toEqual(['A', 'B']);
   });
 });

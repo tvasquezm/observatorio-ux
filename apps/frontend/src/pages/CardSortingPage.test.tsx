@@ -34,7 +34,7 @@ describe('CardSortingPage · guía', () => {
     renderPage();
     expect(screen.getByTestId('cs-type-hint')).toHaveTextContent(/descubrir cómo piensan/);
 
-    await userEvent.selectOptions(screen.getByLabelText(/Tipo de estudio/), 'CERRADO');
+    await userEvent.click(screen.getByRole('radio', { name: /Cerrado/ }));
     expect(screen.getByTestId('cs-type-hint')).toHaveTextContent(/validar una estructura/);
   });
 });
@@ -43,7 +43,7 @@ describe('CardSortingPage · híbrido', () => {
   it('explica el híbrido y muestra las categorías predefinidas', async () => {
     renderPage();
     expect(screen.queryByLabelText(/Categorías predefinidas/)).not.toBeInTheDocument();
-    await userEvent.selectOptions(screen.getByLabelText(/Tipo de estudio/), 'HIBRIDO');
+    await userEvent.click(screen.getByRole('radio', { name: /Híbrido/ }));
     expect(screen.getByTestId('cs-type-hint')).toHaveTextContent(/pueden crear otras/);
     expect(screen.getByLabelText(/Categorías predefinidas/)).toBeInTheDocument();
   });
@@ -51,7 +51,7 @@ describe('CardSortingPage · híbrido', () => {
   it('sin categorías predefinidas muestra el mínimo de 1', async () => {
     mutate.mockClear();
     renderPage();
-    await userEvent.selectOptions(screen.getByLabelText(/Tipo de estudio/), 'HIBRIDO');
+    await userEvent.click(screen.getByRole('radio', { name: /Híbrido/ }));
     await userEvent.type(screen.getByLabelText(/Nombre del estudio/), 'Estudio');
     await userEvent.type(screen.getByLabelText(/Tarjetas \(una por línea\)/), 'A{Enter}B');
     await userEvent.type(screen.getByLabelText(/Categorías predefinidas/), '   ');
@@ -63,7 +63,7 @@ describe('CardSortingPage · híbrido', () => {
   it('con 1 categoría envía tipo HIBRIDO y las categorías', async () => {
     mutate.mockClear();
     renderPage();
-    await userEvent.selectOptions(screen.getByLabelText(/Tipo de estudio/), 'HIBRIDO');
+    await userEvent.click(screen.getByRole('radio', { name: /Híbrido/ }));
     await userEvent.type(screen.getByLabelText(/Nombre del estudio/), 'Estudio');
     await userEvent.type(screen.getByLabelText(/Tarjetas \(una por línea\)/), 'A{Enter}B');
     await userEvent.type(screen.getByLabelText(/Categorías predefinidas/), 'Servicios');
@@ -112,7 +112,7 @@ describe('CardSortingPage · intención de tarjetas y categorías', () => {
   it('un estudio cerrado con 1 categoría muestra el mínimo de 2', async () => {
     mutate.mockClear();
     renderPage();
-    await userEvent.selectOptions(screen.getByLabelText(/Tipo de estudio/), 'CERRADO');
+    await userEvent.click(screen.getByRole('radio', { name: /Cerrado/ }));
     await llenar('Estudio', 'A{Enter}B');
     await userEvent.type(screen.getByLabelText(/Categorías predefinidas/), 'Servicios');
     await userEvent.click(screen.getByRole('button', { name: /Crear y abrir/ }));

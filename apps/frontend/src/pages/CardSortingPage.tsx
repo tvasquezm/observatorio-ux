@@ -15,13 +15,17 @@ import {
   MAX_RECOMENDADAS,
   MAX_TARJETAS,
   MIN_RECOMENDADAS,
+  agregarLinea,
   analizarEntrada,
   estadoCantidadTarjetas,
+  quitarElemento,
   validarEstudio,
   type AnalisisEntrada,
 } from '../features/card-sorting/card-sorting-input';
 import type { ProjectOutletContext } from '../layouts/ProjectDetailLayout';
 import { InfoTip } from '../shared/components/ui/InfoTip';
+import { CardSortingTypePicker } from '../features/card-sorting/components/CardSortingTypePicker';
+import { CardSortingAddOne, CardSortingChips } from '../features/card-sorting/components/CardSortingChips';
 
 const TYPE_HINTS: Record<TipoCardSorting, string> = {
   ABIERTO: 'Los participantes crean y nombran sus propias categorías. Úsalo para descubrir cómo piensan tus usuarios.',
@@ -59,9 +63,15 @@ function CardCount({ count }: { count: number }) {
     excedido: `máximo ${MAX_TARJETAS}`,
   }[estado];
   return (
-    <small className={`cs-input-count cs-count-${estado}`} data-testid="cs-card-count">
-      {count} {count === 1 ? 'tarjeta' : 'tarjetas'} · {texto}
-    </small>
+    <>
+      <div className={`cs-meter cs-meter-${estado}`} aria-hidden="true">
+        <i className="cs-meter-zone" />
+        <i className="cs-meter-fill" style={{ width: `${Math.min(100, (count / MAX_RECOMENDADAS) * 100)}%` }} />
+      </div>
+      <small className={`cs-input-count cs-count-${estado}`} data-testid="cs-card-count">
+        {count} {count === 1 ? 'tarjeta' : 'tarjetas'} · {texto}
+      </small>
+    </>
   );
 }
 
@@ -184,19 +194,8 @@ export function CardSortingPage() {
               />
             </label>
 
-            <div className="cs-field">
-              <label className="field">
-                Tipo de estudio
-                <select value={type} onChange={(event) => setType(event.target.value as TipoCardSorting)}>
-                  <option value="ABIERTO">Abierto — cada participante crea sus categorías</option>
-                  <option value="CERRADO">Cerrado — usa categorías predefinidas</option>
-                  <option value="HIBRIDO">Híbrido — predefinidas más categorías propias</option>
-                </select>
-              </label>
-              <InfoTip label="Ayuda: tipo de estudio" className="cs-field-tip">
-                <span data-testid="cs-type-hint">{TYPE_HINTS[type]}</span>
-              </InfoTip>
-            </div>
+            <CardSortingTypePicker value={type} onChange={setType} />
+            <p className="cs-type-hint" data-testid="cs-type-hint">{TYPE_HINTS[type]}</p>
 
             <div className="cs-field">
               <label className="field">
@@ -211,6 +210,18 @@ export function CardSortingPage() {
                 <CardCount count={cardsInfo.items.length} />
                 <InputWarnings info={cardsInfo} noun="tarjeta(s)" max={MAX_ETIQUETA} aviso={AVISO_ETIQUETA} />
               </label>
+              <CardSortingAddOne
+                label="Agregar tarjeta"
+                placeholder="Agregar una tarjeta y presionar Enter"
+                onAdd={(value) => setCardsText((prev) => agregarLinea(prev, value))}
+              />
+              <CardSortingChips
+                info={cardsInfo}
+                max={MAX_ETIQUETA}
+                aviso={AVISO_ETIQUETA}
+                noun="tarjetas"
+                onRemove={(index) => setCardsText((prev) => quitarElemento(prev, index))}
+              />
               <InfoTip label="Ayuda: cómo escribir las tarjetas" className="cs-field-tip">
                 <Checklist items={CARD_CHECKLIST} />
               </InfoTip>
@@ -229,6 +240,17 @@ export function CardSortingPage() {
                   />
                   <InputWarnings info={categoriesInfo} noun="categoría(s)" max={MAX_CATEGORIA} />
                 </label>
+                <CardSortingAddOne
+                  label="Agregar categoría"
+                  placeholder="Agregar una categoría y presionar Enter"
+                  onAdd={(value) => setCategoriesText((prev) => agregarLinea(prev, value))}
+                />
+                <CardSortingChips
+                  info={categoriesInfo}
+                  max={MAX_CATEGORIA}
+                  noun="categorías"
+                  onRemove={(index) => setCategoriesText((prev) => quitarElemento(prev, index))}
+                />
                 <InfoTip label="Ayuda: cómo definir las categorías" className="cs-field-tip">
                   <Checklist items={CATEGORY_CHECKLIST} />
                 </InfoTip>
@@ -252,6 +274,17 @@ export function CardSortingPage() {
                   <small className="cs-input-warn" role="status">El máximo es {MAX_PREGUNTAS} preguntas.</small>
                 )}
               </label>
+              <CardSortingAddOne
+                label="Agregar pregunta"
+                placeholder="Agregar una pregunta y presionar Enter"
+                onAdd={(value) => setQuestionsText((prev) => agregarLinea(prev, value))}
+              />
+              <CardSortingChips
+                info={questionsInfo}
+                max={MAX_PREGUNTA}
+                noun="preguntas"
+                onRemove={(index) => setQuestionsText((prev) => quitarElemento(prev, index))}
+              />
               <InfoTip label="Ayuda: preguntas para el participante" className="cs-field-tip">
                 El participante las responde al enviar su clasificación. Hasta {MAX_PREGUNTAS}, opcionales.
               </InfoTip>

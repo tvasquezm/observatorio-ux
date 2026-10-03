@@ -52,6 +52,27 @@ export function analizarEntrada(texto: string, max: number, aviso = max): Analis
   };
 }
 
+// Agrega un elemento como línea nueva al final del texto.
+export function agregarLinea(texto: string, valor: string): string {
+  const limpio = valor.trim();
+  if (!limpio) return texto;
+  const base = texto.replace(/\s+$/, '');
+  return base ? `${base}\n${limpio}` : limpio;
+}
+
+// Quita el n-ésimo elemento no vacío (el mismo índice que `analizarEntrada().items`).
+export function quitarElemento(texto: string, indice: number): string {
+  let visto = -1;
+  return texto
+    .split('\n')
+    .filter((linea) => {
+      if (!linea.trim()) return true;
+      visto += 1;
+      return visto !== indice;
+    })
+    .join('\n');
+}
+
 export type EstadoCantidad = 'bajo' | 'ok' | 'alto' | 'excedido';
 
 export function estadoCantidadTarjetas(cantidad: number): EstadoCantidad {

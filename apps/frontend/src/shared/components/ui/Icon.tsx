@@ -19,7 +19,9 @@ export type IconName =
   | 'search'
   | 'info'
   | 'download'
-  | 'refresh';
+  | 'refresh'
+  | 'check'
+  | 'close';
 
 const PATHS: Record<IconName, ReactElement> = {
   dashboard: (
@@ -100,6 +102,13 @@ const PATHS: Record<IconName, ReactElement> = {
       <path d="M12 4v11" />
       <path d="m7.5 10.8 4.5 4.5 4.5-4.5" />
       <path d="M5 19.5h14" />
+    </>
+  ),
+  check: <path d="m5 12.5 4.5 4.5L19 7.5" />,
+  close: (
+    <>
+      <path d="M6 6l12 12" />
+      <path d="M18 6 6 18" />
     </>
   ),
   refresh: (

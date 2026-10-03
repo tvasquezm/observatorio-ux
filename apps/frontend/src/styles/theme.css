@@ -2043,3 +2043,39 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 @media (max-width: 640px) {
   .cs-icon-btn-text { display: none; }
 }
+
+/* Card sorting: creación guiada (selector de tipo, chips y medidor) */
+.cs-field > .cs-field-tip { position: absolute; top: -3px; right: 0; }
+.cs-type-picker { min-width: 0; margin: 0; padding: 0; border: 0; }
+.cs-type-picker legend { padding: 0; margin-bottom: 8px; color: var(--muted); font-size: 12px; font-weight: 750; }
+.cs-type-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.cs-type-option { position: relative; display: grid; align-content: start; gap: 4px; min-height: 84px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); cursor: pointer; transition: border-color .15s ease, background .15s ease, box-shadow .15s ease; }
+.cs-type-option:hover { border-color: var(--teal-line); background: var(--surface-alt); }
+.cs-type-option.selected { border-color: var(--teal); background: var(--teal-soft); box-shadow: 0 0 0 3px color-mix(in srgb, var(--teal) 14%, transparent); }
+.cs-type-option input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.cs-type-option:has(input:focus-visible) { outline: 3px solid color-mix(in srgb, var(--teal) 38%, transparent); outline-offset: 2px; }
+.cs-type-option strong { font-size: 14px; }
+.cs-type-option span { color: var(--muted); font-size: 12px; line-height: 1.4; }
+.cs-type-option.selected strong { color: var(--teal-ink); }
+.cs-type-hint { margin: 8px 0 0; padding: 10px 12px; border-radius: 10px; background: var(--surface-alt); color: var(--ink-soft); font-size: 12px; line-height: 1.5; }
+.cs-add-one { display: flex; gap: 8px; margin-top: 10px; }
+.cs-add-one input { min-width: 0; flex: 1; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; font-size: 13px; }
+.cs-add-one input:focus-visible { outline: 3px solid color-mix(in srgb, var(--teal) 30%, transparent); outline-offset: 1px; border-color: var(--teal); }
+.cs-add-one button { flex: none; min-height: 40px; }
+.cs-chips { display: flex; flex-wrap: wrap; gap: 6px; max-height: 190px; margin: 10px 0 0; padding: 0; overflow-y: auto; list-style: none; }
+.cs-chip { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 4px 4px 4px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-alt); color: var(--ink); font-size: 12px; }
+.cs-chip span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cs-chip button { display: inline-grid; place-items: center; flex: none; width: 24px; height: 24px; min-height: 0; padding: 0; border: 0; border-radius: 999px; background: transparent; color: var(--muted); cursor: pointer; }
+.cs-chip button:hover { background: var(--surface-muted); color: var(--ink); }
+.cs-chip button:focus-visible { outline: 3px solid color-mix(in srgb, var(--teal) 35%, transparent); }
+.cs-chip.error { border-color: var(--critical-line); background: var(--critical-surface); color: var(--critical-ink); }
+.cs-chip.warn { border-color: color-mix(in srgb, var(--mint) 55%, var(--line)); background: color-mix(in srgb, var(--mint) 12%, var(--surface)); }
+.cs-meter { position: relative; height: 8px; margin-top: 10px; overflow: hidden; border-radius: 999px; background: var(--surface-muted); }
+.cs-meter-zone { position: absolute; top: 0; bottom: 0; left: 50%; right: 0; background: color-mix(in srgb, var(--mint) 28%, transparent); }
+.cs-meter-fill { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 999px; background: var(--muted); transition: width .2s ease; }
+.cs-meter-ok .cs-meter-fill { background: var(--positive-text); }
+.cs-meter-alto .cs-meter-fill, .cs-meter-excedido .cs-meter-fill { background: var(--danger-text); }
+@media (max-width: 640px) {
+  .cs-type-options { grid-template-columns: 1fr; }
+  .cs-type-option { min-height: 0; }
+}

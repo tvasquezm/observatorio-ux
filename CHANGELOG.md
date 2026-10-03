@@ -9,6 +9,8 @@ All notable changes to this project will be documented in this file. See [commit
 * **card-sorting:** ayuda contextual con ⓘ (`InfoTip`) en la creación del
   estudio y menos texto visible; guía de 8 pasos con una sola numeración;
   íconos `info`, `download` y `refresh`.
+* **card-sorting:** creación del estudio guiada: tipo en tarjetas seleccionables,
+  campo "Agregar una" con chips en vivo y medidor del rango de tarjetas.
 * **card-sorting:** resultados con menos texto: ayudas en ⓘ, botones de ícono
   y pestañas más cortas ("Matriz", "Populares").
 
@@ -39,6 +41,7 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Fixes
 
+* **card-sorting:** los ⓘ del formulario de creación volvieron junto a su etiqueta.
 * **card-sorting:** dendrograma con líneas, etiquetas y eje (faltaba el CSS),
   pestañas de resultados con degradado y scroll visible, y estilos de las
   vistas de resultados.

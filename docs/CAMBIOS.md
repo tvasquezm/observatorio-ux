@@ -848,3 +848,18 @@ con red real (o Docker, como en sprints anteriores) para confirmar esas
   "sin consenso".
 - Tests: `CardSortingResultsPage.test.tsx` (KPIs, muestra, botones, pestañas),
   `InfoTip.test.tsx` (`align`).
+
+## Auditoría UI/UX — Fase 8a: creación guiada de card sorting (03-10-2026)
+
+- Corrige los ⓘ de la fase 7a: `.info-tip { position: relative }` pisaba a
+  `.cs-field-tip { position: absolute }` y caían bajo cada campo.
+- `CardSortingTypePicker.tsx` (nuevo): tipo de estudio como 3 tarjetas
+  seleccionables (radios) en lugar del `<select>`.
+- `CardSortingChips.tsx` (nuevo): campo "Agregar una" (Enter) y chips en vivo con
+  × para quitar; duplicadas y demasiado largas en rojo, largas en ámbar.
+- `CardSortingPage.tsx`: usa los componentes anteriores y un medidor del rango
+  recomendado de tarjetas (30–60).
+- `card-sorting-input.ts`: `agregarLinea` y `quitarElemento`. Las validaciones
+  no cambian.
+- `Icon.tsx`: `check` y `close`.
+- Tests: componentes nuevos, helpers y `CardSortingPage.test.tsx` (radios).
