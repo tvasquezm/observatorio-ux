@@ -58,4 +58,9 @@ describe('InfoTip', () => {
     await userEvent.click(screen.getByRole('button', { name: 'afuera' }));
     expect(btn).toHaveAttribute('aria-expanded', 'false');
   });
+
+  it('align start ancla el panel a la izquierda', () => {
+    render(<InfoTip label="Ayuda" align="start">Hola</InfoTip>);
+    expect(screen.getByText('Hola').classList.contains('start')).toBe(true);
+  });
 });

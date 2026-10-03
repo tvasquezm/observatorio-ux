@@ -5,9 +5,10 @@ interface InfoTipProps {
   label: string;
   children: ReactNode;
   className?: string;
+  align?: 'start' | 'end';
 }
 
-export function InfoTip({ label, children, className }: InfoTipProps) {
+export function InfoTip({ label, children, className, align = 'end' }: InfoTipProps) {
   const [open, setOpen] = useState(false);
   const [pinned, setPinned] = useState(false);
   const rootRef = useRef<HTMLSpanElement>(null);
@@ -65,7 +66,7 @@ export function InfoTip({ label, children, className }: InfoTipProps) {
       >
         <Icon name="info" size={16} />
       </button>
-      <span id={panelId} role="note" className={`info-tip-panel${open ? ' open' : ''}`}>
+      <span id={panelId} role="note" className={`info-tip-panel${align === 'start' ? ' start' : ''}${open ? ' open' : ''}`}>
         {children}
       </span>
     </span>

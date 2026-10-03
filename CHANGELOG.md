@@ -9,6 +9,8 @@ All notable changes to this project will be documented in this file. See [commit
 * **card-sorting:** ayuda contextual con ⓘ (`InfoTip`) en la creación del
   estudio y menos texto visible; guía de 8 pasos con una sola numeración;
   íconos `info`, `download` y `refresh`.
+* **card-sorting:** resultados con menos texto: ayudas en ⓘ, botones de ícono
+  y pestañas más cortas ("Matriz", "Populares").
 
 * **persona:** amplía la ficha con rol y relación con el servicio,
   características distintivas, evidencia y validación del perfil.
@@ -36,6 +38,10 @@ All notable changes to this project will be documented in this file. See [commit
   reservado al creador del proyecto o a un ADMIN.
 
 ### Fixes
+
+* **card-sorting:** dendrograma con líneas, etiquetas y eje (faltaba el CSS),
+  pestañas de resultados con degradado y scroll visible, y estilos de las
+  vistas de resultados.
 
 * **card-sorting:** estilos faltantes de la guía (doble numeración y marcador
   nativo de `<details>`) y de los contadores del formulario.

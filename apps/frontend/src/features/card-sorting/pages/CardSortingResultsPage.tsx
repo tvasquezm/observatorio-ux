@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import type {
   CardSortingMatrix,
@@ -10,14 +10,16 @@ import type {
 import { useCardSortingAnalytics } from '../hooks/useCardSortingQueries';
 import { CardSortingDendrogram } from '../components/CardSortingDendrogram';
 import { descargarCsv, matrizACsv, similitudACsv } from '../card-sorting-csv';
+import { Icon } from '../../../shared/components/ui/Icon';
+import { InfoTip } from '../../../shared/components/ui/InfoTip';
 
 type ResultsTab = 'cards' | 'categories' | 'results' | 'popular' | 'similarity' | 'dendrogram' | 'participants' | 'answers';
 
 const TABS: Array<{ id: ResultsTab; label: string }> = [
   { id: 'cards', label: 'Tarjetas' },
   { id: 'categories', label: 'Categorías' },
-  { id: 'results', label: 'Matriz de resultados' },
-  { id: 'popular', label: 'Ubicaciones populares' },
+  { id: 'results', label: 'Matriz' },
+  { id: 'popular', label: 'Populares' },
   { id: 'similarity', label: 'Similitud' },
   { id: 'dendrogram', label: 'Dendrograma' },
   { id: 'participants', label: 'Participantes' },
@@ -25,6 +27,21 @@ const TABS: Array<{ id: ResultsTab; label: string }> = [
 
 // Solo aparece si el estudio definió preguntas para el participante.
 const ANSWERS_TAB: { id: ResultsTab; label: string } = { id: 'answers', label: 'Respuestas' };
+
+// Título corto y ayuda de cada vista. Dendrograma, participantes y respuestas llevan el suyo.
+const VIEW_HELP: Partial<Record<ResultsTab, { title: string; help: string }>> = {
+  cards: { title: 'Categorías usadas por tarjeta', help: 'Para cada tarjeta, en cuántas categorías distintas la ubicaron los participantes y con qué frecuencia.' },
+  categories: { title: 'Tarjetas por categoría', help: 'Para cada categoría, qué tarjetas contiene y cuántas veces se ubicó cada una.' },
+  results: { title: 'Cantidad de ubicaciones', help: 'Cuántas veces cada tarjeta se ubicó en cada categoría.' },
+  popular: { title: 'Porcentaje de participantes', help: 'Qué porcentaje de los participantes ubicó cada tarjeta en cada categoría. Más oscuro, más acuerdo.' },
+  similarity: { title: 'Similitud entre tarjetas', help: 'Qué tan seguido los participantes agruparon cada par de tarjetas en la misma categoría (100% = siempre juntas).' },
+};
+
+const SAMPLE_LABELS: Record<'baja' | 'aceptable' | 'estable', string> = {
+  baja: 'Muestra baja',
+  aceptable: 'Muestra aceptable',
+  estable: 'Muestra estable',
+};
 
 const SAMPLE_MESSAGES: Record<'baja' | 'aceptable' | 'estable', (min: number, stable: number) => string> = {
   baja: (min) => `Muestra baja: con menos de ${min} participantes completados los resultados son poco estables.`,
@@ -44,6 +61,30 @@ export function CardSortingResultsPage() {
   const activeTab: ResultsTab = tabs.some((tab) => tab.id === requestedTab)
     ? (requestedTab as ResultsTab)
     : 'cards';
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState({ start: false, end: false });
+  const updateEdges = () => {
+    const el = tabsRef.current;
+    if (!el) return;
+    const start = el.scrollLeft > 4;
+    const end = el.scrollLeft + el.clientWidth < el.scrollWidth - 4;
+    setEdges((prev) => (prev.start === start && prev.end === end ? prev : { start, end }));
+  };
+  useEffect(() => {
+    const list = tabsRef.current;
+    const tab = document.getElementById(`card-sorting-tab-${activeTab}`);
+    if (list && tab) {
+      if (tab.offsetLeft < list.scrollLeft) list.scrollLeft = tab.offsetLeft - 8;
+      else if (tab.offsetLeft + tab.offsetWidth > list.scrollLeft + list.clientWidth) {
+        list.scrollLeft = tab.offsetLeft + tab.offsetWidth - list.clientWidth + 8;
+      }
+    }
+    updateEdges();
+  }, [activeTab, data]);
+  useEffect(() => {
+    window.addEventListener('resize', updateEdges);
+    return () => window.removeEventListener('resize', updateEdges);
+  }, []);
   const setActiveTab = (tab: ResultsTab) => {
     const next = new URLSearchParams(searchParams);
     if (tab === 'cards') next.delete('vista');
@@ -82,10 +123,16 @@ export function CardSortingResultsPage() {
       </header>
 
       <section className="analytics-kpis" aria-label="Resumen del estudio">
-        <article className="analytics-kpi"><span>Participantes</span><strong>{data.participantesCount}</strong><small>clasificaciones completadas</small></article>
-        <article className="analytics-kpi"><span>Tarjetas</span><strong>{data.cardsCount}</strong><small>elementos evaluados</small></article>
-        <article className="analytics-kpi"><span>Acuerdo global</span><strong>{data.acuerdoGlobal}%</strong><small>similitud promedio</small></article>
-        <article className="analytics-kpi"><span>Categorías</span><strong>{data.categorias.length}</strong><small>nombres consolidados</small></article>
+        <article className="analytics-kpi"><span>Participantes</span><strong>{data.participantesCount}</strong></article>
+        <article className="analytics-kpi"><span>Tarjetas</span><strong>{data.cardsCount}</strong></article>
+        <article className="analytics-kpi">
+          <div className="cs-kpi-label">
+            <span>Acuerdo global</span>
+            <InfoTip label="Ayuda: acuerdo global" align="start">Similitud promedio entre todas las tarjetas, calculada con las clasificaciones completadas.</InfoTip>
+          </div>
+          <strong>{data.acuerdoGlobal}%</strong>
+        </article>
+        <article className="analytics-kpi"><span>Categorías</span><strong>{data.categorias.length}</strong></article>
       </section>
 
       <p
@@ -93,7 +140,10 @@ export function CardSortingResultsPage() {
         role="status"
         data-testid="cs-sample-note"
       >
-        {SAMPLE_MESSAGES[data.muestra](data.umbrales.muestraMinima, data.umbrales.muestraEstable)}
+        <span>{SAMPLE_LABELS[data.muestra]}</span>
+        <InfoTip label="Ayuda: tamaño de muestra" align="start">
+          {SAMPLE_MESSAGES[data.muestra](data.umbrales.muestraMinima, data.umbrales.muestraEstable)}
+        </InfoTip>
       </p>
 
       {data.participantesCount === 0 ? (
@@ -107,17 +157,38 @@ export function CardSortingResultsPage() {
             <div className="panel-head">
               <h2>Vistas del estudio</h2>
               <div className="cs-panel-actions">
-                <button type="button" className="ghost" onClick={() => descargarCsv('card-sorting-matriz-resultados.csv', matrizACsv(data.resultsMatrix))}>
-                  Descargar CSV · resultados
+                <button
+                  type="button"
+                  className="ghost cs-icon-btn"
+                  aria-label="Descargar CSV · resultados"
+                  title="Descargar CSV · resultados"
+                  onClick={() => descargarCsv('card-sorting-matriz-resultados.csv', matrizACsv(data.resultsMatrix))}
+                >
+                  <Icon name="download" size={16} /><span className="cs-icon-btn-text">Resultados</span>
                 </button>
-                <button type="button" className="ghost" onClick={() => descargarCsv('card-sorting-similitud.csv', similitudACsv(data.tarjetas, data.matrizSimilitud))}>
-                  Descargar CSV · similitud
+                <button
+                  type="button"
+                  className="ghost cs-icon-btn"
+                  aria-label="Descargar CSV · similitud"
+                  title="Descargar CSV · similitud"
+                  onClick={() => descargarCsv('card-sorting-similitud.csv', similitudACsv(data.tarjetas, data.matrizSimilitud))}
+                >
+                  <Icon name="download" size={16} /><span className="cs-icon-btn-text">Similitud</span>
                 </button>
-                <button type="button" className="ghost" onClick={() => analyticsQuery.refetch()}>↺ Actualizar</button>
+                <button
+                  type="button"
+                  className="ghost cs-icon-btn"
+                  aria-label="Actualizar resultados"
+                  title="Actualizar resultados"
+                  onClick={() => analyticsQuery.refetch()}
+                >
+                  <Icon name="refresh" size={16} />
+                </button>
               </div>
             </div>
 
-            <div className="cs-analysis-tabs" role="tablist" aria-label="Vistas de resultados">
+            <div className={`cs-tabs-wrap${edges.start ? ' has-start' : ''}${edges.end ? ' has-end' : ''}`}>
+            <div className="cs-analysis-tabs" role="tablist" aria-label="Vistas de resultados" ref={tabsRef} onScroll={updateEdges}>
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
@@ -143,6 +214,7 @@ export function CardSortingResultsPage() {
                 </button>
               ))}
             </div>
+            </div>
 
             <div
               id={`card-sorting-panel-${activeTab}`}
@@ -150,8 +222,20 @@ export function CardSortingResultsPage() {
               aria-labelledby={`card-sorting-tab-${activeTab}`}
               tabIndex={0}
             >
+              {VIEW_HELP[activeTab] && (
+                <div className="cs-view-head">
+                  <h3>{VIEW_HELP[activeTab]!.title}</h3>
+                  <InfoTip label={`Ayuda: ${VIEW_HELP[activeTab]!.title}`} align="start">{VIEW_HELP[activeTab]!.help}</InfoTip>
+                </div>
+              )}
               {activeTab === 'cards' && <CardsTable data={data.porCarta} />}
               {activeTab === 'dendrogram' && <CardSortingDendrogram tarjetas={data.tarjetas} similitud={data.matrizSimilitud} />}
+              {activeTab === 'participants' && (
+                <div className="cs-view-head">
+                  <h3>Clasificación de cada participante</h3>
+                  <InfoTip label="Ayuda: clasificación de cada participante" align="start">Las clasificaciones son anónimas: cada fila es un participante y sus grupos.</InfoTip>
+                </div>
+              )}
               {activeTab === 'participants' && <ParticipantsList data={data.participantes ?? []} />}
               {activeTab === 'answers' && <AnswersList data={data.preguntas} />}
               {activeTab === 'categories' && <CategoriesTable data={data.porCategoria} />}
@@ -184,10 +268,14 @@ export function CardSortingResultsPage() {
             </article>
 
             <article className="panel">
-              <div className="panel-head"><h2>Agrupaciones dominantes</h2></div>
-              <p className="text-muted-sm">
-                Una tarjeta tiene consenso cuando más del {data.umbrales.consenso}% de los participantes la ubicó en la misma categoría (criterio del curso).
-              </p>
+              <div className="panel-head">
+                <div className="cs-view-head">
+                  <h2>Agrupaciones dominantes</h2>
+                  <InfoTip label="Ayuda: agrupaciones dominantes" align="start">
+                    Una tarjeta tiene consenso cuando más del {data.umbrales.consenso}% de los participantes la ubicó en la misma categoría (criterio del curso).
+                  </InfoTip>
+                </div>
+              </div>
               <div className="clusters">
                 {data.clusters.map((cluster) => (
                   <div key={cluster.nombre} className="cluster">

@@ -833,3 +833,18 @@ con red real (o Docker, como en sprints anteriores) para confirmar esas
   `.cs-guide-*`.
 - Tests: `InfoTip.test.tsx` (nuevo), `CardSortingPage.test.tsx` (contador),
   `CardSortingGuide.test.tsx` (despliegue).
+
+## Auditoría UI/UX — Fase 7b: resultados, dendrograma y pestañas (03-10-2026)
+
+- `CardSortingResultsPage.tsx`: botones de descarga y actualizar con ícono y
+  nombre accesible; KPIs sin subtítulos ("Acuerdo global" con ⓘ); muestra como
+  etiqueta corta con ⓘ; "Agrupaciones dominantes" con ⓘ; cada vista con título
+  corto y ⓘ; pestañas "Matriz" y "Populares", con degradado en los bordes y
+  la activa siempre a la vista.
+- `CardSortingDendrogram.tsx`: título del eje dentro del SVG, ancho responsivo,
+  explicación en ⓘ.
+- `InfoTip.tsx`: prop `align` (`start` | `end`).
+- `theme.css`: estilos de dendrograma, pestañas, muestra, KPI, respuestas y
+  "sin consenso".
+- Tests: `CardSortingResultsPage.test.tsx` (KPIs, muestra, botones, pestañas),
+  `InfoTip.test.tsx` (`align`).

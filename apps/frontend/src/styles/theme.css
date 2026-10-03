@@ -1994,3 +1994,52 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .cs-guide-list details[open] .cs-guide-chev { transform: rotate(-135deg); }
 .cs-guide-list details > p { margin: 0; padding: 0 12px 10px 48px; color: var(--ink-soft); font-size: 12px; line-height: 1.5; }
 .cs-guide-list details > p.cs-guide-where { padding-bottom: 12px; color: var(--muted); }
+
+/* Card sorting: resultados, pestañas y dendrograma */
+.info-tip-panel.start { right: auto; left: 0; }
+.cs-field-tip .info-tip-panel { right: 0; left: auto; }
+.cs-view-head { display: flex; align-items: center; gap: 4px; margin-bottom: 10px; }
+.cs-view-head h2, .cs-view-head h3 { margin: 0; color: var(--ink); font-size: 14px; }
+.cs-kpi-label { display: flex; align-items: center; gap: 2px; margin: -4px 0 -3px; }
+.analytics-kpi .info-tip { display: inline-flex; }
+.analytics-kpi .info-tip-panel { display: none; margin: 0; color: var(--ink-soft); font-weight: 500; letter-spacing: 0; }
+.analytics-kpi .info-tip-panel.open { display: block; }
+.cs-sample-note { display: flex; align-items: center; gap: 4px; margin: 0 0 14px; font-size: 12px; font-weight: 700; }
+.cs-sample-note > span:first-child { padding: 5px 10px; border-radius: 999px; }
+.cs-sample-baja > span:first-child { background: var(--critical-surface); color: var(--critical-ink); }
+.cs-sample-aceptable > span:first-child { background: var(--room-badge-surface); color: var(--room-badge-ink); }
+.cs-sample-estable > span:first-child { background: color-mix(in srgb, var(--mint) 16%, var(--surface)); color: var(--positive-text); }
+.cs-sample-note .info-tip-panel { font-weight: 500; }
+.cs-panel-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.cs-icon-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; border-color: var(--line); }
+.cs-icon-btn:hover { background: var(--teal-soft); }
+.cs-tabs-wrap { position: relative; margin-bottom: 18px; }
+.cs-tabs-wrap .cs-analysis-tabs { margin-bottom: 0; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+.cs-tabs-wrap .cs-analysis-tabs::-webkit-scrollbar { display: block; height: 6px; }
+.cs-tabs-wrap .cs-analysis-tabs::-webkit-scrollbar-thumb { border-radius: 999px; background: var(--line); }
+.cs-tabs-wrap::before, .cs-tabs-wrap::after { content: ''; position: absolute; top: 0; bottom: 8px; z-index: 1; width: 28px; pointer-events: none; opacity: 0; transition: opacity .15s ease; }
+.cs-tabs-wrap::before { left: 0; background: linear-gradient(to right, var(--surface), transparent); }
+.cs-tabs-wrap::after { right: 0; background: linear-gradient(to left, var(--surface), transparent); }
+.cs-tabs-wrap.has-start::before, .cs-tabs-wrap.has-end::after { opacity: 1; }
+.cs-no-consensus { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.cs-no-consensus h3 { margin: 0 0 8px; color: var(--ink); font-size: 13px; }
+.cs-answers { display: grid; gap: 14px; }
+.cs-answer-block { padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-alt); }
+.cs-answer-block h3 { margin: 0 0 4px; color: var(--ink); font-size: 14px; }
+.cs-answer-block ul { margin: 10px 0 0; padding-left: 18px; color: var(--ink-soft); font-size: 13px; line-height: 1.5; }
+.cs-dendro-svg { display: block; width: 100%; min-width: 560px; height: auto; }
+.cs-dendro-line { stroke: var(--teal); stroke-width: 1.6; stroke-linejoin: round; }
+.cs-dendro-axis { stroke: var(--muted); stroke-width: 1; }
+.cs-dendro-label { fill: var(--ink); font-size: 12px; }
+.cs-dendro-tick { fill: var(--muted); font-size: 11px; }
+.cs-dendro-axis-title { fill: var(--muted); font-size: 12px; font-weight: 600; }
+.cs-dendro-merges { margin-top: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.cs-dendro-merges summary { display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding: 8px 12px; color: var(--teal); font-size: 12px; font-weight: 700; list-style: none; cursor: pointer; }
+.cs-dendro-merges summary::-webkit-details-marker { display: none; }
+.cs-dendro-merges summary::after { content: ''; width: 8px; height: 8px; margin-right: 4px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); transition: transform .15s ease; }
+.cs-dendro-merges[open] summary::after { transform: rotate(-135deg); }
+.cs-dendro-merges summary:focus-visible { outline: 3px solid color-mix(in srgb, var(--teal) 35%, transparent); outline-offset: 2px; }
+.cs-dendro-merges ol { margin: 0; padding: 0 12px 12px 32px; color: var(--ink-soft); font-size: 12px; line-height: 1.6; }
+@media (max-width: 640px) {
+  .cs-icon-btn-text { display: none; }
+}

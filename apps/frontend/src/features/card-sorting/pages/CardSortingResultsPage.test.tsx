@@ -84,6 +84,31 @@ describe('CardSortingResultsPage (minimalista)', () => {
     expect(screen.getByText('B (1)')).toBeTruthy();
   });
 
+  it('KPIs sin subtítulos y "Acuerdo global" con ayuda', () => {
+    setup();
+    expect(screen.queryByText('clasificaciones completadas')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Ayuda: acuerdo global' })).toBeTruthy();
+  });
+
+  it('muestra baja como etiqueta corta con la explicación en la ayuda', () => {
+    setup();
+    expect(screen.getByText('Muestra baja', { selector: 'span:not(.info-tip-panel)' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Ayuda: tamaño de muestra' })).toBeTruthy();
+  });
+
+  it('descargas y actualizar son botones de ícono con nombre accesible', () => {
+    setup();
+    expect(screen.getByRole('button', { name: 'Descargar CSV · resultados' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Actualizar resultados' })).toBeTruthy();
+  });
+
+  it('pestañas con etiquetas cortas y título con ayuda por vista', () => {
+    setup('/r/e1?vista=results');
+    expect(screen.getByRole('tab', { name: 'Matriz' }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByRole('tab', { name: 'Populares' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Cantidad de ubicaciones' })).toBeTruthy();
+  });
+
   it('similitud: la diagonal se marca atenuada', () => {
     const { container } = setup('/r/e1?vista=similarity');
     expect(container.querySelectorAll('.cs-matrix-diag').length).toBe(2);
