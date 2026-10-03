@@ -15,7 +15,7 @@ const STEPS: GuideStep[] = [
   {
     title: 'Definir el usuario para el test',
     text: 'Usa un usuario real. Puede participar de forma individual o en grupo de 3 personas.',
-    where: 'Comparte el enlace del estudio. Hoy cada enlace se completa de forma individual.',
+    where: 'Comparte el enlace del estudio. Para un grupo de 3, invita a las 3 personas por separado: cada una hace su propia clasificación y cuenta como un participante. No hay sesión conjunta.',
   },
   {
     title: 'Crear las tarjetas',
@@ -30,7 +30,7 @@ const STEPS: GuideStep[] = [
   {
     title: 'Realizar las pruebas',
     text: 'Cada usuario recibe las tarjetas y las agrupa, jerarquiza y nombra como le parezca más apropiado.',
-    where: 'Prueba el workspace antes de compartir. Hoy se agrupa y se nombra; jerarquizar aún no está disponible.',
+    where: 'Prueba el workspace antes de compartir. En estudios abiertos o híbridos el participante puede jerarquizar en 2 niveles (una categoría dentro de otra); en cerrados solo usa las categorías dadas.',
   },
   {
     title: 'Hacer preguntas',
@@ -40,7 +40,7 @@ const STEPS: GuideStep[] = [
   {
     title: 'Registrar la disposición final',
     text: 'Queda guardada la ubicación final de cada tarjeta cuando el participante envía.',
-    where: 'Resultados → "Tarjetas" y "Categorías".',
+    where: 'Resultados → "Tarjetas" y "Categorías" (con el detalle de subcategorías). Las analíticas cuentan la categoría de nivel 1.',
   },
   {
     title: 'Extraer conclusiones',

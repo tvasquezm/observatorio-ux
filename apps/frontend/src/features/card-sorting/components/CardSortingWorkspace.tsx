@@ -14,12 +14,24 @@ export interface CardSortingWorkspaceProps {
   customCategories: string[];
   onAssignmentsChange: (assignments: Record<string, string>) => void;
   onCustomCategoriesChange: (categories: string[]) => void;
+  // Subcategorías (2 niveles; solo ABIERTO/HIBRIDO): nombre de la categoría
+  // propia -> nombre de su categoría padre. El selector "Dentro de" solo se
+  // muestra si se pasa `onPadresChange` (no en la vista previa del evaluador).
+  padres?: Record<string, string>;
+  onPadresChange?: (padres: Record<string, string>) => void;
   // Respuestas a las preguntas del evaluador (questionId -> texto). Solo se
   // muestran si se pasa `onAnswersChange` (no en la vista previa del evaluador).
   answers?: Record<string, string>;
   onAnswersChange?: (answers: Record<string, string>) => void;
   disabled?: boolean;
-  onSubmit?: (groups: Array<{ categoriaId?: string; categoriaNombre?: string; cardIds: string[] }>) => void;
+  onSubmit?: (
+    groups: Array<{
+      categoriaId?: string;
+      categoriaNombre?: string;
+      categoriaPadre?: string;
+      cardIds: string[];
+    }>,
+  ) => void;
   submitting?: boolean;
   submitLabel?: string;
   preview?: boolean;
@@ -30,6 +42,8 @@ interface WorkspaceCategory {
   value: string;
   name: string;
   custom: boolean;
+  // Nombre de la categoría de nivel 1 que la contiene (solo propias).
+  parent?: string;
 }
 
 function normalizeCategory(name: string) {
@@ -42,6 +56,8 @@ export function CardSortingWorkspace({
   customCategories,
   onAssignmentsChange,
   onCustomCategoriesChange,
+  padres = {},
+  onPadresChange,
   answers = {},
   onAnswersChange,
   disabled = false,
@@ -55,6 +71,7 @@ export function CardSortingWorkspace({
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [draggedCardId, setDraggedCardId] = useState<string | null>(null);
   const [newCategory, setNewCategory] = useState('');
+  const [newParent, setNewParent] = useState('');
   const [categoryError, setCategoryError] = useState('');
   const [announcement, setAnnouncement] = useState('');
 
@@ -67,15 +84,23 @@ export function CardSortingWorkspace({
       name: category.nombre,
       custom: false,
     }));
+    // Solo vale un padre que exista, sea propio y sea de nivel 1 (máx. 2 niveles).
+    const level1Custom = new Set(
+      customCategories.filter((name) => !padres[name] || !customCategories.includes(padres[name])),
+    );
     const custom = customCategories.map((name) => ({
       key: `custom:${normalizeCategory(name)}`,
       value: name,
       name,
       custom: true,
+      parent:
+        !level1Custom.has(name) && level1Custom.has(padres[name]) ? padres[name] : undefined,
     }));
     if (isClosed) return predefined;
     return isHybrid ? [...predefined, ...custom] : custom;
-  }, [customCategories, isClosed, isHybrid, study.categoriasDefinidas]);
+  }, [customCategories, isClosed, isHybrid, padres, study.categoriasDefinidas]);
+  const topLevel = categories.filter((category) => !category.parent);
+  const parentOptions = categories.filter((category) => category.custom && !category.parent);
 
   const cardsById = useMemo(
     () => new Map(study.cardsDefinidas.map((card) => [card.id, card])),
@@ -132,7 +157,11 @@ export function CardSortingWorkspace({
     }
     const nextCategories = [...customCategories, name];
     onCustomCategoriesChange(nextCategories);
+    if (onPadresChange && newParent && parentOptions.some((option) => option.name === newParent)) {
+      onPadresChange({ ...padres, [name]: newParent });
+    }
     setNewCategory('');
+    setNewParent('');
     setCategoryError('');
     if (selectedCardId) {
       const next = { ...assignments, [selectedCardId]: name };
@@ -149,7 +178,10 @@ export function CardSortingWorkspace({
     const groups = categories
       .map((category) => ({
         ...(category.custom
-          ? { categoriaNombre: category.name }
+          ? {
+              categoriaNombre: category.name,
+              ...(category.parent ? { categoriaPadre: category.parent } : {}),
+            }
           : { categoriaId: category.value }),
         cardIds: study.cardsDefinidas
           .filter((card) => assignments[card.id] === category.value)
@@ -179,6 +211,37 @@ export function CardSortingWorkspace({
         <span className="cs-grip" aria-hidden="true">⠿</span>
         <span>{card.etiqueta}</span>
       </button>
+    );
+  }
+
+  function renderZone(category: WorkspaceCategory) {
+    const cards = study.cardsDefinidas.filter((card) => assignments[card.id] === category.value);
+    return (
+      <section
+        key={category.key}
+        className="cs-zone"
+        onDragOver={(event) => event.preventDefault()}
+        onDrop={(event) => handleDrop(event, category.value)}
+      >
+        <header className="cs-zone-head">
+          <h3>{category.name}</h3>
+          <span>{cards.length}</span>
+        </header>
+        {cards.length > 0 ? (
+          <div className="cs-card-list">{cards.map(renderCard)}</div>
+        ) : (
+          <p className="cs-empty">Suelta aquí una tarjeta.</p>
+        )}
+        {selectedCardId && assignments[selectedCardId] !== category.value && (
+          <button
+            type="button"
+            className="ghost cs-move-button"
+            onClick={() => moveCard(selectedCardId, category.value)}
+          >
+            Mover aquí
+          </button>
+        )}
+      </section>
     );
   }
 
@@ -219,38 +282,16 @@ export function CardSortingWorkspace({
         </section>
 
         <div className="cs-categories" aria-label="Categorías">
-          {categories.map((category) => {
-            const cards = study.cardsDefinidas.filter(
-              (card) => assignments[card.id] === category.value,
-            );
-            return (
-              <section
-                key={category.key}
-                className="cs-zone"
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={(event) => handleDrop(event, category.value)}
-              >
-                <header className="cs-zone-head">
-                  <h3>{category.name}</h3>
-                  <span>{cards.length}</span>
-                </header>
-                {cards.length > 0 ? (
-                  <div className="cs-card-list">{cards.map(renderCard)}</div>
-                ) : (
-                  <p className="cs-empty">Suelta aquí una tarjeta.</p>
-                )}
-                {selectedCardId && assignments[selectedCardId] !== category.value && (
-                  <button
-                    type="button"
-                    className="ghost cs-move-button"
-                    onClick={() => moveCard(selectedCardId, category.value)}
-                  >
-                    Mover aquí
-                  </button>
-                )}
-              </section>
-            );
-          })}
+          {topLevel.map((category) => (
+            <div key={category.key} className="cs-category-group">
+              {renderZone(category)}
+              {categories.some((child) => child.parent === category.name) && (
+                <div className="cs-subcategories" aria-label={`Subcategorías de ${category.name}`}>
+                  {categories.filter((child) => child.parent === category.name).map(renderZone)}
+                </div>
+              )}
+            </div>
+          ))}
 
           {!isClosed && (
             <section
@@ -279,6 +320,22 @@ export function CardSortingWorkspace({
                   Crear
                 </button>
               </div>
+              {onPadresChange && parentOptions.length > 0 && (
+                <>
+                  <label htmlFor={`${newCategoryId}-parent`}>Dentro de (opcional)</label>
+                  <select
+                    id={`${newCategoryId}-parent`}
+                    value={newParent}
+                    onChange={(event) => setNewParent(event.target.value)}
+                    disabled={disabled}
+                  >
+                    <option value="">Ninguna: categoría principal</option>
+                    {parentOptions.map((option) => (
+                      <option key={option.key} value={option.name}>{option.name}</option>
+                    ))}
+                  </select>
+                </>
+              )}
               {selectedCardId && <p className="cs-selected-hint">La tarjeta seleccionada se moverá a la categoría nueva.</p>}
               {categoryError && <p role="alert" className="error-text">{categoryError}</p>}
             </section>

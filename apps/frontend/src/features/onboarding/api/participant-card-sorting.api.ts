@@ -61,6 +61,7 @@ export function getParticipantCardSortingSession(
 export interface GrupoResultado {
   categoriaId?: string;
   categoriaNombre?: string;
+  categoriaPadre?: string;
   cardIds: string[];
 }
 

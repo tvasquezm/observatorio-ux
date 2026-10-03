@@ -27,9 +27,16 @@ describe('CardSortingGuide', () => {
     expect(screen.getByText(/Agrupaciones dominantes/)).toBeInTheDocument();
   });
 
-  it('indica con honestidad lo que la herramienta aún no hace', () => {
+  it('explica la jerarquía de 2 niveles y las preguntas', () => {
     render(<CardSortingGuide />);
-    expect(screen.getByText(/jerarquizar aún no está disponible/)).toBeInTheDocument();
+    expect(screen.queryByText(/aún no está disponible/)).not.toBeInTheDocument();
+    expect(screen.getByText(/jerarquizar en 2 niveles/)).toBeInTheDocument();
     expect(screen.getByText(/hasta 5, opcionales/)).toBeInTheDocument();
+  });
+
+  it('explica el grupo de 3 como sesiones independientes', () => {
+    render(<CardSortingGuide />);
+    expect(screen.getByText(/invita a las 3 personas por separado/)).toBeInTheDocument();
+    expect(screen.getByText(/No hay sesión conjunta/)).toBeInTheDocument();
   });
 });

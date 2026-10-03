@@ -206,6 +206,11 @@ export interface CardSortingPorCategoria {
   nombre: string;
   cardsCount: number;
   cartas: Array<{ tarjeta: string; frecuencia: number }>;
+  // Detalle por subcategoría (2 niveles); vacío si nadie anidó.
+  subcategorias?: Array<{
+    nombre: string;
+    cartas: Array<{ tarjeta: string; frecuencia: number }>;
+  }>;
 }
 
 export interface CardSortingPreguntaResultado {

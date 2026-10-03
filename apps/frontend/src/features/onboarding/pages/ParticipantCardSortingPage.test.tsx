@@ -135,3 +135,56 @@ describe('ParticipantCardSortingPage · preguntas del evaluador', () => {
     ]);
   });
 });
+
+describe('ParticipantCardSortingPage · subcategorías', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.mocked(getParticipantCardSortingSession).mockReset();
+    vi.mocked(submitCardSortingResult).mockReset();
+  });
+
+  it('la consigna de abierto menciona los dos niveles; la de cerrado no', async () => {
+    vi.mocked(getParticipantCardSortingSession).mockResolvedValue(sesion('ABIERTO'));
+    const { unmount } = renderPage();
+    expect(await screen.findByText(/una categoría dentro de otra/)).toBeInTheDocument();
+    unmount();
+
+    vi.mocked(getParticipantCardSortingSession).mockResolvedValue(sesion('CERRADO'));
+    renderPage();
+    expect(await screen.findByText(/no puedes crear nuevas/)).toBeInTheDocument();
+    expect(screen.queryByText(/dentro de otra/)).not.toBeInTheDocument();
+  });
+
+  it('un caché viejo sin `padres` carga y se envía sin categoriaPadre', async () => {
+    vi.mocked(getParticipantCardSortingSession).mockResolvedValue(sesion('ABIERTO'));
+    vi.mocked(submitCardSortingResult).mockResolvedValue({ ok: true });
+    localStorage.setItem(
+      `cardSorting:progreso:${SESION_ID}`,
+      JSON.stringify({ asignaciones: { c1: 'Recursos', c2: 'Recursos' }, categoriasCreadas: ['Recursos'] }),
+    );
+    renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: 'Enviar clasificación' }));
+    expect(vi.mocked(submitCardSortingResult).mock.calls[0][1]).toEqual([
+      { categoriaNombre: 'Recursos', cardIds: ['c1', 'c2'] },
+    ]);
+  });
+
+  it('un caché con `padres` envía categoriaPadre y se guarda al anidar', async () => {
+    vi.mocked(getParticipantCardSortingSession).mockResolvedValue(sesion('ABIERTO'));
+    vi.mocked(submitCardSortingResult).mockResolvedValue({ ok: true });
+    localStorage.setItem(
+      `cardSorting:progreso:${SESION_ID}`,
+      JSON.stringify({
+        asignaciones: { c1: 'Biblioteca', c2: 'Recursos' },
+        categoriasCreadas: ['Recursos', 'Biblioteca'],
+        padres: { Biblioteca: 'Recursos' },
+      }),
+    );
+    renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: 'Enviar clasificación' }));
+    expect(vi.mocked(submitCardSortingResult).mock.calls[0][1]).toEqual([
+      { categoriaNombre: 'Recursos', cardIds: ['c2'] },
+      { categoriaNombre: 'Biblioteca', categoriaPadre: 'Recursos', cardIds: ['c1'] },
+    ]);
+  });
+});
