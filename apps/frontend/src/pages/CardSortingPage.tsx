@@ -5,7 +5,13 @@ import {
   useCreateCardSortingSession,
 } from '../features/card-sorting/hooks/useCardSortingQueries';
 import type { TipoCardSorting } from '../features/card-sorting/api/card-sorting.api';
+import { CardSortingGuide } from '../features/card-sorting/components/CardSortingGuide';
 import type { ProjectOutletContext } from '../layouts/ProjectDetailLayout';
+
+const TYPE_HINTS: Record<TipoCardSorting, string> = {
+  ABIERTO: 'Los participantes crean y nombran sus propias categorías. Úsalo para descubrir cómo piensan tus usuarios.',
+  CERRADO: 'Los participantes usan las categorías que defines tú. Úsalo para validar una estructura que ya tienes.',
+};
 
 function formatDate(value: string) {
   const date = new Date(value);
@@ -98,6 +104,7 @@ export function CardSortingPage() {
                 <option value="ABIERTO">Abierto — cada participante crea sus categorías</option>
                 <option value="CERRADO">Cerrado — usa categorías predefinidas</option>
               </select>
+              <small className="text-muted-sm" data-testid="cs-type-hint">{TYPE_HINTS[type]}</small>
             </label>
 
             <label className="field">
@@ -135,14 +142,8 @@ export function CardSortingPage() {
         </article>
 
         <aside className="panel sort-analysis">
-          <span className="kicker">FLUJO</span>
-          <h2>De la configuración a la evidencia</h2>
-          <ol className="cs-flow-list">
-            <li><span>1</span><p><strong>Configura</strong> las tarjetas y el tipo de estudio.</p></li>
-            <li><span>2</span><p><strong>Prueba</strong> la interacción antes de compartir.</p></li>
-            <li><span>3</span><p><strong>Comparte</strong> el enlace con consentimiento informado.</p></li>
-            <li><span>4</span><p><strong>Analiza</strong> matrices, categorías y consenso.</p></li>
-          </ol>
+          <h2>Cómo hacer un card sorting</h2>
+          <CardSortingGuide />
         </aside>
       </section>
 

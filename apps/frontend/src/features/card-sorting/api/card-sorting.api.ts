@@ -215,6 +215,9 @@ export interface CardSortingAnalytics {
   matrizSimilitud: number[][];
   frecuenciaPorCategoria: CardSortingFrecuenciaCategoria[];
   clusters: CardSortingCluster[];
+  sinConsenso: string[];
+  muestra: 'baja' | 'aceptable' | 'estable';
+  umbrales: { consenso: number; muestraMinima: number; muestraEstable: number };
   categorias: string[];
   resultsMatrix: CardSortingMatrix;
   popularPlacementsMatrix: CardSortingMatrix;

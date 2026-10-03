@@ -17,6 +17,12 @@ const TABS: Array<{ id: ResultsTab; label: string }> = [
   { id: 'similarity', label: 'Similitud' },
 ];
 
+const SAMPLE_MESSAGES: Record<'baja' | 'aceptable' | 'estable', (min: number, stable: number) => string> = {
+  baja: (min) => `Muestra baja: con menos de ${min} participantes completados los resultados son poco estables.`,
+  aceptable: (_min, stable) => `Muestra aceptable: desde ${stable} participantes la similitud se estabiliza.`,
+  estable: () => 'Muestra estable: el tamaño de muestra es suficiente para estimar la similitud.',
+};
+
 export function CardSortingResultsPage() {
   const { estudioId } = useParams<{ estudioId: string }>();
   const analyticsQuery = useCardSortingAnalytics(estudioId ?? null);
@@ -70,6 +76,14 @@ export function CardSortingResultsPage() {
         <article className="analytics-kpi"><span>ACUERDO GLOBAL</span><strong>{data.acuerdoGlobal}%</strong><small>similitud promedio</small></article>
         <article className="analytics-kpi"><span>CATEGORÍAS</span><strong>{data.categorias.length}</strong><small>nombres consolidados</small></article>
       </section>
+
+      <p
+        className={`cs-sample-note cs-sample-${data.muestra}`}
+        role="status"
+        data-testid="cs-sample-note"
+      >
+        {SAMPLE_MESSAGES[data.muestra](data.umbrales.muestraMinima, data.umbrales.muestraEstable)}
+      </p>
 
       {data.participantesCount === 0 ? (
         <article className="panel">
@@ -150,6 +164,9 @@ export function CardSortingResultsPage() {
 
             <article className="panel">
               <div className="panel-head"><div><span className="kicker">CONSENSO</span><h2>Agrupaciones dominantes</h2></div></div>
+              <p className="text-muted-sm">
+                Una tarjeta tiene consenso cuando más del {data.umbrales.consenso}% de los participantes la ubicó en la misma categoría (criterio del curso).
+              </p>
               <div className="clusters">
                 {data.clusters.map((cluster) => (
                   <div key={cluster.nombre} className="cluster">
@@ -159,6 +176,12 @@ export function CardSortingResultsPage() {
                   </div>
                 ))}
               </div>
+              {data.sinConsenso.length > 0 && (
+                <div className="cs-no-consensus">
+                  <h3>Sin consenso (≤{data.umbrales.consenso}%)</h3>
+                  <div className="chip-list">{data.sinConsenso.map((card) => <span key={card} className="chip">{card}</span>)}</div>
+                </div>
+              )}
             </article>
           </section>
         </>

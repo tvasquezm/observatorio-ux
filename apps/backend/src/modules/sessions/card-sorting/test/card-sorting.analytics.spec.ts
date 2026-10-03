@@ -195,4 +195,124 @@ describe('CardSortingService analytics y ciclo de vida', () => {
       },
     });
   });
+
+  describe('regla de consenso (>50%) y aviso de muestra', () => {
+    // Una sola tarjeta; `votosA` participantes la ubican en "A" y el resto en "B".
+    async function analyticsConVotos(votosA: number, total: number) {
+      const { prisma, service } = createService();
+      prisma.researchSession.findUnique.mockResolvedValue({
+        id: 'estudio-1',
+        nombre: 'Estudio',
+        proyectoId: 'proyecto-1',
+        evaluadorId: user.id,
+        tipo: TipoSesion.CARD_SORTING,
+        actor: ActorSesion.EVALUADOR,
+        cerrado: false,
+        createdAt: new Date('2026-09-13T12:00:00Z'),
+        cardsDefinidas: [{ id: 'card-1', etiqueta: 'Biblioteca' }],
+      });
+      const participantes = Array.from({ length: total }, (_, i) => ({ id: `p-${i}` }));
+      prisma.researchSession.findMany.mockResolvedValue(participantes);
+      prisma.cardGrouping.findMany.mockResolvedValue(
+        participantes.map((p, i) => ({
+          participanteSesionId: p.id,
+          cardId: 'card-1',
+          categoryId: `cat-${i}`,
+          card: { id: 'card-1', etiqueta: 'Biblioteca' },
+          category: { id: `cat-${i}`, nombre: i < votosA ? 'A' : 'B' },
+        })),
+      );
+      return service.getAnalytics('estudio-1', user);
+    }
+
+    it('incluye en clusters una tarjeta con 60% en la misma categoría', async () => {
+      const analytics = await analyticsConVotos(6, 10);
+      expect(analytics.clusters).toEqual([{ nombre: 'A', tarjetas: ['Biblioteca'], acuerdo: 60 }]);
+      expect(analytics.sinConsenso).toEqual([]);
+    });
+
+    it('con 40% en A, el consenso es de la categoría mayoritaria B', async () => {
+      const analytics = await analyticsConVotos(4, 10);
+      expect(analytics.clusters).toEqual([{ nombre: 'B', tarjetas: ['Biblioteca'], acuerdo: 60 }]);
+      expect(analytics.sinConsenso).toEqual([]);
+    });
+
+    it('no da consenso con 50% exacto (la regla es estrictamente mayor)', async () => {
+      const analytics = await analyticsConVotos(5, 10);
+      expect(analytics.clusters).toEqual([]);
+      expect(analytics.sinConsenso).toEqual(['Biblioteca']);
+      expect(analytics.umbrales.consenso).toBe(50);
+    });
+
+    it('deja sin consenso una tarjeta repartida en tres categorías', async () => {
+      const { prisma, service } = createService();
+      prisma.researchSession.findUnique.mockResolvedValue({
+        id: 'estudio-1',
+        nombre: 'Estudio',
+        proyectoId: 'proyecto-1',
+        evaluadorId: user.id,
+        tipo: TipoSesion.CARD_SORTING,
+        actor: ActorSesion.EVALUADOR,
+        cerrado: false,
+        createdAt: new Date('2026-09-13T12:00:00Z'),
+        cardsDefinidas: [{ id: 'card-1', etiqueta: 'Biblioteca' }],
+      });
+      const nombres = ['A', 'B', 'C', 'A', 'B'];
+      prisma.researchSession.findMany.mockResolvedValue(nombres.map((_, i) => ({ id: `p-${i}` })));
+      prisma.cardGrouping.findMany.mockResolvedValue(
+        nombres.map((nombre, i) => ({
+          participanteSesionId: `p-${i}`,
+          cardId: 'card-1',
+          categoryId: `cat-${i}`,
+          card: { id: 'card-1', etiqueta: 'Biblioteca' },
+          category: { id: `cat-${i}`, nombre },
+        })),
+      );
+      const analytics = await service.getAnalytics('estudio-1', user);
+      expect(analytics.clusters).toEqual([]);
+      expect(analytics.sinConsenso).toEqual(['Biblioteca']);
+    });
+
+    it.each([
+      [0, 'baja'],
+      [14, 'baja'],
+      [15, 'aceptable'],
+      [29, 'aceptable'],
+      [30, 'estable'],
+    ])('con %i participantes la muestra es %s', async (total, esperado) => {
+      const analytics = await analyticsConVotos(total, total);
+      expect(analytics.muestra).toBe(esperado);
+      expect(analytics.umbrales).toMatchObject({ muestraMinima: 15, muestraEstable: 30 });
+    });
+
+    it('consolida categorías que difieren solo en tildes o mayúsculas', async () => {
+      const { prisma, service } = createService();
+      prisma.researchSession.findUnique.mockResolvedValue({
+        id: 'estudio-1',
+        nombre: 'Estudio',
+        proyectoId: 'proyecto-1',
+        evaluadorId: user.id,
+        tipo: TipoSesion.CARD_SORTING,
+        actor: ActorSesion.EVALUADOR,
+        cerrado: false,
+        createdAt: new Date('2026-09-13T12:00:00Z'),
+        cardsDefinidas: [{ id: 'card-1', etiqueta: 'Biblioteca' }],
+      });
+      const nombres = ['Navegación', 'navegacion', 'NAVEGACIÓN'];
+      prisma.researchSession.findMany.mockResolvedValue(nombres.map((_, i) => ({ id: `p-${i}` })));
+      prisma.cardGrouping.findMany.mockResolvedValue(
+        nombres.map((nombre, i) => ({
+          participanteSesionId: `p-${i}`,
+          cardId: 'card-1',
+          categoryId: `cat-${i}`,
+          card: { id: 'card-1', etiqueta: 'Biblioteca' },
+          category: { id: `cat-${i}`, nombre },
+        })),
+      );
+      const analytics = await service.getAnalytics('estudio-1', user);
+      expect(analytics.categorias).toEqual(['Navegación']);
+      expect(analytics.clusters).toHaveLength(1);
+      expect(analytics.clusters[0].acuerdo).toBe(100);
+    });
+  });
 });

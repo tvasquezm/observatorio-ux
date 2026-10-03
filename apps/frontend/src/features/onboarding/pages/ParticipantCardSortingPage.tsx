@@ -66,6 +66,7 @@ export function ParticipantCardSortingPage() {
 
   const [asignaciones, setAsignaciones] = useState<Record<string, string>>({});
   const [categoriasCreadas, setCategoriasCreadas] = useState<string[]>([]);
+  const [introVista, setIntroVista] = useState(false);
 
   useEffect(() => {
     if (!sesionId) return;
@@ -209,6 +210,35 @@ export function ParticipantCardSortingPage() {
           Este estudio ya no acepta envíos — el evaluador lo cerró. Tu clasificación no se pudo
           enviar.
           </p>
+        </section>
+      </main>
+    );
+  }
+
+  // La intro se omite si ya hay progreso guardado (recarga o regreso).
+  const hayProgreso = Object.keys(asignaciones).length > 0 || categoriasCreadas.length > 0;
+  if (!introVista && !hayProgreso) {
+    const abierto = sesion.estudio.tipoCardSorting === 'ABIERTO';
+    return (
+      <main className="onboarding participant-entry">
+        <section className="participant-card participant-intro" aria-labelledby="participant-intro-title">
+          <span className="eyebrow">Card Sorting · Participación anónima</span>
+          <h1 id="participant-intro-title">{sesion.estudio.nombre}</h1>
+          <ul>
+            <li>No hay respuestas correctas: agrupa las tarjetas según cómo las relacionas tú.</li>
+            <li>
+              {abierto
+                ? 'Crea tus propias categorías y ponles el nombre que mejor las describa.'
+                : 'Usa las categorías que se te muestran; no puedes crear nuevas.'}
+            </li>
+            <li>
+              Son {sesion.estudio.cardsDefinidas.length} tarjetas y debes ubicarlas todas antes de enviar.
+            </li>
+            <li>Tu avance se guarda en este dispositivo. No escribas datos personales.</li>
+          </ul>
+          <button type="button" className="primary" onClick={() => setIntroVista(true)}>
+            Comenzar
+          </button>
         </section>
       </main>
     );

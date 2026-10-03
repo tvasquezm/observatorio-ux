@@ -20,6 +20,14 @@ import {
   CreateCardSortingSessionDto,
 } from './dto/card-sorting.dto';
 
+// Criterio del curso (no estándar de la industria): una tarjeta tiene consenso
+// si más del 50% de los participantes la ubicó en la misma categoría.
+export const UMBRAL_CONSENSO = 0.5;
+// Referencias de tamaño de muestra: ≥15 da una estimación razonable de la
+// similitud y ≥30 la estabiliza (Tullis & Wood; Lantz et al. 2019).
+export const MUESTRA_MINIMA = 15;
+export const MUESTRA_ESTABLE = 30;
+
 export type Grupo = {
   categoriaId?: string;
   categoriaNombre?: string;
@@ -315,7 +323,11 @@ export class CardSortingService {
     // por nombre; las categorías cerradas también quedan representadas por
     // esa misma clave estable.
     const normalizarCategoria = (nombre: string) =>
-      nombre.trim().toLocaleLowerCase('es-CL');
+      nombre
+        .trim()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLocaleLowerCase('es-CL');
     const nombresCategoria = new Map<string, string>();
 
     // participanteSesionId -> (cardId -> clave de categoría normalizada).
@@ -371,8 +383,10 @@ export class CardSortingService {
       .sort((a, b) => b.count - a.count);
 
     // Clústeres: por cada tarjeta, su categoría más frecuente entre
-    // participantes; se agrupan tarjetas que comparten esa categoría.
+    // participantes. Solo entran las tarjetas con consenso (> UMBRAL_CONSENSO
+    // de los participantes en la misma categoría); el resto va a sinConsenso.
     const clusterMap = new Map<string, { nombre: string; cardIds: string[]; totalVotos: number; votosGanador: number }>();
+    const sinConsenso: string[] = [];
     for (const card of cards) {
       const conteo = new Map<string, number>();
       for (const asignaciones of porParticipante.values()) {
@@ -382,6 +396,10 @@ export class CardSortingService {
       }
       if (conteo.size === 0) continue;
       const [categoriaGanadora, votos] = [...conteo.entries()].sort((a, b) => b[1] - a[1])[0];
+      if (votos / participantesCount <= UMBRAL_CONSENSO) {
+        sinConsenso.push(card.etiqueta);
+        continue;
+      }
       const nombreCat = nombresCategoria.get(categoriaGanadora) ?? 'Sin nombre';
       const totalVotosCard = [...conteo.values()].reduce((a, b) => a + b, 0);
       const entry = clusterMap.get(categoriaGanadora) ?? {
@@ -402,6 +420,13 @@ export class CardSortingService {
         acuerdo: c.totalVotos > 0 ? Math.round((c.votosGanador / c.totalVotos) * 100) : 0,
       }))
       .sort((a, b) => b.acuerdo - a.acuerdo);
+
+    const muestra: 'baja' | 'aceptable' | 'estable' =
+      participantesCount >= MUESTRA_ESTABLE
+        ? 'estable'
+        : participantesCount >= MUESTRA_MINIMA
+          ? 'aceptable'
+          : 'baja';
 
     // Acuerdo global: promedio de la matriz de similitud (excluyendo diagonal).
     let sumaSimilitud = 0;
@@ -494,6 +519,13 @@ export class CardSortingService {
       matrizSimilitud: matriz,
       frecuenciaPorCategoria: frecuencia,
       clusters,
+      sinConsenso,
+      muestra,
+      umbrales: {
+        consenso: Math.round(UMBRAL_CONSENSO * 100),
+        muestraMinima: MUESTRA_MINIMA,
+        muestraEstable: MUESTRA_ESTABLE,
+      },
       categorias: categorias.map((categoria) => categoria.nombre),
       resultsMatrix,
       popularPlacementsMatrix,
