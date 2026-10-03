@@ -176,7 +176,6 @@ export function PersonasPage() {
   return (
     <div className="artifact-page personas-page">
       <TechniquePageHeader
-        label="TÉCNICA DE INVESTIGACIÓN"
         title="Personas"
         description="Construye perfiles claros para diseñar con las necesidades reales en mente."
         action={puedeEditar ? (
@@ -191,7 +190,6 @@ export function PersonasPage() {
         <form onSubmit={handleSubmit} className="panel persona-editor" aria-labelledby="persona-editor-title">
           <div className="persona-editor-head">
             <div>
-              <span className="eyebrow">CONSTRUCCIÓN DEL PERFIL</span>
               <h3 id="persona-editor-title">{editandoId ? 'Editar persona' : 'Nueva persona'}</h3>
               <p>Describe a quién representa este perfil y qué evidencia lo sustenta.</p>
             </div>

@@ -169,7 +169,6 @@ export function MomentosCriticosPage() {
   return (
     <div className="artifact-page">
       <TechniquePageHeader
-        label="TÉCNICA DE INVESTIGACIÓN"
         title="Momentos críticos"
         description="Prioriza los incidentes que más afectan la experiencia de tus usuarios."
         action={<span className="status-pill">Matriz de impacto</span>}

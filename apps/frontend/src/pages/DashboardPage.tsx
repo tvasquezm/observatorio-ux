@@ -18,8 +18,8 @@ const TECHNIQUES = [
 ] as const;
 
 function fechaHoy() {
-  const f = new Date();
-  return f.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase();
+  const f = new Date().toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  return f.charAt(0).toUpperCase() + f.slice(1);
 }
 
 export function DashboardPage() {
@@ -37,7 +37,7 @@ export function DashboardPage() {
     <div className="fade">
       <section className="welcome">
         <div>
-          <span className="kicker">{fechaHoy()} · <i className="status-dot-active">●</i> {total} PROYECTO{total === 1 ? '' : 'S'} DISPONIBLE{total === 1 ? '' : 'S'}</span>
+          <p className="welcome-meta">{fechaHoy()} · {total} {total === 1 ? 'proyecto disponible' : 'proyectos disponibles'}</p>
           <h1>Un mapa claro para decidir mejor.</h1>
           <p>
             {activo
@@ -56,34 +56,25 @@ export function DashboardPage() {
         </div>
       </section>
 
-      <section className="metrics">
-        <article className="metric rise">
-          <small>Proyectos</small>
-          <strong>{isLoading ? '—' : String(total).padStart(2, '0')}</strong>
-          <p>Proyectos de investigación activos</p>
-        </article>
-        <article className="metric rise">
-          <small>Sesiones</small>
-          <strong>{isLoading ? '—' : String(totalSesiones).padStart(2, '0')}</strong>
-          <p>Sesiones registradas en tus proyectos</p>
-        </article>
-        <article className="metric rise">
-          <small>Perspectiva activa</small>
-          <strong className="stat-value">{activeRole ? PERSPECTIVE_LABELS[activeRole] : '—'}</strong>
-          <p>{user?.nombre} · cuenta {user?.rol?.toLowerCase()}</p>
-        </article>
-        <article className="metric rise">
-          <small>Proyecto reciente</small>
-          <strong className="stat-value">{activo?.nombre ?? 'Ninguno'}</strong>
-          <p>{activo ? 'Abre una técnica para trabajar' : 'Crea uno desde "Proyectos"'}</p>
-        </article>
-      </section>
+      <dl className="dash-facts">
+        <div>
+          <dt>Sesiones registradas</dt>
+          <dd>{isLoading ? '—' : totalSesiones}</dd>
+        </div>
+        <div>
+          <dt>Perspectiva activa</dt>
+          <dd>{activeRole ? PERSPECTIVE_LABELS[activeRole] : '—'}</dd>
+        </div>
+        <div>
+          <dt>Proyecto reciente</dt>
+          <dd>{activo?.nombre ?? 'Ninguno'}</dd>
+        </div>
+      </dl>
 
       {esEstudiante && (
         <section className="panel">
           <div className="panel-head">
             <div>
-              <span className="kicker">MIS SALAS</span>
               <h2>Salas en las que estás inscrito</h2>
             </div>
           </div>
@@ -105,7 +96,6 @@ export function DashboardPage() {
 
       <div className="section-title">
         <div>
-          <span className="kicker">MÉTODOS DISPONIBLES</span>
           <h2>Tu investigación, en vistas conectadas</h2>
         </div>
         <span className="count">5 métodos</span>
@@ -129,7 +119,6 @@ export function DashboardPage() {
         <article className="panel">
           <div className="panel-head">
             <div>
-              <span className="kicker">PROYECTOS</span>
               <h2>Actividad reciente</h2>
             </div>
             <Link to="/proyectos" className="ghost">Ver todos →</Link>
@@ -154,7 +143,6 @@ export function DashboardPage() {
           )}
         </article>
         <article className="panel decision">
-          <span className="kicker">CÓMO USAR EL OBSERVATORIO</span>
           <h2>Cada técnica alimenta la misma decisión.</h2>
           <p>Registra evidencia en persona, journey map, momentos críticos, card sorting y evaluación heurística, y conéctalas para argumentar un cambio de diseño.</p>
           {activo && <Link to={`/proyectos/${activo.id.replace(/^\//, '')}`} className="secondary">Abrir proyecto →</Link>}

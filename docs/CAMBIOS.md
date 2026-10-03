@@ -47,6 +47,35 @@ y quirúrgicas. No hay archivos inventados desde cero salvo los indicados.
   reintento tras cancelar; `CardSortingWorkspace.test.tsx` cubre puntero táctil
   y fino.
 
+## Auditoría UI/UX — Fase 5a: kickers, métricas y bordes laterales (03-10-2026)
+
+- `AppErrorBoundary`, `NotFoundPage`, `ProjectDetailLayout`, `DashboardPage`,
+  `PersonasPage`, `MomentosCriticosPage` y `JourneyMapPage`: se quitan los
+  `kicker`/`eyebrow` decorativos. `TechniquePageHeader` pierde las props
+  `label` y `labelVariant`. En Journey el nombre de la persona pasa de la
+  etiqueta a una línea bajo el título, porque era dato y no decoración.
+  Quedan por quitar en 5b y 5c los kickers de las pantallas restantes y,
+  con ellos, las reglas `.kicker`/`.eyebrow`/`.project-kicker`.
+- `DashboardPage`: la fecha y el conteo de proyectos son texto normal; las
+  cuatro tarjetas de métricas pasan a una franja `dl.dash-facts` (sesiones,
+  perspectiva activa, proyecto reciente). El conteo de proyectos ya figura en
+  la línea de bienvenida. Se elimina el CSS de `.metric`, `.metrics`,
+  `.stat-value` y `.status-dot-active`, que solo usaba esta pantalla.
+- `apps/frontend/src/styles/theme.css`: los 10 `border-left` de color de 2 a
+  3 px (blockquote de persona, `.callout`, `.cluster`, instrucciones de card
+  sorting, `.recovery-note`, `.consent-note`, `.cs-share-bar`, error del
+  informe, avisos `.toast-item--*` y `.insight > div`) pasan a borde de 1 px
+  con fondo tintado por token. `.consent-note` usa tokens también en el texto
+  (antes tenía grises fijos). En los avisos el acento lateral no se aplicaba,
+  porque el `border` posterior pisaba su color; ahora cada estado se
+  distingue por borde y fondo. `.insight` no se usa en ningún TSX y queda sin
+  tocar salvo esas dos reglas.
+- Test: `DashboardPage.test.tsx` lee el dato de sesiones desde la franja
+  nueva.
+- Verificación: `impeccable detect` baja de 12 a 2 hallazgos en `theme.css`
+  (quedan el `border-bottom` de 3 px de la cabecera del informe y la fuente
+  Inter, decidida en la fase 1).
+
 ## Auditoría UI/UX — Fase 4b-1: tablas, viewport, movimiento y estilos en línea (03-10-2026)
 
 - `<th>` con `scope="col"` en las 12 cabeceras de las tablas de

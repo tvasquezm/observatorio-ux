@@ -56,6 +56,12 @@ All notable changes to this project will be documented in this file. See [commit
 * **ux:** salir de un formulario con cambios sin guardar usa el modal de la
   app en vez de `window.confirm`, y el card sorting en pantallas táctiles indica
   seleccionar y usar "Mover aquí" en vez de arrastrar.
+* **ui:** quita las etiquetas decorativas sobre los títulos en la cabecera del
+  proyecto, el dashboard, Personas, Journey, Momentos críticos y las pantallas
+  de error; el dashboard reemplaza las tarjetas de métricas por una franja de
+  datos; los avisos, notas y callouts pasan del borde lateral de color a un
+  fondo tintado, y los avisos de error, éxito e información se distinguen por
+  borde y fondo.
 
 * **deps:** actualiza los overrides de brace-expansion, fast-uri y multer a
   versiones corregidas; elimina las alertas encontradas por `pnpm audit`.

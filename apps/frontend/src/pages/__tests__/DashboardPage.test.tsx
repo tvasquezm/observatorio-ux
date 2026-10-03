@@ -56,9 +56,9 @@ describe('DashboardPage', () => {
       </MemoryRouter>,
     );
 
-    const metricaSesiones = screen.getByText('Sesiones').closest('article');
-    expect(metricaSesiones).not.toBeNull();
-    expect(within(metricaSesiones!).getByText('05')).toBeInTheDocument();
+    const datoSesiones = screen.getByText('Sesiones registradas').closest('div');
+    expect(datoSesiones).not.toBeNull();
+    expect(within(datoSesiones!).getByText('5')).toBeInTheDocument();
     expect(screen.getByText('2 sesiones registradas')).toBeInTheDocument();
     expect(screen.getByText('3 sesiones registradas')).toBeInTheDocument();
   });

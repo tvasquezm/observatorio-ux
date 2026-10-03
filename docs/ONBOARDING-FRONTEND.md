@@ -155,7 +155,7 @@ limitación de origen.
 Extraído del mockup de referencia (`UX-Observatory-Presentacion.html`).
 Variables clave: `--navy`, `--teal`, `--mint`, `--ink`, `--muted`, `--bg`,
 `--line`, `--coral`. Clases reutilizables ya definidas: `.panel`,
-`.panel-head`, `.metric`, `.primary`/`.secondary`, `.project-row`,
+`.panel-head`, `.primary`/`.secondary`, `.project-row`,
 `.nav-btn`, `.field`. Antes de escribir CSS nuevo, revisar si ya existe una
 clase para eso — el objetivo es que toda página nueva se vea consistente
 con el mockup sin reinventar estilos sueltos por página.

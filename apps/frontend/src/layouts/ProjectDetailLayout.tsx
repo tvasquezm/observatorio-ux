@@ -45,7 +45,6 @@ export function ProjectDetailLayout() {
     <div>
       <div className="page-head">
         <div>
-          <span className="kicker">PROYECTO DE INVESTIGACIÓN</span>
           <h1>{proyecto?.nombre ?? 'Proyecto'}</h1>
           {proyecto?.descripcion && <p>{proyecto.descripcion}</p>}
         </div>

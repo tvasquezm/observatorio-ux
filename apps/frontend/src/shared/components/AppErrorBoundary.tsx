@@ -18,7 +18,6 @@ export class AppErrorBoundary extends Component<Props, State> {
     if (!this.state.hasError) return this.props.children;
     return (
       <main className="route-state" role="alert">
-        <span className="kicker">ALGO SALIÓ MAL</span>
         <h1>No pudimos mostrar esta pantalla</h1>
         <p>Tus datos guardados siguen intactos. Recarga para volver a intentarlo.</p>
         <button type="button" className="primary" onClick={() => window.location.reload()}>

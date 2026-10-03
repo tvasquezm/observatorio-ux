@@ -131,8 +131,6 @@ export function JourneyMapPage() {
   return (
     <div className="fade">
       <TechniquePageHeader
-        label="EXPERIENCIA DE PRINCIPIO A FIN"
-        labelVariant="kicker"
         title="Journey Maps"
         description="Visualiza el recorrido completo y encuentra el momento en que la experiencia pierde confianza."
         action={puedeEditar ? (
@@ -274,8 +272,8 @@ export function JourneyMapPage() {
           <article key={j.id} className="panel journey-board rise mb-16">
             <div className="panel-head">
               <div>
-                <span className="kicker">RECORRIDO DE {j.contenido.perfilUsuario.nombre.toUpperCase()}</span>
                 <h2>{j.contenido.perfilUsuario.rol || 'Journey Map'}</h2>
+                <p className="text-muted-sm">Recorrido de {j.contenido.perfilUsuario.nombre}</p>
               </div>
               <div className="row-gap-md">
                 <span className="count">Emoción media {avg.toFixed(1)}/5</span>
