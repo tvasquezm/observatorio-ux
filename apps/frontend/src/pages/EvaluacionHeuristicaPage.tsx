@@ -77,7 +77,7 @@ export function EvaluacionHeuristicaPage() {
       </div>
 
       <div className="panel mb-16">
-        <form onSubmit={handleSubmit} className="form-grid" style={{ maxWidth: 520 }}>
+        <form onSubmit={handleSubmit} className="form-grid u-maxw-520">
           <label className="field">
             Código de heurística
             <input
@@ -145,7 +145,7 @@ export function EvaluacionHeuristicaPage() {
         </div>
 
         {sesion?.resultado.length === 0 && (
-          <p className="text-muted" style={{ fontSize: 11 }}>Todavía no hay hallazgos registrados en esta sesión.</p>
+          <p className="text-muted-xs">Todavía no hay hallazgos registrados en esta sesión.</p>
         )}
 
         {sesion?.resultado.map((h) => {

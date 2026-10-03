@@ -129,7 +129,7 @@ export function AdminProjectsPanel() {
         <div className="table-shell">
           <table className="data-table admin-table admin-projects-table">
             <caption className="sr-only">Proyectos y avance de sus sesiones</caption>
-            <thead><tr><th>Proyecto</th><th>Responsable</th><th>Sesiones</th><th>Artefactos</th><th><span className="sr-only">Acciones</span></th></tr></thead>
+            <thead><tr><th scope="col">Proyecto</th><th scope="col">Responsable</th><th scope="col">Sesiones</th><th scope="col">Artefactos</th><th scope="col"><span className="sr-only">Acciones</span></th></tr></thead>
             <tbody>
               {projects.map((project) => (
                 <tr key={project.id}>

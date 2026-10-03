@@ -248,8 +248,8 @@ function ProyectosDeSala({ salaId, sala }: { salaId: string; sala: Sala }) {
 
   return (
     <div>
-      <form onSubmit={handleGuardarToggleProyectos} className="form-row-inline" style={{ marginBottom: 16 }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <form onSubmit={handleGuardarToggleProyectos} className="form-row-inline u-mb-16">
+        <label className="check-row">
           <input
             type="checkbox"
             checked={permiteCreacionProyectos}
@@ -305,7 +305,7 @@ function ProyectosDeSala({ salaId, sala }: { salaId: string; sala: Sala }) {
               <b>{p.nombre}</b>
               {p.descripcion && <div className="text-muted-sm">{p.descripcion}</div>}
             </div>
-            <div className="form-row-inline" style={{ margin: 0 }}>
+            <div className="form-row-inline u-m-0">
               <Link to={`/proyectos/${p.id}`} className="secondary">Ver proyecto →</Link>
               <button
                 type="button"
@@ -374,7 +374,7 @@ function EstudiantesDeSala({ salaId }: { salaId: string }) {
 
   return (
     <div>
-      <div className="form-row-inline" style={{ marginBottom: 12 }}>
+      <div className="form-row-inline u-mb-12">
         <button
           type="button"
           className={modo === 'individual' ? 'primary' : 'secondary'}
@@ -417,7 +417,7 @@ function EstudiantesDeSala({ salaId }: { salaId: string }) {
       )}
 
       {modo === 'bulk' && (
-        <form onSubmit={handleAgregarBulk} className="form-grid" style={{ maxWidth: 480 }}>
+        <form onSubmit={handleAgregarBulk} className="form-grid u-maxw-480">
           <label className="field">
             Un estudiante por línea — <code>email</code> o <code>email, nombre</code>
             <textarea
@@ -543,8 +543,8 @@ function EquiposDeSalaDocente({ salaId, sala }: { salaId: string; sala: Sala }) 
 
   return (
     <div>
-      <form onSubmit={handleGuardarToggle} className="form-row-inline" style={{ marginBottom: 16 }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <form onSubmit={handleGuardarToggle} className="form-row-inline u-mb-16">
+        <label className="check-row">
           <input
             type="checkbox"
             checked={permiteCreacion}
@@ -559,8 +559,7 @@ function EquiposDeSalaDocente({ salaId, sala }: { salaId: string; sala: Sala }) 
             min={1}
             value={limite}
             onChange={(e) => setLimite(e.target.value)}
-            className="input-flex"
-            style={{ maxWidth: 120 }}
+            className="input-flex u-maxw-120"
           />
         </label>
         <button type="submit" className="primary" disabled={guardandoToggle}>
@@ -594,7 +593,7 @@ function EquiposDeSalaDocente({ salaId, sala }: { salaId: string; sala: Sala }) 
       <div className="list-stack mt-16">
         {equipos?.map((equipo) => (
           <div key={equipo.id} className="entity-card">
-            <div style={{ width: '100%' }}>
+            <div className="u-w-full">
               {equipoRenombrando === equipo.id ? (
                 <div className="form-row-inline">
                   <input
@@ -745,7 +744,7 @@ function EquiposDeSalaEstudiante({ salaId, sala }: { salaId: string; sala: Sala 
           const esMiEquipo = equipo.id === miEquipo?.id;
           return (
             <article key={equipo.id} className="entity-card">
-              <div style={{ width: '100%' }}>
+              <div className="u-w-full">
                 <div className="row-between">
                   <b>{equipo.nombre}</b>
                   {esMiEquipo && (

@@ -50,6 +50,9 @@ All notable changes to this project will be documented in this file. See [commit
 * **ui:** el breadcrumb es una `<nav>` con enlaces y el nombre real del
   proyecto, y cada pantalla fija un título de documento propio
   (`useDocumentTitle`).
+* **ui:** las cabeceras de tabla declaran `scope`, `prefers-reduced-motion`
+  sustituye las animaciones por fundidos breves en vez de apagarlas, el alto de
+  pantalla usa `dvh` y los espaciados en línea pasan a clases.
 
 * **deps:** actualiza los overrides de brace-expansion, fast-uri y multer a
   versiones corregidas; elimina las alertas encontradas por `pnpm audit`.

@@ -79,7 +79,7 @@ button { cursor: pointer; }
 .sala-date-arrow { color: var(--muted); font-size: 16px; }
 .sala-date-separator { width: 1px; height: 28px; background: var(--line); }
 .salas-empty { padding: 32px; border: 1px dashed var(--line); border-radius: 12px; color: var(--muted); text-align: center; }
-.sala-modal { width: min(520px, calc(100% - 28px)); max-height: calc(100vh - 32px); overflow: auto; padding: 24px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+.sala-modal { width: min(520px, calc(100% - 28px)); max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); overflow: auto; padding: 24px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
 .sala-modal::backdrop { background: rgba(0, 0, 0, .5); }
 .sala-modal h3 { margin: 0 0 16px; color: var(--ink); }
 .sala-form { display: flex; flex-direction: column; gap: 14px; }
@@ -124,6 +124,7 @@ button { cursor: pointer; }
 /* ---------- Login ---------- */
 .login {
   min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
   grid-template-columns: minmax(330px, 470px) 1fr;
   background: linear-gradient(135deg, #f4f7fb, var(--surface-muted));
@@ -156,9 +157,6 @@ button { cursor: pointer; }
 .rise { animation: rise .45s ease both; }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce) {
-  *, *:before, *:after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
-}
 .login-card h1 {
   font-size: 28px; line-height: 1.05; letter-spacing: -.055em;
   color: var(--navy); margin: 9px 0; font-family: Georgia, serif;
@@ -197,7 +195,7 @@ button { cursor: pointer; }
   --perspective-accent: var(--navy);
   --perspective-soft: #edf0f5;
   --perspective-text: var(--navy);
-  min-height: 100vh; display: grid; grid-template-columns: 254px 1fr;
+  min-height: 100vh; min-height: 100dvh; display: grid; grid-template-columns: 254px 1fr;
 }
 .app[data-perspective='estudiante'] {
   --perspective-accent: var(--mint);
@@ -1036,9 +1034,6 @@ button { cursor: pointer; }
   from { opacity: 0; transform: scale(0.97); }
   to { opacity: 1; transform: scale(1); }
 }
-@media (prefers-reduced-motion: reduce) {
-  .confirm-dialog { animation: none !important; }
-}
 
 .toast-stack {
   position: fixed; bottom: 20px; right: 20px; display: flex;
@@ -1058,9 +1053,6 @@ button { cursor: pointer; }
 @keyframes toast-in {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .toast-item { animation: none !important; }
 }
 
 /* ---------- Responsive reforzado: móvil táctil y tablet ---------- */
@@ -1978,3 +1970,25 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .crumb a { color: var(--muted); text-decoration: none; }
 .crumb a:hover { color: var(--ink); text-decoration: underline; }
 .crumb a:focus-visible { outline: 3px solid color-mix(in srgb, var(--teal) 35%, transparent); outline-offset: 2px; border-radius: 3px; }
+
+/* Utilidades de espaciado (reemplazan estilos en línea) */
+.u-m-0 { margin: 0; }
+.u-mb-12 { margin-bottom: 12px; }
+.u-mb-16 { margin-bottom: 16px; }
+.u-w-full { width: 100%; }
+.u-maxw-120 { max-width: 120px; }
+.u-maxw-480 { max-width: 480px; }
+.u-maxw-520 { max-width: 520px; }
+.check-row { display: flex; align-items: center; gap: 8px; }
+
+/* Movimiento reducido: sin desplazamientos ni animaciones; las entradas pasan a
+   un fundido corto y los cambios de estado conservan una transición breve. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-property: color, background-color, border-color, box-shadow, opacity !important;
+    transition-duration: .12s !important;
+  }
+  .rise, .toast, .toast-item, .confirm-dialog, .perspective-preview {
+    animation: fade .12s ease both !important;
+  }
+}

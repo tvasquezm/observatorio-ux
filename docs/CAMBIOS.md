@@ -31,6 +31,25 @@ y quirúrgicas. No hay archivos inventados desde cero salvo los indicados.
   oscuro que los tokens vuelven redundantes (botón primario, `.crumb`,
   `.role`/`.count`, `.node`, textos secundarios y el bloque de la fase 1).
 
+## Auditoría UI/UX — Fase 4b-1: tablas, viewport, movimiento y estilos en línea (03-10-2026)
+
+- `<th>` con `scope="col"` en las 12 cabeceras de las tablas de
+  `AdminProjectsPanel`, `UserAccountsPanel`, `AdminProfesoresPage`,
+  `SalasEliminadasPage` y `CardSortingResultsPage`. La cabecera vacía de
+  `SalasEliminadasPage` pasa a "Acciones" solo para lectores de pantalla.
+- `apps/frontend/src/styles/theme.css`: `100vh` con respaldo `100dvh` en
+  `.sala-modal`, `.login` y `.app`. Se elimina el apagado global de
+  animaciones y transiciones (`.01ms`); con `prefers-reduced-motion` las
+  entradas pasan a un fundido de 120 ms y las transiciones se limitan a
+  color, fondo, borde, sombra y opacidad (sin desplazamientos). Se quitan los
+  dos bloques sueltos de `.confirm-dialog` y `.toast-item`.
+- 14 `style={{}}` de espaciado pasan a clases (`.u-mb-12`, `.u-mb-16`,
+  `.u-m-0`, `.u-w-full`, `.u-maxw-120/480/520`, `.check-row`) en
+  `SalaDetallePage`, `EvaluacionHeuristicaPage` y `ProjectParticipantsPage`.
+  El texto de 11 px de Evaluación Heurística usa `.text-muted-xs` (12 px).
+- Quedan 3 `style={{ width }}` en las barras de porcentaje
+  (`CardSortingResultsPage`, `AnalyticsPage`): el valor es dinámico.
+
 ## Auditoría UI/UX — Fase 3: íconos SVG (03-10-2026)
 
 - `apps/frontend/src/shared/components/ui/Icon.tsx` (nuevo): componente

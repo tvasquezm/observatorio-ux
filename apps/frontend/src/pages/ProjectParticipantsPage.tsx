@@ -104,7 +104,7 @@ export function ProjectParticipantsPage() {
         </section>
       )}
 
-      {canManage && <div className="form-row-inline" style={{ marginBottom: 12 }}>
+      {canManage && <div className="form-row-inline u-mb-12">
         <button
           type="button"
           className={modo === 'individual' ? 'primary' : 'secondary'}
@@ -147,7 +147,7 @@ export function ProjectParticipantsPage() {
       )}
 
       {canManage && modo === 'bulk' && (
-        <form onSubmit={handleAgregarBulk} className="form-grid" style={{ maxWidth: 480 }}>
+        <form onSubmit={handleAgregarBulk} className="form-grid u-maxw-480">
           <label className="field">
             Un participante por línea — <code>email</code> o <code>email, nombre</code>
             <textarea

@@ -47,7 +47,7 @@ export function UserAccountsPanel() {
           <table className="data-table admin-table">
             <caption className="sr-only">Cuentas registradas y sus roles</caption>
             <thead>
-              <tr><th>Persona</th><th>Correo</th><th>Rol</th><th>Registro</th></tr>
+              <tr><th scope="col">Persona</th><th scope="col">Correo</th><th scope="col">Rol</th><th scope="col">Registro</th></tr>
             </thead>
             <tbody>
               {accounts.map((account) => {

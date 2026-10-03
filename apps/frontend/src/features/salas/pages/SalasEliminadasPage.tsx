@@ -70,10 +70,10 @@ export function SalasEliminadasPage() {
           <caption className="sr-only">Salas disponibles para recuperar</caption>
           <thead>
             <tr>
-              <th>Nombre</th>
-              <th>Período</th>
-              <th>Días restantes</th>
-              <th></th>
+              <th scope="col">Nombre</th>
+              <th scope="col">Período</th>
+              <th scope="col">Días restantes</th>
+              <th scope="col"><span className="sr-only">Acciones</span></th>
             </tr>
           </thead>
           <tbody>

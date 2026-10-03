@@ -217,7 +217,7 @@ function CardsTable({ data }: { data: CardSortingPorCarta[] }) {
   return (
     <div className="cs-table-wrap"><table className="cs-table">
       <caption className="sr-only">Categorías utilizadas para cada tarjeta</caption>
-      <thead><tr><th>Tarjeta</th><th>Categorías distintas</th><th>Distribución</th></tr></thead>
+      <thead><tr><th scope="col">Tarjeta</th><th scope="col">Categorías distintas</th><th scope="col">Distribución</th></tr></thead>
       <tbody>{data.map((row) => (
         <tr key={row.tarjeta}>
           <th scope="row">{row.tarjeta}</th>
@@ -233,7 +233,7 @@ function CategoriesTable({ data }: { data: CardSortingPorCategoria[] }) {
   return (
     <div className="cs-table-wrap"><table className="cs-table">
       <caption className="sr-only">Tarjetas incluidas en cada categoría</caption>
-      <thead><tr><th>Categoría</th><th>Tarjetas distintas</th><th>Distribución</th></tr></thead>
+      <thead><tr><th scope="col">Categoría</th><th scope="col">Tarjetas distintas</th><th scope="col">Distribución</th></tr></thead>
       <tbody>{data.map((row) => (
         <tr key={row.nombre}>
           <th scope="row">{row.nombre}</th>
@@ -260,7 +260,7 @@ function MatrixTable({
   return (
     <div className="cs-table-wrap"><table className="cs-table cs-matrix">
       <caption className="sr-only">{title}</caption>
-      <thead><tr><th>Tarjeta</th>{matrix.categorias.map((category) => <th key={category}>{category}</th>)}</tr></thead>
+      <thead><tr><th scope="col">Tarjeta</th>{matrix.categorias.map((category) => <th scope="col" key={category}>{category}</th>)}</tr></thead>
       <tbody>{matrix.filas.map((row) => (
         <tr key={row.tarjeta}>
           <th scope="row">{row.tarjeta}</th>
@@ -307,7 +307,7 @@ function ParticipantsList({ data }: { data: CardSortingParticipante[] }) {
   return (
     <div className="cs-table-wrap"><table className="cs-table">
       <caption className="sr-only">Clasificación de cada participante (anónima)</caption>
-      <thead><tr><th>Participante</th><th>Categorías</th><th>Grupos</th></tr></thead>
+      <thead><tr><th scope="col">Participante</th><th scope="col">Categorías</th><th scope="col">Grupos</th></tr></thead>
       <tbody>{data.map((participante) => (
         <tr key={participante.orden}>
           <th scope="row">Participante {participante.orden}</th>

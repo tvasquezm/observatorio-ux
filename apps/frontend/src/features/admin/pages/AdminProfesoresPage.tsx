@@ -78,7 +78,7 @@ function DocentesList() {
     <div className="table-shell">
       <table className="data-table admin-table">
         <caption className="sr-only">Docentes registrados</caption>
-        <thead><tr><th>Docente</th><th>Correo</th><th>Registro</th><th><span className="sr-only">Acciones</span></th></tr></thead>
+        <thead><tr><th scope="col">Docente</th><th scope="col">Correo</th><th scope="col">Registro</th><th scope="col"><span className="sr-only">Acciones</span></th></tr></thead>
         <tbody>
           {docentes.map((docente) => (
             <tr key={docente.id}>
@@ -114,7 +114,7 @@ function EstudiantesList() {
     <div className="table-shell">
       <table className="data-table admin-table">
         <caption className="sr-only">Estudiantes registrados</caption>
-        <thead><tr><th>Estudiante</th><th>Correo</th><th>Sala</th><th>Registro</th></tr></thead>
+        <thead><tr><th scope="col">Estudiante</th><th scope="col">Correo</th><th scope="col">Sala</th><th scope="col">Registro</th></tr></thead>
         <tbody>
           {estudiantes.map((estudiante) => {
             const nombre = estudiante.nombre ?? 'Sin nombre informado';
