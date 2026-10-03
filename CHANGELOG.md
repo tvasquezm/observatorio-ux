@@ -6,6 +6,10 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **card-sorting:** ayuda contextual con ⓘ (`InfoTip`) en la creación del
+  estudio y menos texto visible; guía de 8 pasos con una sola numeración;
+  íconos `info`, `download` y `refresh`.
+
 * **persona:** amplía la ficha con rol y relación con el servicio,
   características distintivas, evidencia y validación del perfil.
 * **persona:** organiza el formulario en cuatro secciones con etiquetas visibles
@@ -32,6 +36,9 @@ All notable changes to this project will be documented in this file. See [commit
   reservado al creador del proyecto o a un ADMIN.
 
 ### Fixes
+
+* **card-sorting:** estilos faltantes de la guía (doble numeración y marcador
+  nativo de `<details>`) y de los contadores del formulario.
 
 * **ui:** contraste AA en el texto secundario (tokens y grises del tema
   claro), tamaño mínimo de texto de 12 px, menos mayúsculas con tracking y

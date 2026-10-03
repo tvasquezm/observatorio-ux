@@ -1965,3 +1965,32 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
     animation: fade .12s ease both !important;
   }
 }
+
+/* Card sorting: ayuda contextual (InfoTip), contadores y guía */
+.cs-field { position: relative; }
+.cs-field-tip { position: absolute; top: -3px; right: 0; }
+.info-tip { position: relative; display: inline-flex; }
+.info-tip-btn { display: inline-grid; place-items: center; width: 28px; height: 28px; min-height: 0; padding: 0; border: 0; border-radius: 999px; background: transparent; color: var(--muted); cursor: pointer; }
+.info-tip-btn:hover, .info-tip-btn[aria-expanded='true'] { background: var(--teal-soft); color: var(--teal); }
+.info-tip-btn:focus-visible { outline: 3px solid color-mix(in srgb, var(--teal) 35%, transparent); outline-offset: 1px; }
+.info-tip-panel { position: absolute; top: calc(100% + 6px); right: 0; z-index: 20; display: none; width: min(320px, 80vw); padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink-soft); box-shadow: var(--shadow); font-size: 12px; font-weight: 500; line-height: 1.5; text-align: left; text-transform: none; letter-spacing: 0; }
+.info-tip-panel.open { display: block; }
+.info-tip-list { margin: 0; padding-left: 16px; }
+.info-tip-list li + li { margin-top: 4px; }
+.cs-input-count, .cs-input-note, .cs-input-warn { display: block; margin-top: 6px; font-size: 12px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+.cs-input-count { color: var(--muted); }
+.cs-count-excedido, .cs-input-warn { color: var(--danger-text); }
+.cs-count-ok { color: var(--positive-text); }
+.cs-input-note { color: var(--ink-soft); }
+
+.cs-guide-list { display: grid; gap: 8px; margin: 14px 0 0; padding: 0; list-style: none; }
+.cs-guide-list > li { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.cs-guide-list summary { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 12px; color: var(--ink); font-size: 13px; font-weight: 700; list-style: none; cursor: pointer; }
+.cs-guide-list summary::-webkit-details-marker { display: none; }
+.cs-guide-list summary:focus-visible { outline: 3px solid color-mix(in srgb, var(--teal) 35%, transparent); outline-offset: 2px; border-radius: 10px; }
+.cs-guide-n { display: grid; place-items: center; flex: none; width: 26px; height: 26px; border-radius: 999px; background: var(--teal-soft); color: var(--teal-ink); font-size: 12px; font-weight: 800; }
+.cs-guide-title { flex: 1; min-width: 0; }
+.cs-guide-chev { flex: none; width: 8px; height: 8px; margin-right: 4px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); transition: transform .15s ease; }
+.cs-guide-list details[open] .cs-guide-chev { transform: rotate(-135deg); }
+.cs-guide-list details > p { margin: 0; padding: 0 12px 10px 48px; color: var(--ink-soft); font-size: 12px; line-height: 1.5; }
+.cs-guide-list details > p.cs-guide-where { padding-bottom: 12px; color: var(--muted); }

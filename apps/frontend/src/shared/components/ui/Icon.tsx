@@ -16,7 +16,10 @@ export type IconName =
   | 'momentos'
   | 'card-sorting'
   | 'heuristica'
-  | 'search';
+  | 'search'
+  | 'info'
+  | 'download'
+  | 'refresh';
 
 const PATHS: Record<IconName, ReactElement> = {
   dashboard: (
@@ -83,6 +86,26 @@ const PATHS: Record<IconName, ReactElement> = {
     <>
       <circle cx="11" cy="11" r="6" />
       <path d="m20 20-4.2-4.2" />
+    </>
+  ),
+  info: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 11v5" />
+      <path d="M12 7.8v.1" />
+    </>
+  ),
+  download: (
+    <>
+      <path d="M12 4v11" />
+      <path d="m7.5 10.8 4.5 4.5 4.5-4.5" />
+      <path d="M5 19.5h14" />
+    </>
+  ),
+  refresh: (
+    <>
+      <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" />
+      <path d="M19.5 4.5v4h-4" />
     </>
   ),
 };

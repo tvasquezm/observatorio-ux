@@ -21,6 +21,7 @@ import {
   type AnalisisEntrada,
 } from '../features/card-sorting/card-sorting-input';
 import type { ProjectOutletContext } from '../layouts/ProjectDetailLayout';
+import { InfoTip } from '../shared/components/ui/InfoTip';
 
 const TYPE_HINTS: Record<TipoCardSorting, string> = {
   ABIERTO: 'Los participantes crean y nombran sus propias categorías. Úsalo para descubrir cómo piensan tus usuarios.',
@@ -50,12 +51,12 @@ const CATEGORY_CHECKLIST = [
 
 function CardCount({ count }: { count: number }) {
   const estado = estadoCantidadTarjetas(count);
-  const rango = `${MIN_RECOMENDADAS} a ${MAX_RECOMENDADAS}`;
+  const rango = `${MIN_RECOMENDADAS}–${MAX_RECOMENDADAS}`;
   const texto = {
-    bajo: `recomendado: entre ${MIN_RECOMENDADAS} y ${MAX_RECOMENDADAS}`,
-    ok: `dentro del rango recomendado (${rango})`,
-    alto: `sobre el rango recomendado (${rango})`,
-    excedido: `el máximo es ${MAX_TARJETAS}`,
+    bajo: rango,
+    ok: `en rango · ${rango}`,
+    alto: `sobre el rango · ${rango}`,
+    excedido: `máximo ${MAX_TARJETAS}`,
   }[estado];
   return (
     <small className={`cs-input-count cs-count-${estado}`} data-testid="cs-card-count">
@@ -89,7 +90,7 @@ function InputWarnings({ info, noun, max, aviso }: { info: AnalisisEntrada; noun
 
 function Checklist({ items }: { items: string[] }) {
   return (
-    <ul className="cs-checklist">
+    <ul className="info-tip-list">
       {items.map((item) => <li key={item}>{item}</li>)}
     </ul>
   );
@@ -183,61 +184,78 @@ export function CardSortingPage() {
               />
             </label>
 
-            <label className="field">
-              Tipo de estudio
-              <select value={type} onChange={(event) => setType(event.target.value as TipoCardSorting)}>
-                <option value="ABIERTO">Abierto — cada participante crea sus categorías</option>
-                <option value="CERRADO">Cerrado — usa categorías predefinidas</option>
-                <option value="HIBRIDO">Híbrido — predefinidas más categorías propias</option>
-              </select>
-              <small className="text-muted-sm" data-testid="cs-type-hint">{TYPE_HINTS[type]}</small>
-            </label>
+            <div className="cs-field">
+              <label className="field">
+                Tipo de estudio
+                <select value={type} onChange={(event) => setType(event.target.value as TipoCardSorting)}>
+                  <option value="ABIERTO">Abierto — cada participante crea sus categorías</option>
+                  <option value="CERRADO">Cerrado — usa categorías predefinidas</option>
+                  <option value="HIBRIDO">Híbrido — predefinidas más categorías propias</option>
+                </select>
+              </label>
+              <InfoTip label="Ayuda: tipo de estudio" className="cs-field-tip">
+                <span data-testid="cs-type-hint">{TYPE_HINTS[type]}</span>
+              </InfoTip>
+            </div>
 
-            <label className="field">
-              Tarjetas (una por línea)
-              <textarea
-                placeholder={'Inscripción de asignaturas\nCalendario académico\nBiblioteca'}
-                value={cardsText}
-                onChange={(event) => setCardsText(event.target.value)}
-                required
-                className="textarea-lg"
-              />
-              <CardCount count={cardsInfo.items.length} />
-              <InputWarnings info={cardsInfo} noun="tarjeta(s)" max={MAX_ETIQUETA} aviso={AVISO_ETIQUETA} />
-              <Checklist items={CARD_CHECKLIST} />
-            </label>
+            <div className="cs-field">
+              <label className="field">
+                Tarjetas (una por línea)
+                <textarea
+                  placeholder={'Inscripción de asignaturas\nCalendario académico\nBiblioteca'}
+                  value={cardsText}
+                  onChange={(event) => setCardsText(event.target.value)}
+                  required
+                  className="textarea-lg"
+                />
+                <CardCount count={cardsInfo.items.length} />
+                <InputWarnings info={cardsInfo} noun="tarjeta(s)" max={MAX_ETIQUETA} aviso={AVISO_ETIQUETA} />
+              </label>
+              <InfoTip label="Ayuda: cómo escribir las tarjetas" className="cs-field-tip">
+                <Checklist items={CARD_CHECKLIST} />
+              </InfoTip>
+            </div>
 
             {type !== 'ABIERTO' && (
-              <label className="field">
-                Categorías predefinidas (una por línea)
-                <textarea
-                  placeholder={'Información académica\nServicios\nVida universitaria'}
-                  value={categoriesText}
-                  onChange={(event) => setCategoriesText(event.target.value)}
-                  required
-                  className="textarea-md"
-                />
-                <InputWarnings info={categoriesInfo} noun="categoría(s)" max={MAX_CATEGORIA} />
-                <Checklist items={CATEGORY_CHECKLIST} />
-              </label>
+              <div className="cs-field">
+                <label className="field">
+                  Categorías predefinidas (una por línea)
+                  <textarea
+                    placeholder={'Información académica\nServicios\nVida universitaria'}
+                    value={categoriesText}
+                    onChange={(event) => setCategoriesText(event.target.value)}
+                    required
+                    className="textarea-md"
+                  />
+                  <InputWarnings info={categoriesInfo} noun="categoría(s)" max={MAX_CATEGORIA} />
+                </label>
+                <InfoTip label="Ayuda: cómo definir las categorías" className="cs-field-tip">
+                  <Checklist items={CATEGORY_CHECKLIST} />
+                </InfoTip>
+              </div>
             )}
 
-            <label className="field">
-              Preguntas para el participante (opcional, una por línea)
-              <textarea
-                placeholder={'¿Qué tarjeta te costó más ubicar?\n¿Echaste de menos alguna categoría?'}
-                value={questionsText}
-                onChange={(event) => setQuestionsText(event.target.value)}
-                className="textarea-md"
-              />
-              <small className="cs-input-count" data-testid="cs-question-count">
-                {questionsInfo.items.length} de {MAX_PREGUNTAS} preguntas · el participante las responde al enviar
-              </small>
-              <InputWarnings info={questionsInfo} noun="pregunta(s)" max={MAX_PREGUNTA} />
-              {questionsInfo.items.length > MAX_PREGUNTAS && (
-                <small className="cs-input-warn" role="status">El máximo es {MAX_PREGUNTAS} preguntas.</small>
-              )}
-            </label>
+            <div className="cs-field">
+              <label className="field">
+                Preguntas para el participante (opcional, una por línea)
+                <textarea
+                  placeholder={'¿Qué tarjeta te costó más ubicar?\n¿Echaste de menos alguna categoría?'}
+                  value={questionsText}
+                  onChange={(event) => setQuestionsText(event.target.value)}
+                  className="textarea-md"
+                />
+                <small className="cs-input-count" data-testid="cs-question-count">
+                  {questionsInfo.items.length} de {MAX_PREGUNTAS} preguntas
+                </small>
+                <InputWarnings info={questionsInfo} noun="pregunta(s)" max={MAX_PREGUNTA} />
+                {questionsInfo.items.length > MAX_PREGUNTAS && (
+                  <small className="cs-input-warn" role="status">El máximo es {MAX_PREGUNTAS} preguntas.</small>
+                )}
+              </label>
+              <InfoTip label="Ayuda: preguntas para el participante" className="cs-field-tip">
+                El participante las responde al enviar su clasificación. Hasta {MAX_PREGUNTAS}, opcionales.
+              </InfoTip>
+            </div>
 
             {formError && <p role="alert" className="error-text">{formError}</p>}
 

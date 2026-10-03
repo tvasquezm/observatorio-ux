@@ -819,3 +819,17 @@ con red real (o Docker, como en sprints anteriores) para confirmar esas
   estado F1–F8 documentados; R6 permanece pendiente por depender del profesor.
 - `docs/ARCHITECTURE.md`: los encabezados históricos “Sprint 5–8” se corrigieron
   a “Ronda 5–8” para no mezclarlos con el cronograma oficial.
+
+## Auditoría UI/UX — Fase 7a: ayuda contextual y guía de card sorting (03-10-2026)
+
+- `InfoTip.tsx` (nuevo): botón ⓘ con `aria-expanded`; abre con hover (mouse),
+  foco o clic; cierra con Escape, segundo clic o clic fuera. El contenido queda
+  en el DOM.
+- `Icon.tsx`: `info`, `download`, `refresh`.
+- `CardSortingPage.tsx`: tipo, tarjetas, categorías y preguntas con ⓘ; se
+  quitan las checklists visibles; contador corto ("0 tarjetas · 30–60").
+- `CardSortingGuide.tsx`: numeración única, chevron propio, detalle al tocar.
+- `theme.css`: `.info-tip*`, `.cs-field*`, `.cs-input-*`, `.cs-count-*` y
+  `.cs-guide-*`.
+- Tests: `InfoTip.test.tsx` (nuevo), `CardSortingPage.test.tsx` (contador),
+  `CardSortingGuide.test.tsx` (despliegue).

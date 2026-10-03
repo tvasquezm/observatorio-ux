@@ -80,7 +80,7 @@ describe('CardSortingPage · intención de tarjetas y categorías', () => {
 
   it('cuenta las tarjetas en vivo e indica el rango recomendado', async () => {
     renderPage();
-    expect(screen.getByTestId('cs-card-count')).toHaveTextContent('0 tarjetas · recomendado: entre 30 y 60');
+    expect(screen.getByTestId('cs-card-count')).toHaveTextContent('0 tarjetas · 30–60');
     await userEvent.type(screen.getByLabelText(/Tarjetas \(una por línea\)/), 'A{Enter}B{Enter}{Enter}C');
     expect(screen.getByTestId('cs-card-count')).toHaveTextContent('3 tarjetas');
   });
