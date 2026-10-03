@@ -167,3 +167,29 @@ describe('CardSortingPage · preguntas del evaluador', () => {
     expect(mutate).not.toHaveBeenCalled();
   });
 });
+
+describe('CardSortingPage · avance del estudio', () => {
+  it('parte sin completar y avanza al escribir nombre y tarjetas', async () => {
+    renderPage();
+    expect(screen.getByTestId('cs-progress-count')).toHaveTextContent('1 de 3');
+    expect(screen.getByTestId('cs-progress-status')).toHaveTextContent('Escribe un nombre para el estudio.');
+    await userEvent.type(screen.getByLabelText(/Nombre del estudio/), 'Estudio');
+    await userEvent.type(screen.getByLabelText(/Tarjetas \(una por línea\)/), 'A{Enter}B');
+    expect(screen.getByTestId('cs-progress-count')).toHaveTextContent('3 de 3');
+    expect(screen.getByTestId('cs-progress-status')).toHaveTextContent('Listo para crear.');
+  });
+
+  it('un estudio cerrado suma el paso de categorías', async () => {
+    renderPage();
+    await userEvent.click(screen.getByRole('radio', { name: /Cerrado/ }));
+    expect(screen.getByTestId('cs-progress-count')).toHaveTextContent('1 de 4');
+  });
+
+  it('agregar una tarjeta con Enter la suma a la lista y quitarla la borra', async () => {
+    renderPage();
+    await userEvent.type(screen.getByLabelText('Agregar tarjeta'), 'Biblioteca{Enter}');
+    expect(screen.getByLabelText(/Tarjetas \(una por línea\)/)).toHaveValue('Biblioteca');
+    await userEvent.click(screen.getByRole('button', { name: 'Quitar Biblioteca' }));
+    expect(screen.getByLabelText(/Tarjetas \(una por línea\)/)).toHaveValue('');
+  });
+});

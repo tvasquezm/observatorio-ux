@@ -14,6 +14,7 @@ import {
   MAX_PREGUNTAS,
   MAX_RECOMENDADAS,
   MAX_TARJETAS,
+  MIN_CATEGORIAS_CERRADO,
   MIN_RECOMENDADAS,
   agregarLinea,
   analizarEntrada,
@@ -25,6 +26,7 @@ import {
 import type { ProjectOutletContext } from '../layouts/ProjectDetailLayout';
 import { InfoTip } from '../shared/components/ui/InfoTip';
 import { CardSortingTypePicker } from '../features/card-sorting/components/CardSortingTypePicker';
+import { CardSortingProgress, type ProgressStep } from '../features/card-sorting/components/CardSortingProgress';
 import { CardSortingAddOne, CardSortingChips } from '../features/card-sorting/components/CardSortingChips';
 
 const TYPE_HINTS: Record<TipoCardSorting, string> = {
@@ -129,16 +131,47 @@ export function CardSortingPage() {
   const categoriesInfo = analizarEntrada(categoriesText, MAX_CATEGORIA);
   const questionsInfo = analizarEntrada(questionsText, MAX_PREGUNTA);
 
+  const problem = validarEstudio({
+    nombre: name,
+    esCerrado: type === 'CERRADO',
+    esHibrido: type === 'HIBRIDO',
+    tarjetas: cardsInfo,
+    categorias: categoriesInfo,
+    preguntas: questionsInfo,
+  });
+  const cardsOk = cardsInfo.items.length > 0 && cardsInfo.items.length <= MAX_TARJETAS
+    && cardsInfo.duplicados.length === 0 && cardsInfo.excedidas.length === 0;
+  const minCategories = type === 'CERRADO' ? MIN_CATEGORIAS_CERRADO : 1;
+  const categoriesOk = categoriesInfo.items.length >= minCategories
+    && categoriesInfo.duplicados.length === 0 && categoriesInfo.excedidas.length === 0;
+  const steps: ProgressStep[] = [
+    { id: 'nombre', label: 'Nombre', detail: name.trim() || 'Sin nombre todavía', done: name.trim().length > 0 },
+    { id: 'tipo', label: 'Tipo', detail: TYPE_LABELS[type], done: true },
+    {
+      id: 'tarjetas',
+      label: 'Tarjetas',
+      detail: `${cardsInfo.items.length} · recomendado ${MIN_RECOMENDADAS}–${MAX_RECOMENDADAS}`,
+      done: cardsOk,
+    },
+    ...(type !== 'ABIERTO'
+      ? [{
+          id: 'categorias',
+          label: 'Categorías',
+          detail: `${categoriesInfo.items.length} · mínimo ${minCategories}`,
+          done: categoriesOk,
+        }]
+      : []),
+    {
+      id: 'preguntas',
+      label: 'Preguntas',
+      detail: `${questionsInfo.items.length} de ${MAX_PREGUNTAS}`,
+      done: questionsInfo.items.length > 0 && questionsInfo.items.length <= MAX_PREGUNTAS,
+      optional: true,
+    },
+  ];
+
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    const problem = validarEstudio({
-      nombre: name,
-      esCerrado: type === 'CERRADO',
-      esHibrido: type === 'HIBRIDO',
-      tarjetas: cardsInfo,
-      categorias: categoriesInfo,
-      preguntas: questionsInfo,
-    });
     setFormError(problem);
     if (problem) return;
 
@@ -302,10 +335,15 @@ export function CardSortingPage() {
           </form>
         </article>
 
-        <aside className="panel sort-analysis">
-          <h2>Cómo hacer un card sorting</h2>
-          <CardSortingGuide />
-        </aside>
+        <div className="cs-side">
+          <CardSortingProgress steps={steps} problem={problem} />
+          <details className="panel sort-analysis cs-guide-box">
+            <summary>
+              <h2>Cómo hacer un card sorting</h2>
+            </summary>
+            <CardSortingGuide />
+          </details>
+        </div>
       </section>
 
       <section className="panel mt-16">

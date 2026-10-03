@@ -863,3 +863,15 @@ con red real (o Docker, como en sprints anteriores) para confirmar esas
   no cambian.
 - `Icon.tsx`: `check` y `close`.
 - Tests: componentes nuevos, helpers y `CardSortingPage.test.tsx` (radios).
+
+## Auditoría UI/UX — Fase 8b: avance del estudio y guía plegable (03-10-2026)
+
+- `CardSortingProgress.tsx` (nuevo): panel "Tu estudio" con barra, pasos con ✓
+  (nombre, tipo, tarjetas, categorías si aplica, preguntas opcional) y el
+  estado "Listo para crear" o el primer problema pendiente. Fijo a la derecha en
+  escritorio y como barra inferior en móvil.
+- `CardSortingPage.tsx`: calcula el avance en vivo con `validarEstudio` (sin
+  reglas nuevas) y mueve la guía de 8 pasos a un desplegable bajo el panel.
+- `theme.css`: panel de avance, guía plegable y campos con más contraste
+  (también en modo oscuro).
+- Tests: `CardSortingProgress.test.tsx` (nuevo) y `CardSortingPage.test.tsx`.

@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file. See [commit
   íconos `info`, `download` y `refresh`.
 * **card-sorting:** creación del estudio guiada: tipo en tarjetas seleccionables,
   campo "Agregar una" con chips en vivo y medidor del rango de tarjetas.
+* **card-sorting:** panel "Tu estudio" con el avance en vivo y guía plegable.
 * **card-sorting:** resultados con menos texto: ayudas en ⓘ, botones de ícono
   y pestañas más cortas ("Matriz", "Populares").
 

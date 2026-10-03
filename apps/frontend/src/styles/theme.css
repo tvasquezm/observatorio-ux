@@ -2079,3 +2079,37 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
   .cs-type-options { grid-template-columns: 1fr; }
   .cs-type-option { min-height: 0; }
 }
+
+/* Card sorting: panel de avance, guía plegable y campos con más contraste */
+.cs-side { display: grid; align-content: start; gap: 16px; min-width: 0; }
+.cs-progress { position: sticky; top: 16px; z-index: 4; }
+.cs-progress-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.cs-progress-head h2 { margin: 0; font-size: 16px; }
+.cs-progress-head span { color: var(--muted); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cs-progress-bar { height: 8px; margin: 12px 0 14px; overflow: hidden; border-radius: 999px; background: var(--surface-muted); }
+.cs-progress-bar i { display: block; height: 100%; border-radius: 999px; background: var(--teal); transition: width .25s ease; }
+.cs-progress.ready .cs-progress-bar i { background: var(--positive-text); }
+.cs-progress-steps { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.cs-progress-steps li { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 10px; align-items: start; }
+.cs-progress-mark { display: grid; place-items: center; width: 20px; height: 20px; margin-top: 1px; border: 2px solid var(--line); border-radius: 999px; color: var(--surface); }
+.cs-progress-steps li.done .cs-progress-mark { border-color: var(--positive-text); background: var(--positive-text); }
+.cs-progress-steps li.optional .cs-progress-mark { border-style: dashed; }
+.cs-progress-text { display: grid; gap: 1px; min-width: 0; }
+.cs-progress-text strong { color: var(--ink); font-size: 13px; }
+.cs-progress-text small { overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.cs-progress-status { margin: 14px 0 0; padding: 10px 12px; border-radius: 10px; background: var(--surface-alt); color: var(--ink-soft); font-size: 12px; font-weight: 600; line-height: 1.45; }
+.cs-progress.ready .cs-progress-status { background: color-mix(in srgb, var(--mint) 16%, var(--surface)); color: var(--positive-text); }
+.cs-guide-box > summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; list-style: none; cursor: pointer; }
+.cs-guide-box > summary::-webkit-details-marker { display: none; }
+.cs-guide-box > summary h2 { margin: 0; font-size: 16px; }
+.cs-guide-box > summary::after { content: ''; flex: none; width: 8px; height: 8px; margin-right: 4px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); transition: transform .15s ease; }
+.cs-guide-box[open] > summary::after { transform: rotate(-135deg); }
+.cs-guide-box > summary:focus-visible { outline: 3px solid color-mix(in srgb, var(--teal) 35%, transparent); outline-offset: 4px; border-radius: 6px; }
+.cs-study-form .field :is(input, textarea, select), .cs-add-one input { background: var(--bg); border-color: color-mix(in srgb, var(--muted) 45%, var(--line)); }
+@media (max-width: 900px) {
+  .cs-side { display: contents; }
+  .cs-progress { top: auto; bottom: 8px; box-shadow: var(--shadow-raised, var(--shadow)); }
+  .cs-progress-steps { display: none; }
+  .cs-progress-bar { margin: 10px 0; }
+  .cs-progress-status { margin-top: 0; }
+}
