@@ -3,18 +3,18 @@ import { z } from 'zod';
 export const TipoCardSortingSchema = z.enum(['ABIERTO', 'CERRADO']);
 
 export const CardSortingCardInputSchema = z.object({
-  etiqueta: z.string().trim().min(1),
+  etiqueta: z.string().trim().min(1).max(100),
 });
 
 export const CardSortingCategoryInputSchema = z.object({
-  nombre: z.string().trim().min(1),
+  nombre: z.string().trim().min(1).max(60),
 });
 
 export const CreateCardSortingSessionPayloadSchema = z.object({
   proyectoId: z.string().uuid(),
   nombre: z.string().trim().min(1).max(120),
   tipo: TipoCardSortingSchema.optional(),
-  tarjetas: z.array(CardSortingCardInputSchema).min(1),
+  tarjetas: z.array(CardSortingCardInputSchema).min(1).max(100),
   categorias: z.array(CardSortingCategoryInputSchema).optional(),
 });
 

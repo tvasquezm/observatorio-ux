@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   ArrayMinSize,
   IsArray,
   IsBoolean,
@@ -20,12 +21,14 @@ export enum CardSortingTypeDto {
 class TarjetaDto {
   @IsString()
   @MinLength(1)
+  @MaxLength(100)
   etiqueta!: string;
 }
 
 class CategoriaDto {
   @IsString()
   @MinLength(1)
+  @MaxLength(60)
   nombre!: string;
 }
 
@@ -44,6 +47,7 @@ export class CreateCardSortingSessionDto {
 
   @IsArray()
   @ArrayMinSize(1)
+  @ArrayMaxSize(100)
   @ValidateNested({ each: true })
   @Type(() => TarjetaDto)
   tarjetas!: TarjetaDto[];

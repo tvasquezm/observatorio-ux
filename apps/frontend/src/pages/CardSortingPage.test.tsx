@@ -4,9 +4,11 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Outlet, Route, Routes } from 'react-router-dom';
 import { CardSortingPage } from './CardSortingPage';
 
+const mutate = vi.hoisted(() => vi.fn());
+
 vi.mock('../features/card-sorting/hooks/useCardSortingQueries', () => ({
   useCardSortingEstudiosByProyecto: () => ({ data: [], isLoading: false }),
-  useCreateCardSortingSession: () => ({ mutate: vi.fn(), isPending: false, error: null }),
+  useCreateCardSortingSession: () => ({ mutate, isPending: false, error: null }),
 }));
 
 function renderPage() {
@@ -34,5 +36,66 @@ describe('CardSortingPage · guía', () => {
 
     await userEvent.selectOptions(screen.getByLabelText(/Tipo de estudio/), 'CERRADO');
     expect(screen.getByTestId('cs-type-hint')).toHaveTextContent(/validar una estructura/);
+  });
+});
+
+describe('CardSortingPage · intención de tarjetas y categorías', () => {
+  async function llenar(nombre: string, tarjetas: string) {
+    await userEvent.type(screen.getByLabelText(/Nombre del estudio/), nombre);
+    await userEvent.type(screen.getByLabelText(/Tarjetas \(una por línea\)/), tarjetas);
+  }
+
+  it('cuenta las tarjetas en vivo e indica el rango recomendado', async () => {
+    renderPage();
+    expect(screen.getByTestId('cs-card-count')).toHaveTextContent('0 tarjetas · recomendado: entre 30 y 60');
+    await userEvent.type(screen.getByLabelText(/Tarjetas \(una por línea\)/), 'A{Enter}B{Enter}{Enter}C');
+    expect(screen.getByTestId('cs-card-count')).toHaveTextContent('3 tarjetas');
+  });
+
+  it('avisa de tarjetas duplicadas sin importar tildes ni mayúsculas', async () => {
+    renderPage();
+    await userEvent.type(screen.getByLabelText(/Tarjetas \(una por línea\)/), 'Navegación{Enter}navegacion');
+    expect(screen.getByText(/Duplicadas: navegacion/)).toBeInTheDocument();
+  });
+
+  it('muestra un mensaje en vez de no hacer nada cuando el nombre son solo espacios', async () => {
+    mutate.mockClear();
+    renderPage();
+    await llenar('   ', 'Biblioteca');
+    await userEvent.click(screen.getByRole('button', { name: /Crear y abrir/ }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Escribe un nombre para el estudio.');
+    expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it('bloquea tarjetas duplicadas al crear', async () => {
+    mutate.mockClear();
+    renderPage();
+    await llenar('Estudio', 'A{Enter}a');
+    await userEvent.click(screen.getByRole('button', { name: /Crear y abrir/ }));
+    expect(screen.getByRole('alert')).toHaveTextContent(/tarjetas duplicadas/);
+    expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it('un estudio cerrado con 1 categoría muestra el mínimo de 2', async () => {
+    mutate.mockClear();
+    renderPage();
+    await userEvent.selectOptions(screen.getByLabelText(/Tipo de estudio/), 'CERRADO');
+    await llenar('Estudio', 'A{Enter}B');
+    await userEvent.type(screen.getByLabelText(/Categorías predefinidas/), 'Servicios');
+    await userEvent.click(screen.getByRole('button', { name: /Crear y abrir/ }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Un estudio cerrado necesita al menos 2 categorías.');
+    expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it('con datos válidos envía las tarjetas recortadas y sin duplicados', async () => {
+    mutate.mockClear();
+    renderPage();
+    await llenar('  Estudio  ', 'A{Enter}  B  ');
+    await userEvent.click(screen.getByRole('button', { name: /Crear y abrir/ }));
+    expect(mutate).toHaveBeenCalledTimes(1);
+    expect(mutate.mock.calls[0][0]).toMatchObject({
+      nombre: 'Estudio',
+      tarjetas: [{ etiqueta: 'A' }, { etiqueta: 'B' }],
+    });
   });
 });

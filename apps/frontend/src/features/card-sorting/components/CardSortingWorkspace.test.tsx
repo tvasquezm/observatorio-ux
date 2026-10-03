@@ -62,4 +62,12 @@ describe('CardSortingWorkspace', () => {
     expect(within(category!).getByRole('button', { name: /Biblioteca/ })).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('Biblioteca se movió a Recursos.');
   });
+
+  it('muestra una ayuda distinta según el tipo de estudio', () => {
+    const { unmount } = render(<ControlledWorkspace />);
+    expect(screen.getByText(/Usa las categorías que se muestran/)).toBeInTheDocument();
+    unmount();
+    render(<ControlledWorkspace open />);
+    expect(screen.getByText(/Puedes crear tus propias categorías/)).toBeInTheDocument();
+  });
 });

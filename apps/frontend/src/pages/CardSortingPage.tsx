@@ -6,12 +6,85 @@ import {
 } from '../features/card-sorting/hooks/useCardSortingQueries';
 import type { TipoCardSorting } from '../features/card-sorting/api/card-sorting.api';
 import { CardSortingGuide } from '../features/card-sorting/components/CardSortingGuide';
+import {
+  AVISO_ETIQUETA,
+  MAX_CATEGORIA,
+  MAX_ETIQUETA,
+  MAX_RECOMENDADAS,
+  MAX_TARJETAS,
+  MIN_RECOMENDADAS,
+  analizarEntrada,
+  estadoCantidadTarjetas,
+  validarEstudio,
+  type AnalisisEntrada,
+} from '../features/card-sorting/card-sorting-input';
 import type { ProjectOutletContext } from '../layouts/ProjectDetailLayout';
 
 const TYPE_HINTS: Record<TipoCardSorting, string> = {
   ABIERTO: 'Los participantes crean y nombran sus propias categorías. Úsalo para descubrir cómo piensan tus usuarios.',
   CERRADO: 'Los participantes usan las categorías que defines tú. Úsalo para validar una estructura que ya tienes.',
 };
+
+const CARD_CHECKLIST = [
+  'Una idea por tarjeta, un módulo o concepto.',
+  'Todas al mismo nivel de detalle.',
+  'En el lenguaje de tus usuarios, sin jerga interna.',
+  'Sin pistas de la categoría en el texto.',
+];
+
+const CATEGORY_CHECKLIST = [
+  'Nombres distintos entre sí.',
+  'Todas al mismo nivel de detalle.',
+  'Suficientes para que cada tarjeta tenga un lugar.',
+  'Evita "Otros" como categoría comodín.',
+];
+
+function CardCount({ count }: { count: number }) {
+  const estado = estadoCantidadTarjetas(count);
+  const rango = `${MIN_RECOMENDADAS} a ${MAX_RECOMENDADAS}`;
+  const texto = {
+    bajo: `recomendado: entre ${MIN_RECOMENDADAS} y ${MAX_RECOMENDADAS}`,
+    ok: `dentro del rango recomendado (${rango})`,
+    alto: `sobre el rango recomendado (${rango})`,
+    excedido: `el máximo es ${MAX_TARJETAS}`,
+  }[estado];
+  return (
+    <small className={`cs-input-count cs-count-${estado}`} data-testid="cs-card-count">
+      {count} {count === 1 ? 'tarjeta' : 'tarjetas'} · {texto}
+    </small>
+  );
+}
+
+function InputWarnings({ info, noun, max, aviso }: { info: AnalisisEntrada; noun: string; max: number; aviso?: number }) {
+  return (
+    <>
+      {info.duplicados.length > 0 && (
+        <small className="cs-input-warn" role="status">
+          Duplicadas: {info.duplicados.slice(0, 3).join(', ')}
+          {info.duplicados.length > 3 ? ` y ${info.duplicados.length - 3} más` : ''}.
+        </small>
+      )}
+      {info.excedidas.length > 0 && (
+        <small className="cs-input-warn" role="status">
+          {info.excedidas.length} {noun} supera(n) los {max} caracteres.
+        </small>
+      )}
+      {aviso !== undefined && info.largas.length > 0 && (
+        <small className="cs-input-note" role="status">
+          {info.largas.length} {noun} de {aviso} caracteres o más: conviene acortar(las).
+        </small>
+      )}
+    </>
+  );
+}
+
+function Checklist({ items }: { items: string[] }) {
+  return (
+    <ul className="cs-checklist">
+      {items.map((item) => <li key={item}>{item}</li>)}
+    </ul>
+  );
+}
 
 function formatDate(value: string) {
   const date = new Date(value);
@@ -30,23 +103,23 @@ export function CardSortingPage() {
   const [type, setType] = useState<TipoCardSorting>('ABIERTO');
   const [cardsText, setCardsText] = useState('');
   const [categoriesText, setCategoriesText] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
+  const cardsInfo = analizarEntrada(cardsText, MAX_ETIQUETA, AVISO_ETIQUETA);
+  const categoriesInfo = analizarEntrada(categoriesText, MAX_CATEGORIA);
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    const cards = cardsText
-      .split('\n')
-      .map((value) => value.trim())
-      .filter(Boolean)
-      .map((etiqueta) => ({ etiqueta }));
-    const categories = categoriesText
-      .split('\n')
-      .map((value) => value.trim())
-      .filter(Boolean)
-      .map((nombre) => ({ nombre }));
+    const problem = validarEstudio({
+      nombre: name,
+      esCerrado: type === 'CERRADO',
+      tarjetas: cardsInfo,
+      categorias: categoriesInfo,
+    });
+    setFormError(problem);
+    if (problem) return;
 
-    if (!name.trim() || cards.length === 0 || (type === 'CERRADO' && categories.length === 0)) {
-      return;
-    }
+    const cards = cardsInfo.items.map((etiqueta) => ({ etiqueta }));
+    const categories = categoriesInfo.items.map((nombre) => ({ nombre }));
 
     createStudy.mutate(
       {
@@ -116,6 +189,9 @@ export function CardSortingPage() {
                 required
                 className="textarea-lg"
               />
+              <CardCount count={cardsInfo.items.length} />
+              <InputWarnings info={cardsInfo} noun="tarjeta(s)" max={MAX_ETIQUETA} aviso={AVISO_ETIQUETA} />
+              <Checklist items={CARD_CHECKLIST} />
             </label>
 
             {type === 'CERRADO' && (
@@ -128,8 +204,12 @@ export function CardSortingPage() {
                   required
                   className="textarea-md"
                 />
+                <InputWarnings info={categoriesInfo} noun="categoría(s)" max={MAX_CATEGORIA} />
+                <Checklist items={CATEGORY_CHECKLIST} />
               </label>
             )}
+
+            {formError && <p role="alert" className="error-text">{formError}</p>}
 
             {createStudy.error && (
               <p role="alert" className="error-text">{createStudy.error.message}</p>

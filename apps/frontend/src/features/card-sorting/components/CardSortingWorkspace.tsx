@@ -177,7 +177,10 @@ export function CardSortingWorkspace({
   return (
     <section className="cs-workspace" aria-label={`Clasificación de tarjetas: ${study.nombre}`}>
       <p className="cs-workspace-instructions">
-        Arrastra una tarjeta o selecciónala y luego usa “Mover aquí”.
+        Arrastra una tarjeta o selecciónala y luego usa “Mover aquí”.{' '}
+        {isClosed
+          ? 'Usa las categorías que se muestran.'
+          : 'Puedes crear tus propias categorías con el panel “Nueva categoría”.'}
         {preview && ' Esta práctica es local y no se incluye en los resultados.'}
       </p>
       <p className="sr-only" role="status" aria-live="polite">{announcement}</p>

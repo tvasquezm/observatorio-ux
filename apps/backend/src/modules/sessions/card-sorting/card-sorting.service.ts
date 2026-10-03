@@ -19,6 +19,7 @@ import {
   CardSortingTypeDto,
   CreateCardSortingSessionDto,
 } from './dto/card-sorting.dto';
+import { normalizarTexto, validarEntradaEstudio } from './card-sorting-input';
 
 // Criterio del curso (no estándar de la industria): una tarjeta tiene consenso
 // si más del 50% de los participantes la ubicó en la misma categoría.
@@ -119,11 +120,11 @@ export class CardSortingService {
         ? TipoCardSorting.CERRADO
         : TipoCardSorting.ABIERTO;
 
-    if (tipo === TipoCardSorting.CERRADO && !dto.categorias?.length) {
-      throw new BadRequestException(
-        'Un Card Sorting cerrado requiere al menos una categoría predefinida.',
-      );
-    }
+    validarEntradaEstudio(
+      tipo === TipoCardSorting.CERRADO,
+      dto.tarjetas.map((tarjeta) => tarjeta.etiqueta),
+      (dto.categorias ?? []).map((categoria) => categoria.nombre),
+    );
 
     const participantSession = await this.prisma.researchSession.create({
       data: {
@@ -322,12 +323,7 @@ export class CardSortingService {
     // distintos. Para agregarlas correctamente usamos una clave normalizada
     // por nombre; las categorías cerradas también quedan representadas por
     // esa misma clave estable.
-    const normalizarCategoria = (nombre: string) =>
-      nombre
-        .trim()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toLocaleLowerCase('es-CL');
+    const normalizarCategoria = normalizarTexto;
     const nombresCategoria = new Map<string, string>();
 
     // participanteSesionId -> (cardId -> clave de categoría normalizada).

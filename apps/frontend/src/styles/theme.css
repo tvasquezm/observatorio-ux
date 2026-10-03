@@ -555,6 +555,12 @@ button { cursor: pointer; }
 .participant-intro h1 { margin: 0; }
 .participant-intro ul { margin: 0; padding-left: 18px; display: grid; gap: 8px; color: var(--ink); font-size: 14px; line-height: 1.55; }
 .participant-intro .primary { justify-self: start; }
+.cs-input-count { display: block; margin-top: 6px; color: var(--muted); font-size: 12px; }
+.cs-count-ok { color: var(--positive-text); }
+.cs-count-excedido { color: #b3261e; font-weight: 700; }
+.cs-input-warn { display: block; margin-top: 4px; color: #b3261e; font-size: 12px; }
+.cs-input-note { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; }
+.cs-checklist { margin: 8px 0 0; padding-left: 18px; color: var(--muted); font-size: 12px; line-height: 1.5; font-weight: 400; }
 .cs-sample-note { margin: 0 0 14px; padding: 10px 14px; border-radius: 8px; font-size: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
 .cs-sample-baja { border-left: 3px solid #c77d0a; }
 .cs-sample-aceptable { border-left: 3px solid var(--teal); }
