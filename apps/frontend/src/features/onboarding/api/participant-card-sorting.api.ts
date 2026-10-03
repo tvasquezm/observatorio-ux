@@ -18,16 +18,28 @@ export interface ParticipantCategoria {
   nombre: string;
 }
 
+export interface ParticipantPregunta {
+  id: string;
+  texto: string;
+  orden: number;
+}
+
+export interface ParticipantRespuesta {
+  questionId: string;
+  respuesta: string;
+}
+
 export interface ParticipantCardSortingSession {
   id: string;
   estado: 'INVITADO' | 'EN_PROGRESO' | 'COMPLETADO';
   estudio: {
     id: string;
     nombre: string;
-    tipoCardSorting: 'ABIERTO' | 'CERRADO';
+    tipoCardSorting: 'ABIERTO' | 'CERRADO' | 'HIBRIDO';
     cerrado: boolean;
     cardsDefinidas: ParticipantCard[];
     categoriasDefinidas: ParticipantCategoria[];
+    preguntas?: ParticipantPregunta[];
   };
 }
 
@@ -49,15 +61,17 @@ export function getParticipantCardSortingSession(
 export interface GrupoResultado {
   categoriaId?: string;
   categoriaNombre?: string;
+  categoriaPadre?: string;
   cardIds: string[];
 }
 
 export function submitCardSortingResult(
   sesionId: string,
   grupos: GrupoResultado[],
+  respuestas: ParticipantRespuesta[] = [],
 ): Promise<{ ok: boolean }> {
   return apiFetch<{ ok: boolean }>(`${API_BASE}/card-sorting/sessions/${sesionId}/results`, {
     method: 'POST',
-    body: JSON.stringify({ grupos }),
+    body: JSON.stringify(respuestas.length > 0 ? { grupos, respuestas } : { grupos }),
   });
 }

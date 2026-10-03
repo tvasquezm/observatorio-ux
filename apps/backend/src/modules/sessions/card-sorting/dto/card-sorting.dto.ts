@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   ArrayMinSize,
   IsArray,
   IsBoolean,
@@ -15,17 +16,27 @@ import {
 export enum CardSortingTypeDto {
   OPEN = 'ABIERTO',
   CLOSED = 'CERRADO',
+  HYBRID = 'HIBRIDO',
 }
 
 class TarjetaDto {
   @IsString()
   @MinLength(1)
+  @MaxLength(100)
   etiqueta!: string;
+}
+
+class PreguntaDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(300)
+  texto!: string;
 }
 
 class CategoriaDto {
   @IsString()
   @MinLength(1)
+  @MaxLength(60)
   nombre!: string;
 }
 
@@ -44,6 +55,7 @@ export class CreateCardSortingSessionDto {
 
   @IsArray()
   @ArrayMinSize(1)
+  @ArrayMaxSize(100)
   @ValidateNested({ each: true })
   @Type(() => TarjetaDto)
   tarjetas!: TarjetaDto[];
@@ -53,6 +65,14 @@ export class CreateCardSortingSessionDto {
   @ValidateNested({ each: true })
   @Type(() => CategoriaDto)
   categorias?: CategoriaDto[];
+
+  // Paso 6 del curso: 0 a 5 preguntas opcionales para el participante.
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(5)
+  @ValidateNested({ each: true })
+  @Type(() => PreguntaDto)
+  preguntas?: PreguntaDto[];
 }
 
 class GrupoDto {
@@ -65,10 +85,27 @@ class GrupoDto {
   @MinLength(1)
   categoriaNombre?: string;
 
+  // Subcategoría: nombre de la categoría de nivel 1 que la contiene.
+  // Solo vale junto a `categoriaNombre` (categoría nueva).
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(60)
+  categoriaPadre?: string;
+
   @IsArray()
   @ArrayMinSize(1)
   @IsUUID('4', { each: true })
   cardIds!: string[];
+}
+
+class RespuestaDto {
+  @IsUUID()
+  questionId!: string;
+
+  @IsString()
+  @MaxLength(1000)
+  respuesta!: string;
 }
 
 export class SubmitCardSortingResultDto {
@@ -77,6 +114,13 @@ export class SubmitCardSortingResultDto {
   @ValidateNested({ each: true })
   @Type(() => GrupoDto)
   grupos!: GrupoDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(5)
+  @ValidateNested({ each: true })
+  @Type(() => RespuestaDto)
+  respuestas?: RespuestaDto[];
 }
 
 export class CerrarEstudioDto {

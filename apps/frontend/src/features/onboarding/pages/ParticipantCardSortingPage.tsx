@@ -23,10 +23,14 @@ import {
 } from '../store/useParticipantSession';
 
 interface ProgresoCache {
-  // cardId -> categoriaId (CERRADO) o nombre de categoría (ABIERTO)
+  // cardId -> categoriaId (predefinida) o nombre de categoría (propia; ABIERTO/HIBRIDO)
   asignaciones: Record<string, string>;
-  // Solo ABIERTO: nombres de categorías que el participante fue creando.
+  // ABIERTO/HIBRIDO: nombres de categorías que el participante fue creando.
   categoriasCreadas: string[];
+  // ABIERTO/HIBRIDO: subcategoría -> categoría padre (nivel 1). Opcional al leer caches viejos.
+  padres: Record<string, string>;
+  // questionId -> texto de la respuesta (preguntas opcionales del evaluador).
+  respuestas: Record<string, string>;
 }
 
 function claveCache(sesionId: string) {
@@ -36,14 +40,16 @@ function claveCache(sesionId: string) {
 function leerCache(sesionId: string): ProgresoCache {
   try {
     const raw = localStorage.getItem(claveCache(sesionId));
-    if (!raw) return { asignaciones: {}, categoriasCreadas: [] };
+    if (!raw) return { asignaciones: {}, categoriasCreadas: [], padres: {}, respuestas: {} };
     const parsed = JSON.parse(raw);
     return {
       asignaciones: parsed.asignaciones ?? {},
       categoriasCreadas: parsed.categoriasCreadas ?? [],
+      padres: parsed.padres ?? {},
+      respuestas: parsed.respuestas ?? {},
     };
   } catch {
-    return { asignaciones: {}, categoriasCreadas: [] };
+    return { asignaciones: {}, categoriasCreadas: [], padres: {}, respuestas: {} };
   }
 }
 
@@ -66,12 +72,17 @@ export function ParticipantCardSortingPage() {
 
   const [asignaciones, setAsignaciones] = useState<Record<string, string>>({});
   const [categoriasCreadas, setCategoriasCreadas] = useState<string[]>([]);
+  const [padres, setPadres] = useState<Record<string, string>>({});
+  const [respuestas, setRespuestas] = useState<Record<string, string>>({});
+  const [introVista, setIntroVista] = useState(false);
 
   useEffect(() => {
     if (!sesionId) return;
     const cache = leerCache(sesionId);
     setAsignaciones(cache.asignaciones);
     setCategoriasCreadas(cache.categoriasCreadas);
+    setPadres(cache.padres);
+    setRespuestas(cache.respuestas);
 
     (async () => {
       try {
@@ -120,8 +131,8 @@ export function ParticipantCardSortingPage() {
   // borra lo ya clasificado.
   useEffect(() => {
     if (!sesionId) return;
-    guardarCache(sesionId, { asignaciones, categoriasCreadas });
-  }, [sesionId, asignaciones, categoriasCreadas]);
+    guardarCache(sesionId, { asignaciones, categoriasCreadas, padres, respuestas });
+  }, [sesionId, asignaciones, categoriasCreadas, padres, respuestas]);
 
   const estudioCerrado = sesion?.estudio.cerrado ?? false;
 
@@ -130,7 +141,11 @@ export function ParticipantCardSortingPage() {
     setEnviando(true);
     setError(null);
     try {
-      await submitCardSortingResult(sesionId, grupos);
+      const preguntasIds = new Set((sesion.estudio.preguntas ?? []).map((p) => p.id));
+      const respuestasEnvio = Object.entries(respuestas)
+        .filter(([questionId, texto]) => preguntasIds.has(questionId) && texto.trim() !== '')
+        .map(([questionId, texto]) => ({ questionId, respuesta: texto.trim() }));
+      await submitCardSortingResult(sesionId, grupos, respuestasEnvio);
       limpiarCache(sesionId);
       setEnviado(true);
       notify.success('¡Gracias! Tus respuestas fueron enviadas.');
@@ -214,6 +229,37 @@ export function ParticipantCardSortingPage() {
     );
   }
 
+  // La intro se omite si ya hay progreso guardado (recarga o regreso).
+  const hayProgreso = Object.keys(asignaciones).length > 0 || categoriasCreadas.length > 0;
+  if (!introVista && !hayProgreso) {
+    const tipo = sesion.estudio.tipoCardSorting;
+    return (
+      <main className="onboarding participant-entry">
+        <section className="participant-card participant-intro" aria-labelledby="participant-intro-title">
+          <span className="eyebrow">Card Sorting · Participación anónima</span>
+          <h1 id="participant-intro-title">{sesion.estudio.nombre}</h1>
+          <ul>
+            <li>No hay respuestas correctas: agrupa las tarjetas según cómo las relacionas tú.</li>
+            <li>
+              {tipo === 'ABIERTO'
+                ? 'Crea tus propias categorías y ponles el nombre que mejor las describa. Si quieres, puedes ordenarlas en dos niveles: una categoría dentro de otra.'
+                : tipo === 'HIBRIDO'
+                  ? 'Usa las categorías que se te muestran o crea las tuyas si ninguna encaja. Tus categorías pueden ir dentro de otras tuyas (dos niveles).'
+                  : 'Usa las categorías que se te muestran; no puedes crear nuevas.'}
+            </li>
+            <li>
+              Son {sesion.estudio.cardsDefinidas.length} tarjetas y debes ubicarlas todas antes de enviar.
+            </li>
+            <li>Tu avance se guarda en este dispositivo. No escribas datos personales.</li>
+          </ul>
+          <button type="button" className="primary" onClick={() => setIntroVista(true)}>
+            Comenzar
+          </button>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="onboarding participant-study">
       <header className="participant-study-head">
@@ -233,6 +279,10 @@ export function ParticipantCardSortingPage() {
         customCategories={categoriasCreadas}
         onAssignmentsChange={setAsignaciones}
         onCustomCategoriesChange={setCategoriasCreadas}
+        padres={padres}
+        onPadresChange={setPadres}
+        answers={respuestas}
+        onAnswersChange={setRespuestas}
         onSubmit={handleEnviar}
         submitting={enviando}
       />
