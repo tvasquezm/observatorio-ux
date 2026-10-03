@@ -2038,3 +2038,10 @@ input::placeholder, textarea::placeholder { color: color-mix(in srgb, var(--mute
 .cs-questions { display: grid; gap: 10px; }
 .cs-questions textarea { min-height: 70px; }
 .cs-results .cs-panel-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.cs-results .cs-dendro-label { fill: var(--ink); font-size: 12px; }
+.cs-results .cs-dendro-tick { fill: var(--muted); font-size: 11px; }
+.cs-results .cs-dendro-line { stroke: var(--teal); stroke-width: 1.5; }
+.cs-results .cs-dendro-axis { stroke: var(--line); stroke-width: 1; }
+.cs-results .cs-dendro-merges { margin-top: 8px; font-size: 13px; color: var(--ink); }
+.cs-results .cs-dendro-merges summary { cursor: pointer; color: var(--muted); }
+.cs-results .cs-dendro-merges li { padding: 4px 0; overflow-wrap: anywhere; }

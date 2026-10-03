@@ -144,4 +144,20 @@ describe('CardSortingResultsPage · respuestas del participante', () => {
     expect(texto).toContain('Tarjeta,Biblioteca,Becas');
     expect(texto).toContain('Biblioteca,100,40');
   });
+
+  it('pestaña Dendrograma: dibuja el árbol y lista las uniones en texto', () => {
+    const { container } = setup('/r/e1?vista=dendrogram');
+    expect(screen.getByRole('tab', { name: 'Dendrograma' }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByRole('img', { name: /Dendrograma de 2 tarjetas/ })).toBeTruthy();
+    expect(container.querySelectorAll('path.cs-dendro-line')).toHaveLength(1);
+    expect(screen.getByText('Biblioteca + Becas — similitud 40%')).toBeTruthy();
+  });
+
+  it('sin 2 tarjetas no ofrece la pestaña Dendrograma', () => {
+    const anterior = data;
+    data = { ...data, tarjetas: ['Solo'], matrizSimilitud: [[100]] };
+    setup();
+    expect(screen.queryByRole('tab', { name: 'Dendrograma' })).toBeNull();
+    data = anterior;
+  });
 });

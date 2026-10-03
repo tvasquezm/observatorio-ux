@@ -85,6 +85,14 @@ class GrupoDto {
   @MinLength(1)
   categoriaNombre?: string;
 
+  // Subcategoría: nombre de la categoría de nivel 1 que la contiene.
+  // Solo vale junto a `categoriaNombre` (categoría nueva).
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(60)
+  categoriaPadre?: string;
+
   @IsArray()
   @ArrayMinSize(1)
   @IsUUID('4', { each: true })

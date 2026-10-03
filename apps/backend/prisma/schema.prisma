@@ -314,9 +314,15 @@ model Category {
 
   createdAt DateTime @default(now())
 
+  // Jerarquía de 2 niveles: NULL = categoría de nivel 1.
+  parent        Category?  @relation("SubCategorias", fields: [parentId], references: [id], onDelete: NoAction)
+  parentId      String?
+  subCategorias Category[] @relation("SubCategorias")
+
   agrupaciones CardGrouping[]
 
   @@index([sessionId])
+  @@index([parentId])
   @@map("categories")
 }
 

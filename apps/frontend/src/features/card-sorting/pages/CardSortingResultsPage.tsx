@@ -8,9 +8,10 @@ import type {
   CardSortingPorCategoria,
 } from '../api/card-sorting.api';
 import { useCardSortingAnalytics } from '../hooks/useCardSortingQueries';
+import { CardSortingDendrogram } from '../components/CardSortingDendrogram';
 import { descargarCsv, matrizACsv, similitudACsv } from '../card-sorting-csv';
 
-type ResultsTab = 'cards' | 'categories' | 'results' | 'popular' | 'similarity' | 'participants' | 'answers';
+type ResultsTab = 'cards' | 'categories' | 'results' | 'popular' | 'similarity' | 'dendrogram' | 'participants' | 'answers';
 
 const TABS: Array<{ id: ResultsTab; label: string }> = [
   { id: 'cards', label: 'Tarjetas' },
@@ -18,6 +19,7 @@ const TABS: Array<{ id: ResultsTab; label: string }> = [
   { id: 'results', label: 'Matriz de resultados' },
   { id: 'popular', label: 'Ubicaciones populares' },
   { id: 'similarity', label: 'Similitud' },
+  { id: 'dendrogram', label: 'Dendrograma' },
   { id: 'participants', label: 'Participantes' },
 ];
 
@@ -35,7 +37,9 @@ export function CardSortingResultsPage() {
   const analyticsQuery = useCardSortingAnalytics(estudioId ?? null);
   const [searchParams, setSearchParams] = useSearchParams();
   const data = analyticsQuery.data;
-  const tabs = data && data.preguntas?.length > 0 ? [...TABS, ANSWERS_TAB] : TABS;
+  const withAnswers = data && data.preguntas?.length > 0 ? [...TABS, ANSWERS_TAB] : TABS;
+  // El dendrograma necesita al menos 2 tarjetas.
+  const tabs = data && data.tarjetas.length < 2 ? withAnswers.filter((tab) => tab.id !== 'dendrogram') : withAnswers;
   const requestedTab = searchParams.get('vista');
   const activeTab: ResultsTab = tabs.some((tab) => tab.id === requestedTab)
     ? (requestedTab as ResultsTab)
@@ -149,6 +153,7 @@ export function CardSortingResultsPage() {
               tabIndex={0}
             >
               {activeTab === 'cards' && <CardsTable data={data.porCarta} />}
+              {activeTab === 'dendrogram' && <CardSortingDendrogram tarjetas={data.tarjetas} similitud={data.matrizSimilitud} />}
               {activeTab === 'participants' && <ParticipantsList data={data.participantes ?? []} />}
               {activeTab === 'answers' && <AnswersList data={data.preguntas} />}
               {activeTab === 'categories' && <CategoriesTable data={data.porCategoria} />}

@@ -34,6 +34,7 @@ export type RespuestaPregunta = { questionId: string; respuesta: string };
 export type Grupo = {
   categoriaId?: string;
   categoriaNombre?: string;
+  categoriaPadre?: string;
   cardIds: string[];
 };
 
@@ -347,7 +348,7 @@ export class CardSortingService {
 
     const groupings = await this.prisma.cardGrouping.findMany({
       where: { participanteSesionId: { in: participantes.map((p) => p.id) } },
-      include: { card: true, category: true },
+      include: { card: true, category: { include: { parent: true } } },
     });
 
     const cards = estudio.cardsDefinidas;
@@ -359,13 +360,16 @@ export class CardSortingService {
     // esa misma clave estable.
     const normalizarCategoria = normalizarTexto;
     const nombresCategoria = new Map<string, string>();
+    // Las analíticas cuentan la categoría de nivel 1: la del padre si la
+    // agrupación está en una subcategoría, o la propia si no.
+    const nivel1 = (g: (typeof groupings)[number]) => g.category.parent ?? g.category;
 
     // participanteSesionId -> (cardId -> clave de categoría normalizada).
     const porParticipante = new Map<string, Map<string, string>>();
     for (const g of groupings) {
-      const categoriaKey = normalizarCategoria(g.category.nombre);
+      const categoriaKey = normalizarCategoria(nivel1(g).nombre);
       if (!nombresCategoria.has(categoriaKey)) {
-        nombresCategoria.set(categoriaKey, g.category.nombre.trim());
+        nombresCategoria.set(categoriaKey, nivel1(g).nombre.trim());
       }
       if (!porParticipante.has(g.participanteSesionId)) {
         porParticipante.set(g.participanteSesionId, new Map());
@@ -397,7 +401,7 @@ export class CardSortingService {
     // Frecuencia por nombre de categoría (predefinida o creada en abierto).
     const frecuenciaPorCategoria = new Map<string, number>();
     for (const g of groupings) {
-      const categoriaKey = normalizarCategoria(g.category.nombre);
+      const categoriaKey = normalizarCategoria(nivel1(g).nombre);
       frecuenciaPorCategoria.set(
         categoriaKey,
         (frecuenciaPorCategoria.get(categoriaKey) ?? 0) + 1,
@@ -477,8 +481,21 @@ export class CardSortingService {
       .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
     const conteoCardCategoria = new Map<string, Map<string, number>>();
     for (const card of cards) conteoCardCategoria.set(card.id, new Map());
+    // Detalle de subcategorías: padre (nivel 1) -> subcategoría -> tarjeta -> conteo.
+    const subPorPadre = new Map<
+      string,
+      Map<string, { nombre: string; conteos: Map<string, number> }>
+    >();
     for (const g of groupings) {
-      const categoriaKey = normalizarCategoria(g.category.nombre);
+      const categoriaKey = normalizarCategoria(nivel1(g).nombre);
+      if (g.category.parent) {
+        const subs = subPorPadre.get(categoriaKey) ?? new Map();
+        const subKey = normalizarCategoria(g.category.nombre);
+        const sub = subs.get(subKey) ?? { nombre: g.category.nombre.trim(), conteos: new Map() };
+        sub.conteos.set(g.cardId, (sub.conteos.get(g.cardId) ?? 0) + 1);
+        subs.set(subKey, sub);
+        subPorPadre.set(categoriaKey, subs);
+      }
       const fila = conteoCardCategoria.get(g.cardId);
       if (fila) fila.set(categoriaKey, (fila.get(categoriaKey) ?? 0) + 1);
     }
@@ -527,10 +544,20 @@ export class CardSortingService {
         }))
         .filter((card) => card.frecuencia > 0)
         .sort((a, b) => b.frecuencia - a.frecuencia);
+      const subcategorias = [...(subPorPadre.get(categoria.key)?.values() ?? [])]
+        .map((sub) => ({
+          nombre: sub.nombre,
+          cartas: cards
+            .map((card) => ({ tarjeta: card.etiqueta, frecuencia: sub.conteos.get(card.id) ?? 0 }))
+            .filter((card) => card.frecuencia > 0)
+            .sort((a, b) => b.frecuencia - a.frecuencia),
+        }))
+        .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
       return {
         nombre: categoria.nombre,
         cardsCount: cartas.length,
         cartas,
+        subcategorias,
       };
     });
 
@@ -630,7 +657,10 @@ export class CardSortingService {
       });
       const validCardIds = new Set(cards.map((card) => card.id));
       const seenCardIds = new Set<string>();
-      const categoryCache = new Map<string, string>();
+      // Categorías nuevas de este envío por nombre normalizado, con su padre
+      // (null = nivel 1). Un padre solo existe dentro del envío: nunca se
+      // resuelve por id del cliente.
+      const categoryCache = new Map<string, { id: string; padreKey: string | null }>();
       const groupings: { cardId: string; categoryId: string }[] = [];
 
       // Trae de una sola vez todas las categorías predefinidas referenciadas
@@ -653,7 +683,28 @@ export class CardSortingService {
         existingCategories.map((category) => [category.id, category]),
       );
 
+      // Una subcategoría no puede colgar de (ni llamarse como) una categoría
+      // predefinida: la jerarquía es solo entre categorías propias.
+      const predefinedKeys = new Set<string>();
+      if (grupos.some((group) => group.categoriaPadre !== undefined)) {
+        const predefined = await tx.category.findMany({
+          where: { sessionId: study.id, esPredefinida: true },
+          select: { nombre: true },
+        });
+        for (const category of predefined) predefinedKeys.add(normalizarTexto(category.nombre));
+      }
+
       for (const group of grupos) {
+        if (group.categoriaPadre !== undefined) {
+          if (group.categoriaId || !group.categoriaNombre?.trim()) {
+            throw new BadRequestException(
+              'categoriaPadre solo puede usarse junto con categoriaNombre.',
+            );
+          }
+          if (group.categoriaPadre.trim() === '') {
+            throw new BadRequestException('La categoría padre no puede estar vacía.');
+          }
+        }
         if (!group.categoriaId && !group.categoriaNombre?.trim()) {
           throw new BadRequestException(
             'Cada grupo requiere categoriaId o categoriaNombre.',
@@ -677,19 +728,61 @@ export class CardSortingService {
             );
           }
           const name = group.categoriaNombre!.trim();
-          const cacheKey = name.toLocaleLowerCase();
-          categoryId = categoryCache.get(cacheKey) ?? '';
-          if (!categoryId) {
+          const key = normalizarTexto(name);
+          const padreName = group.categoriaPadre?.trim();
+          const padreKey = padreName ? normalizarTexto(padreName) : null;
+          if (padreKey !== null) {
+            if (padreKey === key) {
+              throw new BadRequestException('Una categoría no puede ser su propia categoría padre.');
+            }
+            if (predefinedKeys.has(padreKey) || predefinedKeys.has(key)) {
+              throw new BadRequestException(
+                'Las subcategorías solo pueden colgar de categorías propias, no de las predefinidas.',
+              );
+            }
+          }
+          const existing = categoryCache.get(key);
+          if (existing) {
+            if (existing.padreKey !== padreKey) {
+              throw new BadRequestException(
+                `La categoría "${name}" se usa con dos jerarquías distintas.`,
+              );
+            }
+            categoryId = existing.id;
+          } else {
+            let parentId: string | null = null;
+            if (padreKey !== null) {
+              let padre = categoryCache.get(padreKey);
+              if (padre && padre.padreKey !== null) {
+                throw new BadRequestException(
+                  'Solo se permiten 2 niveles: una subcategoría no puede tener subcategorías.',
+                );
+              }
+              if (!padre) {
+                const created = await tx.category.create({
+                  data: {
+                    sessionId: study.id,
+                    nombre: padreName!,
+                    esPredefinida: false,
+                    creadaPorParticipanteId: session.participanteId!,
+                  },
+                });
+                padre = { id: created.id, padreKey: null };
+                categoryCache.set(padreKey, padre);
+              }
+              parentId = padre.id;
+            }
             const category = await tx.category.create({
               data: {
                 sessionId: study.id,
                 nombre: name,
                 esPredefinida: false,
                 creadaPorParticipanteId: session.participanteId!,
+                parentId,
               },
             });
             categoryId = category.id;
-            categoryCache.set(cacheKey, category.id);
+            categoryCache.set(key, { id: category.id, padreKey });
           }
         }
 
