@@ -93,29 +93,22 @@ y quirúrgicas. No hay archivos inventados desde cero salvo los indicados.
   `.sala-section-head`. Quedan `.kicker`/`.eyebrow` y `.decision .kicker` para
   borrarlos en 5c, cuando no haya más usos.
 
-## Auditoría UI/UX — Fase 6: commits de Copilot en español (03-10-2026)
+## Auditoría UI/UX — Fase 6: commits de Copilot en español (03-10-2026, revertida)
 
-- `.vscode/copilot-commit-message-instructions.md` (nuevo): reglas para el botón
-  ✨ de Source Control. Conventional Commits con el tipo y el scope en inglés
-  (`fix(ui):`) y la descripción y el cuerpo en español, en imperativo, con
-  minúscula inicial, sin punto final y hasta 72 caracteres en la primera línea.
-- `.vscode/settings.json`: se agrega `github.copilot.chat.commitMessageGeneration.instructions`
-  apuntando a ese archivo (ruta relativa al workspace). Se mantiene
-  `localeOverride: "es"`, que no gobierna los commits.
-- `.vscode/settings.json`: se fija `chat.utilitySmallModel` en
-  `copilot/claude-haiku-4.5`. Con instrucciones de commit configuradas, el
-  servicio de Copilot puede rechazar la solicitud con `422 promptFiltered` y el
-  botón ✨ no hace nada (microsoft/vscode #315997, #316060, #316204, #316549).
-  La generación de commits usa ese modelo, y cambiarlo evita el filtro en los
-  reportes. Efecto lateral: el ajuste también lo usan otras tareas ligeras de VS
-  Code (sugerencia de nombres, nombres de rama). Si el modelo no está disponible
-  en tu plan, se elige otro `copilot/...` o se quita la línea.
-- `.github/copilot-instructions.md` (nuevo): sección "Commits" con las mismas
-  reglas resumidas. Aplica a Copilot en todo el repo, no solo a los commits.
-- Alcance: solo los commits futuros. El historial existente no se reescribe.
-- Verificación pendiente en tu máquina: con 2–3 archivos en staging, pulsar ✨
-  y comprobar que el mensaje sale en español. Si falla con 422, probar otro
-  modelo en `chat.utilitySmallModel`.
+- Se intentó configurar `github.copilot.chat.commitMessageGeneration.instructions`
+  con un archivo de reglas en `.vscode/` (Conventional Commits con el tipo y el
+  scope en inglés y la descripción en español) y fijar `chat.utilitySmallModel`.
+- Resultado: en el plan gratuito de Copilot el botón ✨ de Source Control dejó de
+  generar mensajes. Con instrucciones configuradas, el servicio puede rechazar
+  la solicitud con `422 promptFiltered` (microsoft/vscode #315997, #316060,
+  #316204, #316549), y el cambio de modelo no está disponible en ese plan.
+- Se revierte: `.vscode/settings.json` vuelve a tener solo
+  `github.copilot.chat.localeOverride: "es"` y se elimina
+  `.vscode/copilot-commit-message-instructions.md`. El botón ✨ vuelve a generar
+  mensajes, en inglés.
+- Los mensajes de commit en español siguen saliendo de cada entrega de la fase
+  (campo `Commit:` del manifiesto). Reintentar cuando Microsoft corrija el 422
+  o si el plan cambia.
 
 ## Auditoría UI/UX — Fase 5c: kickers de técnicas y cierre de la fase 5 (03-10-2026)
 
