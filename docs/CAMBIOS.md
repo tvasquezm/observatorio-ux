@@ -17,6 +17,20 @@ y quirúrgicas. No hay archivos inventados desde cero salvo los indicados.
   autoalojada con `@fontsource-variable/inter` (compatible con la CSP
   `font-src 'self'`). Requiere `pnpm install` y commitear `pnpm-lock.yaml`.
 
+## Auditoría UI/UX — Fase 2: tokens y dark mode (03-10-2026)
+
+- `apps/frontend/src/styles/theme.css`: nuevos tokens `--ink-soft`,
+  `--on-navy`, `--on-navy-muted`, `--navy-3`, `--teal-ink`, `--teal-soft`,
+  `--teal-line` y `--primary`/`--primary-hover`/`--on-primary`/
+  `--primary-shadow` (con valores propios en modo oscuro). 149 usos de la
+  paleta verde-azulada anterior pasan a tokens; se conservan los colores
+  semánticos (emociones, estado activo, puntos de proyecto, zona lista,
+  mapa de calor y tarjetas de técnica).
+- `.primary` usa los tokens y se elimina el hover base que dejaba el botón
+  deshabilitado en verde-azulado. Se quitan 6 bloques de override del modo
+  oscuro que los tokens vuelven redundantes (botón primario, `.crumb`,
+  `.role`/`.count`, `.node`, textos secundarios y el bloque de la fase 1).
+
 ## Revisión del PR #22 — Personas y reportes (30-09-2026)
 
 - `apps/frontend/src/pages/PersonasPage.tsx` y `apps/frontend/src/styles/theme.css`:

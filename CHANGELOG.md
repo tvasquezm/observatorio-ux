@@ -38,6 +38,12 @@ All notable changes to this project will be documented in this file. See [commit
   fuente Inter autoalojada (`@fontsource-variable/inter`, requiere
   `pnpm install`).
 
+* **ui:** completa el rebrand a índigo: reemplaza por tokens 149 colores de la
+  paleta verde-azulada anterior (texto, bordes, fondos y sombras), agrega
+  tokens para texto sobre navy, acentos suaves y botón primario, y reduce los
+  overrides del modo oscuro. Corrige el hover del botón primario deshabilitado,
+  que cambiaba a verde-azulado.
+
 * **deps:** actualiza los overrides de brace-expansion, fast-uri y multer a
   versiones corregidas; elimina las alertas encontradas por `pnpm audit`.
 
