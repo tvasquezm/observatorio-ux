@@ -44,6 +44,13 @@ export interface Category {
   createdAt: string;
 }
 
+export interface CardSortingQuestion {
+  id: string;
+  sessionId: string;
+  texto: string;
+  orden: number;
+}
+
 export interface CardGrouping {
   id: string;
   participanteSesionId: string;
@@ -71,6 +78,7 @@ export interface CardSortingSession {
   estudioId: string | null;
   cardsDefinidas: Card[];
   categoriasDefinidas: Category[];
+  preguntas?: CardSortingQuestion[];
   agrupaciones: CardGrouping[];
   createdAt: string;
   completadoAt: string | null;
@@ -200,6 +208,13 @@ export interface CardSortingPorCategoria {
   cartas: Array<{ tarjeta: string; frecuencia: number }>;
 }
 
+export interface CardSortingPreguntaResultado {
+  id: string;
+  texto: string;
+  orden: number;
+  respuestas: string[];
+}
+
 export interface CardSortingAnalytics {
   estudio: {
     id: string;
@@ -223,6 +238,7 @@ export interface CardSortingAnalytics {
   popularPlacementsMatrix: CardSortingMatrix;
   porCarta: CardSortingPorCarta[];
   porCategoria: CardSortingPorCategoria[];
+  preguntas: CardSortingPreguntaResultado[];
 }
 
 /**

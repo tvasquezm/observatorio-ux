@@ -5,6 +5,7 @@ export interface CardSortingWorkspaceStudy {
   tipoCardSorting: 'ABIERTO' | 'CERRADO' | null;
   cardsDefinidas: Array<{ id: string; etiqueta: string }>;
   categoriasDefinidas: Array<{ id: string; nombre: string }>;
+  preguntas?: Array<{ id: string; texto: string }>;
 }
 
 export interface CardSortingWorkspaceProps {
@@ -13,6 +14,10 @@ export interface CardSortingWorkspaceProps {
   customCategories: string[];
   onAssignmentsChange: (assignments: Record<string, string>) => void;
   onCustomCategoriesChange: (categories: string[]) => void;
+  // Respuestas a las preguntas del evaluador (questionId -> texto). Solo se
+  // muestran si se pasa `onAnswersChange` (no en la vista previa del evaluador).
+  answers?: Record<string, string>;
+  onAnswersChange?: (answers: Record<string, string>) => void;
   disabled?: boolean;
   onSubmit?: (groups: Array<{ categoriaId?: string; categoriaNombre?: string; cardIds: string[] }>) => void;
   submitting?: boolean;
@@ -37,6 +42,8 @@ export function CardSortingWorkspace({
   customCategories,
   onAssignmentsChange,
   onCustomCategoriesChange,
+  answers = {},
+  onAnswersChange,
   disabled = false,
   onSubmit,
   submitting = false,
@@ -275,6 +282,24 @@ export function CardSortingWorkspace({
           )}
         </div>
       </div>
+
+      {onAnswersChange && (study.preguntas?.length ?? 0) > 0 && (
+        <section className="cs-zone cs-questions" aria-label="Preguntas del estudio">
+          <h3>Preguntas (opcionales)</h3>
+          <p className="cs-selected-hint">No escribas datos personales: tu participación es anónima.</p>
+          {study.preguntas!.map((question) => (
+            <label key={question.id} className="field">
+              {question.texto}
+              <textarea
+                value={answers[question.id] ?? ''}
+                maxLength={1000}
+                disabled={disabled}
+                onChange={(event) => onAnswersChange({ ...answers, [question.id]: event.target.value })}
+              />
+            </label>
+          ))}
+        </section>
+      )}
 
       <footer className="cs-submit-bar">
         <div>

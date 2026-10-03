@@ -7,6 +7,9 @@ export const MAX_TARJETAS = 100;
 export const MIN_RECOMENDADAS = 30;
 export const MAX_RECOMENDADAS = 60;
 export const MIN_CATEGORIAS_CERRADO = 2;
+export const MAX_PREGUNTAS = 5;
+export const MAX_PREGUNTA = 300;
+export const MAX_RESPUESTA = 1000;
 
 // Misma normalización que el backend: sin tildes ni mayúsculas.
 export function normalizarTexto(valor: string): string {
@@ -64,8 +67,9 @@ export function validarEstudio(params: {
   esCerrado: boolean;
   tarjetas: AnalisisEntrada;
   categorias: AnalisisEntrada;
+  preguntas?: AnalisisEntrada;
 }): string | null {
-  const { nombre, esCerrado, tarjetas, categorias } = params;
+  const { nombre, esCerrado, tarjetas, categorias, preguntas } = params;
   if (!nombre.trim()) return 'Escribe un nombre para el estudio.';
   if (tarjetas.items.length === 0) return 'Agrega al menos una tarjeta.';
   if (tarjetas.items.length > MAX_TARJETAS) return `El máximo es ${MAX_TARJETAS} tarjetas.`;
@@ -75,6 +79,10 @@ export function validarEstudio(params: {
     if (categorias.items.length < MIN_CATEGORIAS_CERRADO) return `Un estudio cerrado necesita al menos ${MIN_CATEGORIAS_CERRADO} categorías.`;
     if (categorias.excedidas.length > 0) return `Hay categorías de más de ${MAX_CATEGORIA} caracteres. Acórtalas.`;
     if (categorias.duplicados.length > 0) return `Hay categorías duplicadas: ${categorias.duplicados.slice(0, 3).join(', ')}.`;
+  }
+  if (preguntas) {
+    if (preguntas.items.length > MAX_PREGUNTAS) return `El máximo es ${MAX_PREGUNTAS} preguntas.`;
+    if (preguntas.excedidas.length > 0) return `Hay preguntas de más de ${MAX_PREGUNTA} caracteres. Acórtalas.`;
   }
   return null;
 }

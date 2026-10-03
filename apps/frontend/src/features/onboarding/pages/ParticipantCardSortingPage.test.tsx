@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { ParticipantCardSortingPage } from './ParticipantCardSortingPage';
 import {
   getParticipantCardSortingSession,
+  submitCardSortingResult,
   type ParticipantCardSortingSession,
 } from '../api/participant-card-sorting.api';
 
@@ -80,5 +81,57 @@ describe('ParticipantCardSortingPage · intro', () => {
 
     expect(await screen.findByText('Calendario')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Comenzar' })).not.toBeInTheDocument();
+  });
+});
+
+describe('ParticipantCardSortingPage · preguntas del evaluador', () => {
+  const PREGUNTA = '3f2b8f0e-5c1d-4e3a-9a77-2d6f4b1c9e10';
+
+  beforeEach(() => {
+    localStorage.clear();
+    vi.mocked(getParticipantCardSortingSession).mockReset();
+    vi.mocked(submitCardSortingResult).mockReset();
+  });
+
+  function conPreguntas() {
+    const base = sesion('CERRADO');
+    base.estudio.preguntas = [{ id: PREGUNTA, texto: '¿Qué te costó?', orden: 0 }];
+    return base;
+  }
+
+  async function clasificarTodo() {
+    await userEvent.click(await screen.findByRole('button', { name: 'Comenzar' }));
+    const zona = await screen.findByText('Biblioteca');
+    expect(zona).toBeInTheDocument();
+  }
+
+  it('muestra las preguntas con aviso de anonimato', async () => {
+    vi.mocked(getParticipantCardSortingSession).mockResolvedValue(conPreguntas());
+    renderPage();
+    await clasificarTodo();
+    expect(screen.getByLabelText('¿Qué te costó?')).toBeInTheDocument();
+    expect(screen.getByText(/No escribas datos personales: tu participación es anónima/)).toBeInTheDocument();
+  });
+
+  it('no muestra la sección si el estudio no tiene preguntas', async () => {
+    vi.mocked(getParticipantCardSortingSession).mockResolvedValue(sesion('CERRADO'));
+    renderPage();
+    await clasificarTodo();
+    expect(screen.queryByText('Preguntas (opcionales)')).not.toBeInTheDocument();
+  });
+
+  it('envía las respuestas con su questionId y omite las vacías', async () => {
+    vi.mocked(getParticipantCardSortingSession).mockResolvedValue(conPreguntas());
+    vi.mocked(submitCardSortingResult).mockResolvedValue({ ok: true });
+    localStorage.setItem(
+      `cardSorting:progreso:${SESION_ID}`,
+      JSON.stringify({ asignaciones: { c1: 'k1', c2: 'k1' }, categoriasCreadas: [], respuestas: { [PREGUNTA]: '  Nada  ', 'ajena': 'x' } }),
+    );
+    renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: 'Enviar clasificación' }));
+    expect(submitCardSortingResult).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(submitCardSortingResult).mock.calls[0][2]).toEqual([
+      { questionId: PREGUNTA, respuesta: 'Nada' },
+    ]);
   });
 });

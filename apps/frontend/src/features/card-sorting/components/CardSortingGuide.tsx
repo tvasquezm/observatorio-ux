@@ -35,7 +35,7 @@ const STEPS: GuideStep[] = [
   {
     title: 'Hacer preguntas',
     text: 'Pregunta al participante para entender sus decisiones.',
-    where: 'Aún no hay preguntas dentro de la herramienta: hazlas durante la sesión.',
+    where: 'Campo "Preguntas para el participante" al crear el estudio (hasta 5, opcionales). Las respuestas están en Resultados → "Respuestas".',
   },
   {
     title: 'Registrar la disposición final',

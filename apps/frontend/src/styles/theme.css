@@ -2028,3 +2028,12 @@ input::placeholder, textarea::placeholder { color: color-mix(in srgb, var(--mute
   .cs-results .cluster { grid-template-columns: 1fr auto; }
   .cs-results .cluster .chip-list { grid-column: 1 / -1; }
 }
+
+/* Fase 2B — vista "Respuestas" (bajo .cs-results) y preguntas del participante */
+.cs-results .cs-answer-block { padding: 14px 0; border-top: 1px solid var(--line); }
+.cs-results .cs-answer-block:first-child { border-top: 0; padding-top: 0; }
+.cs-results .cs-answer-block h3 { margin: 0 0 4px; font-size: 14px; font-weight: 600; color: var(--ink); }
+.cs-results .cs-answer-block ul { margin: 8px 0 0; padding: 0; list-style: none; }
+.cs-results .cs-answer-block li { padding: 8px 0; border-top: 1px solid var(--line); color: var(--ink); font-size: 13px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cs-questions { display: grid; gap: 10px; }
+.cs-questions textarea { min-height: 70px; }

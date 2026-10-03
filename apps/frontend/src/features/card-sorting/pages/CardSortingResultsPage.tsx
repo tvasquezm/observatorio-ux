@@ -2,12 +2,13 @@ import type { CSSProperties } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import type {
   CardSortingMatrix,
+  CardSortingPreguntaResultado,
   CardSortingPorCarta,
   CardSortingPorCategoria,
 } from '../api/card-sorting.api';
 import { useCardSortingAnalytics } from '../hooks/useCardSortingQueries';
 
-type ResultsTab = 'cards' | 'categories' | 'results' | 'popular' | 'similarity';
+type ResultsTab = 'cards' | 'categories' | 'results' | 'popular' | 'similarity' | 'answers';
 
 const TABS: Array<{ id: ResultsTab; label: string }> = [
   { id: 'cards', label: 'Tarjetas' },
@@ -16,6 +17,9 @@ const TABS: Array<{ id: ResultsTab; label: string }> = [
   { id: 'popular', label: 'Ubicaciones populares' },
   { id: 'similarity', label: 'Similitud' },
 ];
+
+// Solo aparece si el estudio definió preguntas para el participante.
+const ANSWERS_TAB: { id: ResultsTab; label: string } = { id: 'answers', label: 'Respuestas' };
 
 const SAMPLE_MESSAGES: Record<'baja' | 'aceptable' | 'estable', (min: number, stable: number) => string> = {
   baja: (min) => `Muestra baja: con menos de ${min} participantes completados los resultados son poco estables.`,
@@ -27,8 +31,10 @@ export function CardSortingResultsPage() {
   const { estudioId } = useParams<{ estudioId: string }>();
   const analyticsQuery = useCardSortingAnalytics(estudioId ?? null);
   const [searchParams, setSearchParams] = useSearchParams();
+  const data = analyticsQuery.data;
+  const tabs = data && data.preguntas?.length > 0 ? [...TABS, ANSWERS_TAB] : TABS;
   const requestedTab = searchParams.get('vista');
-  const activeTab: ResultsTab = TABS.some((tab) => tab.id === requestedTab)
+  const activeTab: ResultsTab = tabs.some((tab) => tab.id === requestedTab)
     ? (requestedTab as ResultsTab)
     : 'cards';
   const setActiveTab = (tab: ResultsTab) => {
@@ -37,7 +43,6 @@ export function CardSortingResultsPage() {
     else next.set('vista', tab);
     setSearchParams(next, { replace: true });
   };
-  const data = analyticsQuery.data;
 
   if (analyticsQuery.isLoading) return <div className="panel">Calculando resultados…</div>;
 
@@ -100,7 +105,7 @@ export function CardSortingResultsPage() {
             </div>
 
             <div className="cs-analysis-tabs" role="tablist" aria-label="Vistas de resultados">
-              {TABS.map((tab) => (
+              {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   id={`card-sorting-tab-${tab.id}`}
@@ -112,11 +117,11 @@ export function CardSortingResultsPage() {
                   className={`cs-analysis-tab${activeTab === tab.id ? ' active' : ''}`}
                   onClick={() => setActiveTab(tab.id)}
                   onKeyDown={(event) => {
-                    const index = TABS.findIndex((item) => item.id === activeTab);
+                    const index = tabs.findIndex((item) => item.id === activeTab);
                     const offset = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
                     if (!offset) return;
                     event.preventDefault();
-                    const next = TABS[(index + offset + TABS.length) % TABS.length];
+                    const next = tabs[(index + offset + tabs.length) % tabs.length];
                     setActiveTab(next.id);
                     requestAnimationFrame(() => document.getElementById(`card-sorting-tab-${next.id}`)?.focus());
                   }}
@@ -133,6 +138,7 @@ export function CardSortingResultsPage() {
               tabIndex={0}
             >
               {activeTab === 'cards' && <CardsTable data={data.porCarta} />}
+              {activeTab === 'answers' && <AnswersList data={data.preguntas} />}
               {activeTab === 'categories' && <CategoriesTable data={data.porCategoria} />}
               {activeTab === 'results' && <MatrixTable title="Cantidad de ubicaciones" matrix={data.resultsMatrix} format={String} />}
               {activeTab === 'popular' && <MatrixTable title="Porcentaje de participantes" matrix={data.popularPlacementsMatrix} format={(value) => `${value}%`} heat />}
@@ -257,5 +263,25 @@ function MatrixTable({
         </tr>
       ))}</tbody>
     </table></div>
+  );
+}
+
+function AnswersList({ data }: { data: CardSortingPreguntaResultado[] }) {
+  return (
+    <div className="cs-answers">
+      {data.map((question) => (
+        <section key={question.id} className="cs-answer-block">
+          <h3>{question.texto}</h3>
+          <p className="text-muted-sm">
+            {question.respuestas.length} {question.respuestas.length === 1 ? 'respuesta' : 'respuestas'} · anónimas
+          </p>
+          {question.respuestas.length === 0 ? (
+            <p className="text-muted-sm">Nadie respondió esta pregunta todavía.</p>
+          ) : (
+            <ul>{question.respuestas.map((answer, index) => <li key={index}>{answer}</li>)}</ul>
+          )}
+        </section>
+      ))}
+    </div>
   );
 }

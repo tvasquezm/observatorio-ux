@@ -30,6 +30,6 @@ describe('CardSortingGuide', () => {
   it('indica con honestidad lo que la herramienta aún no hace', () => {
     render(<CardSortingGuide />);
     expect(screen.getByText(/jerarquizar aún no está disponible/)).toBeInTheDocument();
-    expect(screen.getByText(/Aún no hay preguntas dentro de la herramienta/)).toBeInTheDocument();
+    expect(screen.getByText(/hasta 5, opcionales/)).toBeInTheDocument();
   });
 });

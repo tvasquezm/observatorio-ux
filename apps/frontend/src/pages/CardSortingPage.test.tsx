@@ -99,3 +99,38 @@ describe('CardSortingPage · intención de tarjetas y categorías', () => {
     });
   });
 });
+
+describe('CardSortingPage · preguntas del evaluador', () => {
+  async function base() {
+    await userEvent.type(screen.getByLabelText(/Nombre del estudio/), 'Estudio');
+    await userEvent.type(screen.getByLabelText(/Tarjetas \(una por línea\)/), 'A{Enter}B');
+  }
+
+  it('cuenta las preguntas y envía las no vacías recortadas', async () => {
+    mutate.mockClear();
+    renderPage();
+    await base();
+    await userEvent.type(screen.getByLabelText(/Preguntas para el participante/), '  ¿Qué costó?  {Enter}{Enter}¿Faltó algo?');
+    expect(screen.getByTestId('cs-question-count')).toHaveTextContent('2 de 5 preguntas');
+    await userEvent.click(screen.getByRole('button', { name: /Crear y abrir/ }));
+    expect(mutate.mock.calls[0][0].preguntas).toEqual([{ texto: '¿Qué costó?' }, { texto: '¿Faltó algo?' }]);
+  });
+
+  it('sin preguntas no envía el campo', async () => {
+    mutate.mockClear();
+    renderPage();
+    await base();
+    await userEvent.click(screen.getByRole('button', { name: /Crear y abrir/ }));
+    expect(mutate.mock.calls[0][0].preguntas).toBeUndefined();
+  });
+
+  it('bloquea más de 5 preguntas', async () => {
+    mutate.mockClear();
+    renderPage();
+    await base();
+    await userEvent.type(screen.getByLabelText(/Preguntas para el participante/), '1{Enter}2{Enter}3{Enter}4{Enter}5{Enter}6');
+    await userEvent.click(screen.getByRole('button', { name: /Crear y abrir/ }));
+    expect(screen.getByRole('alert')).toHaveTextContent('El máximo es 5 preguntas.');
+    expect(mutate).not.toHaveBeenCalled();
+  });
+});

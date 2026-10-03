@@ -1,10 +1,10 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { CardSortingAnalytics } from '../api/card-sorting.api';
 import { CardSortingResultsPage } from './CardSortingResultsPage';
 
-const data: CardSortingAnalytics = {
+let data: CardSortingAnalytics = {
   estudio: { id: 'e1', proyectoId: 'p1', nombre: 'Estudio demo', cerrado: false, createdAt: '2026-10-02' },
   participantesCount: 3,
   cardsCount: 2,
@@ -21,6 +21,7 @@ const data: CardSortingAnalytics = {
   popularPlacementsMatrix: { categorias: ['Servicios'], filas: [{ tarjeta: 'Biblioteca', valores: [100] }] },
   porCarta: [{ tarjeta: 'Biblioteca', categoriasCount: 2, categorias: [{ nombre: 'A', frecuencia: 2 }, { nombre: 'B', frecuencia: 1 }] }],
   porCategoria: [],
+  preguntas: [],
 } as unknown as CardSortingAnalytics;
 
 vi.mock('../hooks/useCardSortingQueries', () => ({
@@ -82,5 +83,36 @@ describe('CardSortingResultsPage (minimalista)', () => {
   it('similitud: la diagonal se marca atenuada', () => {
     const { container } = setup('/r/e1?vista=similarity');
     expect(container.querySelectorAll('.cs-matrix-diag').length).toBe(2);
+  });
+});
+
+describe('CardSortingResultsPage · respuestas del participante', () => {
+  const original = data;
+  const conPreguntas = () => {
+    data = {
+      ...original,
+      preguntas: [{ id: 'q1', texto: '¿Qué costó?', orden: 0, respuestas: ['Nada', '<b>x</b>'] }],
+    } as CardSortingAnalytics;
+  };
+  afterEach(() => { data = original; });
+
+  it('sin preguntas no hay pestaña Respuestas', () => {
+    setup();
+    expect(screen.queryByRole('tab', { name: 'Respuestas' })).toBeNull();
+  });
+
+  it('con preguntas aparece la pestaña y lista las respuestas como texto', () => {
+    conPreguntas();
+    setup('/r/e1?vista=answers');
+    expect(screen.getByRole('tab', { name: 'Respuestas' }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByText('¿Qué costó?')).toBeTruthy();
+    expect(screen.getByText('Nada')).toBeTruthy();
+    expect(screen.getByText('<b>x</b>')).toBeTruthy();
+    expect(screen.getByText(/2 respuestas · anónimas/)).toBeTruthy();
+  });
+
+  it('?vista=answers sin preguntas cae en Tarjetas', () => {
+    setup('/r/e1?vista=answers');
+    expect(screen.getByRole('tab', { name: 'Tarjetas' }).getAttribute('aria-selected')).toBe('true');
   });
 });

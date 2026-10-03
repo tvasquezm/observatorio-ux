@@ -10,6 +10,8 @@ import {
   AVISO_ETIQUETA,
   MAX_CATEGORIA,
   MAX_ETIQUETA,
+  MAX_PREGUNTA,
+  MAX_PREGUNTAS,
   MAX_RECOMENDADAS,
   MAX_TARJETAS,
   MIN_RECOMENDADAS,
@@ -103,9 +105,11 @@ export function CardSortingPage() {
   const [type, setType] = useState<TipoCardSorting>('ABIERTO');
   const [cardsText, setCardsText] = useState('');
   const [categoriesText, setCategoriesText] = useState('');
+  const [questionsText, setQuestionsText] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const cardsInfo = analizarEntrada(cardsText, MAX_ETIQUETA, AVISO_ETIQUETA);
   const categoriesInfo = analizarEntrada(categoriesText, MAX_CATEGORIA);
+  const questionsInfo = analizarEntrada(questionsText, MAX_PREGUNTA);
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -114,6 +118,7 @@ export function CardSortingPage() {
       esCerrado: type === 'CERRADO',
       tarjetas: cardsInfo,
       categorias: categoriesInfo,
+      preguntas: questionsInfo,
     });
     setFormError(problem);
     if (problem) return;
@@ -128,6 +133,7 @@ export function CardSortingPage() {
         tipo: type,
         tarjetas: cards,
         categorias: type === 'CERRADO' ? categories : undefined,
+        preguntas: questionsInfo.items.length > 0 ? questionsInfo.items.map((texto) => ({ texto })) : undefined,
       },
       {
         onSuccess: (study) => {
@@ -208,6 +214,23 @@ export function CardSortingPage() {
                 <Checklist items={CATEGORY_CHECKLIST} />
               </label>
             )}
+
+            <label className="field">
+              Preguntas para el participante (opcional, una por línea)
+              <textarea
+                placeholder={'¿Qué tarjeta te costó más ubicar?\n¿Echaste de menos alguna categoría?'}
+                value={questionsText}
+                onChange={(event) => setQuestionsText(event.target.value)}
+                className="textarea-md"
+              />
+              <small className="cs-input-count" data-testid="cs-question-count">
+                {questionsInfo.items.length} de {MAX_PREGUNTAS} preguntas · el participante las responde al enviar
+              </small>
+              <InputWarnings info={questionsInfo} noun="pregunta(s)" max={MAX_PREGUNTA} />
+              {questionsInfo.items.length > MAX_PREGUNTAS && (
+                <small className="cs-input-warn" role="status">El máximo es {MAX_PREGUNTAS} preguntas.</small>
+              )}
+            </label>
 
             {formError && <p role="alert" className="error-text">{formError}</p>}
 

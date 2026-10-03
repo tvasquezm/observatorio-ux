@@ -27,6 +27,8 @@ interface ProgresoCache {
   asignaciones: Record<string, string>;
   // Solo ABIERTO: nombres de categorías que el participante fue creando.
   categoriasCreadas: string[];
+  // questionId -> texto de la respuesta (preguntas opcionales del evaluador).
+  respuestas: Record<string, string>;
 }
 
 function claveCache(sesionId: string) {
@@ -36,14 +38,15 @@ function claveCache(sesionId: string) {
 function leerCache(sesionId: string): ProgresoCache {
   try {
     const raw = localStorage.getItem(claveCache(sesionId));
-    if (!raw) return { asignaciones: {}, categoriasCreadas: [] };
+    if (!raw) return { asignaciones: {}, categoriasCreadas: [], respuestas: {} };
     const parsed = JSON.parse(raw);
     return {
       asignaciones: parsed.asignaciones ?? {},
       categoriasCreadas: parsed.categoriasCreadas ?? [],
+      respuestas: parsed.respuestas ?? {},
     };
   } catch {
-    return { asignaciones: {}, categoriasCreadas: [] };
+    return { asignaciones: {}, categoriasCreadas: [], respuestas: {} };
   }
 }
 
@@ -66,6 +69,7 @@ export function ParticipantCardSortingPage() {
 
   const [asignaciones, setAsignaciones] = useState<Record<string, string>>({});
   const [categoriasCreadas, setCategoriasCreadas] = useState<string[]>([]);
+  const [respuestas, setRespuestas] = useState<Record<string, string>>({});
   const [introVista, setIntroVista] = useState(false);
 
   useEffect(() => {
@@ -73,6 +77,7 @@ export function ParticipantCardSortingPage() {
     const cache = leerCache(sesionId);
     setAsignaciones(cache.asignaciones);
     setCategoriasCreadas(cache.categoriasCreadas);
+    setRespuestas(cache.respuestas);
 
     (async () => {
       try {
@@ -121,8 +126,8 @@ export function ParticipantCardSortingPage() {
   // borra lo ya clasificado.
   useEffect(() => {
     if (!sesionId) return;
-    guardarCache(sesionId, { asignaciones, categoriasCreadas });
-  }, [sesionId, asignaciones, categoriasCreadas]);
+    guardarCache(sesionId, { asignaciones, categoriasCreadas, respuestas });
+  }, [sesionId, asignaciones, categoriasCreadas, respuestas]);
 
   const estudioCerrado = sesion?.estudio.cerrado ?? false;
 
@@ -131,7 +136,11 @@ export function ParticipantCardSortingPage() {
     setEnviando(true);
     setError(null);
     try {
-      await submitCardSortingResult(sesionId, grupos);
+      const preguntasIds = new Set((sesion.estudio.preguntas ?? []).map((p) => p.id));
+      const respuestasEnvio = Object.entries(respuestas)
+        .filter(([questionId, texto]) => preguntasIds.has(questionId) && texto.trim() !== '')
+        .map(([questionId, texto]) => ({ questionId, respuesta: texto.trim() }));
+      await submitCardSortingResult(sesionId, grupos, respuestasEnvio);
       limpiarCache(sesionId);
       setEnviado(true);
       notify.success('¡Gracias! Tus respuestas fueron enviadas.');
@@ -263,6 +272,8 @@ export function ParticipantCardSortingPage() {
         customCategories={categoriasCreadas}
         onAssignmentsChange={setAsignaciones}
         onCustomCategoriesChange={setCategoriasCreadas}
+        answers={respuestas}
+        onAnswersChange={setRespuestas}
         onSubmit={handleEnviar}
         submitting={enviando}
       />
