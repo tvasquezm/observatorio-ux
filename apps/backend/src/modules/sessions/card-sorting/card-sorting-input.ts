@@ -37,6 +37,7 @@ export function validarEntradaEstudio(
   esCerrado: boolean,
   tarjetas: string[],
   categorias: string[],
+  esHibrido = false,
 ): void {
   if (tarjetas.some((valor) => valor.trim() === '')) {
     throw new BadRequestException('Las tarjetas no pueden estar vacías.');
@@ -51,6 +52,11 @@ export function validarEntradaEstudio(
   const categoriasRepetidas = duplicados(categorias);
   if (categoriasRepetidas.length > 0) {
     throw new BadRequestException(`Hay categorías duplicadas: ${listar(categoriasRepetidas)}.`);
+  }
+  if (esHibrido && categorias.length < 1) {
+    throw new BadRequestException(
+      'Un Card Sorting híbrido requiere al menos una categoría predefinida.',
+    );
   }
   if (esCerrado && categorias.length < 2) {
     throw new BadRequestException(

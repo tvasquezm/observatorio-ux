@@ -74,6 +74,19 @@ describe('validarEntradaEstudio', () => {
     expect(() => validarEntradaEstudio(false, ['A'], [])).not.toThrow();
   });
 
+  it('híbrido exige al menos 1 categoría predefinida', () => {
+    expect(() => validarEntradaEstudio(false, ['A'], [], true)).toThrow(
+      'Un Card Sorting híbrido requiere al menos una categoría predefinida.',
+    );
+    expect(() => validarEntradaEstudio(false, ['A'], ['Una'], true)).not.toThrow();
+  });
+
+  it('el DTO acepta tipo HIBRIDO', async () => {
+    expect(
+      await erroresDto({ tipo: 'HIBRIDO', categorias: [{ nombre: 'Una' }] }),
+    ).toHaveLength(0);
+  });
+
   it('resume la lista cuando hay más de 5 duplicados', () => {
     const base = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
     expect(() => validarEntradaEstudio(false, [...base, ...base], [])).toThrow(/y 2 más/);

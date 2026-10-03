@@ -25,6 +25,13 @@ import type { ProjectOutletContext } from '../layouts/ProjectDetailLayout';
 const TYPE_HINTS: Record<TipoCardSorting, string> = {
   ABIERTO: 'Los participantes crean y nombran sus propias categorías. Úsalo para descubrir cómo piensan tus usuarios.',
   CERRADO: 'Los participantes usan las categorías que defines tú. Úsalo para validar una estructura que ya tienes.',
+  HIBRIDO: 'Defines pocas categorías de partida y los participantes pueden crear otras. Úsalo para validar una estructura y descubrir lo que le falta.',
+};
+
+const TYPE_LABELS: Record<TipoCardSorting, string> = {
+  ABIERTO: 'Abierto',
+  CERRADO: 'Cerrado',
+  HIBRIDO: 'Híbrido',
 };
 
 const CARD_CHECKLIST = [
@@ -116,6 +123,7 @@ export function CardSortingPage() {
     const problem = validarEstudio({
       nombre: name,
       esCerrado: type === 'CERRADO',
+      esHibrido: type === 'HIBRIDO',
       tarjetas: cardsInfo,
       categorias: categoriesInfo,
       preguntas: questionsInfo,
@@ -132,7 +140,7 @@ export function CardSortingPage() {
         nombre: name.trim(),
         tipo: type,
         tarjetas: cards,
-        categorias: type === 'CERRADO' ? categories : undefined,
+        categorias: type !== 'ABIERTO' ? categories : undefined,
         preguntas: questionsInfo.items.length > 0 ? questionsInfo.items.map((texto) => ({ texto })) : undefined,
       },
       {
@@ -182,6 +190,7 @@ export function CardSortingPage() {
               <select value={type} onChange={(event) => setType(event.target.value as TipoCardSorting)}>
                 <option value="ABIERTO">Abierto — cada participante crea sus categorías</option>
                 <option value="CERRADO">Cerrado — usa categorías predefinidas</option>
+                <option value="HIBRIDO">Híbrido — predefinidas más categorías propias</option>
               </select>
               <small className="text-muted-sm" data-testid="cs-type-hint">{TYPE_HINTS[type]}</small>
             </label>
@@ -200,7 +209,7 @@ export function CardSortingPage() {
               <Checklist items={CARD_CHECKLIST} />
             </label>
 
-            {type === 'CERRADO' && (
+            {type !== 'ABIERTO' && (
               <label className="field">
                 Categorías predefinidas (una por línea)
                 <textarea
@@ -275,7 +284,7 @@ export function CardSortingPage() {
                 <span>
                   <strong>{study.nombre}</strong>
                   <small>
-                    {study.tipoCardSorting === 'CERRADO' ? 'Cerrado' : 'Abierto'} ·{' '}
+                    {TYPE_LABELS[study.tipoCardSorting ?? 'ABIERTO']} ·{' '}
                     {study.cardsDefinidas.length} tarjetas · {study.respuestasCount ?? 0}{' '}
                     {(study.respuestasCount ?? 0) === 1 ? 'respuesta' : 'respuestas'}
                   </small>

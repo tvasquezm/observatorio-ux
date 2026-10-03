@@ -9,14 +9,14 @@ const cards = [
   { id: 'card-2', etiqueta: 'Calendario' },
 ];
 
-function ControlledWorkspace({ open = false, onSubmit = vi.fn() }) {
+function ControlledWorkspace({ open = false, hybrid = false, onSubmit = vi.fn() }) {
   const [assignments, setAssignments] = useState<Record<string, string>>({});
   const [categories, setCategories] = useState<string[]>([]);
   return (
     <CardSortingWorkspace
       study={{
         nombre: 'Navegación',
-        tipoCardSorting: open ? 'ABIERTO' : 'CERRADO',
+        tipoCardSorting: hybrid ? 'HIBRIDO' : open ? 'ABIERTO' : 'CERRADO',
         cardsDefinidas: cards,
         categoriasDefinidas: open ? [] : [{ id: 'category-1', nombre: 'Servicios' }],
       }}
@@ -61,6 +61,31 @@ describe('CardSortingWorkspace', () => {
     expect(category).not.toBeNull();
     expect(within(category!).getByRole('button', { name: /Biblioteca/ })).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('Biblioteca se movió a Recursos.');
+  });
+
+  it('híbrido muestra las predefinidas y permite crear otras, enviando ambas', async () => {
+    const onSubmit = vi.fn();
+    render(<ControlledWorkspace hybrid onSubmit={onSubmit} />);
+    expect(screen.getByRole('heading', { name: 'Servicios' })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /Biblioteca/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Mover aquí' }));
+    await userEvent.click(screen.getByRole('button', { name: /Calendario/ }));
+    await userEvent.type(screen.getByLabelText('Nombre'), 'Mi grupo');
+    await userEvent.click(screen.getByRole('button', { name: 'Crear' }));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar clasificación' }));
+    expect(onSubmit).toHaveBeenCalledWith([
+      { categoriaId: 'category-1', cardIds: ['card-1'] },
+      { categoriaNombre: 'Mi grupo', cardIds: ['card-2'] },
+    ]);
+  });
+
+  it('híbrido rechaza crear una categoría con el nombre de una predefinida', async () => {
+    render(<ControlledWorkspace hybrid />);
+    await userEvent.type(screen.getByLabelText('Nombre'), 'servicios');
+    await userEvent.click(screen.getByRole('button', { name: 'Crear' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Ya existe una categoría con ese nombre.');
   });
 
   it('muestra una ayuda distinta según el tipo de estudio', () => {

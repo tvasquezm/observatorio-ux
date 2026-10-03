@@ -53,6 +53,12 @@ describe('validarEstudio', () => {
     expect(validarEstudio({ nombre: 'E', esCerrado: true, tarjetas, categorias: analizarEntrada('Uno\nDos', 60) })).toBeNull();
   });
 
+  it('híbrido exige 1 categoría predefinida', () => {
+    const una = analizarEntrada('Servicios', 60);
+    expect(validarEstudio({ nombre: 'E', esCerrado: false, esHibrido: true, tarjetas, categorias: vacio })).toBe('Un estudio híbrido necesita al menos una categoría predefinida.');
+    expect(validarEstudio({ nombre: 'E', esCerrado: false, esHibrido: true, tarjetas, categorias: una })).toBeNull();
+  });
+
   it('rechaza duplicados y tope de 100 tarjetas', () => {
     expect(validarEstudio({ nombre: 'E', esCerrado: false, tarjetas: analizarEntrada('A\na', 100), categorias: vacio })).toMatch(/duplicadas/);
     const muchas = analizarEntrada(Array.from({ length: 101 }, (_, i) => `T${i}`).join('\n'), 100);

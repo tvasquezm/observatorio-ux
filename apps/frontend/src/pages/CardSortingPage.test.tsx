@@ -39,6 +39,39 @@ describe('CardSortingPage · guía', () => {
   });
 });
 
+describe('CardSortingPage · híbrido', () => {
+  it('explica el híbrido y muestra las categorías predefinidas', async () => {
+    renderPage();
+    expect(screen.queryByLabelText(/Categorías predefinidas/)).not.toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByLabelText(/Tipo de estudio/), 'HIBRIDO');
+    expect(screen.getByTestId('cs-type-hint')).toHaveTextContent(/pueden crear otras/);
+    expect(screen.getByLabelText(/Categorías predefinidas/)).toBeInTheDocument();
+  });
+
+  it('sin categorías predefinidas muestra el mínimo de 1', async () => {
+    mutate.mockClear();
+    renderPage();
+    await userEvent.selectOptions(screen.getByLabelText(/Tipo de estudio/), 'HIBRIDO');
+    await userEvent.type(screen.getByLabelText(/Nombre del estudio/), 'Estudio');
+    await userEvent.type(screen.getByLabelText(/Tarjetas \(una por línea\)/), 'A{Enter}B');
+    await userEvent.type(screen.getByLabelText(/Categorías predefinidas/), '   ');
+    await userEvent.click(screen.getByRole('button', { name: /Crear y abrir/ }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Un estudio híbrido necesita al menos una categoría predefinida.');
+    expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it('con 1 categoría envía tipo HIBRIDO y las categorías', async () => {
+    mutate.mockClear();
+    renderPage();
+    await userEvent.selectOptions(screen.getByLabelText(/Tipo de estudio/), 'HIBRIDO');
+    await userEvent.type(screen.getByLabelText(/Nombre del estudio/), 'Estudio');
+    await userEvent.type(screen.getByLabelText(/Tarjetas \(una por línea\)/), 'A{Enter}B');
+    await userEvent.type(screen.getByLabelText(/Categorías predefinidas/), 'Servicios');
+    await userEvent.click(screen.getByRole('button', { name: /Crear y abrir/ }));
+    expect(mutate.mock.calls[0][0]).toMatchObject({ tipo: 'HIBRIDO', categorias: [{ nombre: 'Servicios' }] });
+  });
+});
+
 describe('CardSortingPage · intención de tarjetas y categorías', () => {
   async function llenar(nombre: string, tarjetas: string) {
     await userEvent.type(screen.getByLabelText(/Nombre del estudio/), nombre);

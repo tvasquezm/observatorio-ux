@@ -199,4 +199,41 @@ describe('CardSortingService.submitResult', () => {
       ),
     ).rejects.toThrow('La categoría no pertenece a este estudio.');
   });
+
+  it('HIBRIDO permite mezclar categoría predefinida y categoría nueva', async () => {
+    tx.researchSession.findUnique.mockResolvedValue(sesionDeEjemplo);
+    tx.card.findMany.mockResolvedValue([{ id: 'card-1' }, { id: 'card-2' }]);
+    tx.category.findMany.mockResolvedValue([{ id: 'cat-1', sessionId: 'estudio-1' }]);
+    tx.category.create.mockResolvedValue({ id: 'cat-nueva' });
+    tx.researchSession.update.mockResolvedValue(undefined);
+    tx.researchSession.findUniqueOrThrow
+      .mockReset()
+      .mockResolvedValueOnce({ id: 'estudio-1', tipoCardSorting: 'HIBRIDO' })
+      .mockResolvedValueOnce({ ...sesionDeEjemplo, estado: EstadoSesion.COMPLETADO });
+
+    await service.submitResult(
+      SESION_ID,
+      [
+        { categoriaId: 'cat-1', cardIds: ['card-1'] },
+        { categoriaNombre: 'Mi categoría', cardIds: ['card-2'] },
+      ],
+      userDueño,
+    );
+
+    expect(tx.category.create).toHaveBeenCalledTimes(1);
+    expect(tx.cardGrouping.createMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('CERRADO sigue rechazando categorías nuevas', async () => {
+    tx.researchSession.findUnique.mockResolvedValue(sesionDeEjemplo);
+    tx.card.findMany.mockResolvedValue([{ id: 'card-1' }]);
+    tx.researchSession.findUniqueOrThrow
+      .mockReset()
+      .mockResolvedValueOnce({ id: 'estudio-1', tipoCardSorting: 'CERRADO' });
+
+    await expect(
+      service.submitResult(SESION_ID, [{ categoriaNombre: 'Nueva', cardIds: ['card-1'] }], userDueño),
+    ).rejects.toThrow('Solo los estudios abiertos o híbridos permiten crear categorías nuevas.');
+    expect(tx.category.create).not.toHaveBeenCalled();
+  });
 });

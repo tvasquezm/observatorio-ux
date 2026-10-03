@@ -35,7 +35,7 @@ export interface ParticipantCardSortingSession {
   estudio: {
     id: string;
     nombre: string;
-    tipoCardSorting: 'ABIERTO' | 'CERRADO';
+    tipoCardSorting: 'ABIERTO' | 'CERRADO' | 'HIBRIDO';
     cerrado: boolean;
     cardsDefinidas: ParticipantCard[];
     categoriasDefinidas: ParticipantCategoria[];

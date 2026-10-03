@@ -44,6 +44,7 @@ enum TipoArtefacto {
 enum TipoCardSorting {
   ABIERTO
   CERRADO
+  HIBRIDO
 }
 
 // ------------------------------------------------------------

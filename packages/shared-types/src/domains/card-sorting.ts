@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const TipoCardSortingSchema = z.enum(['ABIERTO', 'CERRADO']);
+export const TipoCardSortingSchema = z.enum(['ABIERTO', 'CERRADO', 'HIBRIDO']);
 
 export const CardSortingCardInputSchema = z.object({
   etiqueta: z.string().trim().min(1).max(100),

@@ -65,18 +65,20 @@ export function estadoCantidadTarjetas(cantidad: number): EstadoCantidad {
 export function validarEstudio(params: {
   nombre: string;
   esCerrado: boolean;
+  esHibrido?: boolean;
   tarjetas: AnalisisEntrada;
   categorias: AnalisisEntrada;
   preguntas?: AnalisisEntrada;
 }): string | null {
-  const { nombre, esCerrado, tarjetas, categorias, preguntas } = params;
+  const { nombre, esCerrado, esHibrido = false, tarjetas, categorias, preguntas } = params;
   if (!nombre.trim()) return 'Escribe un nombre para el estudio.';
   if (tarjetas.items.length === 0) return 'Agrega al menos una tarjeta.';
   if (tarjetas.items.length > MAX_TARJETAS) return `El máximo es ${MAX_TARJETAS} tarjetas.`;
   if (tarjetas.excedidas.length > 0) return `Hay tarjetas de más de ${MAX_ETIQUETA} caracteres. Acórtalas.`;
   if (tarjetas.duplicados.length > 0) return `Hay tarjetas duplicadas: ${tarjetas.duplicados.slice(0, 3).join(', ')}. Quita las repetidas.`;
-  if (esCerrado) {
-    if (categorias.items.length < MIN_CATEGORIAS_CERRADO) return `Un estudio cerrado necesita al menos ${MIN_CATEGORIAS_CERRADO} categorías.`;
+  if (esCerrado || esHibrido) {
+    if (esCerrado && categorias.items.length < MIN_CATEGORIAS_CERRADO) return `Un estudio cerrado necesita al menos ${MIN_CATEGORIAS_CERRADO} categorías.`;
+    if (esHibrido && categorias.items.length < 1) return 'Un estudio híbrido necesita al menos una categoría predefinida.';
     if (categorias.excedidas.length > 0) return `Hay categorías de más de ${MAX_CATEGORIA} caracteres. Acórtalas.`;
     if (categorias.duplicados.length > 0) return `Hay categorías duplicadas: ${categorias.duplicados.slice(0, 3).join(', ')}.`;
   }

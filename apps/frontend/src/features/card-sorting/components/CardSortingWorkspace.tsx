@@ -2,7 +2,7 @@ import { useId, useMemo, useRef, useState, type DragEvent } from 'react';
 
 export interface CardSortingWorkspaceStudy {
   nombre: string;
-  tipoCardSorting: 'ABIERTO' | 'CERRADO' | null;
+  tipoCardSorting: 'ABIERTO' | 'CERRADO' | 'HIBRIDO' | null;
   cardsDefinidas: Array<{ id: string; etiqueta: string }>;
   categoriasDefinidas: Array<{ id: string; nombre: string }>;
   preguntas?: Array<{ id: string; texto: string }>;
@@ -59,23 +59,23 @@ export function CardSortingWorkspace({
   const [announcement, setAnnouncement] = useState('');
 
   const isClosed = study.tipoCardSorting === 'CERRADO';
-  const categories = useMemo<WorkspaceCategory[]>(
-    () =>
-      isClosed
-        ? study.categoriasDefinidas.map((category) => ({
-            key: `predefined:${category.id}`,
-            value: category.id,
-            name: category.nombre,
-            custom: false,
-          }))
-        : customCategories.map((name) => ({
-            key: `custom:${normalizeCategory(name)}`,
-            value: name,
-            name,
-            custom: true,
-          })),
-    [customCategories, isClosed, study.categoriasDefinidas],
-  );
+  const isHybrid = study.tipoCardSorting === 'HIBRIDO';
+  const categories = useMemo<WorkspaceCategory[]>(() => {
+    const predefined = study.categoriasDefinidas.map((category) => ({
+      key: `predefined:${category.id}`,
+      value: category.id,
+      name: category.nombre,
+      custom: false,
+    }));
+    const custom = customCategories.map((name) => ({
+      key: `custom:${normalizeCategory(name)}`,
+      value: name,
+      name,
+      custom: true,
+    }));
+    if (isClosed) return predefined;
+    return isHybrid ? [...predefined, ...custom] : custom;
+  }, [customCategories, isClosed, isHybrid, study.categoriasDefinidas]);
 
   const cardsById = useMemo(
     () => new Map(study.cardsDefinidas.map((card) => [card.id, card])),
@@ -125,7 +125,8 @@ export function CardSortingWorkspace({
       setCategoryError('Escribe un nombre para la categoría.');
       return;
     }
-    if (customCategories.some((category) => normalizeCategory(category) === normalizeCategory(name))) {
+    const taken = [...customCategories, ...(isHybrid ? study.categoriasDefinidas.map((category) => category.nombre) : [])];
+    if (taken.some((category) => normalizeCategory(category) === normalizeCategory(name))) {
       setCategoryError('Ya existe una categoría con ese nombre.');
       return;
     }
@@ -187,7 +188,9 @@ export function CardSortingWorkspace({
         Arrastra una tarjeta o selecciónala y luego usa “Mover aquí”.{' '}
         {isClosed
           ? 'Usa las categorías que se muestran.'
-          : 'Puedes crear tus propias categorías con el panel “Nueva categoría”.'}
+          : isHybrid
+            ? 'Usa las categorías que se muestran o crea las tuyas con el panel “Nueva categoría”.'
+            : 'Puedes crear tus propias categorías con el panel “Nueva categoría”.'}
         {preview && ' Esta práctica es local y no se incluye en los resultados.'}
       </p>
       <p className="sr-only" role="status" aria-live="polite">{announcement}</p>

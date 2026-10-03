@@ -120,12 +120,15 @@ export class CardSortingService {
     const tipo =
       dto.tipo === CardSortingTypeDto.CLOSED
         ? TipoCardSorting.CERRADO
-        : TipoCardSorting.ABIERTO;
+        : dto.tipo === CardSortingTypeDto.HYBRID
+          ? TipoCardSorting.HIBRIDO
+          : TipoCardSorting.ABIERTO;
 
     validarEntradaEstudio(
       tipo === TipoCardSorting.CERRADO,
       dto.tarjetas.map((tarjeta) => tarjeta.etiqueta),
       (dto.categorias ?? []).map((categoria) => categoria.nombre),
+      tipo === TipoCardSorting.HIBRIDO,
     );
     validarPreguntas((dto.preguntas ?? []).map((pregunta) => pregunta.texto));
 
@@ -640,9 +643,12 @@ export class CardSortingService {
           }
           categoryId = category.id;
         } else {
-          if (study.tipoCardSorting !== TipoCardSorting.ABIERTO) {
+          if (
+            study.tipoCardSorting !== TipoCardSorting.ABIERTO &&
+            study.tipoCardSorting !== TipoCardSorting.HIBRIDO
+          ) {
             throw new BadRequestException(
-              'Solo los estudios abiertos permiten crear categorías nuevas.',
+              'Solo los estudios abiertos o híbridos permiten crear categorías nuevas.',
             );
           }
           const name = group.categoriaNombre!.trim();

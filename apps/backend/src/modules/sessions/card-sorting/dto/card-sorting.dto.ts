@@ -16,6 +16,7 @@ import {
 export enum CardSortingTypeDto {
   OPEN = 'ABIERTO',
   CLOSED = 'CERRADO',
+  HYBRID = 'HIBRIDO',
 }
 
 class TarjetaDto {
