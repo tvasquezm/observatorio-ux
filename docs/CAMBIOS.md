@@ -31,6 +31,22 @@ y quirúrgicas. No hay archivos inventados desde cero salvo los indicados.
   oscuro que los tokens vuelven redundantes (botón primario, `.crumb`,
   `.role`/`.count`, `.node`, textos secundarios y el bloque de la fase 1).
 
+## Auditoría UI/UX — Fase 4b-2: cambios sin guardar y card sorting táctil (03-10-2026)
+
+- `apps/frontend/src/shared/hooks/useUnsavedChanges.ts`: el bloqueo de
+  navegación de react-router usa el modal global (`askConfirm`) en lugar de
+  `window.confirm`. Afecta a `JourneyMapPage`, `ProjectsPage`,
+  `MomentosCriticosPage` y `PersonasPage`. `beforeunload` (recarga y cierre
+  de pestaña) se mantiene: ahí el navegador no admite un modal propio, es la
+  única excepción.
+- `apps/frontend/src/features/card-sorting/components/CardSortingWorkspace.tsx`:
+  con `(pointer: coarse)` las instrucciones y el estado vacío piden
+  seleccionar la tarjeta y usar "Mover aquí" en vez de arrastrar. El drag
+  HTML5 no se toca y en escritorio el texto no cambia.
+- Tests: `useUnsavedChanges.test.tsx` pasa a mockear `askConfirm` y cubre el
+  reintento tras cancelar; `CardSortingWorkspace.test.tsx` cubre puntero táctil
+  y fino.
+
 ## Auditoría UI/UX — Fase 4b-1: tablas, viewport, movimiento y estilos en línea (03-10-2026)
 
 - `<th>` con `scope="col"` en las 12 cabeceras de las tablas de

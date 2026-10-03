@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CardSortingWorkspace } from './CardSortingWorkspace';
 
 const cards = [
@@ -28,6 +28,37 @@ function ControlledWorkspace({ open = false, hybrid = false, onSubmit = vi.fn() 
     />
   );
 }
+
+function stubPointer(coarse: boolean) {
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    writable: true,
+    value: vi.fn().mockReturnValue({ matches: coarse, addEventListener: vi.fn(), removeEventListener: vi.fn() }),
+  });
+}
+
+afterEach(() => {
+  // jsdom no define matchMedia: se deja como estaba
+  delete (window as { matchMedia?: unknown }).matchMedia;
+});
+
+describe('CardSortingWorkspace · puntero', () => {
+  it('con puntero táctil indica seleccionar y usar Mover aquí, sin hablar de arrastrar', () => {
+    stubPointer(true);
+    render(<ControlledWorkspace />);
+    expect(screen.getByText(/Selecciona una tarjeta y luego usa/)).toBeInTheDocument();
+    expect(screen.queryByText(/Arrastra una tarjeta/)).not.toBeInTheDocument();
+    expect(screen.getByText('Selecciona una tarjeta para moverla aquí.')).toBeInTheDocument();
+    expect(screen.queryByText('Suelta aquí una tarjeta.')).not.toBeInTheDocument();
+  });
+
+  it('con puntero fino mantiene las instrucciones de arrastrar', () => {
+    stubPointer(false);
+    render(<ControlledWorkspace />);
+    expect(screen.getByText(/Arrastra una tarjeta o selecciónala/)).toBeInTheDocument();
+    expect(screen.getByText('Suelta aquí una tarjeta.')).toBeInTheDocument();
+  });
+});
 
 describe('CardSortingWorkspace', () => {
   it('permite clasificar sin arrastrar usando selección y botones', async () => {

@@ -53,6 +53,9 @@ All notable changes to this project will be documented in this file. See [commit
 * **ui:** las cabeceras de tabla declaran `scope`, `prefers-reduced-motion`
   sustituye las animaciones por fundidos breves en vez de apagarlas, el alto de
   pantalla usa `dvh` y los espaciados en línea pasan a clases.
+* **ux:** salir de un formulario con cambios sin guardar usa el modal de la
+  app en vez de `window.confirm`, y el card sorting en pantallas táctiles indica
+  seleccionar y usar "Mover aquí" en vez de arrastrar.
 
 * **deps:** actualiza los overrides de brace-expansion, fast-uri y multer a
   versiones corregidas; elimina las alertas encontradas por `pnpm audit`.

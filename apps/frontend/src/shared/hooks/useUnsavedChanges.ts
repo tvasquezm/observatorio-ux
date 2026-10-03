@@ -1,11 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useBlocker } from 'react-router-dom';
+import { askConfirm } from '../api/confirm';
 
 const DEFAULT_MESSAGE = 'Tienes cambios sin guardar. ¿Quieres salir de esta pantalla?';
 
 /**
  * Compara con el contenido al abrir. El router protege enlaces, navegación
- * programática y Atrás/Adelante; beforeunload protege recarga y cierre.
+ * programática y Atrás/Adelante, con el modal global de confirmación;
+ * beforeunload protege recarga y cierre (ahí el navegador no admite modal propio).
  */
 export function useUnsavedChanges(open: boolean, value: unknown, saving = false) {
   const snapshot = JSON.stringify(value);
@@ -14,11 +16,20 @@ export function useUnsavedChanges(open: boolean, value: unknown, saving = false)
   const active = open && snapshot !== baseline && !saving;
   const blocker = useBlocker(active);
 
+  const blockerRef = useRef(blocker);
+  blockerRef.current = blocker;
+
   useEffect(() => {
     if (blocker.state !== 'blocked') return;
-    if (window.confirm(DEFAULT_MESSAGE)) blocker.proceed();
-    else blocker.reset();
-  }, [blocker]);
+    let ignore = false;
+    void askConfirm(DEFAULT_MESSAGE).then((leave) => {
+      const current = blockerRef.current;
+      if (ignore || current.state !== 'blocked') return;
+      if (leave) current.proceed();
+      else current.reset();
+    });
+    return () => { ignore = true; };
+  }, [blocker.state]);
 
   useEffect(() => {
     if (!active) return;

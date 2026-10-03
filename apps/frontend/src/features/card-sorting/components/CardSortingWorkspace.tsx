@@ -1,4 +1,20 @@
-import { useId, useMemo, useRef, useState, type DragEvent } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type DragEvent } from 'react';
+
+const COARSE_POINTER_QUERY = '(pointer: coarse)';
+
+/** true en pantallas táctiles, donde arrastrar no es la vía principal. */
+function useCoarsePointer(): boolean {
+  const supported = typeof window !== 'undefined' && typeof window.matchMedia === 'function';
+  const [coarse, setCoarse] = useState(() => supported && window.matchMedia(COARSE_POINTER_QUERY).matches);
+  useEffect(() => {
+    if (!supported) return;
+    const query = window.matchMedia(COARSE_POINTER_QUERY);
+    const onChange = (event: MediaQueryListEvent) => setCoarse(event.matches);
+    query.addEventListener('change', onChange);
+    return () => query.removeEventListener('change', onChange);
+  }, [supported]);
+  return coarse;
+}
 
 export interface CardSortingWorkspaceStudy {
   nombre: string;
@@ -74,6 +90,7 @@ export function CardSortingWorkspace({
   const [newParent, setNewParent] = useState('');
   const [categoryError, setCategoryError] = useState('');
   const [announcement, setAnnouncement] = useState('');
+  const coarsePointer = useCoarsePointer();
 
   const isClosed = study.tipoCardSorting === 'CERRADO';
   const isHybrid = study.tipoCardSorting === 'HIBRIDO';
@@ -230,7 +247,7 @@ export function CardSortingWorkspace({
         {cards.length > 0 ? (
           <div className="cs-card-list">{cards.map(renderCard)}</div>
         ) : (
-          <p className="cs-empty">Suelta aquí una tarjeta.</p>
+          <p className="cs-empty">{coarsePointer ? 'Selecciona una tarjeta para moverla aquí.' : 'Suelta aquí una tarjeta.'}</p>
         )}
         {selectedCardId && assignments[selectedCardId] !== category.value && (
           <button
@@ -248,7 +265,7 @@ export function CardSortingWorkspace({
   return (
     <section className="cs-workspace" aria-label={`Clasificación de tarjetas: ${study.nombre}`}>
       <p className="cs-workspace-instructions">
-        Arrastra una tarjeta o selecciónala y luego usa “Mover aquí”.{' '}
+        {coarsePointer ? 'Selecciona una tarjeta y luego usa “Mover aquí”.' : 'Arrastra una tarjeta o selecciónala y luego usa “Mover aquí”.'}{' '}
         {isClosed
           ? 'Usa las categorías que se muestran.'
           : isHybrid
