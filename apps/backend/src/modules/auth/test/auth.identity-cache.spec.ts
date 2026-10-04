@@ -69,6 +69,32 @@ describe('AuthService.validateTokenPayload — cache de identidad', () => {
     );
   });
 
+  it.each([
+    { cambio: 'rol', usuario: { id: 'u1', email: 'a@x.cl', rol: 'ESTUDIANTE' } },
+    { cambio: 'borrado', usuario: null },
+  ])('no repuebla la identidad invalidada durante una lectura ($cambio)', async ({ usuario }) => {
+    const identidadAnterior = { id: 'u1', email: 'a@x.cl', rol: 'ADMIN' };
+    let completarLectura!: (value: typeof identidadAnterior) => void;
+    prisma.usuario.findUnique
+      .mockImplementationOnce(() => new Promise<typeof identidadAnterior>((resolve) => {
+        completarLectura = resolve;
+      }))
+      .mockResolvedValueOnce(usuario);
+
+    const enCurso = service.validateTokenPayload({ sub: 'u1' });
+    service.invalidateUser('u1');
+    completarLectura(identidadAnterior);
+    await enCurso;
+
+    const siguiente = service.validateTokenPayload({ sub: 'u1' });
+    if (usuario) {
+      await expect(siguiente).resolves.toMatchObject(usuario);
+    } else {
+      await expect(siguiente).rejects.toBeInstanceOf(UnauthorizedException);
+    }
+    expect(prisma.usuario.findUnique).toHaveBeenCalledTimes(2);
+  });
+
   it('no cachea los usuarios inexistentes', async () => {
     prisma.usuario.findUnique.mockResolvedValue(null);
 

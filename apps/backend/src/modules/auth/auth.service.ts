@@ -34,6 +34,8 @@ export class AuthService {
 
   private readonly evaluadores = new TtlCache<IdentidadEvaluador>(IDENTIDAD_TTL_MS);
   private readonly participantes = new TtlCache<true>(IDENTIDAD_TTL_MS);
+  // Una invalidación impide cachear identidades leídas antes del cambio.
+  private identityCacheEpoch = 0;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -44,6 +46,7 @@ export class AuthService {
 
   /** Descarta la identidad cacheada de un usuario (cambio de rol o borrado). */
   invalidateUser(id: string): void {
+    this.identityCacheEpoch++;
     this.evaluadores.delete(id);
     this.participantes.delete(id);
   }
@@ -438,6 +441,7 @@ export class AuthService {
     actor?: string;
     proyectoId?: string;
   }): Promise<AuthenticatedUser> {
+    const cacheEpoch = this.identityCacheEpoch;
     if (payload.actor === 'PARTICIPANTE') {
       if (!this.participantes.get(payload.sub)) {
         const participant = await this.prisma.participante.findUnique({
@@ -447,7 +451,9 @@ export class AuthService {
         if (!participant) {
           throw new UnauthorizedException('El participante del token no existe.');
         }
-        this.participantes.set(payload.sub, true);
+        if (cacheEpoch === this.identityCacheEpoch) {
+          this.participantes.set(payload.sub, true);
+        }
       }
 
       return {
@@ -468,7 +474,9 @@ export class AuthService {
         throw new UnauthorizedException('El usuario del token no existe.');
       }
       identidad = { id: user.id, email: user.email, rol: user.rol };
-      this.evaluadores.set(payload.sub, identidad);
+      if (cacheEpoch === this.identityCacheEpoch) {
+        this.evaluadores.set(payload.sub, identidad);
+      }
     }
 
     return { ...identidad, actor: 'EVALUADOR' };
