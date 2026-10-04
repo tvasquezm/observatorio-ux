@@ -15,7 +15,7 @@ describe('Configuración de Card Sorting en la API', () => {
   const valid = {
     proyectoId: '11111111-1111-4111-8111-111111111111', nombre: ' Navegación ',
     tipo: CardSortingTypeDto.CLOSED, tarjetas: [{ etiqueta: ' Biblioteca ' }],
-    categorias: [{ nombre: ' Servicios ' }],
+    categorias: [{ nombre: ' Servicios ' }, { nombre: ' Vida universitaria ' }],
   };
   beforeEach(() => jest.clearAllMocks());
 
@@ -24,6 +24,8 @@ describe('Configuración de Card Sorting en la API', () => {
     { tarjetas: [{ etiqueta: '   ' }] },
     { tarjetas: [{ etiqueta: 'Biblioteca' }, { etiqueta: ' biblioteca ' }] },
     { categorias: [] },
+    { categorias: [{ nombre: 'Solo una' }] },
+    { tarjetas: [] },
     { categorias: [{ nombre: '   ' }] },
     { categorias: [{ nombre: 'Servicios' }, { nombre: ' servicios ' }] },
   ])('rechaza configuración inválida antes de persistir: %j', async (changes) => {
@@ -38,8 +40,23 @@ describe('Configuración de Card Sorting en la API', () => {
     expect(create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({
       nombre: 'Navegación', tipoCardSorting: 'CERRADO',
       cardsDefinidas: { create: [{ etiqueta: 'Biblioteca' }] },
-      categoriasDefinidas: { create: [{ nombre: 'Servicios', esPredefinida: true }] },
+      categoriasDefinidas: { create: [{ nombre: 'Servicios', esPredefinida: true }, { nombre: 'Vida universitaria', esPredefinida: true }] },
     }) }));
     getSession.mockRestore();
   });
+  it('conserva el estudio híbrido y las preguntas al aplicar la validación compartida', async () => {
+    create.mockResolvedValue({ id: 'study' });
+    const getSession = jest.spyOn(service, 'getSession').mockResolvedValue({ id: 'study' } as never);
+    try {
+      await service.createSession({ ...valid, tipo: CardSortingTypeDto.HYBRID,
+        categorias: [{ nombre: ' Servicios ' }], preguntas: [{ texto: ' ¿Qué faltó? ' }],
+      }, user);
+      expect(create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({
+        tipoCardSorting: 'HIBRIDO',
+        categoriasDefinidas: { create: [{ nombre: 'Servicios', esPredefinida: true }] },
+        preguntas: { create: [{ texto: '¿Qué faltó?', orden: 0 }] },
+      }) }));
+    } finally { getSession.mockRestore(); }
+  });
+
 });

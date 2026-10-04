@@ -39,7 +39,7 @@ describe('Configuración de Card Sorting', () => {
     configure('Biblioteca\n biblioteca ');
     submit();
     expect(state.create).not.toHaveBeenCalled();
-    expect(screen.getByRole('alert')).toHaveTextContent(/tarjetas.*repetidas/i);
+    expect(screen.getByRole('alert')).toHaveTextContent(/tarjetas.*duplicadas/i);
     expect(screen.getByLabelText('Tarjetas (una por línea)')).toHaveValue('Biblioteca\n biblioteca ');
   });
 
@@ -54,12 +54,12 @@ describe('Configuración de Card Sorting', () => {
   it('envía categorías y tarjetas sin espacios adicionales en un estudio cerrado', () => {
     configure(' Biblioteca \n\n Calendario ');
     fireEvent.change(screen.getByLabelText('Tipo de estudio'), { target: { value: 'CERRADO' } });
-    fireEvent.change(screen.getByLabelText('Categorías predefinidas (una por línea)'), { target: { value: ' Servicios ' } });
+    fireEvent.change(screen.getByLabelText('Categorías predefinidas (una por línea)'), { target: { value: ' Servicios \n Vida universitaria ' } });
     submit();
     expect(state.create).toHaveBeenCalledWith({
       proyectoId: projectId, nombre: 'Navegación', tipo: 'CERRADO',
       tarjetas: [{ etiqueta: 'Biblioteca' }, { etiqueta: 'Calendario' }],
-      categorias: [{ nombre: 'Servicios' }],
+      categorias: [{ nombre: 'Servicios' }, { nombre: 'Vida universitaria' }],
     }, expect.any(Object));
   });
 

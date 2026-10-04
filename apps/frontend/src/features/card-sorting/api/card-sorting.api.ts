@@ -44,6 +44,13 @@ export interface Category {
   createdAt: string;
 }
 
+export interface CardSortingQuestion {
+  id: string;
+  sessionId: string;
+  texto: string;
+  orden: number;
+}
+
 export interface CardGrouping {
   id: string;
   participanteSesionId: string;
@@ -71,6 +78,7 @@ export interface CardSortingSession {
   estudioId: string | null;
   cardsDefinidas: Card[];
   categoriasDefinidas: Category[];
+  preguntas?: CardSortingQuestion[];
   agrupaciones: CardGrouping[];
   createdAt: string;
   completadoAt: string | null;
@@ -198,6 +206,24 @@ export interface CardSortingPorCategoria {
   nombre: string;
   cardsCount: number;
   cartas: Array<{ tarjeta: string; frecuencia: number }>;
+  // Detalle por subcategoría (2 niveles); vacío si nadie anidó.
+  subcategorias?: Array<{
+    nombre: string;
+    cartas: Array<{ tarjeta: string; frecuencia: number }>;
+  }>;
+}
+
+export interface CardSortingPreguntaResultado {
+  id: string;
+  texto: string;
+  orden: number;
+  respuestas: string[];
+}
+
+export interface CardSortingParticipante {
+  orden: number;
+  categoriasCount: number;
+  grupos: Array<{ categoria: string; tarjetas: string[] }>;
 }
 
 export interface CardSortingAnalytics {
@@ -215,11 +241,16 @@ export interface CardSortingAnalytics {
   matrizSimilitud: number[][];
   frecuenciaPorCategoria: CardSortingFrecuenciaCategoria[];
   clusters: CardSortingCluster[];
+  sinConsenso: string[];
+  muestra: 'baja' | 'aceptable' | 'estable';
+  umbrales: { consenso: number; muestraMinima: number; muestraEstable: number };
   categorias: string[];
   resultsMatrix: CardSortingMatrix;
   popularPlacementsMatrix: CardSortingMatrix;
   porCarta: CardSortingPorCarta[];
   porCategoria: CardSortingPorCategoria[];
+  participantes: CardSortingParticipante[];
+  preguntas: CardSortingPreguntaResultado[];
 }
 
 /**

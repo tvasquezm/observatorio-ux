@@ -1,0 +1,174 @@
+import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter, Outlet, Route, Routes } from 'react-router-dom';
+import { CardSortingPage } from './CardSortingPage';
+
+const mutate = vi.hoisted(() => vi.fn());
+
+vi.mock('../features/card-sorting/hooks/useCardSortingQueries', () => ({
+  useCardSortingEstudiosByProyecto: () => ({ data: [], isLoading: false }),
+  useCreateCardSortingSession: () => ({ mutate, isPending: false, error: null }),
+}));
+
+function renderPage() {
+  const view = render(
+    <MemoryRouter initialEntries={['/p']}>
+      <Routes>
+        <Route element={<Outlet context={{ proyectoId: '11111111-1111-4111-8111-111111111111' }} />}>
+          <Route path="/p" element={<CardSortingPage />} />
+        </Route>
+      </Routes>
+    </MemoryRouter>,
+  );
+  fireEvent.click(screen.getByText('Nuevo estudio'));
+  return view;
+}
+
+describe('CardSortingPage · guía', () => {
+  it('mantiene la guía de 8 pasos disponible al desplegarla', () => {
+    renderPage();
+    const guide = screen.getByText('Cómo hacer un card sorting');
+    expect(guide.closest('details')).not.toHaveAttribute('open');
+    fireEvent.click(guide);
+    expect(guide.closest('details')).toHaveAttribute('open');
+    expect(screen.getByText('Extraer conclusiones')).toBeInTheDocument();
+  });
+
+  it('explica cuándo usar abierto o cerrado según el tipo elegido', async () => {
+    renderPage();
+    expect(screen.getByTestId('cs-type-hint')).toHaveTextContent(/descubrir cómo piensan/);
+
+    await userEvent.selectOptions(screen.getByLabelText(/Tipo de estudio/), 'CERRADO');
+    expect(screen.getByTestId('cs-type-hint')).toHaveTextContent(/validar una estructura/);
+  });
+});
+
+describe('CardSortingPage · híbrido', () => {
+  it('explica el híbrido y muestra las categorías predefinidas', async () => {
+    renderPage();
+    expect(screen.queryByLabelText(/Categorías predefinidas/)).not.toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByLabelText(/Tipo de estudio/), 'HIBRIDO');
+    expect(screen.getByTestId('cs-type-hint')).toHaveTextContent(/pueden crear otras/);
+    expect(screen.getByLabelText(/Categorías predefinidas/)).toBeInTheDocument();
+  });
+
+  it('sin categorías predefinidas muestra el mínimo de 1', async () => {
+    mutate.mockClear();
+    renderPage();
+    await userEvent.selectOptions(screen.getByLabelText(/Tipo de estudio/), 'HIBRIDO');
+    await userEvent.type(screen.getByLabelText(/Nombre del estudio/), 'Estudio');
+    await userEvent.type(screen.getByLabelText(/Tarjetas \(una por línea\)/), 'A{Enter}B');
+    await userEvent.type(screen.getByLabelText(/Categorías predefinidas/), '   ');
+    await userEvent.click(screen.getByRole('button', { name: /Crear estudio/ }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Un estudio híbrido necesita al menos una categoría predefinida.');
+    expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it('con 1 categoría envía tipo HIBRIDO y las categorías', async () => {
+    mutate.mockClear();
+    renderPage();
+    await userEvent.selectOptions(screen.getByLabelText(/Tipo de estudio/), 'HIBRIDO');
+    await userEvent.type(screen.getByLabelText(/Nombre del estudio/), 'Estudio');
+    await userEvent.type(screen.getByLabelText(/Tarjetas \(una por línea\)/), 'A{Enter}B');
+    await userEvent.type(screen.getByLabelText(/Categorías predefinidas/), 'Servicios');
+    await userEvent.click(screen.getByRole('button', { name: /Crear estudio/ }));
+    expect(mutate.mock.calls[0][0]).toMatchObject({ tipo: 'HIBRIDO', categorias: [{ nombre: 'Servicios' }] });
+  });
+});
+
+describe('CardSortingPage · intención de tarjetas y categorías', () => {
+  async function llenar(nombre: string, tarjetas: string) {
+    await userEvent.type(screen.getByLabelText(/Nombre del estudio/), nombre);
+    await userEvent.type(screen.getByLabelText(/Tarjetas \(una por línea\)/), tarjetas);
+  }
+
+  it('cuenta las tarjetas en vivo e indica el rango recomendado', async () => {
+    renderPage();
+    expect(screen.getByTestId('cs-card-count')).toHaveTextContent('0 tarjetas · recomendado: entre 30 y 60');
+    await userEvent.type(screen.getByLabelText(/Tarjetas \(una por línea\)/), 'A{Enter}B{Enter}{Enter}C');
+    expect(screen.getByTestId('cs-card-count')).toHaveTextContent('3 tarjetas');
+  });
+
+  it('avisa de tarjetas duplicadas sin importar tildes ni mayúsculas', async () => {
+    renderPage();
+    await userEvent.type(screen.getByLabelText(/Tarjetas \(una por línea\)/), 'Navegación{Enter}navegacion');
+    expect(screen.getByText(/Duplicadas: navegacion/)).toBeInTheDocument();
+  });
+
+  it('muestra un mensaje en vez de no hacer nada cuando el nombre son solo espacios', async () => {
+    mutate.mockClear();
+    renderPage();
+    await llenar('   ', 'Biblioteca');
+    await userEvent.click(screen.getByRole('button', { name: /Crear estudio/ }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Escribe un nombre para el estudio.');
+    expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it('bloquea tarjetas duplicadas al crear', async () => {
+    mutate.mockClear();
+    renderPage();
+    await llenar('Estudio', 'A{Enter}a');
+    await userEvent.click(screen.getByRole('button', { name: /Crear estudio/ }));
+    expect(screen.getByRole('alert')).toHaveTextContent(/tarjetas duplicadas/);
+    expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it('un estudio cerrado con 1 categoría muestra el mínimo de 2', async () => {
+    mutate.mockClear();
+    renderPage();
+    await userEvent.selectOptions(screen.getByLabelText(/Tipo de estudio/), 'CERRADO');
+    await llenar('Estudio', 'A{Enter}B');
+    await userEvent.type(screen.getByLabelText(/Categorías predefinidas/), 'Servicios');
+    await userEvent.click(screen.getByRole('button', { name: /Crear estudio/ }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Un estudio cerrado necesita al menos 2 categorías.');
+    expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it('con datos válidos envía las tarjetas recortadas y sin duplicados', async () => {
+    mutate.mockClear();
+    renderPage();
+    await llenar('  Estudio  ', 'A{Enter}  B  ');
+    await userEvent.click(screen.getByRole('button', { name: /Crear estudio/ }));
+    expect(mutate).toHaveBeenCalledTimes(1);
+    expect(mutate.mock.calls[0][0]).toMatchObject({
+      nombre: 'Estudio',
+      tarjetas: [{ etiqueta: 'A' }, { etiqueta: 'B' }],
+    });
+  });
+});
+
+describe('CardSortingPage · preguntas del evaluador', () => {
+  async function base() {
+    await userEvent.type(screen.getByLabelText(/Nombre del estudio/), 'Estudio');
+    await userEvent.type(screen.getByLabelText(/Tarjetas \(una por línea\)/), 'A{Enter}B');
+  }
+
+  it('cuenta las preguntas y envía las no vacías recortadas', async () => {
+    mutate.mockClear();
+    renderPage();
+    await base();
+    await userEvent.type(screen.getByLabelText(/Preguntas para el participante/), '  ¿Qué costó?  {Enter}{Enter}¿Faltó algo?');
+    expect(screen.getByTestId('cs-question-count')).toHaveTextContent('2 de 5 preguntas');
+    await userEvent.click(screen.getByRole('button', { name: /Crear estudio/ }));
+    expect(mutate.mock.calls[0][0].preguntas).toEqual([{ texto: '¿Qué costó?' }, { texto: '¿Faltó algo?' }]);
+  });
+
+  it('sin preguntas no envía el campo', async () => {
+    mutate.mockClear();
+    renderPage();
+    await base();
+    await userEvent.click(screen.getByRole('button', { name: /Crear estudio/ }));
+    expect(mutate.mock.calls[0][0].preguntas).toBeUndefined();
+  });
+
+  it('bloquea más de 5 preguntas', async () => {
+    mutate.mockClear();
+    renderPage();
+    await base();
+    await userEvent.type(screen.getByLabelText(/Preguntas para el participante/), '1{Enter}2{Enter}3{Enter}4{Enter}5{Enter}6');
+    await userEvent.click(screen.getByRole('button', { name: /Crear estudio/ }));
+    expect(screen.getByRole('alert')).toHaveTextContent('El máximo es 5 preguntas.');
+    expect(mutate).not.toHaveBeenCalled();
+  });
+});

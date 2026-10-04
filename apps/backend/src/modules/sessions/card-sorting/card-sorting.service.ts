@@ -20,10 +20,22 @@ import {
   CardSortingTypeDto,
   CreateCardSortingSessionDto,
 } from './dto/card-sorting.dto';
+import { normalizarTexto, validarEntradaEstudio, validarPreguntas } from './card-sorting-input';
+
+// Criterio del curso (no estándar de la industria): una tarjeta tiene consenso
+// si más del 50% de los participantes la ubicó en la misma categoría.
+export const UMBRAL_CONSENSO = 0.5;
+// Referencias de tamaño de muestra: ≥15 da una estimación razonable de la
+// similitud y ≥30 la estabiliza (Tullis & Wood; Lantz et al. 2019).
+export const MUESTRA_MINIMA = 15;
+export const MUESTRA_ESTABLE = 30;
+
+export type RespuestaPregunta = { questionId: string; respuesta: string };
 
 export type Grupo = {
   categoriaId?: string;
   categoriaNombre?: string;
+  categoriaPadre?: string;
   cardIds: string[];
 };
 
@@ -53,9 +65,9 @@ export class CardSortingService {
       orderBy: { createdAt: 'desc' },
       include: {
         cardsDefinidas: true,
-        categoriasDefinidas: true,
+        categoriasDefinidas: { where: { esPredefinida: true } },
         agrupaciones: { include: { card: true, category: true } },
-        estudio: { include: { cardsDefinidas: true, categoriasDefinidas: true } },
+        estudio: { include: { cardsDefinidas: true, categoriasDefinidas: { where: { esPredefinida: true } } } },
       },
     });
 
@@ -81,9 +93,9 @@ export class CardSortingService {
       orderBy: { createdAt: 'desc' },
       include: {
         cardsDefinidas: true,
-        categoriasDefinidas: true,
+        categoriasDefinidas: { where: { esPredefinida: true } },
         agrupaciones: { include: { card: true, category: true } },
-        estudio: { include: { cardsDefinidas: true, categoriasDefinidas: true } },
+        estudio: { include: { cardsDefinidas: true, categoriasDefinidas: { where: { esPredefinida: true } } } },
         _count: {
           select: {
             participantesDeEsteEstudio: {
@@ -107,6 +119,21 @@ export class CardSortingService {
       'No tienes acceso para crear estudios en este proyecto.',
     );
 
+    const tipo =
+      dto.tipo === CardSortingTypeDto.CLOSED
+        ? TipoCardSorting.CERRADO
+        : dto.tipo === CardSortingTypeDto.HYBRID
+          ? TipoCardSorting.HIBRIDO
+          : TipoCardSorting.ABIERTO;
+
+    validarEntradaEstudio(
+      tipo === TipoCardSorting.CERRADO,
+      dto.tarjetas.map((tarjeta) => tarjeta.etiqueta),
+      (dto.categorias ?? []).map((categoria) => categoria.nombre),
+      tipo === TipoCardSorting.HIBRIDO,
+    );
+    validarPreguntas((dto.preguntas ?? []).map((pregunta) => pregunta.texto));
+
     const configuration = CreateCardSortingSessionPayloadSchema.safeParse(dto);
     if (!configuration.success) {
       throw new BadRequestException({
@@ -117,11 +144,6 @@ export class CardSortingService {
       });
     }
     const study = configuration.data;
-    const tipo =
-      dto.tipo === CardSortingTypeDto.CLOSED
-        ? TipoCardSorting.CERRADO
-        : TipoCardSorting.ABIERTO;
-
     const participantSession = await this.prisma.researchSession.create({
       data: {
         proyectoId: dto.proyectoId,
@@ -145,8 +167,16 @@ export class CardSortingService {
                 })),
               }
             : undefined,
+        preguntas: dto.preguntas?.length
+          ? {
+              create: dto.preguntas.map((pregunta, orden) => ({
+                texto: pregunta.texto.trim(),
+                orden,
+              })),
+            }
+          : undefined,
       },
-      include: { cardsDefinidas: true, categoriasDefinidas: true },
+      include: { cardsDefinidas: true, categoriasDefinidas: { where: { esPredefinida: true } } },
     });
 
     return this.getSession(participantSession.id, user);
@@ -172,7 +202,7 @@ export class CardSortingService {
     return this.prisma.researchSession.update({
       where: { id: estudioId },
       data: { cerrado },
-      include: { cardsDefinidas: true, categoriasDefinidas: true },
+      include: { cardsDefinidas: true, categoriasDefinidas: { where: { esPredefinida: true } } },
     });
   }
 
@@ -244,9 +274,16 @@ export class CardSortingService {
       where: { id },
       include: {
         cardsDefinidas: true,
-        categoriasDefinidas: true,
+        categoriasDefinidas: { where: { esPredefinida: true } },
+        preguntas: { orderBy: { orden: 'asc' } },
         agrupaciones: { include: { card: true, category: true } },
-        estudio: { include: { cardsDefinidas: true, categoriasDefinidas: true } },
+        estudio: {
+          include: {
+            cardsDefinidas: true,
+            categoriasDefinidas: { where: { esPredefinida: true } },
+            preguntas: { orderBy: { orden: 'asc' } },
+          },
+        },
         proyecto: { select: { sala: { select: { profesorId: true } } } },
       },
     });
@@ -279,6 +316,17 @@ export class CardSortingService {
       where: { id: estudioId },
       include: {
         cardsDefinidas: true,
+        // Solo respuestas de participantes completados; sin identificar a la persona.
+        preguntas: {
+          orderBy: { orden: 'asc' },
+          include: {
+            respuestas: {
+              where: { participanteSesion: { estado: EstadoSesion.COMPLETADO } },
+              orderBy: { createdAt: 'asc' },
+              select: { respuesta: true },
+            },
+          },
+        },
         proyecto: { select: { sala: { select: { profesorId: true } } } },
       },
     });
@@ -305,11 +353,13 @@ export class CardSortingService {
         estado: EstadoSesion.COMPLETADO,
       },
       select: { id: true },
+      // Orden estable: define el número anónimo "Participante n".
+      orderBy: [{ completadoAt: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
     });
 
     const groupings = await this.prisma.cardGrouping.findMany({
       where: { participanteSesionId: { in: participantes.map((p) => p.id) } },
-      include: { card: true, category: true },
+      include: { card: true, category: { include: { parent: true } } },
     });
 
     const cards = estudio.cardsDefinidas;
@@ -319,16 +369,18 @@ export class CardSortingService {
     // distintos. Para agregarlas correctamente usamos una clave normalizada
     // por nombre; las categorías cerradas también quedan representadas por
     // esa misma clave estable.
-    const normalizarCategoria = (nombre: string) =>
-      nombre.trim().toLocaleLowerCase('es-CL');
+    const normalizarCategoria = normalizarTexto;
     const nombresCategoria = new Map<string, string>();
+    // Las analíticas cuentan la categoría de nivel 1: la del padre si la
+    // agrupación está en una subcategoría, o la propia si no.
+    const nivel1 = (g: (typeof groupings)[number]) => g.category.parent ?? g.category;
 
     // participanteSesionId -> (cardId -> clave de categoría normalizada).
     const porParticipante = new Map<string, Map<string, string>>();
     for (const g of groupings) {
-      const categoriaKey = normalizarCategoria(g.category.nombre);
+      const categoriaKey = normalizarCategoria(nivel1(g).nombre);
       if (!nombresCategoria.has(categoriaKey)) {
-        nombresCategoria.set(categoriaKey, g.category.nombre.trim());
+        nombresCategoria.set(categoriaKey, nivel1(g).nombre.trim());
       }
       if (!porParticipante.has(g.participanteSesionId)) {
         porParticipante.set(g.participanteSesionId, new Map());
@@ -360,7 +412,7 @@ export class CardSortingService {
     // Frecuencia por nombre de categoría (predefinida o creada en abierto).
     const frecuenciaPorCategoria = new Map<string, number>();
     for (const g of groupings) {
-      const categoriaKey = normalizarCategoria(g.category.nombre);
+      const categoriaKey = normalizarCategoria(nivel1(g).nombre);
       frecuenciaPorCategoria.set(
         categoriaKey,
         (frecuenciaPorCategoria.get(categoriaKey) ?? 0) + 1,
@@ -376,8 +428,10 @@ export class CardSortingService {
       .sort((a, b) => b.count - a.count);
 
     // Clústeres: por cada tarjeta, su categoría más frecuente entre
-    // participantes; se agrupan tarjetas que comparten esa categoría.
+    // participantes. Solo entran las tarjetas con consenso (> UMBRAL_CONSENSO
+    // de los participantes en la misma categoría); el resto va a sinConsenso.
     const clusterMap = new Map<string, { nombre: string; cardIds: string[]; totalVotos: number; votosGanador: number }>();
+    const sinConsenso: string[] = [];
     for (const card of cards) {
       const conteo = new Map<string, number>();
       for (const asignaciones of porParticipante.values()) {
@@ -387,6 +441,10 @@ export class CardSortingService {
       }
       if (conteo.size === 0) continue;
       const [categoriaGanadora, votos] = [...conteo.entries()].sort((a, b) => b[1] - a[1])[0];
+      if (votos / participantesCount <= UMBRAL_CONSENSO) {
+        sinConsenso.push(card.etiqueta);
+        continue;
+      }
       const nombreCat = nombresCategoria.get(categoriaGanadora) ?? 'Sin nombre';
       const totalVotosCard = [...conteo.values()].reduce((a, b) => a + b, 0);
       const entry = clusterMap.get(categoriaGanadora) ?? {
@@ -408,6 +466,13 @@ export class CardSortingService {
       }))
       .sort((a, b) => b.acuerdo - a.acuerdo);
 
+    const muestra: 'baja' | 'aceptable' | 'estable' =
+      participantesCount >= MUESTRA_ESTABLE
+        ? 'estable'
+        : participantesCount >= MUESTRA_MINIMA
+          ? 'aceptable'
+          : 'baja';
+
     // Acuerdo global: promedio de la matriz de similitud (excluyendo diagonal).
     let sumaSimilitud = 0;
     let pares = 0;
@@ -427,8 +492,21 @@ export class CardSortingService {
       .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
     const conteoCardCategoria = new Map<string, Map<string, number>>();
     for (const card of cards) conteoCardCategoria.set(card.id, new Map());
+    // Detalle de subcategorías: padre (nivel 1) -> subcategoría -> tarjeta -> conteo.
+    const subPorPadre = new Map<
+      string,
+      Map<string, { nombre: string; conteos: Map<string, number> }>
+    >();
     for (const g of groupings) {
-      const categoriaKey = normalizarCategoria(g.category.nombre);
+      const categoriaKey = normalizarCategoria(nivel1(g).nombre);
+      if (g.category.parent) {
+        const subs = subPorPadre.get(categoriaKey) ?? new Map();
+        const subKey = normalizarCategoria(g.category.nombre);
+        const sub = subs.get(subKey) ?? { nombre: g.category.nombre.trim(), conteos: new Map() };
+        sub.conteos.set(g.cardId, (sub.conteos.get(g.cardId) ?? 0) + 1);
+        subs.set(subKey, sub);
+        subPorPadre.set(categoriaKey, subs);
+      }
       const fila = conteoCardCategoria.get(g.cardId);
       if (fila) fila.set(categoriaKey, (fila.get(categoriaKey) ?? 0) + 1);
     }
@@ -477,10 +555,42 @@ export class CardSortingService {
         }))
         .filter((card) => card.frecuencia > 0)
         .sort((a, b) => b.frecuencia - a.frecuencia);
+      const subcategorias = [...(subPorPadre.get(categoria.key)?.values() ?? [])]
+        .map((sub) => ({
+          nombre: sub.nombre,
+          cartas: cards
+            .map((card) => ({ tarjeta: card.etiqueta, frecuencia: sub.conteos.get(card.id) ?? 0 }))
+            .filter((card) => card.frecuencia > 0)
+            .sort((a, b) => b.frecuencia - a.frecuencia),
+        }))
+        .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
       return {
         nombre: categoria.nombre,
         cardsCount: cartas.length,
         cartas,
+        subcategorias,
+      };
+    });
+
+    // Vista por participante, anónima: solo número de orden (sin id ni datos
+    // de la persona). Cada grupo lista las tarjetas en el orden del estudio.
+    const participantesVista = participantes.map((participante, indice) => {
+      const asignaciones = porParticipante.get(participante.id) ?? new Map<string, string>();
+      const grupos = new Map<string, string[]>();
+      for (const card of cards) {
+        const categoriaKey = asignaciones.get(card.id);
+        if (!categoriaKey) continue;
+        grupos.set(categoriaKey, [...(grupos.get(categoriaKey) ?? []), card.etiqueta]);
+      }
+      return {
+        orden: indice + 1,
+        categoriasCount: grupos.size,
+        grupos: [...grupos.entries()]
+          .map(([categoriaKey, tarjetas]) => ({
+            categoria: nombresCategoria.get(categoriaKey) ?? categoriaKey,
+            tarjetas,
+          }))
+          .sort((a, b) => a.categoria.localeCompare(b.categoria, 'es')),
       };
     });
 
@@ -499,11 +609,25 @@ export class CardSortingService {
       matrizSimilitud: matriz,
       frecuenciaPorCategoria: frecuencia,
       clusters,
+      sinConsenso,
+      muestra,
+      umbrales: {
+        consenso: Math.round(UMBRAL_CONSENSO * 100),
+        muestraMinima: MUESTRA_MINIMA,
+        muestraEstable: MUESTRA_ESTABLE,
+      },
       categorias: categorias.map((categoria) => categoria.nombre),
       resultsMatrix,
       popularPlacementsMatrix,
       porCarta,
       porCategoria,
+      participantes: participantesVista,
+      preguntas: (estudio.preguntas ?? []).map((pregunta) => ({
+        id: pregunta.id,
+        texto: pregunta.texto,
+        orden: pregunta.orden,
+        respuestas: pregunta.respuestas.map((r) => r.respuesta),
+      })),
     };
   }
 
@@ -511,6 +635,7 @@ export class CardSortingService {
     participanteSesionId: string,
     grupos: Grupo[],
     user: AuthenticatedUser,
+    respuestas: RespuestaPregunta[] = [],
   ) {
     return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const session = await tx.researchSession.findUnique({
@@ -543,7 +668,10 @@ export class CardSortingService {
       });
       const validCardIds = new Set(cards.map((card) => card.id));
       const seenCardIds = new Set<string>();
-      const categoryCache = new Map<string, string>();
+      // Categorías nuevas de este envío por nombre normalizado, con su padre
+      // (null = nivel 1). Un padre solo existe dentro del envío: nunca se
+      // resuelve por id del cliente.
+      const categoryCache = new Map<string, { id: string; padreKey: string | null }>();
       const groupings: { cardId: string; categoryId: string }[] = [];
 
       // Trae de una sola vez todas las categorías predefinidas referenciadas
@@ -566,7 +694,28 @@ export class CardSortingService {
         existingCategories.map((category) => [category.id, category]),
       );
 
+      // Una subcategoría no puede colgar de (ni llamarse como) una categoría
+      // predefinida: la jerarquía es solo entre categorías propias.
+      const predefinedKeys = new Set<string>();
+      if (grupos.some((group) => group.categoriaPadre !== undefined)) {
+        const predefined = await tx.category.findMany({
+          where: { sessionId: study.id, esPredefinida: true },
+          select: { nombre: true },
+        });
+        for (const category of predefined) predefinedKeys.add(normalizarTexto(category.nombre));
+      }
+
       for (const group of grupos) {
+        if (group.categoriaPadre !== undefined) {
+          if (group.categoriaId || !group.categoriaNombre?.trim()) {
+            throw new BadRequestException(
+              'categoriaPadre solo puede usarse junto con categoriaNombre.',
+            );
+          }
+          if (group.categoriaPadre.trim() === '') {
+            throw new BadRequestException('La categoría padre no puede estar vacía.');
+          }
+        }
         if (!group.categoriaId && !group.categoriaNombre?.trim()) {
           throw new BadRequestException(
             'Cada grupo requiere categoriaId o categoriaNombre.',
@@ -579,27 +728,75 @@ export class CardSortingService {
           if (!category || category.sessionId !== study.id) {
             throw new BadRequestException('La categoría no pertenece a este estudio.');
           }
+          if (!category.esPredefinida) {
+            throw new BadRequestException('Solo se pueden usar categorías predefinidas por id.');
+          }
           categoryId = category.id;
         } else {
-          if (study.tipoCardSorting !== TipoCardSorting.ABIERTO) {
+          if (
+            study.tipoCardSorting !== TipoCardSorting.ABIERTO &&
+            study.tipoCardSorting !== TipoCardSorting.HIBRIDO
+          ) {
             throw new BadRequestException(
-              'Solo los estudios abiertos permiten crear categorías nuevas.',
+              'Solo los estudios abiertos o híbridos permiten crear categorías nuevas.',
             );
           }
           const name = group.categoriaNombre!.trim();
-          const cacheKey = name.toLocaleLowerCase();
-          categoryId = categoryCache.get(cacheKey) ?? '';
-          if (!categoryId) {
+          const key = normalizarTexto(name);
+          const padreName = group.categoriaPadre?.trim();
+          const padreKey = padreName ? normalizarTexto(padreName) : null;
+          if (padreKey !== null) {
+            if (padreKey === key) {
+              throw new BadRequestException('Una categoría no puede ser su propia categoría padre.');
+            }
+            if (predefinedKeys.has(padreKey) || predefinedKeys.has(key)) {
+              throw new BadRequestException(
+                'Las subcategorías solo pueden colgar de categorías propias, no de las predefinidas.',
+              );
+            }
+          }
+          const existing = categoryCache.get(key);
+          if (existing) {
+            if (existing.padreKey !== padreKey) {
+              throw new BadRequestException(
+                `La categoría "${name}" se usa con dos jerarquías distintas.`,
+              );
+            }
+            categoryId = existing.id;
+          } else {
+            let parentId: string | null = null;
+            if (padreKey !== null) {
+              let padre = categoryCache.get(padreKey);
+              if (padre && padre.padreKey !== null) {
+                throw new BadRequestException(
+                  'Solo se permiten 2 niveles: una subcategoría no puede tener subcategorías.',
+                );
+              }
+              if (!padre) {
+                const created = await tx.category.create({
+                  data: {
+                    sessionId: study.id,
+                    nombre: padreName!,
+                    esPredefinida: false,
+                    creadaPorParticipanteId: session.participanteId!,
+                  },
+                });
+                padre = { id: created.id, padreKey: null };
+                categoryCache.set(padreKey, padre);
+              }
+              parentId = padre.id;
+            }
             const category = await tx.category.create({
               data: {
                 sessionId: study.id,
                 nombre: name,
                 esPredefinida: false,
                 creadaPorParticipanteId: session.participanteId!,
+                parentId,
               },
             });
             categoryId = category.id;
-            categoryCache.set(cacheKey, category.id);
+            categoryCache.set(key, { id: category.id, padreKey });
           }
         }
 
@@ -621,12 +818,41 @@ export class CardSortingService {
         );
       }
 
+      // Respuestas a preguntas del evaluador: se validan ANTES de escribir nada;
+      // si alguna falla, la transacción completa se revierte.
+      const answers: { questionId: string; respuesta: string }[] = [];
+      if (respuestas.length > 0) {
+        const questions = await tx.cardSortingQuestion.findMany({
+          where: { sessionId: study.id },
+          select: { id: true },
+        });
+        const validQuestionIds = new Set(questions.map((q) => q.id));
+        const seenQuestionIds = new Set<string>();
+        for (const item of respuestas) {
+          if (!validQuestionIds.has(item.questionId)) {
+            throw new BadRequestException('Una pregunta no pertenece a este estudio.');
+          }
+          if (seenQuestionIds.has(item.questionId)) {
+            throw new BadRequestException('Una pregunta no puede responderse dos veces.');
+          }
+          seenQuestionIds.add(item.questionId);
+          const texto = item.respuesta.trim();
+          if (texto !== '') answers.push({ questionId: item.questionId, respuesta: texto });
+        }
+      }
+
       await tx.cardGrouping.createMany({
         data: groupings.map((grouping) => ({
           ...grouping,
           participanteSesionId,
         })),
       });
+
+      if (answers.length > 0) {
+        await tx.cardSortingAnswer.createMany({
+          data: answers.map((answer) => ({ ...answer, participanteSesionId })),
+        });
+      }
 
       await tx.researchSession.update({
         where: { id: participanteSesionId },
