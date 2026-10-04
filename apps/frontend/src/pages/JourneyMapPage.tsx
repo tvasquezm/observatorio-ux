@@ -105,7 +105,7 @@ export function JourneyMapPage() {
 
   const [form, setForm] = useState<JourneyMapContenido>(contenidoVacio());
   const [listInputs, setListInputs] = useState<Record<string, string>[]>(
-    [vacioListInputs()],
+    Array.from({ length: MIN_FASES }, vacioListInputs),
   );
   const [evidenciaInput, setEvidenciaInput] = useState('');
   const [journeyConsultado, setJourneyConsultado] =
@@ -120,7 +120,7 @@ export function JourneyMapPage() {
 
   function resetForm() {
     setForm(contenidoVacio());
-    setListInputs([vacioListInputs()]);
+    setListInputs(Array.from({ length: MIN_FASES }, vacioListInputs));
     setEvidenciaInput('');
     setMostrarForm(false);
   }
