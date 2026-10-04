@@ -395,6 +395,12 @@ export class SalasService {
       this.prisma.category.deleteMany({
         where: { session: { proyectoId: { in: proyectoIds } } },
       }),
+      this.prisma.cardSortingAnswer.deleteMany({
+        where: { participanteSesion: { proyectoId: { in: proyectoIds } } },
+      }),
+      this.prisma.cardSortingQuestion.deleteMany({
+        where: { session: { proyectoId: { in: proyectoIds } } },
+      }),
       this.prisma.researchSession.deleteMany({
         where: { proyectoId: { in: proyectoIds } },
       }),

@@ -31,6 +31,8 @@ describe('SalasService', () => {
     category: { deleteMany: jest.Mock };
     card: { deleteMany: jest.Mock };
     cardGrouping: { deleteMany: jest.Mock };
+    cardSortingAnswer: { deleteMany: jest.Mock };
+    cardSortingQuestion: { deleteMany: jest.Mock };
   };
 
   const docente = { id: 'docente-1', rol: 'DOCENTE', actor: 'EVALUADOR' } as AuthenticatedUser;
@@ -68,6 +70,8 @@ describe('SalasService', () => {
       category: { deleteMany: jest.fn() },
       card: { deleteMany: jest.fn() },
       cardGrouping: { deleteMany: jest.fn() },
+      cardSortingAnswer: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
+      cardSortingQuestion: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
     };
     const moduleRef = await Test.createTestingModule({
       providers: [SalasService, { provide: PrismaService, useValue: prisma }],
@@ -327,6 +331,16 @@ describe('SalasService', () => {
 
       const result = await service.hardDelete('sala-1', { confirm: 'DELETE' }, admin);
 
+      expect(prisma.cardSortingAnswer.deleteMany).toHaveBeenCalledWith({
+        where: { participanteSesion: { proyectoId: { in: ['proyecto-1', 'proyecto-2'] } } },
+      });
+      expect(prisma.cardSortingQuestion.deleteMany).toHaveBeenCalledWith({
+        where: { session: { proyectoId: { in: ['proyecto-1', 'proyecto-2'] } } },
+      });
+      expect(prisma.cardSortingAnswer.deleteMany.mock.invocationCallOrder[0])
+        .toBeLessThan(prisma.cardSortingQuestion.deleteMany.mock.invocationCallOrder[0]);
+      expect(prisma.cardSortingQuestion.deleteMany.mock.invocationCallOrder[0])
+        .toBeLessThan(prisma.researchSession.deleteMany.mock.invocationCallOrder[0]);
       expect(prisma.proyecto.deleteMany).toHaveBeenCalledWith({
         where: { id: { in: ['proyecto-1', 'proyecto-2'] } },
       });
