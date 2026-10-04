@@ -27,6 +27,16 @@ describe('DTO · categoriaPadre', () => {
   });
 });
 
+describe('DTO · nombres de categorías propias', () => {
+  it.each([60, 61])('aplica el límite al nombre de %i caracteres antes de persistirlo', async (length) => {
+    const dto = plainToInstance(SubmitCardSortingResultDto, {
+      grupos: [{ categoriaNombre: 'a'.repeat(length), cardIds: [UUID_CARD] }],
+    });
+    const errors = await validate(dto);
+    expect(errors.length > 0).toBe(length > 60);
+  });
+});
+
 describe('CardSortingService.submitResult · jerarquía de 2 niveles', () => {
   let service: CardSortingService;
   let tx: {

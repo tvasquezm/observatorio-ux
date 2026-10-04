@@ -1,4 +1,5 @@
 import { useId, useMemo, useRef, useState, type DragEvent } from 'react';
+import { MAX_CATEGORIA, normalizarTexto as normalizeCategory } from '../card-sorting-input';
 
 export interface CardSortingWorkspaceStudy {
   nombre: string;
@@ -44,10 +45,6 @@ interface WorkspaceCategory {
   custom: boolean;
   // Nombre de la categoría de nivel 1 que la contiene (solo propias).
   parent?: string;
-}
-
-function normalizeCategory(name: string) {
-  return name.trim().toLocaleLowerCase('es-CL');
 }
 
 export function CardSortingWorkspace({
@@ -150,6 +147,10 @@ export function CardSortingWorkspace({
       setCategoryError('Escribe un nombre para la categoría.');
       return;
     }
+    if (name.length > MAX_CATEGORIA) {
+      setCategoryError(`El máximo es ${MAX_CATEGORIA} caracteres por categoría.`);
+      return;
+    }
     const taken = [...customCategories, ...(isHybrid ? study.categoriasDefinidas.map((category) => category.nombre) : [])];
     if (taken.some((category) => normalizeCategory(category) === normalizeCategory(name))) {
       setCategoryError('Ya existe una categoría con ese nombre.');
@@ -173,8 +174,25 @@ export function CardSortingWorkspace({
     }
   }
 
+  function renameCategory(oldName: string, value: string) {
+    const name = value.trim();
+    const taken = categories.filter((category) => category.name !== oldName);
+    if (!name || name.length > MAX_CATEGORIA || taken.some((category) => normalizeCategory(category.name) === normalizeCategory(name))) {
+      setCategoryError('Usa un nombre distinto, de 1 a 60 caracteres.');
+      return;
+    }
+    onCustomCategoriesChange(customCategories.map((category) => category === oldName ? name : category));
+    onAssignmentsChange(Object.fromEntries(Object.entries(assignments).map(([cardId, category]) => [cardId, category === oldName ? name : category])));
+    onPadresChange?.(Object.fromEntries(Object.entries(padres).map(([child, parent]) => [child === oldName ? name : child, parent === oldName ? name : parent])));
+    setCategoryError('');
+  }
+
   function handleSubmit() {
     if (!onSubmit || !allAssigned) return;
+    if (categories.some((category) => category.custom && category.name.length > MAX_CATEGORIA)) {
+      setCategoryError(`Acorta las categorías de más de ${MAX_CATEGORIA} caracteres antes de enviar.`);
+      return;
+    }
     const groups = categories
       .map((category) => ({
         ...(category.custom
@@ -227,6 +245,19 @@ export function CardSortingWorkspace({
           <h3>{category.name}</h3>
           <span>{cards.length}</span>
         </header>
+        {category.custom && category.name.length > MAX_CATEGORIA && (
+          <label className="field">
+            Acorta el nombre de la categoría
+            <input
+              type="text"
+              defaultValue={category.name}
+              maxLength={MAX_CATEGORIA}
+              disabled={disabled}
+              onBlur={(event) => renameCategory(category.name, event.target.value)}
+              onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }}
+            />
+          </label>
+        )}
         {cards.length > 0 ? (
           <div className="cs-card-list">{cards.map(renderCard)}</div>
         ) : (
@@ -307,6 +338,7 @@ export function CardSortingWorkspace({
                   id={newCategoryId}
                   type="text"
                   value={newCategory}
+                  maxLength={MAX_CATEGORIA}
                   onChange={(event) => setNewCategory(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter') {

@@ -152,8 +152,8 @@ describe('CardSortingService.submitResult', () => {
     tx.card.findMany.mockResolvedValue([{ id: 'card-1' }, { id: 'card-2' }]);
     tx.researchSession.update.mockResolvedValue(undefined);
     tx.category.findMany.mockResolvedValue([
-      { id: 'cat-a', sessionId: 'estudio-1' },
-      { id: 'cat-b', sessionId: 'estudio-1' },
+      { id: 'cat-a', sessionId: 'estudio-1', esPredefinida: true },
+      { id: 'cat-b', sessionId: 'estudio-1', esPredefinida: true },
     ]);
 
     const finalSession = { ...sesionDeEjemplo, estado: EstadoSesion.COMPLETADO };
@@ -203,7 +203,7 @@ describe('CardSortingService.submitResult', () => {
   it('HIBRIDO permite mezclar categoría predefinida y categoría nueva', async () => {
     tx.researchSession.findUnique.mockResolvedValue(sesionDeEjemplo);
     tx.card.findMany.mockResolvedValue([{ id: 'card-1' }, { id: 'card-2' }]);
-    tx.category.findMany.mockResolvedValue([{ id: 'cat-1', sessionId: 'estudio-1' }]);
+    tx.category.findMany.mockResolvedValue([{ id: 'cat-1', sessionId: 'estudio-1', esPredefinida: true }]);
     tx.category.create.mockResolvedValue({ id: 'cat-nueva' });
     tx.researchSession.update.mockResolvedValue(undefined);
     tx.researchSession.findUniqueOrThrow
@@ -224,6 +224,17 @@ describe('CardSortingService.submitResult', () => {
     expect(tx.cardGrouping.createMany).toHaveBeenCalledTimes(1);
   });
 
+  it('rechaza usar por id una categoría creada por otro participante del mismo estudio', async () => {
+    tx.researchSession.findUnique.mockResolvedValue(sesionDeEjemplo);
+    tx.researchSession.findUniqueOrThrow.mockResolvedValue({ id: 'estudio-1', tipoCardSorting: 'HIBRIDO' });
+    tx.card.findMany.mockResolvedValue([{ id: 'card-1' }]);
+    tx.category.findMany.mockResolvedValue([{ id: 'cat-ajena', sessionId: 'estudio-1', esPredefinida: false }]);
+    await expect(service.submitResult(SESION_ID, [{ categoriaId: 'cat-ajena', cardIds: ['card-1'] }], userDueño))
+      .rejects.toThrow('Solo se pueden usar categorías predefinidas por id.');
+    expect(tx.cardGrouping.createMany).not.toHaveBeenCalled();
+    expect(tx.researchSession.update).not.toHaveBeenCalled();
+  });
+
   it('CERRADO sigue rechazando categorías nuevas', async () => {
     tx.researchSession.findUnique.mockResolvedValue(sesionDeEjemplo);
     tx.card.findMany.mockResolvedValue([{ id: 'card-1' }]);
@@ -235,5 +246,27 @@ describe('CardSortingService.submitResult', () => {
       service.submitResult(SESION_ID, [{ categoriaNombre: 'Nueva', cardIds: ['card-1'] }], userDueño),
     ).rejects.toThrow('Solo los estudios abiertos o híbridos permiten crear categorías nuevas.');
     expect(tx.category.create).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('CardSortingService.getSession · categorías híbridas', () => {
+  it('otro participante recibe solo categorías predefinidas, sin los grupos de respuestas anteriores', async () => {
+    const predefined = { id: 'predefinida', nombre: 'Servicios', esPredefinida: true };
+    const previous = { id: 'ajena', nombre: 'Mi grupo', esPredefinida: false };
+    const findUnique = jest.fn(async ({ include }: { include: { estudio: { include: { categoriasDefinidas: { where?: { esPredefinida?: boolean } } } } } }) => ({
+      id: 'sesion-2', tipo: TipoSesion.CARD_SORTING, actor: ActorSesion.PARTICIPANTE,
+      participanteId: 'participante-2', estudio: {
+        id: 'estudio-1', tipoCardSorting: 'HIBRIDO',
+        categoriasDefinidas: include.estudio.include.categoriasDefinidas.where?.esPredefinida
+          ? [predefined] : [predefined, previous],
+      },
+    }));
+    const service = new CardSortingService(
+      { researchSession: { findUnique } } as unknown as PrismaService,
+      {} as ProjectAccessService,
+    );
+    const session = await service.getSession('sesion-2', { id: 'participante-2', actor: 'PARTICIPANTE' } as AuthenticatedUser);
+    expect(session.estudio?.categoriasDefinidas.map((category) => category.id)).toEqual(['predefinida']);
   });
 });

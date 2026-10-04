@@ -161,7 +161,7 @@ describe('CardSortingService analytics y ciclo de vida', () => {
     expect(prisma.researchSession.update).toHaveBeenNthCalledWith(1, {
       where: { id: 'estudio-1' },
       data: { cerrado: true },
-      include: { cardsDefinidas: true, categoriasDefinidas: true },
+      include: { cardsDefinidas: true, categoriasDefinidas: { where: { esPredefinida: true } } },
     });
   });
 

@@ -83,6 +83,7 @@ class GrupoDto {
   @IsOptional()
   @IsString()
   @MinLength(1)
+  @MaxLength(60)
   categoriaNombre?: string;
 
   // Subcategoría: nombre de la categoría de nivel 1 que la contiene.

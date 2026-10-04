@@ -31,7 +31,7 @@ export const CreateCardSortingSessionPayloadSchema = z.object({
 export const SubmitCardSortingGrupoSchema = z
   .object({
     categoriaId: z.string().uuid().optional(),
-    categoriaNombre: z.string().trim().min(1).optional(),
+    categoriaNombre: z.string().trim().min(1).max(60).optional(),
     categoriaPadre: z.string().trim().min(1).max(60).optional(),
     cardIds: z.array(z.string().uuid()).min(1),
   })
