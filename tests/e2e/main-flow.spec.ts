@@ -23,13 +23,17 @@ test('recorre login, proyecto y las cinco técnicas UX', async ({ page }, testIn
     ['Evaluación Heurística', 'Hallazgos heurísticos'],
   ] as const;
 
+  const projectMenu = page.locator('.project-menu');
   for (const [linkName, headingName] of techniques) {
-    await page.getByRole('link', { name: linkName, exact: true }).click();
+    await projectMenu.locator('summary').click();
+    await projectMenu.getByRole('link', { name: linkName, exact: true }).click();
+    await expect(projectMenu).not.toHaveAttribute('open', '');
     await expect(page.getByRole('heading', { name: headingName, exact: true }).first()).toBeVisible();
     await expectNoPageOverflow(page);
   }
 
-  await page.getByRole('link', { name: 'Analítica', exact: true }).click();
+  await projectMenu.locator('summary').click();
+  await projectMenu.getByRole('link', { name: 'Analítica', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Analítica general' })).toBeVisible();
   await expectNoPageOverflow(page);
 
