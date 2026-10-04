@@ -76,9 +76,20 @@ function sections(report: ProjectReport): Record<ReportMethod, Content[]> {
     journey: report.journeys?.flatMap(({ contenido: journey, version }, i) => [
       title(`${i + 1}. Recorrido de ${journey.perfilUsuario.nombre}`),
       paragraph(`${journey.perfilUsuario.rol} · Versión ${version} · ${journey.fases.length} fases`),
+      details([
+        ['Objetivo del recorrido', journey.objetivo], ['Evento de inicio', journey.eventoInicio],
+        ['Evidencia', journey.evidencia],
+      ]),
       table(['Fase', 'Puntos de contacto', 'Pensamientos', 'Emoción', 'Oportunidades'], journey.fases.map((phase, index) => [
         `${index + 1}. ${phase.nombre}`, phase.touchpoints, phase.pensamientos, phase.emocion, phase.oportunidades,
       ]), [80, '*', '*', 55, '*']),
+      ...journey.fases.flatMap((phase, index) => [
+        title(`Fase ${index + 1}: ${phase.nombre}`),
+        details([
+          ['Actividades', phase.actividades], ['Dificultades / puntos de dolor', phase.dificultades],
+          ['Ganancias / aspectos positivos', phase.ganancias],
+        ]),
+      ]),
     ]) ?? [],
     momentos: report.moments?.flatMap(({ contenido: moment, version }, i) => [
       title(`${i + 1}. Incidentes de ${moment.perfilUsuario.nombre}`),
