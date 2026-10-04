@@ -53,6 +53,7 @@ export function useCreateDocente() {
     mutationFn: (data: CreateDocenteDto) => createDocente(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: usersKeys.docentes });
+      qc.invalidateQueries({ queryKey: usersKeys.accounts });
       notify.success('Docente creado.');
     },
     onError: (err) => notify.error(mensajeError(err, 'No se pudo crear el docente.')),
@@ -65,6 +66,7 @@ export function useRemoveDocente() {
     mutationFn: (id: string) => removeDocente(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: usersKeys.docentes });
+      qc.invalidateQueries({ queryKey: usersKeys.accounts });
       notify.success('Docente eliminado.');
     },
     onError: (err) => notify.error(mensajeError(err, 'No se pudo eliminar el docente.')),

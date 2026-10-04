@@ -609,3 +609,54 @@ observables (`/nginx-health`, `/api/health` y `/`) en cada push.
 Se actualizó la línea base a Node.js 24 LTS en Docker, CI y `engines`. El detalle
 operativo y el estado F1–F8/R6 están en
 `docs/sprints/sprint6-despliegue.md`.
+
+## Estrategia de cache — Fase 1 (HTTP y navegador)
+
+El proxy Nginx responde las lecturas de `/api/` con `Cache-Control: no-store`:
+ni el navegador ni un caché compartido guardan datos de sesión o de proyectos,
+algo relevante en equipos de laboratorio compartidos. Las escrituras y las
+respuestas de error no llevan la cabecera.
+
+El contenedor estático sirve `/assets/` (archivos con hash de Vite) con
+`public, max-age=31536000, immutable`; `index.html` y las rutas de la SPA con
+`no-cache`, para que cada despliegue se vea sin vaciar el caché del navegador.
+
+En el cliente, TanStack Query mantiene `staleTime` global de 30 s. Los catálogos
+de docentes y cuentas (`usersKeys.docentes`, `usersKeys.accounts`) usan 5 min
+porque sus mutaciones ya invalidan la query. No se usan cookies nuevas.
+
+## Estrategia de cache — Fase 2 (identidad en el backend)
+
+Cada request autenticado ejecutaba una consulta por clave primaria para
+confirmar que el usuario o participante del token sigue existiendo. Ahora esa
+confirmación se guarda 30 s en un `TtlCache` en memoria (tope de 5000 entradas,
+descarta la más antigua) dentro de `AuthService`. Cambiar el rol o eliminar a un
+docente invalida la entrada al instante en el proceso; ver `docs/BACKEND.md`.
+
+No se agregó `@nestjs/cache-manager`: su almacén en memoria no tiene tope y
+exigiría sumar `keyv` y un LRU. La clase propia son 40 líneas, no toca el
+lockfile, y migrar a Redis cuando haya varias réplicas se limita a reemplazarla.
+Con varias réplicas cada una tendría su propia caché y un cambio de rol tardaría
+hasta 30 s en verse en las demás: ese es el momento de pasar a Redis.
+
+`assertAccess` (acceso por proyecto) queda sin cachear: depende de proyecto,
+membresías y sala, tiene más de diez puntos de escritura (incluidas bajas en
+cascada) y cada consulta es por clave primaria. Retener un acceso revocado pesa
+más que el ahorro.
+
+## Estrategia de cache — Fase 4 (aviso de cookies y almacenamiento)
+
+La plataforma usa solo 2 cookies, ambas necesarias (`evaluadorToken` y
+`csrfToken`), y no incluye analítica ni seguimiento. Como son estrictamente
+necesarias no requieren consentimiento previo, pero sí informar al usuario:
+
+- `/privacidad` (`features/legal/pages/PrivacyPage.tsx`): página pública con las
+  cookies y el almacenamiento del navegador de evaluadores y participantes.
+- El login muestra un aviso breve con enlace a esa página.
+- El paso de consentimiento del participante indica que no se usan cookies y
+  que el navegador guarda un identificador temporal anónimo y el avance.
+- Los enlaces abren en otra pestaña para no perder el estado del participante.
+
+Cuando se agregue una cookie o clave de `localStorage`/`sessionStorage`, hay que
+actualizar `PrivacyPage`. Una cookie no esencial (analítica, seguimiento)
+requeriría además un banner con consentimiento previo.

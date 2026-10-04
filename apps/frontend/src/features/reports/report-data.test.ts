@@ -60,6 +60,27 @@ describe('informes por técnicas', () => {
       'Entrevista del 15 de septiembre', 'Validada', 'Revisada con el equipo']) expect(content).toContain(value);
   });
 
+  it('incluye el contexto, la evidencia y los nuevos campos de cada fase del Journey Map', async () => {
+    vi.mocked(listJourneys).mockResolvedValue([{
+      version: 1,
+      contenido: {
+        perfilUsuario: { id: 'user', nombre: 'Ana', rol: 'Solicitante' },
+        objetivo: 'Obtener una cita', eventoInicio: 'Recibe una derivación', evidencia: ['Entrevista 7'],
+        fases: [{
+          nombre: 'Reserva', actividades: ['Escoge horario'], touchpoints: ['Portal'],
+          pensamientos: ['¿Habrá cupo?'], emocion: 'Neutral', dificultades: ['No hay fechas'],
+          ganancias: ['Confirmación inmediata'], oportunidades: ['Ofrecer lista de espera'],
+        }],
+      },
+    }] as never);
+    const report = await loadProjectReport('p1', ['journey']);
+    const content = JSON.stringify(buildReportDefinition(report).content);
+    for (const value of ['Obtener una cita', 'Recibe una derivación', 'Entrevista 7', 'Escoge horario',
+      'No hay fechas', 'Confirmación inmediata', 'Portal', '¿Habrá cupo?', 'Ofrecer lista de espera']) {
+      expect(content).toContain(value);
+    }
+  });
+
   it('incorpora la marca sin cambiar las técnicas ni la orientación del recorrido', async () => {
     const report = await loadProjectReport('p1', ['journey']);
     const definition = buildReportDefinition(report, { logo: 'logo-color', logoWhite: 'logo-blanco' });

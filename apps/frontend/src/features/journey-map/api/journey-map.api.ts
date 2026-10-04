@@ -22,16 +22,33 @@ export type { JourneyMapContenido, Phase, UserProfile };
 
 export type JourneyMapArtifact = UxArtifact<JourneyMapContenido>;
 
-export async function listJourneys(proyectoId: string): Promise<JourneyMapArtifact[]> {
-  const items = await listArtifacts<JourneyMapContenido>(proyectoId, 'JOURNEY_MAP');
-  return dedupeLatestVersions(items);
+function normalizeJourney(artifact: JourneyMapArtifact): JourneyMapArtifact {
+  const content = artifact.contenido;
+  return { ...artifact, contenido: {
+    ...content,
+    evidencia: content.evidencia ?? [],
+    fases: content.fases.map((phase) => ({
+      ...phase,
+      actividades: phase.actividades ?? [],
+      touchpoints: phase.touchpoints ?? [],
+      pensamientos: phase.pensamientos ?? [],
+      dificultades: phase.dificultades ?? [],
+      ganancias: phase.ganancias ?? [],
+      oportunidades: phase.oportunidades ?? [],
+    })),
+  } };
 }
 
-export function getJourney(
+export async function listJourneys(proyectoId: string): Promise<JourneyMapArtifact[]> {
+  const items = await listArtifacts<JourneyMapContenido>(proyectoId, 'JOURNEY_MAP');
+  return dedupeLatestVersions(items).map(normalizeJourney);
+}
+
+export async function getJourney(
   proyectoId: string,
   artefactoId: string,
 ): Promise<JourneyMapArtifact> {
-  return getArtifact<JourneyMapContenido>(proyectoId, artefactoId);
+  return normalizeJourney(await getArtifact<JourneyMapContenido>(proyectoId, artefactoId));
 }
 
 export function createJourney(
