@@ -2,12 +2,16 @@ import type { CSSProperties } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import type {
   CardSortingMatrix,
+  CardSortingParticipante,
+  CardSortingPreguntaResultado,
   CardSortingPorCarta,
   CardSortingPorCategoria,
 } from '../api/card-sorting.api';
 import { useCardSortingAnalytics } from '../hooks/useCardSortingQueries';
+import { CardSortingDendrogram } from '../components/CardSortingDendrogram';
+import { descargarCsv, matrizACsv, similitudACsv } from '../card-sorting-csv';
 
-type ResultsTab = 'cards' | 'categories' | 'results' | 'popular' | 'similarity';
+type ResultsTab = 'cards' | 'categories' | 'results' | 'popular' | 'similarity' | 'dendrogram' | 'participants' | 'answers';
 
 const TABS: Array<{ id: ResultsTab; label: string }> = [
   { id: 'cards', label: 'Tarjetas' },
@@ -15,14 +19,29 @@ const TABS: Array<{ id: ResultsTab; label: string }> = [
   { id: 'results', label: 'Matriz de resultados' },
   { id: 'popular', label: 'Ubicaciones populares' },
   { id: 'similarity', label: 'Similitud' },
+  { id: 'dendrogram', label: 'Dendrograma' },
+  { id: 'participants', label: 'Participantes' },
 ];
+
+// Solo aparece si el estudio definió preguntas para el participante.
+const ANSWERS_TAB: { id: ResultsTab; label: string } = { id: 'answers', label: 'Respuestas' };
+
+const SAMPLE_MESSAGES: Record<'baja' | 'aceptable' | 'estable', (min: number, stable: number) => string> = {
+  baja: (min) => `Muestra baja: con menos de ${min} participantes completados los resultados son poco estables.`,
+  aceptable: (_min, stable) => `Muestra aceptable: desde ${stable} participantes la similitud se estabiliza.`,
+  estable: () => 'Muestra estable: el tamaño de muestra es suficiente para estimar la similitud.',
+};
 
 export function CardSortingResultsPage() {
   const { estudioId } = useParams<{ estudioId: string }>();
   const analyticsQuery = useCardSortingAnalytics(estudioId ?? null);
   const [searchParams, setSearchParams] = useSearchParams();
+  const data = analyticsQuery.data;
+  const withAnswers = data && data.preguntas?.length > 0 ? [...TABS, ANSWERS_TAB] : TABS;
+  // El dendrograma necesita al menos 2 tarjetas.
+  const tabs = data && data.tarjetas.length < 2 ? withAnswers.filter((tab) => tab.id !== 'dendrogram') : withAnswers;
   const requestedTab = searchParams.get('vista');
-  const activeTab: ResultsTab = TABS.some((tab) => tab.id === requestedTab)
+  const activeTab: ResultsTab = tabs.some((tab) => tab.id === requestedTab)
     ? (requestedTab as ResultsTab)
     : 'cards';
   const setActiveTab = (tab: ResultsTab) => {
@@ -31,7 +50,6 @@ export function CardSortingResultsPage() {
     else next.set('vista', tab);
     setSearchParams(next, { replace: true });
   };
-  const data = analyticsQuery.data;
 
   if (analyticsQuery.isLoading) return <div className="panel">Calculando resultados…</div>;
 
@@ -49,7 +67,7 @@ export function CardSortingResultsPage() {
   }
 
   return (
-    <div className="fade">
+    <div className="fade cs-results">
       <header className="page-head">
         <div>
           <span className="kicker">CARD SORTING · RESULTADOS</span>
@@ -65,11 +83,19 @@ export function CardSortingResultsPage() {
       </header>
 
       <section className="analytics-kpis" aria-label="Resumen del estudio">
-        <article className="analytics-kpi"><span>PARTICIPANTES</span><strong>{data.participantesCount}</strong><small>clasificaciones completadas</small></article>
-        <article className="analytics-kpi"><span>TARJETAS</span><strong>{data.cardsCount}</strong><small>elementos evaluados</small></article>
-        <article className="analytics-kpi"><span>ACUERDO GLOBAL</span><strong>{data.acuerdoGlobal}%</strong><small>similitud promedio</small></article>
-        <article className="analytics-kpi"><span>CATEGORÍAS</span><strong>{data.categorias.length}</strong><small>nombres consolidados</small></article>
+        <article className="analytics-kpi"><span>Participantes</span><strong>{data.participantesCount}</strong><small>clasificaciones completadas</small></article>
+        <article className="analytics-kpi"><span>Tarjetas</span><strong>{data.cardsCount}</strong><small>elementos evaluados</small></article>
+        <article className="analytics-kpi"><span>Acuerdo global</span><strong>{data.acuerdoGlobal}%</strong><small>similitud promedio</small></article>
+        <article className="analytics-kpi"><span>Categorías</span><strong>{data.categorias.length}</strong><small>nombres consolidados</small></article>
       </section>
+
+      <p
+        className={`cs-sample-note cs-sample-${data.muestra}`}
+        role="status"
+        data-testid="cs-sample-note"
+      >
+        {SAMPLE_MESSAGES[data.muestra](data.umbrales.muestraMinima, data.umbrales.muestraEstable)}
+      </p>
 
       {data.participantesCount === 0 ? (
         <article className="panel">
@@ -81,12 +107,20 @@ export function CardSortingResultsPage() {
         <>
           <article className="panel">
             <div className="panel-head">
-              <div><span className="kicker">EXPLORAR</span><h2>Vistas del estudio</h2></div>
-              <button type="button" className="ghost" onClick={() => analyticsQuery.refetch()}>↺ Actualizar</button>
+              <h2>Vistas del estudio</h2>
+              <div className="cs-panel-actions">
+                <button type="button" className="ghost" onClick={() => descargarCsv('card-sorting-matriz-resultados.csv', matrizACsv(data.resultsMatrix))}>
+                  Descargar CSV · resultados
+                </button>
+                <button type="button" className="ghost" onClick={() => descargarCsv('card-sorting-similitud.csv', similitudACsv(data.tarjetas, data.matrizSimilitud))}>
+                  Descargar CSV · similitud
+                </button>
+                <button type="button" className="ghost" onClick={() => analyticsQuery.refetch()}>↺ Actualizar</button>
+              </div>
             </div>
 
             <div className="cs-analysis-tabs" role="tablist" aria-label="Vistas de resultados">
-              {TABS.map((tab) => (
+              {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   id={`card-sorting-tab-${tab.id}`}
@@ -98,11 +132,11 @@ export function CardSortingResultsPage() {
                   className={`cs-analysis-tab${activeTab === tab.id ? ' active' : ''}`}
                   onClick={() => setActiveTab(tab.id)}
                   onKeyDown={(event) => {
-                    const index = TABS.findIndex((item) => item.id === activeTab);
+                    const index = tabs.findIndex((item) => item.id === activeTab);
                     const offset = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
                     if (!offset) return;
                     event.preventDefault();
-                    const next = TABS[(index + offset + TABS.length) % TABS.length];
+                    const next = tabs[(index + offset + tabs.length) % tabs.length];
                     setActiveTab(next.id);
                     requestAnimationFrame(() => document.getElementById(`card-sorting-tab-${next.id}`)?.focus());
                   }}
@@ -119,6 +153,9 @@ export function CardSortingResultsPage() {
               tabIndex={0}
             >
               {activeTab === 'cards' && <CardsTable data={data.porCarta} />}
+              {activeTab === 'dendrogram' && <CardSortingDendrogram tarjetas={data.tarjetas} similitud={data.matrizSimilitud} />}
+              {activeTab === 'participants' && <ParticipantsList data={data.participantes ?? []} />}
+              {activeTab === 'answers' && <AnswersList data={data.preguntas} />}
               {activeTab === 'categories' && <CategoriesTable data={data.porCategoria} />}
               {activeTab === 'results' && <MatrixTable title="Cantidad de ubicaciones" matrix={data.resultsMatrix} format={String} />}
               {activeTab === 'popular' && <MatrixTable title="Porcentaje de participantes" matrix={data.popularPlacementsMatrix} format={(value) => `${value}%`} heat />}
@@ -138,7 +175,7 @@ export function CardSortingResultsPage() {
 
           <section className="sort-layout mt-16">
             <article className="panel">
-              <div className="panel-head"><div><span className="kicker">CATEGORÍAS</span><h2>Frecuencia de uso</h2></div></div>
+              <div className="panel-head"><h2>Frecuencia de uso</h2></div>
               {data.frecuenciaPorCategoria.map((category) => (
                 <div key={category.nombre} className="frequency-row">
                   <b>{category.nombre}</b>
@@ -149,7 +186,10 @@ export function CardSortingResultsPage() {
             </article>
 
             <article className="panel">
-              <div className="panel-head"><div><span className="kicker">CONSENSO</span><h2>Agrupaciones dominantes</h2></div></div>
+              <div className="panel-head"><h2>Agrupaciones dominantes</h2></div>
+              <p className="text-muted-sm">
+                Una tarjeta tiene consenso cuando más del {data.umbrales.consenso}% de los participantes la ubicó en la misma categoría (criterio del curso).
+              </p>
               <div className="clusters">
                 {data.clusters.map((cluster) => (
                   <div key={cluster.nombre} className="cluster">
@@ -159,6 +199,12 @@ export function CardSortingResultsPage() {
                   </div>
                 ))}
               </div>
+              {data.sinConsenso.length > 0 && (
+                <div className="cs-no-consensus">
+                  <h3>Sin consenso (≤{data.umbrales.consenso}%)</h3>
+                  <div className="chip-list">{data.sinConsenso.map((card) => <span key={card} className="chip">{card}</span>)}</div>
+                </div>
+              )}
             </article>
           </section>
         </>
@@ -176,7 +222,7 @@ function CardsTable({ data }: { data: CardSortingPorCarta[] }) {
         <tr key={row.tarjeta}>
           <th scope="row">{row.tarjeta}</th>
           <td>{row.categoriasCount}</td>
-          <td>{row.categorias.map((category) => <span key={category.nombre} className="cs-inline-result">{category.nombre} · {category.frecuencia}</span>)}</td>
+          <td>{row.categorias.map((category) => <span key={category.nombre} className="cs-inline-result">{category.nombre} ({category.frecuencia})</span>)}</td>
         </tr>
       ))}</tbody>
     </table></div>
@@ -192,7 +238,7 @@ function CategoriesTable({ data }: { data: CardSortingPorCategoria[] }) {
         <tr key={row.nombre}>
           <th scope="row">{row.nombre}</th>
           <td>{row.cardsCount}</td>
-          <td>{row.cartas.map((card) => <span key={card.tarjeta} className="cs-inline-result">{card.tarjeta} · {card.frecuencia}</span>)}</td>
+          <td>{row.cartas.map((card) => <span key={card.tarjeta} className="cs-inline-result">{card.tarjeta} ({card.frecuencia})</span>)}</td>
         </tr>
       ))}</tbody>
     </table></div>
@@ -221,12 +267,52 @@ function MatrixTable({
           {row.valores.map((value, index) => (
             <td
               key={matrix.categorias[index]}
-              className={heat && value > 0 ? 'cs-matrix-cell heat' : 'cs-matrix-cell'}
+              className={[
+                'cs-matrix-cell',
+                heat && value > 0 ? 'heat' : '',
+                heat && row.tarjeta === matrix.categorias[index] ? 'cs-matrix-diag' : '',
+              ].filter(Boolean).join(' ')}
               style={heat ? ({ '--cell-intensity': value / 100 } as CSSProperties) : undefined}
             >
               {value > 0 || row.tarjeta === matrix.categorias[index] ? format(value) : '—'}
             </td>
           ))}
+        </tr>
+      ))}</tbody>
+    </table></div>
+  );
+}
+
+function AnswersList({ data }: { data: CardSortingPreguntaResultado[] }) {
+  return (
+    <div className="cs-answers">
+      {data.map((question) => (
+        <section key={question.id} className="cs-answer-block">
+          <h3>{question.texto}</h3>
+          <p className="text-muted-sm">
+            {question.respuestas.length} {question.respuestas.length === 1 ? 'respuesta' : 'respuestas'} · anónimas
+          </p>
+          {question.respuestas.length === 0 ? (
+            <p className="text-muted-sm">Nadie respondió esta pregunta todavía.</p>
+          ) : (
+            <ul>{question.respuestas.map((answer, index) => <li key={index}>{answer}</li>)}</ul>
+          )}
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function ParticipantsList({ data }: { data: CardSortingParticipante[] }) {
+  return (
+    <div className="cs-table-wrap"><table className="cs-table">
+      <caption className="sr-only">Clasificación de cada participante (anónima)</caption>
+      <thead><tr><th>Participante</th><th>Categorías</th><th>Grupos</th></tr></thead>
+      <tbody>{data.map((participante) => (
+        <tr key={participante.orden}>
+          <th scope="row">Participante {participante.orden}</th>
+          <td>{participante.categoriasCount}</td>
+          <td>{participante.grupos.map((grupo) => <span key={grupo.categoria} className="cs-inline-result">{grupo.categoria}: {grupo.tarjetas.join(', ')}</span>)}</td>
         </tr>
       ))}</tbody>
     </table></div>
