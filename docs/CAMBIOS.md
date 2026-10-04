@@ -3,6 +3,32 @@
 Todo acá parte de TUS archivos reales que subiste, con ediciones mínimas
 y quirúrgicas. No hay archivos inventados desde cero salvo los indicados.
 
+## Revisión del PR #22 — Personas y reportes (30-09-2026)
+
+- `apps/frontend/src/pages/PersonasPage.tsx` y `apps/frontend/src/styles/theme.css`:
+  formulario por secciones y fichas legibles con validación, objetivos,
+  necesidades y perfil completo desplegable. Reutiliza los tokens y componentes
+  existentes para escritorio, móvil y modo oscuro.
+- `apps/frontend/src/pages/__tests__/PersonasPage.test.tsx`: verifica conservación
+  del contenido al guardar, lectura docente sin permisos de edición y bloqueo
+  concurrente. La comprobación visual usa datos de ejemplo fuera de la aplicación.
+- `pnpm-workspace.yaml` y `pnpm-lock.yaml`: actualiza los overrides existentes
+  de brace-expansion, fast-uri y multer para resolver las alertas de auditoría.
+  La rama incorpora `main` y conserva las correcciones del módulo de reportes.
+
+- `apps/backend/src/modules/reports/reports.service.ts`: corrige las fuentes
+  Roboto, limita sesiones según permisos e incluye las relaciones de Card Sorting.
+  Los helpers PDF usan tipos derivados del reporte en lugar de `any[]`.
+- `apps/backend/src/modules/reports/reports.service.spec.ts`: comprueba PDF real,
+  acceso, sesiones por rol, Card Sorting y proyectos inexistentes/eliminados.
+- `apps/frontend/src/features/persona/api/persona.api.ts`: completa los nuevos
+  defaults al leer Personas antiguas.
+- `apps/frontend/src/shared/utils/pdf.ts` y
+  `apps/frontend/src/features/reports/report-data.test.ts`: incorpora y verifica
+  los campos nuevos de Personas en el informe descargable.
+- `docs/sprints/sprint7.md`, `README.md` y `CHANGELOG.md`: documenta alcance real,
+  permisos, endpoints y correcciones; repara los bloques Markdown del Sprint 7.
+
 ## Ronda 14 (Sesión — creación centralizada y acceso por invitación)
 
 1. **Un único punto para crear proyectos.** Se retiraron las acciones repetidas

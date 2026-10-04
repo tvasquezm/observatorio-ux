@@ -44,6 +44,22 @@ describe('informes por técnicas', () => {
     for (const request of [listPersonas, listJourneys, listCriticalMoments, getCardSortingEstudiosByProyecto, listarSesionesHeuristicas]) expect(request).toHaveBeenCalledWith('p1');
   });
 
+  it('incluye los nuevos campos de Personas en el informe descargable', async () => {
+    vi.mocked(listPersonas).mockResolvedValue([{
+      version: 2,
+      contenido: {
+        nombreCompleto: 'Ana', rolEnServicio: 'Usuaria principal',
+        relacionConServicio: 'Consulta semanal', caracteristicasDistintivas: ['Usa lector de pantalla'],
+        evidencia: ['Entrevista del 15 de septiembre'], estadoValidacion: 'VALIDADA',
+        observacionesValidacion: 'Revisada con el equipo',
+      },
+    }] as never);
+    const report = await loadProjectReport('p1', ['personas']);
+    const content = JSON.stringify(buildReportDefinition(report).content);
+    for (const value of ['Usuaria principal', 'Consulta semanal', 'Usa lector de pantalla',
+      'Entrevista del 15 de septiembre', 'Validada', 'Revisada con el equipo']) expect(content).toContain(value);
+  });
+
   it('incorpora la marca sin cambiar las técnicas ni la orientación del recorrido', async () => {
     const report = await loadProjectReport('p1', ['journey']);
     const definition = buildReportDefinition(report, { logo: 'logo-color', logoWhite: 'logo-blanco' });

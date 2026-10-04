@@ -11,8 +11,9 @@ que se usa cada uno. No reemplaza `BACKEND.md`, `comandos-backend.md` ni
 | Comando | Cuándo usarlo |
 |---|---|
 | `cp env.example .env` | Primera vez que clonás el repo. Crea tu `.env` local a partir de los defaults de desarrollo. |
-| `docker compose up --build` | Primer arranque, o cuando cambiaste un `Dockerfile` o agregaste una dependencia nueva (`package.json`). Reconstruye imágenes y levanta db + shared-types + backend + frontend. |
-| `docker compose up` | Arranques normales del día a día, sin cambios de dependencias. |
+| `docker compose up --build` | Primer arranque, o cuando cambiaste un `Dockerfile`. Reconstruye imágenes y levanta db + shared-types + backend + frontend. |
+| `docker compose up` | Arranques normales del día a día. También tras un `git pull` que cambió dependencias: cada servicio compara el hash de `pnpm-lock.yaml` al arrancar y reinstala solo lo suyo si cambió. |
+| `docker compose down` + `docker compose up --build -V` | Último recurso si un `node_modules` quedó inconsistente pese a lo anterior. `-V` recrea los volúmenes anónimos de dependencias (no toca los datos de Postgres). |
 | `docker compose up -d` | Igual que arriba, pero en segundo plano (no bloquea la terminal). |
 | `docker compose logs -f` | Ver logs de todos los servicios en tiempo real (útil si levantaste con `-d`). |
 | `docker compose logs -f backend` | Ver logs solo del backend (o `frontend`, `db`), cuando ya sabés dónde está el problema. |

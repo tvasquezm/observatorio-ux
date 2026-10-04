@@ -99,6 +99,8 @@ docker compose up --build
 
 Esto, en orden: construye las imágenes de `shared-types`, `backend` y `frontend`; levanta `db` (Postgres) y espera su healthcheck; compila `shared-types` en modo watch; aplica migraciones de Prisma; y levanta el frontend con Vite. El seed no se ejecuta al reiniciar para conservar cuentas y proyectos existentes. Para crear los datos demo, ejecuta `docker compose exec backend pnpm --filter backend seed` o activa explícitamente `SEED_ON_START=true` en desarrollo. En producción nunca se ejecuta el seed automático.
 
+Después de un `git pull` que cambie dependencias (`pnpm-lock.yaml`), basta `docker compose up`: cada servicio detecta el cambio al arrancar y reinstala solo lo suyo. Si un `node_modules` sigue inconsistente, ejecuta `docker compose down` y luego `docker compose up --build -V` para recrear los volúmenes de dependencias.
+
 - Backend: `http://localhost:3000/api` (Swagger en `/api/docs`)
 - Frontend: `http://localhost:5173`
 
@@ -211,6 +213,7 @@ Si falla, el log de cada paso está ahí mismo.
 - [`docs/sprints/sprint5-panel-administrativo.md`](docs/sprints/sprint5-panel-administrativo.md) — alcance, decisiones y estado verificable del panel administrativo
 - [`docs/sprints/sprint5-pauta-evaluacion-usabilidad.md`](docs/sprints/sprint5-pauta-evaluacion-usabilidad.md) — pauta borrador lista para revisión del profesor
 - [`docs/sprints/sprint6-despliegue.md`](docs/sprints/sprint6-despliegue.md) — despliegue productivo reproducible, operación y estado F1–F8/R6
+- [`docs/sprints/sprint7.md`](docs/sprints/sprint7.md) — exportación PDF/JSON por proyecto, datos incluidos y permisos
 
 - [`postman/`](postman/) — colecciones Postman por módulo (token de prueba vía `/auth/test-token`, deshabilitado automáticamente cuando `NODE_ENV=production`)
 

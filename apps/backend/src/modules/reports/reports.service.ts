@@ -45,6 +45,17 @@ export class ReportsService {
           },
         },
         sesiones: {
+          // Exportar no amplía el acceso a hallazgos individuales de otros evaluadores.
+          where: user.rol === 'ADMIN' ? {} : {
+            OR: [
+              { evaluadorId: user.id },
+              { tipo: 'CARD_SORTING', estudio: { evaluadorId: user.id } },
+              ...(user.rol === 'DOCENTE' ? [{
+                tipo: 'CARD_SORTING' as const,
+                proyecto: { sala: { profesorId: user.id } },
+              }] : []),
+            ],
+          },
           orderBy: { createdAt: 'desc' },
           select: {
             id: true,
@@ -57,6 +68,15 @@ export class ReportsService {
             cerrado: true,
             createdAt: true,
             completadoAt: true,
+            estudioId: true,
+            cardsDefinidas: { select: { id: true, etiqueta: true } },
+            categoriasDefinidas: { select: { id: true, nombre: true, esPredefinida: true } },
+            agrupaciones: {
+              select: {
+                card: { select: { id: true, etiqueta: true } },
+                category: { select: { id: true, nombre: true } },
+              },
+            },
           },
         },
         comentarios: {
@@ -107,12 +127,13 @@ export class ReportsService {
   async generatePdf(proyectoId: string, user: AuthenticatedUser): Promise<Buffer> {
     const report = await this.buildReport(proyectoId, user);
 
+    const vfs: Record<string, string> = require('pdfmake/build/vfs_fonts');
     const fonts = {
       Roboto: {
-        normal: require.resolve('pdfmake/fonts/Roboto/Roboto-Regular.ttf'),
-        bold: require.resolve('pdfmake/fonts/Roboto/Roboto-Medium.ttf'),
-        italics: require.resolve('pdfmake/fonts/Roboto/Roboto-Italic.ttf'),
-        bolditalics: require.resolve('pdfmake/fonts/Roboto/Roboto-MediumItalic.ttf'),
+        normal: Buffer.from(vfs['Roboto-Regular.ttf'], 'base64'),
+        bold: Buffer.from(vfs['Roboto-Medium.ttf'], 'base64'),
+        italics: Buffer.from(vfs['Roboto-Italic.ttf'], 'base64'),
+        bolditalics: Buffer.from(vfs['Roboto-MediumItalic.ttf'], 'base64'),
       },
     };
 
@@ -234,7 +255,7 @@ export class ReportsService {
     });
   }
 
-  private buildArtifactsContent(artefactos: any[]): Content[] {
+  private buildArtifactsContent(artefactos: ProjectReport['artefactos']): Content[] {
     if (artefactos.length === 0) {
       return [
         {
@@ -266,7 +287,7 @@ export class ReportsService {
     ]);
   }
 
-  private buildSessionsContent(sesiones: any[]): Content[] {
+  private buildSessionsContent(sesiones: ProjectReport['sesiones']): Content[] {
     if (sesiones.length === 0) {
       return [
         {
@@ -308,10 +329,19 @@ export class ReportsService {
               margin: [0, 3, 0, 10],
             } as Content,
           ]),
+      ...(sesion.tipo === 'CARD_SORTING' ? [{
+        text: this.stringifyJson({
+          tarjetas: sesion.cardsDefinidas,
+          categorias: sesion.categoriasDefinidas,
+          agrupaciones: sesion.agrupaciones,
+        }),
+        style: 'body',
+        margin: [0, 3, 0, 10],
+      } as Content] : []),
     ]);
   }
 
-  private buildCommentsContent(comentarios: any[]): Content[] {
+  private buildCommentsContent(comentarios: ProjectReport['comentarios']): Content[] {
     if (comentarios.length === 0) {
       return [
         {
@@ -363,3 +393,5 @@ export class ReportsService {
     return new Date(value).toLocaleString('es-CL');
   }
 }
+
+type ProjectReport = Awaited<ReturnType<ReportsService['buildReport']>>;

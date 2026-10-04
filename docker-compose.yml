@@ -22,7 +22,10 @@ services:
       target: development
     working_dir: /app
     entrypoint: []
-    command: pnpm --filter @observatorio-ux/shared-types exec tsc -p tsconfig.json --watch --preserveWatchOutput
+    command:
+      - sh
+      - -c
+      - sh scripts/ensure-deps.sh @observatorio-ux/shared-types && exec pnpm --filter @observatorio-ux/shared-types exec tsc -p tsconfig.json --watch --preserveWatchOutput
     volumes:
       - .:/app
       - /app/node_modules
@@ -63,6 +66,10 @@ services:
       target: development
     env_file:
       - .env
+    command:
+      - sh
+      - -c
+      - sh scripts/ensure-deps.sh frontend && exec pnpm --filter frontend dev -- --host
     ports:
       - "5173:5173"
     depends_on:
