@@ -1,7 +1,7 @@
 // apps/frontend/src/features/auth/pages/LoginPage.tsx
 
 import { useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { useLogin } from '../hooks/useAuthMutations';
 import { useAuthStore } from '../store/useAuthStore';
 
@@ -72,6 +72,11 @@ export function LoginPage() {
         </details>
 
         <small className="login-note">Plataforma de investigación UX · uso académico</small>
+        <small className="login-note">
+          Usamos 2 cookies necesarias para tu sesión y la seguridad. No usamos cookies de
+          seguimiento.{' '}
+          <Link to="/privacidad" target="_blank" rel="noopener noreferrer">Más información</Link>
+        </small>
       </main>
 
       <aside className="login-art">
