@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   agregarLinea,
   analizarEntrada,
+  elementosNuevos,
   estadoCantidadTarjetas,
+  existeElemento,
   quitarElemento,
   validarEstudio,
 } from './card-sorting-input';
@@ -28,10 +30,10 @@ describe('analizarEntrada', () => {
 describe('estadoCantidadTarjetas', () => {
   it.each([
     [0, 'bajo'],
-    [29, 'bajo'],
-    [30, 'ok'],
-    [60, 'ok'],
-    [61, 'alto'],
+    [14, 'bajo'],
+    [15, 'ok'],
+    [40, 'ok'],
+    [41, 'alto'],
     [100, 'alto'],
     [101, 'excedido'],
   ])('%i tarjetas → %s', (n, esperado) => {
@@ -83,5 +85,23 @@ describe('agregarLinea y quitarElemento', () => {
     const texto = 'A\n\nB\n  \nC';
     expect(quitarElemento(texto, 1)).toBe('A\n\n  \nC');
     expect(analizarEntrada(quitarElemento(texto, 2), 100).items).toEqual(['A', 'B']);
+  });
+});
+
+describe('elementosNuevos y existeElemento', () => {
+  it('separa por líneas y omite lo ya existente y lo repetido en el bloque', () => {
+    const r = elementosNuevos('Becas\nBiblioteca', 'biblioteca\nCalendario\n\ncalendario\n  Pagos  ');
+    expect(r.nuevas).toEqual(['Calendario', 'Pagos']);
+    expect(r.omitidas).toBe(2);
+  });
+
+  it('una línea con comas se mantiene como una sola', () => {
+    expect(elementosNuevos('', 'Pagos, becas y aranceles').nuevas).toEqual(['Pagos, becas y aranceles']);
+  });
+
+  it('existeElemento ignora tildes y mayúsculas, y no cuenta valores vacíos', () => {
+    expect(existeElemento('Navegación', 'navegacion')).toBe(true);
+    expect(existeElemento('Navegación', 'Otra')).toBe(false);
+    expect(existeElemento('Navegación', '  ')).toBe(false);
   });
 });

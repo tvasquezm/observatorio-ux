@@ -1,41 +1,5 @@
-import { useState } from 'react';
 import { Icon } from '../../../shared/components/ui/Icon';
 import { normalizarTexto, type AnalisisEntrada } from '../card-sorting-input';
-
-interface AddOneProps {
-  label: string;
-  placeholder: string;
-  onAdd: (value: string) => void;
-}
-
-export function CardSortingAddOne({ label, placeholder, onAdd }: AddOneProps) {
-  const [value, setValue] = useState('');
-
-  function commit() {
-    if (!value.trim()) return;
-    onAdd(value);
-    setValue('');
-  }
-
-  return (
-    <div className="cs-add-one">
-      <input
-        aria-label={label}
-        placeholder={placeholder}
-        value={value}
-        onChange={(event) => setValue(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key !== 'Enter') return;
-          event.preventDefault();
-          commit();
-        }}
-      />
-      <button type="button" className="secondary" onClick={commit} disabled={!value.trim()}>
-        Agregar
-      </button>
-    </div>
-  );
-}
 
 interface ChipsProps {
   info: AnalisisEntrada;

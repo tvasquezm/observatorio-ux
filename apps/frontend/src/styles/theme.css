@@ -1968,7 +1968,6 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 
 /* Card sorting: ayuda contextual (InfoTip), contadores y guía */
 .cs-field { position: relative; }
-.cs-field-tip { position: absolute; top: -3px; right: 0; }
 .info-tip { position: relative; display: inline-flex; }
 .info-tip-btn { display: inline-grid; place-items: center; width: 28px; height: 28px; min-height: 0; padding: 0; border: 0; border-radius: 999px; background: transparent; color: var(--muted); cursor: pointer; }
 .info-tip-btn:hover, .info-tip-btn[aria-expanded='true'] { background: var(--teal-soft); color: var(--teal); }
@@ -1997,7 +1996,6 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 
 /* Card sorting: resultados, pestañas y dendrograma */
 .info-tip-panel.start { right: auto; left: 0; }
-.cs-field-tip .info-tip-panel { right: 0; left: auto; }
 .cs-view-head { display: flex; align-items: center; gap: 4px; margin-bottom: 10px; }
 .cs-view-head h2, .cs-view-head h3 { margin: 0; color: var(--ink); font-size: 14px; }
 .cs-kpi-label { display: flex; align-items: center; gap: 2px; margin: -4px 0 -3px; }
@@ -2045,7 +2043,6 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 }
 
 /* Card sorting: creación guiada (selector de tipo, chips y medidor) */
-.cs-field > .cs-field-tip { position: absolute; top: -3px; right: 0; }
 .cs-type-picker { min-width: 0; margin: 0; padding: 0; border: 0; }
 .cs-type-picker legend { padding: 0; margin-bottom: 8px; color: var(--muted); font-size: 12px; font-weight: 750; }
 .cs-type-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
@@ -2112,4 +2109,23 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
   .cs-progress-steps { display: none; }
   .cs-progress-bar { margin: 10px 0; }
   .cs-progress-status { margin-top: 0; }
+}
+
+/* Card sorting: entrada con dos modos (de a una / pegar lista) */
+.cs-entry-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.cs-entry-title { display: inline-flex; align-items: center; gap: 2px; color: var(--muted); font-size: 12px; font-weight: 750; }
+.cs-mode-toggle { display: inline-flex; padding: 3px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-alt); }
+.cs-mode-toggle button { min-height: 30px; padding: 4px 12px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 700; cursor: pointer; }
+.cs-mode-toggle button[aria-pressed='true'] { background: var(--teal); color: var(--on-primary); }
+.cs-mode-toggle button:focus-visible { outline: 3px solid color-mix(in srgb, var(--teal) 35%, transparent); outline-offset: 1px; }
+.cs-add-one { margin-top: 0; }
+.cs-rules { margin: 0 0 8px; padding-left: 18px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.cs-paste textarea { display: block; width: 100%; min-height: 110px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--muted) 45%, var(--line)); border-radius: 8px; background: var(--bg); color: var(--ink); font: inherit; font-size: 13px; resize: vertical; }
+.cs-paste textarea:focus-visible { outline: 3px solid color-mix(in srgb, var(--teal) 30%, transparent); outline-offset: 1px; border-color: var(--teal); }
+.cs-paste-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; }
+.cs-paste-bar small { color: var(--muted); font-size: 12px; font-weight: 600; }
+.cs-paste-bar button { flex: none; min-height: 40px; }
+.cs-entry-note { display: block; margin-top: 8px; color: var(--positive-text); font-size: 12px; font-weight: 600; }
+@media (max-width: 640px) {
+  .cs-paste-bar { align-items: stretch; flex-direction: column; }
 }

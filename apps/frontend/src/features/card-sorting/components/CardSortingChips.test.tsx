@@ -1,31 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { CardSortingAddOne, CardSortingChips } from './CardSortingChips';
+import { CardSortingChips } from './CardSortingChips';
 import { analizarEntrada } from '../card-sorting-input';
-
-describe('CardSortingAddOne', () => {
-  it('Enter agrega, limpia el campo y no envía el formulario', async () => {
-    const onAdd = vi.fn();
-    const onSubmit = vi.fn((event: Event) => event.preventDefault());
-    const { container } = render(
-      <form onSubmit={onSubmit as never}>
-        <CardSortingAddOne label="Agregar tarjeta" placeholder="x" onAdd={onAdd} />
-      </form>,
-    );
-    const input = screen.getByLabelText('Agregar tarjeta');
-    await userEvent.type(input, 'Biblioteca{Enter}');
-    expect(onAdd).toHaveBeenCalledWith('Biblioteca');
-    expect(input).toHaveValue('');
-    expect(onSubmit).not.toHaveBeenCalled();
-    expect(container.querySelector('form')).toBeTruthy();
-  });
-
-  it('el botón queda deshabilitado con el campo vacío', () => {
-    render(<CardSortingAddOne label="Agregar tarjeta" placeholder="x" onAdd={() => {}} />);
-    expect(screen.getByRole('button', { name: 'Agregar' })).toBeDisabled();
-  });
-});
 
 describe('CardSortingChips', () => {
   it('no muestra nada sin elementos', () => {

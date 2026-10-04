@@ -875,3 +875,19 @@ con red real (o Docker, como en sprints anteriores) para confirmar esas
 - `theme.css`: panel de avance, guía plegable y campos con más contraste
   (también en modo oscuro).
 - Tests: `CardSortingProgress.test.tsx` (nuevo) y `CardSortingPage.test.tsx`.
+
+## Auditoría UI/UX — Fase 8c: un solo punto de entrada con dos modos (03-10-2026)
+
+- `CardSortingEntry.tsx` (nuevo): cada campo (tarjetas, categorías, preguntas)
+  tiene un único punto de entrada con selector "De a una" / "Pegar lista".
+  El modo lista muestra las reglas del formato, una vista previa ("N por
+  agregar · M repetidas se omitirán") y el botón "Agregar N …". Los chips son la
+  única representación de lo ya agregado.
+- Se quitan los textareas que repetían el dato y `CardSortingAddOne`.
+- Repetidas: al agregar se omiten (sin importar tildes ni mayúsculas) y en modo
+  "De a una" se avisa que ya están en la lista.
+- Rango recomendado de tarjetas: 15–40 (antes 30–60). El máximo de 100 no cambia.
+- `card-sorting-input.ts`: `elementosNuevos` y `existeElemento`.
+- Modo por defecto: lista en tarjetas; de a una en categorías y preguntas.
+- Tests: `CardSortingEntry.test.tsx` (nuevo), `CardSortingPage.test.tsx`,
+  `CardSortingChips.test.tsx` y `card-sorting-input.test.ts` actualizados.

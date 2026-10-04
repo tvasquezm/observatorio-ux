@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Outlet, Route, Routes } from 'react-router-dom';
 import { CardSortingPage } from './CardSortingPage';
@@ -23,6 +23,15 @@ function renderPage() {
   );
 }
 
+async function pegarTarjetas(texto: string) {
+  await userEvent.type(screen.getByLabelText('Pegar lista de tarjetas'), texto);
+  await userEvent.click(screen.getByRole('button', { name: /^Agregar \d+ tarjeta/ }));
+}
+
+async function agregarUna(etiqueta: string, texto: string) {
+  await userEvent.type(screen.getByLabelText(etiqueta), `${texto}{Enter}`);
+}
+
 describe('CardSortingPage · guía', () => {
   it('muestra la guía de 8 pasos junto al formulario', () => {
     renderPage();
@@ -42,10 +51,10 @@ describe('CardSortingPage · guía', () => {
 describe('CardSortingPage · híbrido', () => {
   it('explica el híbrido y muestra las categorías predefinidas', async () => {
     renderPage();
-    expect(screen.queryByLabelText(/Categorías predefinidas/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Modo de ingreso de categorías' })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('radio', { name: /Híbrido/ }));
     expect(screen.getByTestId('cs-type-hint')).toHaveTextContent(/pueden crear otras/);
-    expect(screen.getByLabelText(/Categorías predefinidas/)).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Modo de ingreso de categorías' })).toBeInTheDocument();
   });
 
   it('sin categorías predefinidas muestra el mínimo de 1', async () => {
@@ -53,8 +62,7 @@ describe('CardSortingPage · híbrido', () => {
     renderPage();
     await userEvent.click(screen.getByRole('radio', { name: /Híbrido/ }));
     await userEvent.type(screen.getByLabelText(/Nombre del estudio/), 'Estudio');
-    await userEvent.type(screen.getByLabelText(/Tarjetas \(una por línea\)/), 'A{Enter}B');
-    await userEvent.type(screen.getByLabelText(/Categorías predefinidas/), '   ');
+    await pegarTarjetas('A{Enter}B');
     await userEvent.click(screen.getByRole('button', { name: /Crear y abrir/ }));
     expect(screen.getByRole('alert')).toHaveTextContent('Un estudio híbrido necesita al menos una categoría predefinida.');
     expect(mutate).not.toHaveBeenCalled();
@@ -65,8 +73,8 @@ describe('CardSortingPage · híbrido', () => {
     renderPage();
     await userEvent.click(screen.getByRole('radio', { name: /Híbrido/ }));
     await userEvent.type(screen.getByLabelText(/Nombre del estudio/), 'Estudio');
-    await userEvent.type(screen.getByLabelText(/Tarjetas \(una por línea\)/), 'A{Enter}B');
-    await userEvent.type(screen.getByLabelText(/Categorías predefinidas/), 'Servicios');
+    await pegarTarjetas('A{Enter}B');
+    await agregarUna('Agregar categoría', 'Servicios');
     await userEvent.click(screen.getByRole('button', { name: /Crear y abrir/ }));
     expect(mutate.mock.calls[0][0]).toMatchObject({ tipo: 'HIBRIDO', categorias: [{ nombre: 'Servicios' }] });
   });
@@ -75,20 +83,20 @@ describe('CardSortingPage · híbrido', () => {
 describe('CardSortingPage · intención de tarjetas y categorías', () => {
   async function llenar(nombre: string, tarjetas: string) {
     await userEvent.type(screen.getByLabelText(/Nombre del estudio/), nombre);
-    await userEvent.type(screen.getByLabelText(/Tarjetas \(una por línea\)/), tarjetas);
+    await pegarTarjetas(tarjetas);
   }
 
   it('cuenta las tarjetas en vivo e indica el rango recomendado', async () => {
     renderPage();
-    expect(screen.getByTestId('cs-card-count')).toHaveTextContent('0 tarjetas · 30–60');
-    await userEvent.type(screen.getByLabelText(/Tarjetas \(una por línea\)/), 'A{Enter}B{Enter}{Enter}C');
+    expect(screen.getByTestId('cs-card-count')).toHaveTextContent('0 tarjetas · 15–40');
+    await pegarTarjetas('A{Enter}B{Enter}{Enter}C');
     expect(screen.getByTestId('cs-card-count')).toHaveTextContent('3 tarjetas');
   });
 
-  it('avisa de tarjetas duplicadas sin importar tildes ni mayúsculas', async () => {
+  it('avisa de repetidas sin importar tildes ni mayúsculas, antes de agregarlas', async () => {
     renderPage();
-    await userEvent.type(screen.getByLabelText(/Tarjetas \(una por línea\)/), 'Navegación{Enter}navegacion');
-    expect(screen.getByText(/Duplicadas: navegacion/)).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText('Pegar lista de tarjetas'), 'Navegación{Enter}navegacion');
+    expect(screen.getByTestId('cs-paste-preview-tarjetas')).toHaveTextContent('1 por agregar · 1 repetida se omitirá');
   });
 
   it('muestra un mensaje en vez de no hacer nada cuando el nombre son solo espacios', async () => {
@@ -100,13 +108,12 @@ describe('CardSortingPage · intención de tarjetas y categorías', () => {
     expect(mutate).not.toHaveBeenCalled();
   });
 
-  it('bloquea tarjetas duplicadas al crear', async () => {
-    mutate.mockClear();
+  it('al agregar omite las repetidas y deja una sola tarjeta', async () => {
     renderPage();
-    await llenar('Estudio', 'A{Enter}a');
-    await userEvent.click(screen.getByRole('button', { name: /Crear y abrir/ }));
-    expect(screen.getByRole('alert')).toHaveTextContent(/tarjetas duplicadas/);
-    expect(mutate).not.toHaveBeenCalled();
+    await pegarTarjetas('A{Enter}a');
+    expect(screen.getAllByRole('button', { name: /^Quitar / })).toHaveLength(1);
+    await userEvent.type(screen.getByLabelText('Pegar lista de tarjetas'), 'A');
+    expect(screen.getByTestId('cs-paste-preview-tarjetas')).toHaveTextContent('0 por agregar · 1 repetida se omitirá');
   });
 
   it('un estudio cerrado con 1 categoría muestra el mínimo de 2', async () => {
@@ -114,7 +121,7 @@ describe('CardSortingPage · intención de tarjetas y categorías', () => {
     renderPage();
     await userEvent.click(screen.getByRole('radio', { name: /Cerrado/ }));
     await llenar('Estudio', 'A{Enter}B');
-    await userEvent.type(screen.getByLabelText(/Categorías predefinidas/), 'Servicios');
+    await agregarUna('Agregar categoría', 'Servicios');
     await userEvent.click(screen.getByRole('button', { name: /Crear y abrir/ }));
     expect(screen.getByRole('alert')).toHaveTextContent('Un estudio cerrado necesita al menos 2 categorías.');
     expect(mutate).not.toHaveBeenCalled();
@@ -136,14 +143,15 @@ describe('CardSortingPage · intención de tarjetas y categorías', () => {
 describe('CardSortingPage · preguntas del evaluador', () => {
   async function base() {
     await userEvent.type(screen.getByLabelText(/Nombre del estudio/), 'Estudio');
-    await userEvent.type(screen.getByLabelText(/Tarjetas \(una por línea\)/), 'A{Enter}B');
+    await pegarTarjetas('A{Enter}B');
   }
 
   it('cuenta las preguntas y envía las no vacías recortadas', async () => {
     mutate.mockClear();
     renderPage();
     await base();
-    await userEvent.type(screen.getByLabelText(/Preguntas para el participante/), '  ¿Qué costó?  {Enter}{Enter}¿Faltó algo?');
+    await agregarUna('Agregar pregunta', '  ¿Qué costó?  ');
+    await agregarUna('Agregar pregunta', '¿Faltó algo?');
     expect(screen.getByTestId('cs-question-count')).toHaveTextContent('2 de 5 preguntas');
     await userEvent.click(screen.getByRole('button', { name: /Crear y abrir/ }));
     expect(mutate.mock.calls[0][0].preguntas).toEqual([{ texto: '¿Qué costó?' }, { texto: '¿Faltó algo?' }]);
@@ -161,7 +169,7 @@ describe('CardSortingPage · preguntas del evaluador', () => {
     mutate.mockClear();
     renderPage();
     await base();
-    await userEvent.type(screen.getByLabelText(/Preguntas para el participante/), '1{Enter}2{Enter}3{Enter}4{Enter}5{Enter}6');
+    for (const n of ['1', '2', '3', '4', '5', '6']) await agregarUna('Agregar pregunta', n);
     await userEvent.click(screen.getByRole('button', { name: /Crear y abrir/ }));
     expect(screen.getByRole('alert')).toHaveTextContent('El máximo es 5 preguntas.');
     expect(mutate).not.toHaveBeenCalled();
@@ -174,7 +182,7 @@ describe('CardSortingPage · avance del estudio', () => {
     expect(screen.getByTestId('cs-progress-count')).toHaveTextContent('1 de 3');
     expect(screen.getByTestId('cs-progress-status')).toHaveTextContent('Escribe un nombre para el estudio.');
     await userEvent.type(screen.getByLabelText(/Nombre del estudio/), 'Estudio');
-    await userEvent.type(screen.getByLabelText(/Tarjetas \(una por línea\)/), 'A{Enter}B');
+    await pegarTarjetas('A{Enter}B');
     expect(screen.getByTestId('cs-progress-count')).toHaveTextContent('3 de 3');
     expect(screen.getByTestId('cs-progress-status')).toHaveTextContent('Listo para crear.');
   });
@@ -185,11 +193,29 @@ describe('CardSortingPage · avance del estudio', () => {
     expect(screen.getByTestId('cs-progress-count')).toHaveTextContent('1 de 4');
   });
 
-  it('agregar una tarjeta con Enter la suma a la lista y quitarla la borra', async () => {
+  it('el botón cambia a "De a una": Enter agrega, y quitar la borra', async () => {
     renderPage();
-    await userEvent.type(screen.getByLabelText('Agregar tarjeta'), 'Biblioteca{Enter}');
-    expect(screen.getByLabelText(/Tarjetas \(una por línea\)/)).toHaveValue('Biblioteca');
+    const modo = screen.getByRole('group', { name: 'Modo de ingreso de tarjetas' });
+    expect(within(modo).getByRole('button', { name: 'Pegar lista' })).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(within(modo).getByRole('button', { name: 'De a una' }));
+    await agregarUna('Agregar tarjeta', 'Biblioteca');
+    expect(screen.getByRole('button', { name: 'Quitar Biblioteca' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Quitar Biblioteca' }));
-    expect(screen.getByLabelText(/Tarjetas \(una por línea\)/)).toHaveValue('');
+    expect(screen.queryByRole('button', { name: 'Quitar Biblioteca' })).not.toBeInTheDocument();
+  });
+
+  it('en modo "De a una" avisa si la tarjeta ya está en la lista', async () => {
+    renderPage();
+    await userEvent.click(within(screen.getByRole('group', { name: 'Modo de ingreso de tarjetas' })).getByRole('button', { name: 'De a una' }));
+    await agregarUna('Agregar tarjeta', 'Becas');
+    await agregarUna('Agregar tarjeta', 'becas');
+    expect(screen.getByText('«becas» ya está en la lista.')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /^Quitar / })).toHaveLength(1);
+  });
+
+  it('el modo lista muestra las reglas del formato', () => {
+    renderPage();
+    expect(screen.getByText('Una tarjeta por línea.')).toBeInTheDocument();
+    expect(screen.getByText(/Puedes pegar una columna de Excel o Sheets/)).toBeInTheDocument();
   });
 });

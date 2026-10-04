@@ -16,18 +16,15 @@ import {
   MAX_TARJETAS,
   MIN_CATEGORIAS_CERRADO,
   MIN_RECOMENDADAS,
-  agregarLinea,
   analizarEntrada,
   estadoCantidadTarjetas,
-  quitarElemento,
   validarEstudio,
   type AnalisisEntrada,
 } from '../features/card-sorting/card-sorting-input';
 import type { ProjectOutletContext } from '../layouts/ProjectDetailLayout';
-import { InfoTip } from '../shared/components/ui/InfoTip';
 import { CardSortingTypePicker } from '../features/card-sorting/components/CardSortingTypePicker';
 import { CardSortingProgress, type ProgressStep } from '../features/card-sorting/components/CardSortingProgress';
-import { CardSortingAddOne, CardSortingChips } from '../features/card-sorting/components/CardSortingChips';
+import { CardSortingEntry } from '../features/card-sorting/components/CardSortingEntry';
 
 const TYPE_HINTS: Record<TipoCardSorting, string> = {
   ABIERTO: 'Los participantes crean y nombran sus propias categorías. Úsalo para descubrir cómo piensan tus usuarios.',
@@ -230,98 +227,83 @@ export function CardSortingPage() {
             <CardSortingTypePicker value={type} onChange={setType} />
             <p className="cs-type-hint" data-testid="cs-type-hint">{TYPE_HINTS[type]}</p>
 
-            <div className="cs-field">
-              <label className="field">
-                Tarjetas (una por línea)
-                <textarea
-                  placeholder={'Inscripción de asignaturas\nCalendario académico\nBiblioteca'}
-                  value={cardsText}
-                  onChange={(event) => setCardsText(event.target.value)}
-                  required
-                  className="textarea-lg"
-                />
-                <CardCount count={cardsInfo.items.length} />
-                <InputWarnings info={cardsInfo} noun="tarjeta(s)" max={MAX_ETIQUETA} aviso={AVISO_ETIQUETA} />
-              </label>
-              <CardSortingAddOne
-                label="Agregar tarjeta"
-                placeholder="Agregar una tarjeta y presionar Enter"
-                onAdd={(value) => setCardsText((prev) => agregarLinea(prev, value))}
-              />
-              <CardSortingChips
-                info={cardsInfo}
-                max={MAX_ETIQUETA}
-                aviso={AVISO_ETIQUETA}
-                noun="tarjetas"
-                onRemove={(index) => setCardsText((prev) => quitarElemento(prev, index))}
-              />
-              <InfoTip label="Ayuda: cómo escribir las tarjetas" className="cs-field-tip">
-                <Checklist items={CARD_CHECKLIST} />
-              </InfoTip>
-            </div>
+            <CardSortingEntry
+              title="Tarjetas"
+              singular="tarjeta"
+              plural="tarjetas"
+              value={cardsText}
+              onChange={setCardsText}
+              max={MAX_ETIQUETA}
+              aviso={AVISO_ETIQUETA}
+              defaultMode="lista"
+              rules={[
+                'Una tarjeta por línea.',
+                'Las líneas vacías se ignoran.',
+                `Máximo ${MAX_ETIQUETA} caracteres por tarjeta.`,
+                'Puedes pegar una columna de Excel o Sheets.',
+              ]}
+              example={'Inscripción de asignaturas\nCalendario académico\nBiblioteca'}
+              addPlaceholder="Escribe una tarjeta y presiona Enter"
+              help={<Checklist items={CARD_CHECKLIST} />}
+              helpLabel="Ayuda: cómo escribir las tarjetas"
+              meta={(
+                <>
+                  <CardCount count={cardsInfo.items.length} />
+                  <InputWarnings info={cardsInfo} noun="tarjeta(s)" max={MAX_ETIQUETA} aviso={AVISO_ETIQUETA} />
+                </>
+              )}
+            />
 
             {type !== 'ABIERTO' && (
-              <div className="cs-field">
-                <label className="field">
-                  Categorías predefinidas (una por línea)
-                  <textarea
-                    placeholder={'Información académica\nServicios\nVida universitaria'}
-                    value={categoriesText}
-                    onChange={(event) => setCategoriesText(event.target.value)}
-                    required
-                    className="textarea-md"
-                  />
-                  <InputWarnings info={categoriesInfo} noun="categoría(s)" max={MAX_CATEGORIA} />
-                </label>
-                <CardSortingAddOne
-                  label="Agregar categoría"
-                  placeholder="Agregar una categoría y presionar Enter"
-                  onAdd={(value) => setCategoriesText((prev) => agregarLinea(prev, value))}
-                />
-                <CardSortingChips
-                  info={categoriesInfo}
-                  max={MAX_CATEGORIA}
-                  noun="categorías"
-                  onRemove={(index) => setCategoriesText((prev) => quitarElemento(prev, index))}
-                />
-                <InfoTip label="Ayuda: cómo definir las categorías" className="cs-field-tip">
-                  <Checklist items={CATEGORY_CHECKLIST} />
-                </InfoTip>
-              </div>
+              <CardSortingEntry
+                title="Categorías predefinidas"
+                singular="categoría"
+                plural="categorías"
+                value={categoriesText}
+                onChange={setCategoriesText}
+                max={MAX_CATEGORIA}
+                defaultMode="uno"
+                rules={[
+                  'Una categoría por línea.',
+                  'Las líneas vacías se ignoran.',
+                  `Máximo ${MAX_CATEGORIA} caracteres por categoría.`,
+                ]}
+                example={'Información académica\nServicios\nVida universitaria'}
+                addPlaceholder="Escribe una categoría y presiona Enter"
+                help={<Checklist items={CATEGORY_CHECKLIST} />}
+                helpLabel="Ayuda: cómo definir las categorías"
+                meta={<InputWarnings info={categoriesInfo} noun="categoría(s)" max={MAX_CATEGORIA} />}
+              />
             )}
 
-            <div className="cs-field">
-              <label className="field">
-                Preguntas para el participante (opcional, una por línea)
-                <textarea
-                  placeholder={'¿Qué tarjeta te costó más ubicar?\n¿Echaste de menos alguna categoría?'}
-                  value={questionsText}
-                  onChange={(event) => setQuestionsText(event.target.value)}
-                  className="textarea-md"
-                />
-                <small className="cs-input-count" data-testid="cs-question-count">
-                  {questionsInfo.items.length} de {MAX_PREGUNTAS} preguntas
-                </small>
-                <InputWarnings info={questionsInfo} noun="pregunta(s)" max={MAX_PREGUNTA} />
-                {questionsInfo.items.length > MAX_PREGUNTAS && (
-                  <small className="cs-input-warn" role="status">El máximo es {MAX_PREGUNTAS} preguntas.</small>
-                )}
-              </label>
-              <CardSortingAddOne
-                label="Agregar pregunta"
-                placeholder="Agregar una pregunta y presionar Enter"
-                onAdd={(value) => setQuestionsText((prev) => agregarLinea(prev, value))}
-              />
-              <CardSortingChips
-                info={questionsInfo}
-                max={MAX_PREGUNTA}
-                noun="preguntas"
-                onRemove={(index) => setQuestionsText((prev) => quitarElemento(prev, index))}
-              />
-              <InfoTip label="Ayuda: preguntas para el participante" className="cs-field-tip">
-                El participante las responde al enviar su clasificación. Hasta {MAX_PREGUNTAS}, opcionales.
-              </InfoTip>
-            </div>
+            <CardSortingEntry
+              title="Preguntas para el participante (opcional)"
+              singular="pregunta"
+              plural="preguntas"
+              value={questionsText}
+              onChange={setQuestionsText}
+              max={MAX_PREGUNTA}
+              defaultMode="uno"
+              rules={[
+                'Una pregunta por línea.',
+                `Hasta ${MAX_PREGUNTAS} preguntas, de ${MAX_PREGUNTA} caracteres como máximo.`,
+              ]}
+              example={'¿Qué tarjeta te costó más ubicar?\n¿Echaste de menos alguna categoría?'}
+              addPlaceholder="Escribe una pregunta y presiona Enter"
+              help="El participante las responde al enviar su clasificación. Son opcionales."
+              helpLabel="Ayuda: preguntas para el participante"
+              meta={(
+                <>
+                  <small className="cs-input-count" data-testid="cs-question-count">
+                    {questionsInfo.items.length} de {MAX_PREGUNTAS} preguntas
+                  </small>
+                  <InputWarnings info={questionsInfo} noun="pregunta(s)" max={MAX_PREGUNTA} />
+                  {questionsInfo.items.length > MAX_PREGUNTAS && (
+                    <small className="cs-input-warn" role="status">El máximo es {MAX_PREGUNTAS} preguntas.</small>
+                  )}
+                </>
+              )}
+            />
 
             {formError && <p role="alert" className="error-text">{formError}</p>}
 
