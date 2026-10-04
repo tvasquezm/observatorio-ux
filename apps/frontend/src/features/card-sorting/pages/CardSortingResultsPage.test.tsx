@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { CardSortingAnalytics } from '../api/card-sorting.api';
 import { CardSortingResultsPage } from './CardSortingResultsPage';
@@ -78,10 +78,19 @@ describe('CardSortingResultsPage (minimalista)', () => {
     expect(screen.getByRole('tab', { name: 'Tarjetas' }).getAttribute('aria-selected')).toBe('true');
   });
 
-  it('distribución en texto plano: "nombre (n)"', () => {
+  it('cada tarjeta muestra su distribución en porcentaje y su estado de consenso', () => {
     setup();
-    expect(screen.getByText('A (2)')).toBeTruthy();
-    expect(screen.getByText('B (1)')).toBeTruthy();
+    const fila = screen.getByTestId('cs-card-row-Biblioteca');
+    expect(fila).toHaveTextContent('A 67% (2)');
+    expect(fila).toHaveTextContent('B 33% (1)');
+    expect(fila).toHaveTextContent('Consenso · 67%');
+    expect(screen.getByTestId('cs-cards-summary')).toHaveTextContent('1 con consenso');
+  });
+
+  it('tocar una categoría de una tarjeta abre la pestaña Categorías', () => {
+    setup();
+    fireEvent.click(within(screen.getByTestId('cs-card-row-Biblioteca')).getByRole('button', { name: 'A' }));
+    expect(screen.getByRole('tab', { name: 'Categorías' }).getAttribute('aria-selected')).toBe('true');
   });
 
   it('KPIs sin subtítulos y "Acuerdo global" con ayuda', () => {

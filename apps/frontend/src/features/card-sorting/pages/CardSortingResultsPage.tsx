@@ -4,11 +4,11 @@ import type {
   CardSortingMatrix,
   CardSortingParticipante,
   CardSortingPreguntaResultado,
-  CardSortingPorCarta,
-  CardSortingPorCategoria,
 } from '../api/card-sorting.api';
 import { useCardSortingAnalytics } from '../hooks/useCardSortingQueries';
 import { CardSortingDendrogram } from '../components/CardSortingDendrogram';
+import { CardSortingCardsView } from '../components/CardSortingCardsView';
+import { CardSortingCategoriesView } from '../components/CardSortingCategoriesView';
 import { descargarCsv, matrizACsv, similitudACsv } from '../card-sorting-csv';
 import { Icon } from '../../../shared/components/ui/Icon';
 import { InfoTip } from '../../../shared/components/ui/InfoTip';
@@ -30,8 +30,8 @@ const ANSWERS_TAB: { id: ResultsTab; label: string } = { id: 'answers', label: '
 
 // Título corto y ayuda de cada vista. Dendrograma, participantes y respuestas llevan el suyo.
 const VIEW_HELP: Partial<Record<ResultsTab, { title: string; help: string }>> = {
-  cards: { title: 'Categorías usadas por tarjeta', help: 'Para cada tarjeta, en cuántas categorías distintas la ubicaron los participantes y con qué frecuencia.' },
-  categories: { title: 'Tarjetas por categoría', help: 'Para cada categoría, qué tarjetas contiene y cuántas veces se ubicó cada una.' },
+  cards: { title: 'Distribución de cada tarjeta', help: 'Cada barra muestra en qué categorías ubicaron la tarjeta los participantes. Hay consenso cuando más del umbral del curso la puso en la misma categoría (ver "Agrupaciones dominantes"). Toca una categoría para verla en detalle.' },
+  categories: { title: 'Tarjetas por categoría', help: 'Para cada categoría, las tarjetas que contiene y el porcentaje de participantes que la ubicó ahí. Las más atenuadas tienen bajo acuerdo. Toca una tarjeta para ver toda su distribución.' },
   results: { title: 'Cantidad de ubicaciones', help: 'Cuántas veces cada tarjeta se ubicó en cada categoría.' },
   popular: { title: 'Porcentaje de participantes', help: 'Qué porcentaje de los participantes ubicó cada tarjeta en cada categoría. Más oscuro, más acuerdo.' },
   similarity: { title: 'Similitud entre tarjetas', help: 'Qué tan seguido los participantes agruparon cada par de tarjetas en la misma categoría (100% = siempre juntas).' },
@@ -85,10 +85,13 @@ export function CardSortingResultsPage() {
     window.addEventListener('resize', updateEdges);
     return () => window.removeEventListener('resize', updateEdges);
   }, []);
-  const setActiveTab = (tab: ResultsTab) => {
+  const foco = searchParams.get('foco') ?? undefined;
+  const setActiveTab = (tab: ResultsTab, nuevoFoco?: string) => {
     const next = new URLSearchParams(searchParams);
     if (tab === 'cards') next.delete('vista');
     else next.set('vista', tab);
+    if (nuevoFoco) next.set('foco', nuevoFoco);
+    else next.delete('foco');
     setSearchParams(next, { replace: true });
   };
 
@@ -228,7 +231,7 @@ export function CardSortingResultsPage() {
                   <InfoTip label={`Ayuda: ${VIEW_HELP[activeTab]!.title}`} align="start">{VIEW_HELP[activeTab]!.help}</InfoTip>
                 </div>
               )}
-              {activeTab === 'cards' && <CardsTable data={data.porCarta} />}
+              {activeTab === 'cards' && <CardSortingCardsView data={data} foco={foco} onCategoria={(nombre) => setActiveTab('categories', nombre)} />}
               {activeTab === 'dendrogram' && <CardSortingDendrogram tarjetas={data.tarjetas} similitud={data.matrizSimilitud} />}
               {activeTab === 'participants' && (
                 <div className="cs-view-head">
@@ -238,7 +241,7 @@ export function CardSortingResultsPage() {
               )}
               {activeTab === 'participants' && <ParticipantsList data={data.participantes ?? []} />}
               {activeTab === 'answers' && <AnswersList data={data.preguntas} />}
-              {activeTab === 'categories' && <CategoriesTable data={data.porCategoria} />}
+              {activeTab === 'categories' && <CardSortingCategoriesView data={data} foco={foco} onTarjeta={(tarjeta) => setActiveTab('cards', tarjeta)} />}
               {activeTab === 'results' && <MatrixTable title="Cantidad de ubicaciones" matrix={data.resultsMatrix} format={String} />}
               {activeTab === 'popular' && <MatrixTable title="Porcentaje de participantes" matrix={data.popularPlacementsMatrix} format={(value) => `${value}%`} heat />}
               {activeTab === 'similarity' && (
@@ -296,38 +299,6 @@ export function CardSortingResultsPage() {
         </>
       )}
     </div>
-  );
-}
-
-function CardsTable({ data }: { data: CardSortingPorCarta[] }) {
-  return (
-    <div className="cs-table-wrap"><table className="cs-table">
-      <caption className="sr-only">Categorías utilizadas para cada tarjeta</caption>
-      <thead><tr><th scope="col">Tarjeta</th><th scope="col">Categorías distintas</th><th scope="col">Distribución</th></tr></thead>
-      <tbody>{data.map((row) => (
-        <tr key={row.tarjeta}>
-          <th scope="row">{row.tarjeta}</th>
-          <td>{row.categoriasCount}</td>
-          <td>{row.categorias.map((category) => <span key={category.nombre} className="cs-inline-result">{category.nombre} ({category.frecuencia})</span>)}</td>
-        </tr>
-      ))}</tbody>
-    </table></div>
-  );
-}
-
-function CategoriesTable({ data }: { data: CardSortingPorCategoria[] }) {
-  return (
-    <div className="cs-table-wrap"><table className="cs-table">
-      <caption className="sr-only">Tarjetas incluidas en cada categoría</caption>
-      <thead><tr><th scope="col">Categoría</th><th scope="col">Tarjetas distintas</th><th scope="col">Distribución</th></tr></thead>
-      <tbody>{data.map((row) => (
-        <tr key={row.nombre}>
-          <th scope="row">{row.nombre}</th>
-          <td>{row.cardsCount}</td>
-          <td>{row.cartas.map((card) => <span key={card.tarjeta} className="cs-inline-result">{card.tarjeta} ({card.frecuencia})</span>)}</td>
-        </tr>
-      ))}</tbody>
-    </table></div>
   );
 }
 

@@ -891,3 +891,22 @@ con red real (o Docker, como en sprints anteriores) para confirmar esas
 - Modo por defecto: lista en tarjetas; de a una en categorías y preguntas.
 - Tests: `CardSortingEntry.test.tsx` (nuevo), `CardSortingPage.test.tsx`,
   `CardSortingChips.test.tsx` y `card-sorting-input.test.ts` actualizados.
+
+## Auditoría UI/UX — Fase 9a: vistas Tarjetas y Categorías de los resultados (04-10-2026)
+
+- `CardSortingCardsView.tsx` (nuevo): una fila por tarjeta con barra apilada
+  por categoría (porcentaje y cantidad), etiqueta "Consenso" / "Sin consenso" /
+  "Sin asignaciones", buscador, orden y filtro "Solo sin consenso", y un
+  resumen arriba.
+- `CardSortingCategoriesView.tsx` (nuevo): una ficha por categoría con sus
+  tarjetas y mini barras de % de participantes; las de bajo acuerdo se atenúan;
+  subcategorías en desplegable; buscador y resumen.
+- Enlaces entre pestañas: tocar una categoría en Tarjetas abre Categorías
+  resaltada, y tocar una tarjeta en Categorías abre Tarjetas resaltada
+  (parámetro `?foco=`).
+- `card-sorting-views.ts` (nuevo): lógica pura (porcentajes, consenso con el
+  criterio "más del umbral del curso", filtros y orden). No cambia la API.
+- `theme.css`: paleta categórica de 8 colores (claro y oscuro); el color nunca
+  es el único dato, siempre va el nombre y el porcentaje.
+- Se retiran las tablas anteriores de ambas pestañas.
+- Tests: lógica, vistas y página de resultados.

@@ -11,6 +11,9 @@ All notable changes to this project will be documented in this file. See [commit
   íconos `info`, `download` y `refresh`.
 * **card-sorting:** creación del estudio guiada: tipo en tarjetas seleccionables,
   campo "Agregar una" con chips en vivo y medidor del rango de tarjetas.
+* **card-sorting:** las pestañas Tarjetas y Categorías de los resultados muestran
+  barras por categoría, estado de consenso, búsqueda, orden, filtro y enlaces
+  entre ambas.
 * **card-sorting:** cada campo de la creación tiene una sola entrada con dos modos
   ("De a una" y "Pegar lista" con reglas y vista previa); el rango recomendado
   de tarjetas baja a 15–40.
