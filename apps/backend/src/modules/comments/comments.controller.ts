@@ -11,13 +11,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { CurrentUser } from '../../core/decorators/current-user.decorator';
-import { Roles } from '../../core/decorators/roles.decorator';
-import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
-import { RolesGuard } from '../../core/guards/roles.guard';
-import { AuthenticatedUser } from '../auth/types/authenticated-user.interface';
-import { CommentsService } from './comments.service';
-import { CreateCommentDto, UpdateCommentDto } from './comments.dto';
+import { CurrentUser } from '../../core/decorators/current-user.decorator.js';
+import { Roles } from '../../core/decorators/roles.decorator.js';
+import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard.js';
+import { RolesGuard } from '../../core/guards/roles.guard.js';
+import { AuthenticatedUser } from '../auth/types/authenticated-user.interface.js';
+import { CommentsService } from './comments.service.js';
+import { CreateCommentDto, UpdateCommentDto } from './comments.dto.js';
 
 @ApiTags('comments')
 @ApiBearerAuth()

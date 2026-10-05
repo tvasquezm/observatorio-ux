@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
-import { UsersService } from '../users.service';
-import type { AuthenticatedUser } from '../../auth/types/authenticated-user.interface';
+import { UsersService } from '../users.service.js';
+import type { AuthenticatedUser } from '../../auth/types/authenticated-user.interface.js';
 
 describe('UsersService', () => {
   const prisma = {
@@ -8,15 +8,17 @@ describe('UsersService', () => {
       findMany: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn(),
+      delete: jest.fn(),
     },
     sala: { count: jest.fn() },
   };
+  const auth = { invalidateUser: jest.fn() };
   const admin = { id: 'admin-1', rol: 'ADMIN' } as AuthenticatedUser;
   let service: UsersService;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    service = new UsersService(prisma as never);
+    service = new UsersService(prisma as never, auth as never);
   });
 
   it('lista todas las cuentas sin exponer passwordHash', async () => {
@@ -46,6 +48,7 @@ describe('UsersService', () => {
         data: { rol: 'DOCENTE' },
       }),
     );
+    expect(auth.invalidateUser).toHaveBeenCalledWith('user-1');
   });
 
   it('impide que el administrador quite su propio rol', async () => {
@@ -55,6 +58,7 @@ describe('UsersService', () => {
       service.updateRole(admin.id, { rol: 'DOCENTE' }, admin),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.usuario.update).not.toHaveBeenCalled();
+    expect(auth.invalidateUser).not.toHaveBeenCalled();
   });
 
   it('impide cambiar el rol de un docente con salas activas', async () => {
@@ -73,5 +77,24 @@ describe('UsersService', () => {
     await expect(
       service.updateRole('missing', { rol: 'DOCENTE' }, admin),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('invalida la identidad cacheada al eliminar un docente', async () => {
+    prisma.usuario.findUnique.mockResolvedValue({ id: 'teacher-1', rol: 'DOCENTE' });
+    prisma.sala.count.mockResolvedValue(0);
+    prisma.usuario.delete.mockResolvedValue({});
+
+    await service.removeDocente('teacher-1');
+
+    expect(auth.invalidateUser).toHaveBeenCalledWith('teacher-1');
+  });
+
+  it('no invalida si el docente tiene salas activas y no se elimina', async () => {
+    prisma.usuario.findUnique.mockResolvedValue({ id: 'teacher-1', rol: 'DOCENTE' });
+    prisma.sala.count.mockResolvedValue(2);
+
+    await expect(service.removeDocente('teacher-1')).rejects.toBeInstanceOf(ConflictException);
+    expect(prisma.usuario.delete).not.toHaveBeenCalled();
+    expect(auth.invalidateUser).not.toHaveBeenCalled();
   });
 });

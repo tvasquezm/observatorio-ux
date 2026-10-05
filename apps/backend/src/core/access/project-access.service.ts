@@ -1,6 +1,6 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../database/prisma.service';
-import { AuthenticatedUser } from '../../modules/auth/types/authenticated-user.interface';
+import { PrismaService } from '../database/prisma.service.js';
+import { AuthenticatedUser } from '../../modules/auth/types/authenticated-user.interface.js';
 
 /**
  * Chequeo de acceso a proyecto compartido entre módulos (Artifacts,

@@ -3,11 +3,11 @@ import { BadRequestException } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { ActorSesion, EstadoSesion, TipoSesion } from '@prisma/client';
-import { CardSortingService, Grupo } from '../card-sorting.service';
-import { SubmitCardSortingResultDto } from '../dto/card-sorting.dto';
-import { PrismaService } from '../../../../core/database/prisma.service';
-import { ProjectAccessService } from '../../../../core/access/project-access.service';
-import { AuthenticatedUser } from '../../../auth/types/authenticated-user.interface';
+import { CardSortingService, Grupo } from '../card-sorting.service.js';
+import { SubmitCardSortingResultDto } from '../dto/card-sorting.dto.js';
+import { PrismaService } from '../../../../core/database/prisma.service.js';
+import { ProjectAccessService } from '../../../../core/access/project-access.service.js';
+import { AuthenticatedUser } from '../../../auth/types/authenticated-user.interface.js';
 
 const UUID_CARD = '5b2d0e3f-7c8a-4d4e-9f62-8a3b4c5d6e7f';
 

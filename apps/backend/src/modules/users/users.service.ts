@@ -4,14 +4,18 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import * as bcrypt from 'bcrypt';
-import { PrismaService } from '../../core/database/prisma.service';
-import { CreateDocenteDto, UpdateUserRoleDto } from './dto/user.dto';
-import type { AuthenticatedUser } from '../auth/types/authenticated-user.interface';
+import bcrypt from 'bcrypt';
+import { PrismaService } from '../../core/database/prisma.service.js';
+import { CreateDocenteDto, UpdateUserRoleDto } from './dto/user.dto.js';
+import type { AuthenticatedUser } from '../auth/types/authenticated-user.interface.js';
+import { AuthService } from '../auth/auth.service.js';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auth: AuthService,
+  ) {}
 
   async createDocente(dto: CreateDocenteDto) {
     const email = dto.email.trim().toLowerCase();
@@ -64,11 +68,13 @@ export class UsersService {
       }
     }
 
-    return this.prisma.usuario.update({
+    const actualizado = await this.prisma.usuario.update({
       where: { id },
       data: { rol: dto.rol },
       select: { id: true, nombre: true, email: true, rol: true, createdAt: true },
     });
+    this.auth.invalidateUser(id);
+    return actualizado;
   }
 
   async removeDocente(id: string) {
@@ -85,6 +91,7 @@ export class UsersService {
       );
     }
     await this.prisma.usuario.delete({ where: { id } });
+    this.auth.invalidateUser(id);
     return { eliminado: true };
   }
 

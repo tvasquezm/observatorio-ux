@@ -13,14 +13,14 @@ import {
   MomentosCriticosSchema,
   PersonaSchema,
 } from '@observatorio-ux/shared-types';
-import { PrismaService } from '../../core/database/prisma.service';
-import { ProjectAccessService } from '../../core/access/project-access.service';
-import { AuthenticatedUser } from '../auth/types/authenticated-user.interface';
+import { PrismaService } from '../../core/database/prisma.service.js';
+import { ProjectAccessService } from '../../core/access/project-access.service.js';
+import { AuthenticatedUser } from '../auth/types/authenticated-user.interface.js';
 import {
   AcquireLockDto,
   CreateArtifactDto,
   CreateArtifactVersionDto,
-} from './artifacts.dto';
+} from './artifacts.dto.js';
 
 /** TTL por defecto del bloqueo pesimista si el cliente no envía uno propio. */
 const DEFAULT_LOCK_TTL_MS = 5 * 60 * 1000; // 5 minutos
@@ -94,6 +94,13 @@ export class ArtifactsService {
   async softDelete(artefactoId: string, user: AuthenticatedUser) {
     const artifact = await this.findOneIncludingDeleted(artefactoId, user);
     if (artifact.deletedAt) return artifact;
+
+    if (artifact.tipo === TipoArtefacto.JOURNEY_MAP) {
+      throw new ForbiddenException(
+        'Los Journey Maps son registros de evidencia y no pueden eliminarse.',
+      );
+    }
+
     await this.assertPuedeEditar(user, artifact.proyectoId);
     const latest = await this.getLatestVersion(artifact.artefactoLogicoId, artifact);
 
@@ -114,6 +121,13 @@ export class ArtifactsService {
     user: AuthenticatedUser,
   ) {
     const artifact = await this.findOne(artefactoId, user);
+
+    if (artifact.tipo === TipoArtefacto.JOURNEY_MAP) {
+      throw new ForbiddenException(
+        'Los Journey Maps son registros de evidencia y no pueden modificarse.',
+      );
+    }
+
     await this.assertPuedeEditar(user, artifact.proyectoId);
     const latest = await this.getLatestVersion(artifact.artefactoLogicoId, artifact);
 

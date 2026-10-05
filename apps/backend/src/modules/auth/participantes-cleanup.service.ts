@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { PrismaService } from '../../core/database/prisma.service';
+import { PrismaService } from '../../core/database/prisma.service.js';
 
 /**
  * H5 (Fase 7, PLAN_REMEDIACION_AUDITORIA.md): `accessParticipant` crea un

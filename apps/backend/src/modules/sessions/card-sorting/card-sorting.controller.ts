@@ -11,18 +11,18 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { CurrentUser } from '../../../core/decorators/current-user.decorator';
-import { Roles } from '../../../core/decorators/roles.decorator';
-import { JwtAuthGuard } from '../../../core/guards/jwt-auth.guard';
-import { JwtParticipanteGuard } from '../../../core/guards/jwt-participante.guard';
-import { RolesGuard } from '../../../core/guards/roles.guard';
-import { AuthenticatedUser } from '../../auth/types/authenticated-user.interface';
+import { CurrentUser } from '../../../core/decorators/current-user.decorator.js';
+import { Roles } from '../../../core/decorators/roles.decorator.js';
+import { JwtAuthGuard } from '../../../core/guards/jwt-auth.guard.js';
+import { JwtParticipanteGuard } from '../../../core/guards/jwt-participante.guard.js';
+import { RolesGuard } from '../../../core/guards/roles.guard.js';
+import { AuthenticatedUser } from '../../auth/types/authenticated-user.interface.js';
 import {
   CreateCardSortingSessionDto,
   SubmitCardSortingResultDto,
   CerrarEstudioDto,
-} from './dto/card-sorting.dto';
-import { CardSortingService } from './card-sorting.service';
+} from './dto/card-sorting.dto.js';
+import { CardSortingService } from './card-sorting.service.js';
 
 @ApiTags('card-sorting')
 @ApiBearerAuth()

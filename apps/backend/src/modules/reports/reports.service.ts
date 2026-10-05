@@ -1,9 +1,13 @@
+import { createRequire } from 'node:module';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import PdfPrinter from 'pdfmake';
-import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces';
-import { PrismaService } from '../../core/database/prisma.service';
-import { ProjectAccessService } from '../../core/access/project-access.service';
-import { AuthenticatedUser } from '../auth/types/authenticated-user.interface';
+import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces.js';
+import { PrismaService } from '../../core/database/prisma.service.js';
+import { ProjectAccessService } from '../../core/access/project-access.service.js';
+import { AuthenticatedUser } from '../auth/types/authenticated-user.interface.js';
+
+// ESM no trae `require`: pdfmake/build/vfs_fonts es CommonJS.
+const requireCjs = createRequire(import.meta.url);
 
 @Injectable()
 export class ReportsService {
@@ -127,7 +131,7 @@ export class ReportsService {
   async generatePdf(proyectoId: string, user: AuthenticatedUser): Promise<Buffer> {
     const report = await this.buildReport(proyectoId, user);
 
-    const vfs: Record<string, string> = require('pdfmake/build/vfs_fonts');
+    const vfs: Record<string, string> = requireCjs('pdfmake/build/vfs_fonts');
     const fonts = {
       Roboto: {
         normal: Buffer.from(vfs['Roboto-Regular.ttf'], 'base64'),

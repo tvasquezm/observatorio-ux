@@ -8,7 +8,7 @@ import {
   TipoCardSorting,
   TipoSesion,
 } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
+import bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 const demoPassword = process.env.SEED_PASSWORD || 'Demo1234!';

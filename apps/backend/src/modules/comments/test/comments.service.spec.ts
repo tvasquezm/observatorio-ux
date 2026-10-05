@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
-import { CommentsService } from '../comments.service';
-import { PrismaService } from '../../../core/database/prisma.service';
-import { ProjectAccessService } from '../../../core/access/project-access.service';
+import { CommentsService } from '../comments.service.js';
+import { PrismaService } from '../../../core/database/prisma.service.js';
+import { ProjectAccessService } from '../../../core/access/project-access.service.js';
 
 describe('CommentsService', () => {
   let service: CommentsService;

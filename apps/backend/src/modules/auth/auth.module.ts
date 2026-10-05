@@ -2,13 +2,13 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule, JwtSignOptions } from '@nestjs/jwt';
 import { ScheduleModule } from '@nestjs/schedule';
-import { AuthController } from './auth.controller';
-import { AuthService } from './auth.service';
-import { JwtStrategy } from './jwt.strategy';
-import { JwtParticipanteStrategy } from './jwt-participante.strategy';
-import { ParticipanteJwtService } from './participante-jwt.service';
-import { ParticipanteTokenService } from './participante-token.service';
-import { ParticipantesCleanupService } from './participantes-cleanup.service';
+import { AuthController } from './auth.controller.js';
+import { AuthService } from './auth.service.js';
+import { JwtStrategy } from './jwt.strategy.js';
+import { JwtParticipanteStrategy } from './jwt-participante.strategy.js';
+import { ParticipanteJwtService } from './participante-jwt.service.js';
+import { ParticipanteTokenService } from './participante-token.service.js';
+import { ParticipantesCleanupService } from './participantes-cleanup.service.js';
 
 @Module({
   imports: [

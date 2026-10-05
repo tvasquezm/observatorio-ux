@@ -10,10 +10,18 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { createHash, randomBytes, timingSafeEqual } from 'crypto';
-import * as bcrypt from 'bcrypt';
-import { PrismaService } from '../../core/database/prisma.service';
-import { AuthenticatedUser } from './types/authenticated-user.interface';
-import { ParticipanteJwtService } from './participante-jwt.service';
+import bcrypt from 'bcrypt';
+import { PrismaService } from '../../core/database/prisma.service.js';
+import { AuthenticatedUser } from './types/authenticated-user.interface.js';
+import { ParticipanteJwtService } from './participante-jwt.service.js';
+import { TtlCache } from '../../core/cache/ttl-cache.js';
+
+// Identidad ya verificada contra la base: evita un findUnique por request.
+// Un cambio de rol o un borrado invalida la entrada (`invalidateUser`); si
+// ocurre fuera de este proceso, el plazo máximo de retraso es este TTL.
+const IDENTIDAD_TTL_MS = 30_000;
+
+type IdentidadEvaluador = Pick<AuthenticatedUser, 'id' | 'email' | 'rol'>;
 
 @Injectable()
 export class AuthService {
@@ -24,12 +32,24 @@ export class AuthService {
     10,
   );
 
+  private readonly evaluadores = new TtlCache<IdentidadEvaluador>(IDENTIDAD_TTL_MS);
+  private readonly participantes = new TtlCache<true>(IDENTIDAD_TTL_MS);
+  // Una invalidación impide cachear identidades leídas antes del cambio.
+  private identityCacheEpoch = 0;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly participanteJwt: ParticipanteJwtService,
     private readonly config: ConfigService,
   ) {}
+
+  /** Descarta la identidad cacheada de un usuario (cambio de rol o borrado). */
+  invalidateUser(id: string): void {
+    this.identityCacheEpoch++;
+    this.evaluadores.delete(id);
+    this.participantes.delete(id);
+  }
 
   private assertInvitationCode(codigo: string, esperado?: string | null) {
     const recibido = createHash('sha256').update(codigo).digest();
@@ -421,37 +441,45 @@ export class AuthService {
     actor?: string;
     proyectoId?: string;
   }): Promise<AuthenticatedUser> {
+    const cacheEpoch = this.identityCacheEpoch;
     if (payload.actor === 'PARTICIPANTE') {
-      const participant = await this.prisma.participante.findUnique({
-        where: { id: payload.sub },
-      });
+      if (!this.participantes.get(payload.sub)) {
+        const participant = await this.prisma.participante.findUnique({
+          where: { id: payload.sub },
+        });
 
-      if (!participant) {
-        throw new UnauthorizedException('El participante del token no existe.');
+        if (!participant) {
+          throw new UnauthorizedException('El participante del token no existe.');
+        }
+        if (cacheEpoch === this.identityCacheEpoch) {
+          this.participantes.set(payload.sub, true);
+        }
       }
 
       return {
-        id: participant.id,
+        id: payload.sub,
         rol: 'PARTICIPANTE',
         actor: 'PARTICIPANTE',
         proyectoId: payload.proyectoId,
       };
     }
 
-    const user = await this.prisma.usuario.findUnique({
-      where: { id: payload.sub },
-    });
+    let identidad = this.evaluadores.get(payload.sub);
+    if (!identidad) {
+      const user = await this.prisma.usuario.findUnique({
+        where: { id: payload.sub },
+      });
 
-    if (!user) {
-      throw new UnauthorizedException('El usuario del token no existe.');
+      if (!user) {
+        throw new UnauthorizedException('El usuario del token no existe.');
+      }
+      identidad = { id: user.id, email: user.email, rol: user.rol };
+      if (cacheEpoch === this.identityCacheEpoch) {
+        this.evaluadores.set(payload.sub, identidad);
+      }
     }
 
-    return {
-      id: user.id,
-      email: user.email,
-      rol: user.rol,
-      actor: 'EVALUADOR',
-    };
+    return { ...identidad, actor: 'EVALUADOR' };
   }
 
   /**

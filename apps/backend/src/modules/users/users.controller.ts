@@ -10,13 +10,13 @@ import {
   ParseUUIDPipe,
   UseGuards,
 } from '@nestjs/common';
-import { UsersService } from './users.service';
-import { CreateDocenteDto, UpdateUserRoleDto } from './dto/user.dto';
-import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
-import { RolesGuard } from '../../core/guards/roles.guard';
-import { Roles } from '../../core/decorators/roles.decorator';
-import { CurrentUser } from '../../core/decorators/current-user.decorator';
-import type { AuthenticatedUser } from '../auth/types/authenticated-user.interface';
+import { UsersService } from './users.service.js';
+import { CreateDocenteDto, UpdateUserRoleDto } from './dto/user.dto.js';
+import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard.js';
+import { RolesGuard } from '../../core/guards/roles.guard.js';
+import { Roles } from '../../core/decorators/roles.decorator.js';
+import { CurrentUser } from '../../core/decorators/current-user.decorator.js';
+import type { AuthenticatedUser } from '../auth/types/authenticated-user.interface.js';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('users')

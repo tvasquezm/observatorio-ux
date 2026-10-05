@@ -7,11 +7,11 @@ import { Test } from '@nestjs/testing';
 import { ForbiddenException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { AuthService } from '../auth.service';
-import { PrismaService } from '../../../core/database/prisma.service';
-import { ParticipanteJwtService } from '../participante-jwt.service';
+import { AuthService } from '../auth.service.js';
+import { PrismaService } from '../../../core/database/prisma.service.js';
+import { ParticipanteJwtService } from '../participante-jwt.service.js';
 import { createHash } from 'crypto';
-import bcrypt = require('bcrypt');
+import bcrypt from 'bcrypt';
 
 describe('AuthService.registerParticipant', () => {
   let service: AuthService;

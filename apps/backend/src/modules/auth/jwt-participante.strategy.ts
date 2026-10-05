@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { AuthService } from './auth.service';
+import { AuthService } from './auth.service.js';
 
 // Estrategia dedicada a participanteToken (Bearer). Usa
 // jwt.participanteSecret, distinto del secreto de evaluadorToken — un

@@ -3,10 +3,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from '../../core/database/prisma.service';
-import { ProjectAccessService } from '../../core/access/project-access.service';
-import { AuthenticatedUser } from '../auth/types/authenticated-user.interface';
-import { CreateCommentDto, UpdateCommentDto } from './comments.dto';
+import { PrismaService } from '../../core/database/prisma.service.js';
+import { ProjectAccessService } from '../../core/access/project-access.service.js';
+import { AuthenticatedUser } from '../auth/types/authenticated-user.interface.js';
+import { CreateCommentDto, UpdateCommentDto } from './comments.dto.js';
 
 @Injectable()
 export class CommentsService {

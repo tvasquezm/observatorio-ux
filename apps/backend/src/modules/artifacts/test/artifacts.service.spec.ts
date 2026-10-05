@@ -5,26 +5,27 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
+import { jest as jestEsm } from '@jest/globals';
 import { TipoArtefacto } from '@prisma/client';
-import { ArtifactsService } from '../artifacts.service';
-import { PrismaService } from '../../../core/database/prisma.service';
-import { ProjectAccessService } from '../../../core/access/project-access.service';
+import { ZodError } from 'zod';
+import type { ArtifactsService } from '../artifacts.service.js';
+import { PrismaService } from '../../../core/database/prisma.service.js';
+import { ProjectAccessService } from '../../../core/access/project-access.service.js';
 
 // Los schemas de Zod viven en un paquete compartido y validan la forma real
 // de cada tipo de artefacto. Aquí se mockean para probar la LÓGICA del
 // service (acceso, versionado, bloqueo) sin acoplarse a las reglas de
 // negocio de cada schema, que deberían tener sus propios tests.
-jest.mock('@observatorio-ux/shared-types', () => ({
+// ESM: `jest.mock` no afecta imports ESM; se usa unstable_mockModule y el
+// service se importa después, de forma dinámica.
+jestEsm.unstable_mockModule('@observatorio-ux/shared-types', () => ({
   PersonaSchema: { parse: jest.fn() },
   JourneyMapSchema: { parse: jest.fn() },
   MomentosCriticosSchema: { parse: jest.fn() },
 }));
 
-import {
-  PersonaSchema,
-  JourneyMapSchema,
-  MomentosCriticosSchema,
-} from '@observatorio-ux/shared-types';
+const { PersonaSchema, JourneyMapSchema, MomentosCriticosSchema } = await import('@observatorio-ux/shared-types');
+const { ArtifactsService: ArtifactsServiceImpl } = await import('../artifacts.service.js');
 
 describe('ArtifactsService', () => {
   let service: ArtifactsService;
@@ -63,13 +64,13 @@ describe('ArtifactsService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        ArtifactsService,
+        ArtifactsServiceImpl,
         ProjectAccessService,
         { provide: PrismaService, useValue: prisma },
       ],
     }).compile();
 
-    service = module.get(ArtifactsService);
+    service = module.get(ArtifactsServiceImpl);
     jest.clearAllMocks();
   });
 
@@ -115,7 +116,6 @@ describe('ArtifactsService', () => {
     it('lanza BadRequestException si el contenido de JOURNEY_MAP no cumple el schema', async () => {
       prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
       (JourneyMapSchema.parse as jest.Mock).mockImplementation(() => {
-        const { ZodError } = require('zod');
         throw new ZodError([{ path: ['etapas'], message: 'Requerido' } as any]);
       });
 
@@ -131,7 +131,6 @@ describe('ArtifactsService', () => {
     it('lanza BadRequestException si el contenido de MOMENTOS_CRITICOS no cumple el schema', async () => {
       prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
       (MomentosCriticosSchema.parse as jest.Mock).mockImplementation(() => {
-        const { ZodError } = require('zod');
         throw new ZodError([{ path: ['momento'], message: 'Requerido' } as any]);
       });
 
@@ -248,6 +247,36 @@ describe('ArtifactsService', () => {
   });
 
   describe('createVersion', () => {
+    it('RECHAZA modificar un JOURNEY_MAP', async () => {
+      prisma.uxArtifact.findUnique.mockResolvedValue({
+        id: 'art-1',
+        proyectoId: 'proy-1',
+        tipo: TipoArtefacto.JOURNEY_MAP,
+        artefactoLogicoId: 'logico-1',
+        version: 1,
+        lockedById: null,
+        lockedUntil: null,
+        deletedAt: null,
+      });
+      prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
+
+      await expect(
+        service.createVersion(
+          'art-1',
+          {
+            contenido: {},
+          } as any,
+          ownerUser,
+        ),
+      ).rejects.toThrow(
+        new ForbiddenException(
+          'Los Journey Maps son registros de evidencia y no pueden modificarse.',
+        ),
+      );
+
+      expect(prisma.uxArtifact.create).not.toHaveBeenCalled();
+    });
+
     const baseArtifact = {
       id: 'art-1',
       proyectoId: 'proy-1',
@@ -392,6 +421,22 @@ describe('ArtifactsService', () => {
       await expect(service.softDelete('art-1', otherUser)).rejects.toThrow(
         ForbiddenException,
       );
+      expect(prisma.uxArtifact.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('RECHAZA eliminar un JOURNEY_MAP', async () => {
+      prisma.uxArtifact.findUnique.mockResolvedValue({
+        ...baseArtifact,
+        tipo: TipoArtefacto.JOURNEY_MAP,
+      });
+      prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
+
+      await expect(service.softDelete('art-1', ownerUser)).rejects.toThrow(
+        new ForbiddenException(
+          'Los Journey Maps son registros de evidencia y no pueden eliminarse.',
+        ),
+      );
+
       expect(prisma.uxArtifact.updateMany).not.toHaveBeenCalled();
     });
 
