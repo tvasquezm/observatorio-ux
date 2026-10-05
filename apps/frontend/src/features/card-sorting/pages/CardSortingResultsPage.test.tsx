@@ -261,8 +261,11 @@ describe('CardSortingResultsPage · respuestas del participante', () => {
   });
 
   it('similitud: marca con borde los pares sobre el umbral', () => {
-    const { container } = setup('/r/e1?vista=similarity&umbral=35');
-    expect(screen.getByText('Borde: pares con más de 35% de similitud.')).toBeTruthy();
+    const anterior = data;
+    data = { ...data, matrizSimilitud: [[100, 70], [70, 100]] };
+    const { container } = setup('/r/e1?vista=similarity&umbral=60');
+    expect(screen.getByText('Borde: pares con más de 60% de similitud.')).toBeTruthy();
     expect(container.querySelectorAll('td.cs-matrix-strong')).toHaveLength(2);
+    data = anterior;
   });
 });
