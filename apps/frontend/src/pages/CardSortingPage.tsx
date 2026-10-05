@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { CreateCardSortingSessionPayloadSchema } from '@observatorio-ux/shared-types';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import {
   useCardSortingEstudiosByProyecto,
@@ -14,6 +15,7 @@ import {
   MAX_PREGUNTAS,
   MAX_RECOMENDADAS,
   MAX_TARJETAS,
+  MIN_CATEGORIAS_CERRADO,
   MIN_RECOMENDADAS,
   analizarEntrada,
   estadoCantidadTarjetas,
@@ -21,6 +23,9 @@ import {
   type AnalisisEntrada,
 } from '../features/card-sorting/card-sorting-input';
 import type { ProjectOutletContext } from '../layouts/ProjectDetailLayout';
+import { CardSortingTypePicker } from '../features/card-sorting/components/CardSortingTypePicker';
+import { CardSortingProgress, type ProgressStep } from '../features/card-sorting/components/CardSortingProgress';
+import { CardSortingEntry } from '../features/card-sorting/components/CardSortingEntry';
 
 const TYPE_HINTS: Record<TipoCardSorting, string> = {
   ABIERTO: 'Los participantes crean y nombran sus propias categorías. Úsalo para descubrir cómo piensan tus usuarios.',
@@ -50,17 +55,23 @@ const CATEGORY_CHECKLIST = [
 
 function CardCount({ count }: { count: number }) {
   const estado = estadoCantidadTarjetas(count);
-  const rango = `${MIN_RECOMENDADAS} a ${MAX_RECOMENDADAS}`;
+  const rango = `${MIN_RECOMENDADAS}–${MAX_RECOMENDADAS}`;
   const texto = {
-    bajo: `recomendado: entre ${MIN_RECOMENDADAS} y ${MAX_RECOMENDADAS}`,
-    ok: `dentro del rango recomendado (${rango})`,
-    alto: `sobre el rango recomendado (${rango})`,
-    excedido: `el máximo es ${MAX_TARJETAS}`,
+    bajo: rango,
+    ok: `en rango · ${rango}`,
+    alto: `sobre el rango · ${rango}`,
+    excedido: `máximo ${MAX_TARJETAS}`,
   }[estado];
   return (
-    <small className={`cs-input-count cs-count-${estado}`} data-testid="cs-card-count">
-      {count} {count === 1 ? 'tarjeta' : 'tarjetas'} · {texto}
-    </small>
+    <>
+      <div className={`cs-meter cs-meter-${estado}`} aria-hidden="true">
+        <i className="cs-meter-zone" />
+        <i className="cs-meter-fill" style={{ width: `${Math.min(100, (count / MAX_RECOMENDADAS) * 100)}%` }} />
+      </div>
+      <small className={`cs-input-count cs-count-${estado}`} data-testid="cs-card-count">
+        {count} {count === 1 ? 'tarjeta' : 'tarjetas'} · {texto}
+      </small>
+    </>
   );
 }
 
@@ -89,7 +100,7 @@ function InputWarnings({ info, noun, max, aviso }: { info: AnalisisEntrada; noun
 
 function Checklist({ items }: { items: string[] }) {
   return (
-    <ul className="cs-checklist">
+    <ul className="info-tip-list">
       {items.map((item) => <li key={item}>{item}</li>)}
     </ul>
   );
@@ -114,35 +125,67 @@ export function CardSortingPage() {
   const [categoriesText, setCategoriesText] = useState('');
   const [questionsText, setQuestionsText] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const cardsInfo = analizarEntrada(cardsText, MAX_ETIQUETA, AVISO_ETIQUETA);
   const categoriesInfo = analizarEntrada(categoriesText, MAX_CATEGORIA);
   const questionsInfo = analizarEntrada(questionsText, MAX_PREGUNTA);
 
+  const problem = validarEstudio({
+    nombre: name,
+    esCerrado: type === 'CERRADO',
+    esHibrido: type === 'HIBRIDO',
+    tarjetas: cardsInfo,
+    categorias: categoriesInfo,
+    preguntas: questionsInfo,
+  });
+  const cardsOk = cardsInfo.items.length > 0 && cardsInfo.items.length <= MAX_TARJETAS
+    && cardsInfo.duplicados.length === 0 && cardsInfo.excedidas.length === 0;
+  const minCategories = type === 'CERRADO' ? MIN_CATEGORIAS_CERRADO : 1;
+  const categoriesOk = categoriesInfo.items.length >= minCategories
+    && categoriesInfo.duplicados.length === 0 && categoriesInfo.excedidas.length === 0;
+  const steps: ProgressStep[] = [
+    { id: 'nombre', label: 'Nombre', detail: name.trim() || 'Sin nombre todavía', done: name.trim().length > 0 },
+    { id: 'tipo', label: 'Tipo', detail: TYPE_LABELS[type], done: true },
+    {
+      id: 'tarjetas',
+      label: 'Tarjetas',
+      detail: `${cardsInfo.items.length} · recomendado ${MIN_RECOMENDADAS}–${MAX_RECOMENDADAS}`,
+      done: cardsOk,
+    },
+    ...(type !== 'ABIERTO'
+      ? [{
+          id: 'categorias',
+          label: 'Categorías',
+          detail: `${categoriesInfo.items.length} · mínimo ${minCategories}`,
+          done: categoriesOk,
+        }]
+      : []),
+    {
+      id: 'preguntas',
+      label: 'Preguntas',
+      detail: `${questionsInfo.items.length} de ${MAX_PREGUNTAS}`,
+      done: questionsInfo.items.length > 0 && questionsInfo.items.length <= MAX_PREGUNTAS,
+      optional: true,
+    },
+  ];
+
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    const problem = validarEstudio({
-      nombre: name,
-      esCerrado: type === 'CERRADO',
-      esHibrido: type === 'HIBRIDO',
-      tarjetas: cardsInfo,
-      categorias: categoriesInfo,
-      preguntas: questionsInfo,
-    });
-    setFormError(problem);
-    if (problem) return;
 
     const cards = cardsInfo.items.map((etiqueta) => ({ etiqueta }));
     const categories = categoriesInfo.items.map((nombre) => ({ nombre }));
 
-    createStudy.mutate(
-      {
-        proyectoId,
-        nombre: name.trim(),
-        tipo: type,
-        tarjetas: cards,
-        categorias: type !== 'ABIERTO' ? categories : undefined,
-        preguntas: questionsInfo.items.length > 0 ? questionsInfo.items.map((texto) => ({ texto })) : undefined,
-      },
+    const configuration = CreateCardSortingSessionPayloadSchema.safeParse({
+      proyectoId, nombre: name, tipo: type, tarjetas: cards,
+      categorias: type !== 'ABIERTO' ? categories : undefined,
+      preguntas: questionsInfo.items.length ? questionsInfo.items.map((texto) => ({ texto })) : undefined,
+    });
+    setValidationErrors(configuration.success ? {} : Object.fromEntries(
+      configuration.error.issues.map((issue) => [String(issue.path[0]), issue.message]),
+    ));
+    setFormError(problem ?? (configuration.success ? null : configuration.error.issues.map((issue) => issue.message).join(' ')));
+    if (problem || !configuration.success) return;
+    createStudy.mutate(configuration.data,
       {
         onSuccess: (study) => {
           navigate(`/proyectos/${proyectoId}/card-sorting/${study.id}`);
@@ -155,20 +198,20 @@ export function CardSortingPage() {
     <div className="fade">
       <header className="page-head">
         <div>
-          <span className="kicker">ARQUITECTURA DE INFORMACIÓN</span>
           <h2>Card Sorting</h2>
           <p>
-            Crea estudios abiertos o cerrados, compártelos con participantes y analiza cada
+            Crea estudios abiertos, cerrados o híbridos, compártelos con participantes y analiza cada
             clasificación como evidencia independiente.
           </p>
         </div>
       </header>
 
+      <details className="cs-create-disclosure">
+        <summary>Nuevo estudio</summary>
       <section className="sort-layout">
         <article className="panel sort-board">
           <div className="panel-head">
             <div>
-              <span className="kicker">NUEVO ESTUDIO</span>
               <h2>Configurar tarjetas y categorías</h2>
             </div>
           </div>
@@ -180,68 +223,98 @@ export function CardSortingPage() {
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 placeholder="Ej. Navegación del portal estudiantil"
+                aria-invalid={Boolean(validationErrors.nombre)}
+                aria-describedby={validationErrors.nombre ? "cs-configuration-error" : undefined}
                 maxLength={120}
                 required
               />
             </label>
 
-            <label className="field">
-              Tipo de estudio
-              <select value={type} onChange={(event) => setType(event.target.value as TipoCardSorting)}>
-                <option value="ABIERTO">Abierto — cada participante crea sus categorías</option>
-                <option value="CERRADO">Cerrado — usa categorías predefinidas</option>
-                <option value="HIBRIDO">Híbrido — predefinidas más categorías propias</option>
-              </select>
-              <small className="text-muted-sm" data-testid="cs-type-hint">{TYPE_HINTS[type]}</small>
-            </label>
+            <CardSortingTypePicker value={type} onChange={setType} />
+            <p className="cs-type-hint" data-testid="cs-type-hint">{TYPE_HINTS[type]}</p>
 
-            <label className="field">
-              Tarjetas (una por línea)
-              <textarea
-                placeholder={'Inscripción de asignaturas\nCalendario académico\nBiblioteca'}
-                value={cardsText}
-                onChange={(event) => setCardsText(event.target.value)}
-                required
-                className="textarea-lg"
-              />
-              <CardCount count={cardsInfo.items.length} />
-              <InputWarnings info={cardsInfo} noun="tarjeta(s)" max={MAX_ETIQUETA} aviso={AVISO_ETIQUETA} />
-              <Checklist items={CARD_CHECKLIST} />
-            </label>
+            <CardSortingEntry
+              error={validationErrors.tarjetas}
+              title="Tarjetas"
+              singular="tarjeta"
+              plural="tarjetas"
+              value={cardsText}
+              onChange={setCardsText}
+              max={MAX_ETIQUETA}
+              aviso={AVISO_ETIQUETA}
+              defaultMode="lista"
+              rules={[
+                'Una tarjeta por línea.',
+                'Las líneas vacías se ignoran.',
+                `Máximo ${MAX_ETIQUETA} caracteres por tarjeta.`,
+                'Puedes pegar una columna de Excel o Sheets.',
+              ]}
+              example={'Inscripción de asignaturas\nCalendario académico\nBiblioteca'}
+              addPlaceholder="Escribe una tarjeta y presiona Enter"
+              help={<Checklist items={CARD_CHECKLIST} />}
+              helpLabel="Ayuda: cómo escribir las tarjetas"
+              meta={(
+                <>
+                  <CardCount count={cardsInfo.items.length} />
+                  <InputWarnings info={cardsInfo} noun="tarjeta(s)" max={MAX_ETIQUETA} aviso={AVISO_ETIQUETA} />
+                </>
+              )}
+            />
 
             {type !== 'ABIERTO' && (
-              <label className="field">
-                Categorías predefinidas (una por línea)
-                <textarea
-                  placeholder={'Información académica\nServicios\nVida universitaria'}
-                  value={categoriesText}
-                  onChange={(event) => setCategoriesText(event.target.value)}
-                  required
-                  className="textarea-md"
-                />
-                <InputWarnings info={categoriesInfo} noun="categoría(s)" max={MAX_CATEGORIA} />
-                <Checklist items={CATEGORY_CHECKLIST} />
-              </label>
+              <CardSortingEntry
+                error={validationErrors.categorias}
+                title="Categorías predefinidas"
+                singular="categoría"
+                plural="categorías"
+                value={categoriesText}
+                onChange={setCategoriesText}
+                max={MAX_CATEGORIA}
+                defaultMode="uno"
+                rules={[
+                  'Una categoría por línea.',
+                  'Las líneas vacías se ignoran.',
+                  `Máximo ${MAX_CATEGORIA} caracteres por categoría.`,
+                ]}
+                example={'Información académica\nServicios\nVida universitaria'}
+                addPlaceholder="Escribe una categoría y presiona Enter"
+                help={<Checklist items={CATEGORY_CHECKLIST} />}
+                helpLabel="Ayuda: cómo definir las categorías"
+                meta={<InputWarnings info={categoriesInfo} noun="categoría(s)" max={MAX_CATEGORIA} />}
+              />
             )}
 
-            <label className="field">
-              Preguntas para el participante (opcional, una por línea)
-              <textarea
-                placeholder={'¿Qué tarjeta te costó más ubicar?\n¿Echaste de menos alguna categoría?'}
-                value={questionsText}
-                onChange={(event) => setQuestionsText(event.target.value)}
-                className="textarea-md"
-              />
-              <small className="cs-input-count" data-testid="cs-question-count">
-                {questionsInfo.items.length} de {MAX_PREGUNTAS} preguntas · el participante las responde al enviar
-              </small>
-              <InputWarnings info={questionsInfo} noun="pregunta(s)" max={MAX_PREGUNTA} />
-              {questionsInfo.items.length > MAX_PREGUNTAS && (
-                <small className="cs-input-warn" role="status">El máximo es {MAX_PREGUNTAS} preguntas.</small>
+            <CardSortingEntry
+              error={validationErrors.preguntas}
+              title="Preguntas para el participante (opcional)"
+              singular="pregunta"
+              plural="preguntas"
+              value={questionsText}
+              onChange={setQuestionsText}
+              max={MAX_PREGUNTA}
+              defaultMode="uno"
+              rules={[
+                'Una pregunta por línea.',
+                `Hasta ${MAX_PREGUNTAS} preguntas, de ${MAX_PREGUNTA} caracteres como máximo.`,
+              ]}
+              example={'¿Qué tarjeta te costó más ubicar?\n¿Echaste de menos alguna categoría?'}
+              addPlaceholder="Escribe una pregunta y presiona Enter"
+              help="El participante las responde al enviar su clasificación. Son opcionales."
+              helpLabel="Ayuda: preguntas para el participante"
+              meta={(
+                <>
+                  <small className="cs-input-count" data-testid="cs-question-count">
+                    {questionsInfo.items.length} de {MAX_PREGUNTAS} preguntas
+                  </small>
+                  <InputWarnings info={questionsInfo} noun="pregunta(s)" max={MAX_PREGUNTA} />
+                  {questionsInfo.items.length > MAX_PREGUNTAS && (
+                    <small className="cs-input-warn" role="status">El máximo es {MAX_PREGUNTAS} preguntas.</small>
+                  )}
+                </>
               )}
-            </label>
+            />
 
-            {formError && <p role="alert" className="error-text">{formError}</p>}
+            {formError && <p id="cs-configuration-error" role="alert" className="error-text">{formError}</p>}
 
             {createStudy.error && (
               <p role="alert" className="error-text">{createStudy.error.message}</p>
@@ -253,16 +326,21 @@ export function CardSortingPage() {
           </form>
         </article>
 
-        <aside className="panel sort-analysis">
-          <h2>Cómo hacer un card sorting</h2>
-          <CardSortingGuide />
-        </aside>
+        <div className="cs-side">
+          <CardSortingProgress steps={steps} problem={problem} />
+          <details className="panel sort-analysis cs-guide-box">
+            <summary>
+              <h2>Cómo hacer un card sorting</h2>
+            </summary>
+            <CardSortingGuide />
+          </details>
+        </div>
       </section>
+      </details>
 
       <section className="panel mt-16">
         <div className="panel-head">
           <div>
-            <span className="kicker">ESTUDIOS DEL PROYECTO</span>
             <h2>Continuar un Card Sorting</h2>
           </div>
           <span className="count">{studies.length}</span>
