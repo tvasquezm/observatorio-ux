@@ -953,3 +953,18 @@ con red real (o Docker, como en sprints anteriores) para confirmar esas
 - `card-sorting-export.ts` / `card-sorting-pdf.ts`: `tablaSinConsenso` agrega
   una sección propia en el PDF de Tarjetas. El CSV no la repite porque ya trae
   la columna Estado.
+
+## Auditoría UI/UX — Fase 10c y 10d: informe general y precarga del PDF
+
+- `shared/utils/pdf-base.ts` (nuevo): colores, `table`, `title` y `paragraph`
+  salen de `pdf.ts` (que los reexporta) para evitar un import circular.
+- `card-sorting-pdf-content.ts` (nuevo): barras, matrices anchas y tablas
+  compactas de una vista; lo usan el PDF del estudio y el informe general.
+- `pdf.ts`: la sección Card Sorting reemplaza "Distribución por tarjeta" por
+  Tarjetas, Tarjetas sin consenso y Categorías; se conservan las agrupaciones
+  sugeridas. Se quita `unbreakable` en ese bloque porque ahora puede ocupar
+  varias páginas.
+- Precarga: `cargarPdfMake` guarda la promesa (se reintenta si falla) y
+  `precargarPdf` se dispara con mouse o foco en "PDF", "PDF completo" y
+  "Exportar PDF". El informe general solo cambia de contenido en Card Sorting.
+- Tests: contenido de Card Sorting en `report-data.test.ts`.

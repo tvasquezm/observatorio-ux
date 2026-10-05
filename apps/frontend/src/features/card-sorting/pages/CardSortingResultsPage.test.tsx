@@ -29,7 +29,7 @@ let data: CardSortingAnalytics = {
 } as unknown as CardSortingAnalytics;
 
 const { exportarEstudioPdf } = vi.hoisted(() => ({ exportarEstudioPdf: vi.fn(async (..._args: unknown[]) => {}) }));
-vi.mock('../card-sorting-pdf', () => ({ exportarEstudioPdf }));
+vi.mock('../card-sorting-pdf', () => ({ exportarEstudioPdf, precargarEstudioPdf: vi.fn() }));
 
 vi.mock('../hooks/useCardSortingQueries', () => ({
   useCardSortingAnalytics: () => ({ data, isLoading: false, error: null, refetch: vi.fn() }),

@@ -125,6 +125,7 @@ export function CardSortingResultsPage() {
       setExportando(false);
     }
   };
+  const precargarPdf = () => { void import('../card-sorting-pdf').then((modulo) => modulo.precargarEstudioPdf()).catch(() => {}); };
   const foco = searchParams.get('foco') ?? undefined;
   const setActiveTab = (tab: ResultsTab, nuevoFoco?: string) => {
     const next = new URLSearchParams(searchParams);
@@ -244,6 +245,8 @@ export function CardSortingResultsPage() {
                   aria-label="Descargar PDF de esta vista"
                   title="PDF de esta vista"
                   disabled={exportando}
+                  onMouseEnter={precargarPdf}
+                  onFocus={precargarPdf}
                   onClick={() => exportarPdf([activeTab], 'vista')}
                 >
                   <Icon name="download" size={16} /><span className="cs-icon-btn-text">{exportando ? 'Preparando…' : 'PDF'}</span>
@@ -254,6 +257,8 @@ export function CardSortingResultsPage() {
                   aria-label="Descargar PDF de todas las vistas"
                   title="PDF con todas las vistas"
                   disabled={exportando}
+                  onMouseEnter={precargarPdf}
+                  onFocus={precargarPdf}
                   onClick={() => exportarPdf(tabs.map((tab) => tab.id), 'todas')}
                 >
                   <Icon name="download" size={16} /><span className="cs-icon-btn-text">PDF completo</span>

@@ -6,6 +6,11 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **reports:** el informe general incluye, para Card Sorting, las mismas vistas
+  que la pantalla de resultados (Tarjetas con barras de distribución, Tarjetas
+  sin consenso y Categorías) en lugar de la tabla anterior.
+* **perf:** `pdfmake`, las fuentes y los logos se precargan al pasar el mouse o
+  enfocar los botones de exportar PDF y se cargan una sola vez por sesión.
 * **card-sorting:** umbral de consenso editable en los resultados (50–95%, desde
   el valor del curso): recalcula Tarjetas, Categorías, "Sin consenso", CSV y PDF
   en el navegador, con botón Restablecer y parámetro `?umbral=`. La matriz de

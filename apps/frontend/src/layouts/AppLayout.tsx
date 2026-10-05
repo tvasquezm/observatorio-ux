@@ -78,6 +78,10 @@ export function AppLayout() {
     .join('')
     .toUpperCase();
 
+  function precargarExportacion() {
+    void import('../shared/utils/pdf').then((modulo) => modulo.precargarPdf()).catch(() => {});
+  }
+
   function changePerspective(role: NonNullable<typeof activeRole>) {
     setPerspective(role);
 
@@ -162,6 +166,8 @@ export function AppLayout() {
             <button
               type="button"
               className="secondary"
+              onMouseEnter={precargarExportacion}
+              onFocus={precargarExportacion}
               onClick={() => setExportOpen(true)}
             >
               Exportar PDF

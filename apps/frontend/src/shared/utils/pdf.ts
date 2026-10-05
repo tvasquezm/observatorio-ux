@@ -1,9 +1,11 @@
-import type { Content, ContentCanvas, TableCell, TDocumentDefinitions } from 'pdfmake/interfaces';
+import type { Content, ContentCanvas, TDocumentDefinitions } from 'pdfmake/interfaces';
 import type { ProjectReport, ReportMethod } from '../../features/reports/report-data';
+import { INK, MUTED, TEAL, paragraph, table, textValue, title } from './pdf-base';
+import { cuerpoVista } from '../../features/card-sorting/card-sorting-pdf-content';
+import { tablaDeVista, tablaSinConsenso } from '../../features/card-sorting/card-sorting-export';
 
-export const INK = '#1f2d4a';
-export const TEAL = '#3049b2';
-export const MUTED = '#526a73';
+export { INK, MUTED, TEAL, paragraph, table, title };
+
 export type ReportBrand = { logo: string; logoWhite: string };
 
 // Vector rectangles keep the brand gradient sharp in print, without a raster background.
@@ -16,34 +18,8 @@ export function brandBand(width: number, height: number): ContentCanvas {
 }
 const severityLabels = ['Sin problema', 'Cosmético', 'Menor', 'Mayor', 'Crítico'];
 const severityColors = ['#526a73', '#526a73', '#85601b', '#a44626', '#922f3d'];
-const textValue = (value: unknown): string => Array.isArray(value) ? value.join('\n') || 'No registrado' : value == null || value === '' ? 'No registrado' : String(value);
 export const date = (value: string | Date): string => new Intl.DateTimeFormat('es-CL', { dateStyle: 'medium' }).format(new Date(value));
-export const title = (text: string): Content => ({ text, style: 'subheading', margin: [0, 16, 0, 8], headlineLevel: 2 });
-export const paragraph = (text: string): Content => ({ text, margin: [0, 0, 0, 8] });
 const empty = (): Content => ({ text: 'Sin registros guardados para esta técnica dentro de tu acceso actual.', color: MUTED, italics: true, margin: [0, 16, 0, 12] });
-
-export function table(headers: string[], rows: unknown[][], widths?: Array<string | number>, compact = false): Content {
-  return {
-    table: {
-      headerRows: 1,
-      widths: widths ?? headers.map(() => '*'),
-      body: [
-        headers.map((text) => ({ text, bold: true, color: '#ffffff', fillColor: INK, fontSize: compact ? 7 : 9 })),
-        ...rows.map((row, index) => row.map((value) => {
-          const fillColor = index % 2 ? '#ffffff' : '#f3f5f9';
-          if (value && typeof value === 'object' && !Array.isArray(value)) return { ...(value as object), fillColor } as TableCell;
-          return { text: textValue(value), fillColor, ...(compact ? { fontSize: 7.5 } : {}) };
-        })),
-      ],
-    },
-    layout: {
-      hLineWidth: () => 0, vLineWidth: () => 0,
-      paddingLeft: () => compact ? 4 : 9, paddingRight: () => compact ? 4 : 9,
-      paddingTop: () => compact ? 3 : 6, paddingBottom: () => compact ? 3 : 6,
-    },
-    margin: [0, 0, 0, 12],
-  };
-}
 
 function details(rows: Array<[string, unknown]>): Content {
   return {
@@ -58,6 +34,20 @@ function details(rows: Array<[string, unknown]>): Content {
       paddingTop: () => 7, paddingBottom: () => 7,
     }, margin: [0, 0, 0, 12],
   };
+}
+
+// Mismas vistas que la pantalla de resultados: Tarjetas (con barras), sin consenso y Categorías.
+function detalleCardSorting(analytics: Parameters<typeof tablaDeVista>[1]): Content[] {
+  const sinConsenso = tablaSinConsenso(analytics);
+  return [
+    title('Tarjetas'),
+    paragraph(tablaDeVista('cards', analytics).descripcion),
+    ...cuerpoVista(tablaDeVista('cards', analytics)),
+    ...(sinConsenso ? [title('Tarjetas sin consenso'), paragraph(sinConsenso.descripcion), ...cuerpoVista(sinConsenso)] : []),
+    title('Categorías'),
+    paragraph(tablaDeVista('categories', analytics).descripcion),
+    ...cuerpoVista(tablaDeVista('categories', analytics)),
+  ];
 }
 
 function sections(report: ProjectReport): Record<ReportMethod, Content[]> {
@@ -101,10 +91,9 @@ function sections(report: ProjectReport): Record<ReportMethod, Content[]> {
       details([['Tarjetas definidas', study.cardsDefinidas.map((card) => card.etiqueta)], ['Categorías predefinidas', study.categoriasDefinidas.map((category) => category.nombre)]]),
       ...(analytics.participantesCount ? [{
         stack: [
-          title('Distribución por tarjeta'),
-          table(['Tarjeta', 'Categoría', 'Asignaciones'], analytics.porCarta.flatMap((card) => card.categorias.length ? card.categorias.map((category) => [card.tarjeta, category.nombre, category.frecuencia]) : [[card.tarjeta, 'Sin asignaciones', 0]]), ['*', '*', 75]),
+          ...detalleCardSorting(analytics),
           ...(analytics.clusters.length ? [title('Agrupaciones sugeridas'), table(['Grupo', 'Tarjetas', 'Acuerdo'], analytics.clusters.map((cluster) => [cluster.nombre, cluster.tarjetas, `${cluster.acuerdo}%`]), [100, '*', 60])] : []),
-        ], unbreakable: JSON.stringify([analytics.porCarta, analytics.clusters]).length < 1600,
+        ],
       } as Content] : [paragraph('Aún no hay respuestas completadas para calcular resultados.')]),
     ]) ?? [],
     heuristica: report.heuristics?.flatMap((session, i) => {
@@ -203,7 +192,25 @@ export async function loadBrandImage(path: string): Promise<string> {
   });
 }
 
-export async function cargarPdfMake() {
+let cargaPdf: ReturnType<typeof cargarPdfMakeSinCache> | null = null;
+
+// Una sola carga por sesión (pdfmake, fuentes y logos pesan ~1,8 MB); si falla se puede reintentar.
+export function cargarPdfMake() {
+  if (!cargaPdf) {
+    cargaPdf = cargarPdfMakeSinCache().catch((error) => {
+      cargaPdf = null;
+      throw error;
+    });
+  }
+  return cargaPdf;
+}
+
+// Se llama al pasar el mouse o enfocar un botón de exportar, para que el clic ya encuentre todo cargado.
+export function precargarPdf(): void {
+  cargarPdfMake().catch(() => {});
+}
+
+async function cargarPdfMakeSinCache() {
   const [pdfMakeModule, fontContainerModule, logo, logoWhite] = await Promise.all([
     import('pdfmake/build/pdfmake'), import('pdfmake/build/vfs_fonts'),
     loadBrandImage('/brand/uxlab-observatorio.png'), loadBrandImage('/brand/uxlab-observatorio-white.png'),

@@ -82,4 +82,25 @@ describe('informes por técnicas', () => {
     expect(report.cards).toEqual([]);
     expect(getCardSortingAnalytics).not.toHaveBeenCalled();
   });
+
+  it('Card Sorting del informe usa las vistas nuevas: tarjetas con barras, sin consenso y categorías', async () => {
+    vi.mocked(getCardSortingEstudiosByProyecto).mockResolvedValue([{
+      id: 's1', evaluadorId: 'owner', nombre: 'Portal', cerrado: false, createdAt: '2026-09-01',
+      tipoCardSorting: 'ABIERTO', cardsDefinidas: [], categoriasDefinidas: [],
+    }] as never);
+    vi.mocked(getCardSortingAnalytics).mockResolvedValue({
+      participantesCount: 4, cardsCount: 2, acuerdoGlobal: 60, categorias: ['A', 'B'], clusters: [],
+      umbrales: { consenso: 50, muestraMinima: 15, muestraEstable: 30 },
+      porCarta: [
+        { tarjeta: 'Becas', categoriasCount: 2, categorias: [{ nombre: 'A', frecuencia: 3 }, { nombre: 'B', frecuencia: 1 }] },
+        { tarjeta: 'Libro', categoriasCount: 2, categorias: [{ nombre: 'A', frecuencia: 2 }, { nombre: 'B', frecuencia: 2 }] },
+      ],
+      porCategoria: [{ nombre: 'A', cardsCount: 2, cartas: [{ tarjeta: 'Becas', frecuencia: 3 }], subcategorias: [] }],
+      frecuenciaPorCategoria: [{ nombre: 'A', count: 3, porcentaje: 75 }],
+    } as never);
+    const report = await loadProjectReport('p1', ['cards']);
+    const content = JSON.stringify(buildReportDefinition(report).content);
+    for (const value of ['Distribución', 'Tarjetas sin consenso', 'Sin consenso', 'Categorías', 'Becas']) expect(content).toContain(value);
+    expect(content).not.toContain('Asignaciones');
+  });
 });
