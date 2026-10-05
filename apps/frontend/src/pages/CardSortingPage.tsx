@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
+import { CreateCardSortingSessionPayloadSchema } from '@observatorio-ux/shared-types';
 import {
   useCardSortingEstudiosByProyecto,
   useCreateCardSortingSession,
@@ -114,6 +115,7 @@ export function CardSortingPage() {
   const [categoriesText, setCategoriesText] = useState('');
   const [questionsText, setQuestionsText] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const cardsInfo = analizarEntrada(cardsText, MAX_ETIQUETA, AVISO_ETIQUETA);
   const categoriesInfo = analizarEntrada(categoriesText, MAX_CATEGORIA);
   const questionsInfo = analizarEntrada(questionsText, MAX_PREGUNTA);
@@ -128,21 +130,22 @@ export function CardSortingPage() {
       categorias: categoriesInfo,
       preguntas: questionsInfo,
     });
-    setFormError(problem);
-    if (problem) return;
-
     const cards = cardsInfo.items.map((etiqueta) => ({ etiqueta }));
     const categories = categoriesInfo.items.map((nombre) => ({ nombre }));
 
+    const configuration = CreateCardSortingSessionPayloadSchema.safeParse({
+      proyectoId, nombre: name, tipo: type, tarjetas: cards,
+      categorias: type !== 'ABIERTO' ? categories : undefined,
+      preguntas: questionsInfo.items.length > 0 ? questionsInfo.items.map((texto) => ({ texto })) : undefined,
+    });
+    setValidationErrors(configuration.success ? {} : Object.fromEntries(
+      configuration.error.issues.map((issue) => [String(issue.path[0]), issue.message]),
+    ));
+    setFormError(problem ?? (configuration.success ? null : configuration.error.issues.map((issue) => issue.message).join(' ')));
+    if (problem || !configuration.success) return;
+
     createStudy.mutate(
-      {
-        proyectoId,
-        nombre: name.trim(),
-        tipo: type,
-        tarjetas: cards,
-        categorias: type !== 'ABIERTO' ? categories : undefined,
-        preguntas: questionsInfo.items.length > 0 ? questionsInfo.items.map((texto) => ({ texto })) : undefined,
-      },
+      configuration.data,
       {
         onSuccess: (study) => {
           navigate(`/proyectos/${proyectoId}/card-sorting/${study.id}`);
@@ -155,23 +158,12 @@ export function CardSortingPage() {
     <div className="fade">
       <header className="page-head">
         <div>
-          <span className="kicker">ARQUITECTURA DE INFORMACIÓN</span>
           <h2>Card Sorting</h2>
-          <p>
-            Crea estudios abiertos o cerrados, compártelos con participantes y analiza cada
-            clasificación como evidencia independiente.
-          </p>
         </div>
       </header>
 
-      <section className="sort-layout">
-        <article className="panel sort-board">
-          <div className="panel-head">
-            <div>
-              <span className="kicker">NUEVO ESTUDIO</span>
-              <h2>Configurar tarjetas y categorías</h2>
-            </div>
-          </div>
+      <details className="panel cs-disclosure">
+        <summary>Nuevo estudio</summary>
 
           <form onSubmit={handleSubmit} className="form-grid cs-study-form">
             <label className="field">
@@ -182,27 +174,36 @@ export function CardSortingPage() {
                 placeholder="Ej. Navegación del portal estudiantil"
                 maxLength={120}
                 required
+                aria-invalid={!!validationErrors.nombre}
+                aria-describedby={validationErrors.nombre ? 'cs-configuration-error' : undefined}
               />
             </label>
 
             <label className="field">
               Tipo de estudio
               <select value={type} onChange={(event) => setType(event.target.value as TipoCardSorting)}>
-                <option value="ABIERTO">Abierto — cada participante crea sus categorías</option>
-                <option value="CERRADO">Cerrado — usa categorías predefinidas</option>
-                <option value="HIBRIDO">Híbrido — predefinidas más categorías propias</option>
+                <option value="ABIERTO">Abierto</option>
+                <option value="CERRADO">Cerrado</option>
+                <option value="HIBRIDO">Híbrido</option>
               </select>
-              <small className="text-muted-sm" data-testid="cs-type-hint">{TYPE_HINTS[type]}</small>
             </label>
+
+            <details className="cs-help">
+              <summary>¿Qué tipo elegir?</summary>
+              <p className="text-muted-sm" data-testid="cs-type-hint">{TYPE_HINTS[type]}</p>
+            </details>
 
             <label className="field">
               Tarjetas (una por línea)
               <textarea
                 placeholder={'Inscripción de asignaturas\nCalendario académico\nBiblioteca'}
+                aria-label="Tarjetas (una por línea)"
                 value={cardsText}
                 onChange={(event) => setCardsText(event.target.value)}
                 required
                 className="textarea-lg"
+                aria-invalid={!!validationErrors.tarjetas}
+                aria-describedby={validationErrors.tarjetas ? 'cs-configuration-error' : undefined}
               />
               <CardCount count={cardsInfo.items.length} />
               <InputWarnings info={cardsInfo} noun="tarjeta(s)" max={MAX_ETIQUETA} aviso={AVISO_ETIQUETA} />
@@ -214,10 +215,13 @@ export function CardSortingPage() {
                 Categorías predefinidas (una por línea)
                 <textarea
                   placeholder={'Información académica\nServicios\nVida universitaria'}
+                  aria-label="Categorías predefinidas (una por línea)"
                   value={categoriesText}
                   onChange={(event) => setCategoriesText(event.target.value)}
                   required
                   className="textarea-md"
+                  aria-invalid={!!validationErrors.categorias}
+                  aria-describedby={validationErrors.categorias ? 'cs-configuration-error' : undefined}
                 />
                 <InputWarnings info={categoriesInfo} noun="categoría(s)" max={MAX_CATEGORIA} />
                 <Checklist items={CATEGORY_CHECKLIST} />
@@ -228,6 +232,9 @@ export function CardSortingPage() {
               Preguntas para el participante (opcional, una por línea)
               <textarea
                 placeholder={'¿Qué tarjeta te costó más ubicar?\n¿Echaste de menos alguna categoría?'}
+                aria-label="Preguntas para el participante (opcional, una por línea)"
+                aria-invalid={!!validationErrors.preguntas}
+                aria-describedby={validationErrors.preguntas ? 'cs-configuration-error' : undefined}
                 value={questionsText}
                 onChange={(event) => setQuestionsText(event.target.value)}
                 className="textarea-md"
@@ -241,29 +248,26 @@ export function CardSortingPage() {
               )}
             </label>
 
-            {formError && <p role="alert" className="error-text">{formError}</p>}
+            {formError && <p id="cs-configuration-error" role="alert" className="error-text">{formError}</p>}
 
-            {createStudy.error && (
+            {createStudy.error && !formError && (
               <p role="alert" className="error-text">{createStudy.error.message}</p>
             )}
 
             <button type="submit" className="primary" disabled={createStudy.isPending}>
-              {createStudy.isPending ? 'Creando estudio…' : 'Crear y abrir el workspace →'}
+              {createStudy.isPending ? 'Creando estudio…' : 'Crear estudio'}
             </button>
           </form>
-        </article>
-
-        <aside className="panel sort-analysis">
-          <h2>Cómo hacer un card sorting</h2>
+        <details className="cs-help">
+          <summary>Cómo hacer un card sorting</summary>
           <CardSortingGuide />
-        </aside>
-      </section>
+        </details>
+      </details>
 
       <section className="panel mt-16">
         <div className="panel-head">
           <div>
-            <span className="kicker">ESTUDIOS DEL PROYECTO</span>
-            <h2>Continuar un Card Sorting</h2>
+            <h2>Estudios</h2>
           </div>
           <span className="count">{studies.length}</span>
         </div>

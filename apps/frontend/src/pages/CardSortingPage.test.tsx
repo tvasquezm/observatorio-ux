@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Outlet, Route, Routes } from 'react-router-dom';
 import { CardSortingPage } from './CardSortingPage';
@@ -12,21 +12,26 @@ vi.mock('../features/card-sorting/hooks/useCardSortingQueries', () => ({
 }));
 
 function renderPage() {
-  return render(
+  const view = render(
     <MemoryRouter initialEntries={['/p']}>
       <Routes>
-        <Route element={<Outlet context={{ proyectoId: 'proyecto-1' }} />}>
+        <Route element={<Outlet context={{ proyectoId: '11111111-1111-4111-8111-111111111111' }} />}>
           <Route path="/p" element={<CardSortingPage />} />
         </Route>
       </Routes>
     </MemoryRouter>,
   );
+  fireEvent.click(screen.getByText('Nuevo estudio'));
+  return view;
 }
 
 describe('CardSortingPage · guía', () => {
-  it('muestra la guía de 8 pasos junto al formulario', () => {
+  it('mantiene la guía de 8 pasos disponible al desplegarla', () => {
     renderPage();
-    expect(screen.getByRole('heading', { name: 'Cómo hacer un card sorting' })).toBeInTheDocument();
+    const guide = screen.getByText('Cómo hacer un card sorting');
+    expect(guide.closest('details')).not.toHaveAttribute('open');
+    fireEvent.click(guide);
+    expect(guide.closest('details')).toHaveAttribute('open');
     expect(screen.getByText('Extraer conclusiones')).toBeInTheDocument();
   });
 
@@ -55,7 +60,7 @@ describe('CardSortingPage · híbrido', () => {
     await userEvent.type(screen.getByLabelText(/Nombre del estudio/), 'Estudio');
     await userEvent.type(screen.getByLabelText(/Tarjetas \(una por línea\)/), 'A{Enter}B');
     await userEvent.type(screen.getByLabelText(/Categorías predefinidas/), '   ');
-    await userEvent.click(screen.getByRole('button', { name: /Crear y abrir/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Crear estudio/ }));
     expect(screen.getByRole('alert')).toHaveTextContent('Un estudio híbrido necesita al menos una categoría predefinida.');
     expect(mutate).not.toHaveBeenCalled();
   });
@@ -67,7 +72,7 @@ describe('CardSortingPage · híbrido', () => {
     await userEvent.type(screen.getByLabelText(/Nombre del estudio/), 'Estudio');
     await userEvent.type(screen.getByLabelText(/Tarjetas \(una por línea\)/), 'A{Enter}B');
     await userEvent.type(screen.getByLabelText(/Categorías predefinidas/), 'Servicios');
-    await userEvent.click(screen.getByRole('button', { name: /Crear y abrir/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Crear estudio/ }));
     expect(mutate.mock.calls[0][0]).toMatchObject({ tipo: 'HIBRIDO', categorias: [{ nombre: 'Servicios' }] });
   });
 });
@@ -95,7 +100,7 @@ describe('CardSortingPage · intención de tarjetas y categorías', () => {
     mutate.mockClear();
     renderPage();
     await llenar('   ', 'Biblioteca');
-    await userEvent.click(screen.getByRole('button', { name: /Crear y abrir/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Crear estudio/ }));
     expect(screen.getByRole('alert')).toHaveTextContent('Escribe un nombre para el estudio.');
     expect(mutate).not.toHaveBeenCalled();
   });
@@ -104,7 +109,7 @@ describe('CardSortingPage · intención de tarjetas y categorías', () => {
     mutate.mockClear();
     renderPage();
     await llenar('Estudio', 'A{Enter}a');
-    await userEvent.click(screen.getByRole('button', { name: /Crear y abrir/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Crear estudio/ }));
     expect(screen.getByRole('alert')).toHaveTextContent(/tarjetas duplicadas/);
     expect(mutate).not.toHaveBeenCalled();
   });
@@ -115,7 +120,7 @@ describe('CardSortingPage · intención de tarjetas y categorías', () => {
     await userEvent.selectOptions(screen.getByLabelText(/Tipo de estudio/), 'CERRADO');
     await llenar('Estudio', 'A{Enter}B');
     await userEvent.type(screen.getByLabelText(/Categorías predefinidas/), 'Servicios');
-    await userEvent.click(screen.getByRole('button', { name: /Crear y abrir/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Crear estudio/ }));
     expect(screen.getByRole('alert')).toHaveTextContent('Un estudio cerrado necesita al menos 2 categorías.');
     expect(mutate).not.toHaveBeenCalled();
   });
@@ -124,7 +129,7 @@ describe('CardSortingPage · intención de tarjetas y categorías', () => {
     mutate.mockClear();
     renderPage();
     await llenar('  Estudio  ', 'A{Enter}  B  ');
-    await userEvent.click(screen.getByRole('button', { name: /Crear y abrir/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Crear estudio/ }));
     expect(mutate).toHaveBeenCalledTimes(1);
     expect(mutate.mock.calls[0][0]).toMatchObject({
       nombre: 'Estudio',
@@ -145,7 +150,7 @@ describe('CardSortingPage · preguntas del evaluador', () => {
     await base();
     await userEvent.type(screen.getByLabelText(/Preguntas para el participante/), '  ¿Qué costó?  {Enter}{Enter}¿Faltó algo?');
     expect(screen.getByTestId('cs-question-count')).toHaveTextContent('2 de 5 preguntas');
-    await userEvent.click(screen.getByRole('button', { name: /Crear y abrir/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Crear estudio/ }));
     expect(mutate.mock.calls[0][0].preguntas).toEqual([{ texto: '¿Qué costó?' }, { texto: '¿Faltó algo?' }]);
   });
 
@@ -153,7 +158,7 @@ describe('CardSortingPage · preguntas del evaluador', () => {
     mutate.mockClear();
     renderPage();
     await base();
-    await userEvent.click(screen.getByRole('button', { name: /Crear y abrir/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Crear estudio/ }));
     expect(mutate.mock.calls[0][0].preguntas).toBeUndefined();
   });
 
@@ -162,7 +167,7 @@ describe('CardSortingPage · preguntas del evaluador', () => {
     renderPage();
     await base();
     await userEvent.type(screen.getByLabelText(/Preguntas para el participante/), '1{Enter}2{Enter}3{Enter}4{Enter}5{Enter}6');
-    await userEvent.click(screen.getByRole('button', { name: /Crear y abrir/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Crear estudio/ }));
     expect(screen.getByRole('alert')).toHaveTextContent('El máximo es 5 preguntas.');
     expect(mutate).not.toHaveBeenCalled();
   });

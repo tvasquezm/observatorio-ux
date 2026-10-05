@@ -72,13 +72,12 @@ export function CardSortingResultsPage() {
         <div>
           <span className="kicker">CARD SORTING · RESULTADOS</span>
           <h2>{data.estudio.nombre}</h2>
-          <p>Compara patrones de clasificación y usa la evidencia para decidir la arquitectura de información.</p>
         </div>
         <Link
           className="secondary button-like"
           to={`/proyectos/${data.estudio.proyectoId}/card-sorting/${data.estudio.id}`}
         >
-          ← Volver al workspace
+          ← Volver al estudio
         </Link>
       </header>
 
@@ -107,7 +106,7 @@ export function CardSortingResultsPage() {
         <>
           <article className="panel">
             <div className="panel-head">
-              <h2>Vistas del estudio</h2>
+              <h2>Resultados</h2>
               <div className="cs-panel-actions">
                 <button type="button" className="ghost" onClick={() => descargarCsv('card-sorting-matriz-resultados.csv', matrizACsv(data.resultsMatrix))}>
                   Descargar CSV · resultados
@@ -173,7 +172,9 @@ export function CardSortingResultsPage() {
             </div>
           </article>
 
-          <section className="sort-layout mt-16">
+          <details className="panel cs-disclosure mt-16">
+            <summary>Más análisis</summary>
+            <section className="sort-layout">
             <article className="panel">
               <div className="panel-head"><h2>Frecuencia de uso</h2></div>
               {data.frecuenciaPorCategoria.map((category) => (
@@ -206,7 +207,8 @@ export function CardSortingResultsPage() {
                 </div>
               )}
             </article>
-          </section>
+            </section>
+          </details>
         </>
       )}
     </div>
