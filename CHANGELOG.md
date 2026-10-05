@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **layout:** el selector "Viendo como" solo se muestra a docentes y administradores;
+  las cuentas de estudiante ya no lo ven.
 * **card-sorting:** exportación por vista en "Vistas del estudio": un botón "CSV"
   y "PDF" que exportan la pestaña activa, y "PDF completo" con todas las vistas.
   El CSV pasa a separar con `;` (Excel con coma decimal) y trae columnas

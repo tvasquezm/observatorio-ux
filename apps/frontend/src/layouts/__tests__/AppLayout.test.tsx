@@ -3,14 +3,17 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppLayout } from '../AppLayout';
 
-const mocks = vi.hoisted(() => ({ useProject: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  useProject: vi.fn(),
+  user: { id: 'u1', nombre: 'Admin Uno', email: 'admin@test.com', rol: 'ADMIN' } as { id: string; nombre: string; email: string; rol: string },
+}));
 
 vi.mock('../../features/projects/hooks/useProjectsQueries', () => ({ useProject: mocks.useProject }));
 
 vi.mock('../../features/auth/store/useAuthStore', () => ({
   useAuthStore: () => ({
-    user: { id: 'u1', nombre: 'Admin Uno', email: 'admin@test.com', rol: 'ADMIN' },
-    perspectiveRole: 'ADMIN',
+    user: mocks.user,
+    perspectiveRole: mocks.user.rol,
     setPerspective: vi.fn(),
     logout: vi.fn(),
   }),
@@ -30,6 +33,7 @@ function renderAt(path: string) {
 }
 
 beforeEach(() => {
+  mocks.user.rol = 'ADMIN';
   window.localStorage.setItem('observatorio-ux-theme', 'light');
   mocks.useProject.mockReturnValue({ data: { id: 'p1', nombre: 'Proyecto Uno' } });
 });
@@ -59,5 +63,31 @@ describe('AppLayout · breadcrumb y título', () => {
     const crumb = renderAt('/admin/profesores');
     expect(crumb.getByRole('link', { name: 'Administración' })).toHaveAttribute('href', '/admin');
     expect(crumb.getByText('Profesores')).toHaveAttribute('aria-current', 'page');
+  });
+});
+
+describe('AppLayout · selector de perspectiva', () => {
+  it('lo ven el administrador y el docente', () => {
+    for (const rol of ['ADMIN', 'DOCENTE']) {
+      mocks.user.rol = rol;
+      const { unmount } = render(
+        <MemoryRouter initialEntries={['/']}>
+          <Routes><Route element={<AppLayout />}><Route path="*" element={<p>Contenido</p>} /></Route></Routes>
+        </MemoryRouter>,
+      );
+      expect(screen.getByRole('group', { name: 'Cambiar perspectiva' })).toBeTruthy();
+      unmount();
+    }
+  });
+
+  it('el estudiante no lo ve', () => {
+    mocks.user.rol = 'ESTUDIANTE';
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <Routes><Route element={<AppLayout />}><Route path="*" element={<p>Contenido</p>} /></Route></Routes>
+      </MemoryRouter>,
+    );
+    expect(screen.queryByRole('group', { name: 'Cambiar perspectiva' })).toBeNull();
+    expect(screen.queryByText(/Viendo como/)).toBeNull();
   });
 });

@@ -143,7 +143,7 @@ export function AppLayout() {
             </ol>
           </nav>
           <div className="top-actions">
-            {user && activeRole && (
+            {user && activeRole && user.rol !== 'ESTUDIANTE' && (
               <ProfilePerspectiveSwitcher
                 accountRole={user.rol}
                 activeRole={activeRole}
