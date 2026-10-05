@@ -590,6 +590,22 @@ button { cursor: pointer; }
 .cs-new-category-row input { min-width: 0; flex: 1; padding: 9px 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--ink); }
 .cs-selected-hint { margin: 8px 0 0; color: var(--muted); font-size: 12px; }
 .cs-submit-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.cs-progress { position: sticky; top: 0; z-index: 6; display: grid; gap: 6px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.cs-progress-row { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; color: var(--ink); font-size: 13px; }
+.cs-progress-note { color: var(--muted); font-size: 12px; }
+.cs-progress-track { height: 8px; overflow: hidden; border-radius: 999px; background: var(--line); }
+.cs-progress-track > i { display: block; height: 100%; border-radius: inherit; background: var(--teal); transition: width .25s ease; }
+.cs-progress-track > i.complete { background: var(--positive-text); }
+.cs-confirm-backdrop { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 20px; background: rgba(15, 23, 42, .55); }
+.cs-confirm { width: min(100%, 420px); padding: 22px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--ink); box-shadow: 0 24px 60px rgba(0, 0, 0, .35); }
+.cs-confirm h3 { margin: 0 0 8px; font-size: 18px; }
+.cs-confirm p { margin: 0 0 18px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.cs-confirm-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.participant-intro-time { margin: 0 0 14px; color: #606c80; font-size: 13px; }
+.participant-intro-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0 0 18px; padding: 0; list-style: none; }
+.participant-intro-steps li { display: flex; align-items: center; gap: 8px; padding: 10px; border: 1px solid #e0e5ed; border-radius: 10px; background: #f8f9fc; color: #202b3f; font-size: 12px; font-weight: 700; }
+.participant-intro-steps li span { display: grid; flex: 0 0 22px; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: #465fc7; color: #fff; font-size: 12px; }
+@media (max-width: 560px) { .participant-intro-steps { grid-template-columns: 1fr; } }
 .cs-submit-bar p { margin: 0; color: var(--muted); font-size: 12px; }
 .cs-submit-bar button { flex: 0 0 auto; }
 

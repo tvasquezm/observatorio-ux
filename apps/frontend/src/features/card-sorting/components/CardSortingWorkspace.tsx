@@ -50,6 +50,10 @@ export interface CardSortingWorkspaceProps {
   ) => void;
   submitting?: boolean;
   submitLabel?: string;
+  // Pide confirmación (resumen + Revisar / Enviar) antes de llamar a onSubmit.
+  confirmarEnvio?: boolean;
+  // Texto breve junto a la barra de progreso (p. ej. "Avance guardado en este dispositivo").
+  notaProgreso?: string;
   preview?: boolean;
 }
 
@@ -80,6 +84,8 @@ export function CardSortingWorkspace({
   onSubmit,
   submitting = false,
   submitLabel = 'Enviar clasificación',
+  confirmarEnvio = false,
+  notaProgreso,
   preview = false,
 }: CardSortingWorkspaceProps) {
   const newCategoryId = useId();
@@ -90,6 +96,10 @@ export function CardSortingWorkspace({
   const [newParent, setNewParent] = useState('');
   const [categoryError, setCategoryError] = useState('');
   const [announcement, setAnnouncement] = useState('');
+  const [confirmando, setConfirmando] = useState(false);
+  const submitButtonRef = useRef<HTMLButtonElement>(null);
+  const reviewButtonRef = useRef<HTMLButtonElement>(null);
+  const sendButtonRef = useRef<HTMLButtonElement>(null);
   const coarsePointer = useCoarsePointer();
 
   const isClosed = study.tipoCardSorting === 'CERRADO';
@@ -190,9 +200,8 @@ export function CardSortingWorkspace({
     }
   }
 
-  function handleSubmit() {
-    if (!onSubmit || !allAssigned) return;
-    const groups = categories
+  function buildGroups() {
+    return categories
       .map((category) => ({
         ...(category.custom
           ? {
@@ -205,8 +214,35 @@ export function CardSortingWorkspace({
           .map((card) => card.id),
       }))
       .filter((group) => group.cardIds.length > 0);
-    onSubmit(groups);
   }
+
+  function handleSubmit() {
+    if (!onSubmit || !allAssigned) return;
+    if (confirmarEnvio) {
+      setConfirmando(true);
+      return;
+    }
+    onSubmit(buildGroups());
+  }
+
+  function closeConfirm() {
+    setConfirmando(false);
+    window.requestAnimationFrame(() => submitButtonRef.current?.focus());
+  }
+
+  function confirmSend() {
+    if (!onSubmit) return;
+    setConfirmando(false);
+    onSubmit(buildGroups());
+  }
+
+  useEffect(() => {
+    if (confirmando) reviewButtonRef.current?.focus();
+  }, [confirmando]);
+
+  const total = study.cardsDefinidas.length;
+  const done = total - unassignedCards.length;
+  const percent = total > 0 ? Math.round((done / total) * 100) : 0;
 
   function renderCard(card: { id: string; etiqueta: string }) {
     const selected = selectedCardId === card.id;
@@ -264,6 +300,25 @@ export function CardSortingWorkspace({
 
   return (
     <section className="cs-workspace" aria-label={`Clasificación de tarjetas: ${study.nombre}`}>
+      {total > 0 && (
+        <div className="cs-progress" data-testid="cs-workspace-progress">
+          <div className="cs-progress-row">
+            <strong>{done} de {total} clasificadas</strong>
+            {notaProgreso && done > 0 && <span className="cs-progress-note">✓ {notaProgreso}</span>}
+          </div>
+          <div
+            className="cs-progress-track"
+            role="progressbar"
+            aria-label="Tarjetas clasificadas"
+            aria-valuemin={0}
+            aria-valuemax={total}
+            aria-valuenow={done}
+            aria-valuetext={`${done} de ${total} tarjetas clasificadas`}
+          >
+            <i style={{ width: `${percent}%` }} className={done === total ? 'complete' : undefined} />
+          </div>
+        </div>
+      )}
       <p className="cs-workspace-instructions">
         {coarsePointer ? 'Selecciona una tarjeta y luego usa “Mover aquí”.' : 'Arrastra una tarjeta o selecciónala y luego usa “Mover aquí”.'}{' '}
         {isClosed
@@ -384,11 +439,43 @@ export function CardSortingWorkspace({
           <span> tarjetas clasificadas</span>
         </div>
         {onSubmit && (
-          <button type="button" className="primary" onClick={handleSubmit} disabled={!allAssigned || submitting || disabled}>
+          <button ref={submitButtonRef} type="button" className="primary" onClick={handleSubmit} disabled={!allAssigned || submitting || disabled}>
             {submitting ? 'Enviando…' : submitLabel}
           </button>
         )}
       </footer>
+
+      {confirmando && (
+        <div className="cs-confirm-backdrop" onClick={(event) => { if (event.target === event.currentTarget) closeConfirm(); }}>
+          <div
+            className="cs-confirm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cs-confirm-title"
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') {
+                event.stopPropagation();
+                closeConfirm();
+              } else if (event.key === 'Tab') {
+                const first = reviewButtonRef.current;
+                const last = sendButtonRef.current;
+                if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+                else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+              }
+            }}
+          >
+            <h3 id="cs-confirm-title">¿Enviar tu clasificación?</h3>
+            <p>
+              Ubicaste {total} {total === 1 ? 'tarjeta' : 'tarjetas'} en {buildGroups().length}{' '}
+              {buildGroups().length === 1 ? 'categoría' : 'categorías'}. Después de enviar no podrás cambiarla.
+            </p>
+            <div className="cs-confirm-actions">
+              <button ref={reviewButtonRef} type="button" className="secondary" onClick={closeConfirm}>Revisar</button>
+              <button ref={sendButtonRef} type="button" className="primary" onClick={confirmSend}>Enviar ahora</button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

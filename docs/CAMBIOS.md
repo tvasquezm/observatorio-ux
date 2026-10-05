@@ -927,3 +927,15 @@ con red real (o Docker, como en sprints anteriores) para confirmar esas
 - `CardSortingResultsPage.tsx`: botones "CSV", "PDF" y "PDF completo" en lugar
   de los dos CSV fijos; el PDF se carga bajo demanda y muestra error si falla.
 - Tests: export, pdf, csv y página de resultados.
+
+## Auditoría UI/UX — Fase 10a: experiencia del participante
+
+- `CardSortingWorkspace.tsx`: barra de progreso (`role="progressbar"`, fija al
+  hacer scroll); props nuevas `confirmarEnvio` (diálogo con resumen, Escape,
+  foco atrapado y devuelto al botón) y `notaProgreso`. Sin `confirmarEnvio` el
+  comportamiento es el anterior (vista previa del evaluador y tests existentes).
+- `ParticipantCardSortingPage.tsx`: tiempo estimado (≈5 tarjetas/min, mínimo 3,
+  orientativo), 3 pasos en la intro y resumen en la pantalla final.
+- Las preguntas del estudio son opcionales, por eso no bloquean ni se cuentan
+  en el progreso.
+- Tests: progreso, confirmación (Revisar / Escape / Enviar ahora) y resumen.

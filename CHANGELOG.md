@@ -6,6 +6,10 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **card-sorting:** experiencia del participante: la intro estima el tiempo y
+  muestra 3 pasos; barra de progreso fija ("12 de 30 clasificadas") con aviso de
+  avance guardado; confirmación antes de enviar (resumen + Revisar / Enviar
+  ahora) y pantalla final con lo enviado.
 * **layout:** el selector "Viendo como" solo se muestra a docentes y administradores;
   las cuentas de estudiante ya no lo ven.
 * **card-sorting:** exportación por vista en "Vistas del estudio": un botón "CSV"
