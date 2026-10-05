@@ -1,168 +1,220 @@
-// apps/frontend/src/pages/__tests__/MomentosCriticosPage.test.tsx
-//
-// Cubre los 3 casos de mayor riesgo identificados en docs/AUDIT_LOG.md
-// (F1: lock 409 → readonly; MIN_INCIDENTES; agrupación de la matriz 3x3).
-// Se mockea el módulo de hooks (useMomentosCriticosQueries), no el de api
-// (momentos-criticos.api.ts): addIncidente/removeIncidente son funciones
-// puras y se usan reales, sin necesidad de mockear fetch.
-
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within, fireEvent } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { createMemoryRouter, RouterProvider, Outlet } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { createMemoryRouter, Outlet, RouterProvider } from 'react-router-dom';
+import { MomentosCriticosSchema } from '@observatorio-ux/shared-types';
 import { MomentosCriticosPage } from '../MomentosCriticosPage';
 import { ArtifactsApiError } from '../../shared/api/artifacts.api';
-import type { MomentosCriticosArtifact } from '../../features/momentos-criticos/api/momentos-criticos.api';
 
-// Se mockea el módulo completo (no useAuthStore.setState) porque el store
-// real ejecuta localStorage.getItem al importarse (leerUserGuardado), y el
-// entorno de test no siempre trae un localStorage utilizable. Los tests de
-// esta página no auditan permisos — solo necesitan un rol que pueda editar
-// (ESTUDIANTE) para no quedar bloqueados por el gating de la Regla 2.
+const state = vi.hoisted(() => ({
+  role: 'ESTUDIANTE',
+  list: vi.fn(),
+  create: vi.fn(),
+  update: vi.fn(),
+  acquire: vi.fn(),
+  release: vi.fn(),
+  confirm: vi.fn(),
+  lockLost: false,
+  error: null as Error | null,
+}));
+vi.mock('../../features/momentos-criticos/hooks/useMomentosCriticosQueries', () => ({
+  useCriticalMoments: () => ({ data: state.list(), isLoading: false, isError: false, error: null }),
+  useCreateCriticalMoment: () => ({ mutate: state.create, isPending: false, error: state.error }),
+  useUpdateCriticalMoment: () => ({ mutate: state.update, isPending: false, error: null }),
+  useDeleteCriticalMoment: () => ({ mutate: vi.fn(), isPending: false, error: null }),
+}));
 vi.mock('../../features/auth/store/useAuthStore', () => ({
-  useAuthStore: (selector: (state: { user: { rol: string } }) => unknown) =>
-    selector({ user: { rol: 'ESTUDIANTE' } }),
+  useAuthStore: (selector: (s: unknown) => unknown) => selector({ user: { id: 'u1', rol: state.role } }),
 }));
-
-const hooks = vi.hoisted(() => ({
-  useCriticalMoments: vi.fn(),
-  useCreateCriticalMoment: vi.fn(),
-  useUpdateCriticalMoment: vi.fn(),
-  useDeleteCriticalMoment: vi.fn(),
-  useLockCriticalMoment: vi.fn(),
-  useUnlockCriticalMoment: vi.fn(),
+vi.mock('../../shared/auth/useActivePerspective', () => ({ useActivePerspective: () => state.role }));
+vi.mock('../../features/projects/hooks/useProjectsQueries', () => ({
+  useProject: () => ({ data: { creadoPorId: 'owner' } }),
 }));
+vi.mock('../../shared/hooks/useArtifactEditLock', () => ({
+  useArtifactEditLock: () => ({ acquire: state.acquire, release: state.release, lockLost: state.lockLost }),
+}));
+vi.mock('../../shared/api/confirm', () => ({ useConfirm: () => state.confirm }));
 
-vi.mock('../../features/momentos-criticos/hooks/useMomentosCriticosQueries', () => hooks);
-
-function mutationStub(overrides: Partial<{ mutate: (...args: any[]) => void; isPending: boolean; error: unknown }> = {}) {
-  return { mutate: vi.fn(), isPending: false, error: null, ...overrides };
-}
-
+const contenido = {
+  perfilUsuario: { id: 'perfil-1', nombre: 'Ana', rol: 'Compradora frecuente' },
+  incidentes: [
+    {
+      nombre: 'Checkout falla',
+      descripcion: 'No logra completar el pago.',
+      tipo: 'Negativo',
+      impacto: 'Alto',
+      frecuencia: 'Alta',
+      causa: 'Error al confirmar.',
+      accionesSugeridas: ['Revisar el pago, sin perder el carrito'],
+    },
+    {
+      nombre: 'Ayuda inmediata',
+      descripcion: 'Resuelve su duda.',
+      tipo: 'Positivo',
+      impacto: 'Alto',
+      frecuencia: 'Alta',
+      causa: 'Respuesta clara.',
+      accionesSugeridas: ['Mantener la ayuda'],
+    },
+    {
+      nombre: 'Etiqueta confusa',
+      descripcion: 'Busca más tiempo.',
+      tipo: 'Negativo',
+      impacto: 'Bajo',
+      frecuencia: 'Baja',
+      causa: 'Nombre poco claro.',
+      accionesSugeridas: ['Renombrar'],
+    },
+  ],
+};
+const momento = { id: 'a1', artefactoLogicoId: 'l1', version: 3, contenido };
 function renderPage() {
-  const qc = new QueryClient();
   return render(
-    <QueryClientProvider client={qc}>
-      <RouterProvider router={createMemoryRouter([{
-        path: '/proyectos/:proyectoId', element: <Outlet context={{ proyectoId: 'p1' }} />,
-        children: [{ path: 'momentos-criticos', element: <MomentosCriticosPage /> }],
-      }], { initialEntries: ['/proyectos/p1/momentos-criticos'] })} />
-    </QueryClientProvider>,
+    <RouterProvider
+      router={createMemoryRouter([
+        {
+          path: '/',
+          element: <Outlet context={{ proyectoId: 'p1' }} />,
+          children: [{ index: true, element: <MomentosCriticosPage /> }],
+        },
+      ])}
+    />,
   );
 }
-
-function momentoDePrueba(overrides: Partial<MomentosCriticosArtifact> = {}): MomentosCriticosArtifact {
-  return {
-    id: 'art-1',
-    proyectoId: 'p1',
-    tipo: 'MOMENTOS_CRITICOS',
-    artefactoLogicoId: 'logico-1',
-    version: 1,
-    autorId: 'u1',
-    createdAt: new Date().toISOString(),
-    lockedById: null,
-    lockedUntil: null,
-    contenido: {
-      perfilUsuario: { id: 'perfil-1', nombre: 'Ana', rol: 'Compradora frecuente' },
-      incidentes: [
-        {
-          nombre: 'Checkout falla',
-          descripcion: '',
-          tipo: 'Negativo',
-          impacto: 'Alto',
-          frecuencia: 'Alta',
-          causa: '',
-          accionesSugeridas: [],
-        },
-      ],
-    },
-    ...overrides,
-  };
+function abrirNuevo() {
+  renderPage();
+  fireEvent.click(screen.getByRole('button', { name: '+ Nuevo momento crítico' }));
 }
-
 beforeEach(() => {
   vi.clearAllMocks();
-  hooks.useCriticalMoments.mockReturnValue({ data: [], isLoading: false, isError: false, error: null });
-  hooks.useCreateCriticalMoment.mockReturnValue(mutationStub());
-  hooks.useUpdateCriticalMoment.mockReturnValue(mutationStub());
-  hooks.useDeleteCriticalMoment.mockReturnValue(mutationStub());
-  hooks.useLockCriticalMoment.mockReturnValue(mutationStub());
-  hooks.useUnlockCriticalMoment.mockReturnValue(mutationStub());
+  state.role = 'ESTUDIANTE';
+  state.lockLost = false;
+  state.error = null;
+  state.list.mockReturnValue([]);
+  state.acquire.mockResolvedValue(true);
+  state.confirm.mockResolvedValue(false);
 });
 
-describe('MomentosCriticosPage — lock pesimista (F1, AUDIT_LOG.md)', () => {
-  it('si acquireLock devuelve 409, el formulario pasa a solo lectura en vez de romperse', async () => {
-    const momento = momentoDePrueba();
-    hooks.useCriticalMoments.mockReturnValue({ data: [momento], isLoading: false, isError: false, error: null });
-    hooks.useLockCriticalMoment.mockReturnValue(
-      mutationStub({
-        mutate: (_args, opts) => {
-          opts?.onError?.(new ArtifactsApiError(409, 'Bloqueado por otro usuario.'));
-        },
+describe('Momentos críticos', () => {
+  it('valida todos los campos con el mismo contrato que la API y conserva el borrador', () => {
+    abrirNuevo();
+    fireEvent.change(screen.getByLabelText('Nombre del perfil de usuario'), { target: { value: '  ' } });
+    fireEvent.change(screen.getByLabelText('Nombre del incidente 1'), { target: { value: 'Pago' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar momento crítico' }));
+    expect(state.create).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent(/descripción.*vacía/i);
+    expect(screen.getByLabelText('Nombre del perfil de usuario')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText('Nombre del incidente 1')).toHaveValue('Pago');
+    const completo = MomentosCriticosSchema.parse(contenido);
+    for (const campo of ['nombre', 'descripcion', 'causa', 'accionesSugeridas'] as const) {
+      const inc = { ...completo.incidentes[0], [campo]: campo === 'accionesSugeridas' ? ['  '] : '  ' };
+      expect(MomentosCriticosSchema.safeParse({ ...completo, incidentes: [inc] }).success).toBe(false);
+    }
+    expect(
+      MomentosCriticosSchema.safeParse({
+        ...completo,
+        perfilUsuario: { ...completo.perfilUsuario, rol: '  ' },
+      }).success,
+    ).toBe(false);
+  });
+  it('guarda acciones por línea, preserva las comas y usa la versión editada', async () => {
+    state.list.mockReturnValue([momento]);
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Actualizar momento crítico' })).not.toBeDisabled(),
+    );
+    fireEvent.change(screen.getByLabelText('Acciones sugeridas incidente 1'), {
+      target: { value: ' Revisar el pago, sin perder el carrito\n Medir el resultado ' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Actualizar momento crítico' }));
+    expect(state.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        artefactoId: 'a1',
+        expectedVersion: 3,
+        contenido: expect.objectContaining({
+          incidentes: expect.arrayContaining([
+            expect.objectContaining({
+              accionesSugeridas: ['Revisar el pago, sin perder el carrito', 'Medir el resultado'],
+            }),
+          ]),
+        }),
+      }),
+      expect.any(Object),
+    );
+  });
+  it('bloquea el envío mientras adquiere el permiso y después de un conflicto 409', async () => {
+    let reject!: (e: unknown) => void;
+    state.acquire.mockReturnValue(
+      new Promise((_, r) => {
+        reject = r;
       }),
     );
-
+    state.list.mockReturnValue([momento]);
     renderPage();
-    await userEvent.click(screen.getByRole('button', { name: 'Editar' }));
-
-    expect(
-      screen.getByText(/está bloqueado por otro usuario/i),
-    ).toBeInTheDocument();
-
-    // El fieldset que envuelve los campos del form debe quedar disabled.
-    const nombreInput = screen.getByLabelText('Nombre del perfil de usuario');
-    expect(nombreInput).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+    expect(screen.getByLabelText('Nombre del perfil de usuario')).toBeDisabled();
+    fireEvent.submit(screen.getByLabelText('Nombre del perfil de usuario').closest('form')!);
+    expect(state.update).not.toHaveBeenCalled();
+    reject(new ArtifactsApiError(409, 'Ocupado'));
+    await screen.findByText(/está bloqueado por otro usuario/i);
+    expect(screen.getByLabelText('Nombre del perfil de usuario')).toBeDisabled();
   });
-});
-
-describe('MomentosCriticosPage — mínimo de incidentes', () => {
-  it('no permite quitar el último incidente (MomentosCriticosSchema exige mínimo 1)', async () => {
-    renderPage();
-    await userEvent.click(screen.getByRole('button', { name: '+ Nuevo momento crítico' }));
-
-    const botonQuitar = screen.getByRole('button', { name: 'Quitar incidente' });
-    expect(botonQuitar).toBeDisabled();
-
-    // Se agrega uno: ahora sí se puede quitar, hasta volver a quedar en 1.
-    await userEvent.click(screen.getByRole('button', { name: '+ Agregar incidente' }));
-    const botonesQuitar = screen.getAllByRole('button', { name: 'Quitar incidente' });
-    expect(botonesQuitar).toHaveLength(2);
-    expect(botonesQuitar[0]).not.toBeDisabled();
-
-    await userEvent.click(botonesQuitar[0]);
-    const botonFinal = screen.getByRole('button', { name: 'Quitar incidente' });
-    expect(botonFinal).toBeDisabled();
-  });
-});
-
-describe('MomentosCriticosPage — matriz 3x3', () => {
-  it('agrupa cada incidente en la celda de impacto x frecuencia correcta', () => {
-    const momento = momentoDePrueba({
-      contenido: {
-        perfilUsuario: { id: 'perfil-1', nombre: 'Ana', rol: 'Compradora frecuente' },
-        incidentes: [
-          { nombre: 'Incidente Alto-Alta', descripcion: '', tipo: 'Negativo', impacto: 'Alto', frecuencia: 'Alta', causa: '', accionesSugeridas: [] },
-          { nombre: 'Incidente Bajo-Baja', descripcion: '', tipo: 'Positivo', impacto: 'Bajo', frecuencia: 'Baja', causa: '', accionesSugeridas: [] },
-          { nombre: 'Incidente Medio-Media', descripcion: '', tipo: 'Negativo', impacto: 'Medio', frecuencia: 'Media', causa: '', accionesSugeridas: [] },
-        ],
-      },
+  it('no permite quitar el último incidente y mantiene alineadas sus acciones', () => {
+    abrirNuevo();
+    expect(screen.getByRole('button', { name: 'Quitar incidente' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: '+ Agregar incidente' }));
+    fireEvent.change(screen.getByLabelText('Acciones sugeridas incidente 2'), {
+      target: { value: 'Segunda acción' },
     });
-    hooks.useCriticalMoments.mockReturnValue({ data: [momento], isLoading: false, isError: false, error: null });
-
+    fireEvent.click(screen.getAllByRole('button', { name: 'Quitar incidente' })[0]);
+    expect(screen.getByRole('button', { name: 'Quitar incidente' })).toBeDisabled();
+    expect(screen.getByLabelText('Acciones sugeridas incidente 1')).toHaveValue('Segunda acción');
+  });
+  it('permite a docentes leer detalles y distingue oportunidades positivas de problemas', () => {
+    state.role = 'DOCENTE';
+    state.list.mockReturnValue([momento]);
     renderPage();
+    expect(screen.queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument();
+    const positive = screen.getByRole('region', { name: 'Ayuda inmediata' });
+    expect(within(positive).getByText('Oportunidad de refuerzo')).toBeInTheDocument();
+    expect(within(positive).queryByText('Prioridad alta')).not.toBeInTheDocument();
+    fireEvent.click(within(positive).getByText('Ver causa y acciones'));
+    expect(within(positive).getByText('Mantener la ayuda')).toBeVisible();
+    expect(state.acquire).not.toHaveBeenCalled();
+  });
+  it('filtra lista y matriz por el mismo conjunto sin perder detalles', () => {
+    state.list.mockReturnValue([momento]);
+    renderPage();
+    fireEvent.change(screen.getByLabelText('Tipo de incidente'), { target: { value: 'Positivo' } });
+    expect(screen.queryByText('Checkout falla')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Ver Matriz 3x3' }));
-
-    const celdaAltoAlta = screen.getByTestId('celda-Alto-Alta');
-    const celdaBajoBaja = screen.getByTestId('celda-Bajo-Baja');
-    const celdaMedioMedia = screen.getByTestId('celda-Medio-Media');
-
-    expect(within(celdaAltoAlta).getByText('Incidente Alto-Alta')).toBeInTheDocument();
-    expect(within(celdaBajoBaja).getByText('Incidente Bajo-Baja')).toBeInTheDocument();
-    expect(within(celdaMedioMedia).getByText('Incidente Medio-Media')).toBeInTheDocument();
-
-    // Ninguno se filtra a una celda que no le corresponde.
-    expect(within(celdaAltoAlta).queryByText('Incidente Bajo-Baja')).not.toBeInTheDocument();
-    expect(within(celdaBajoBaja).queryByText('Incidente Alto-Alta')).not.toBeInTheDocument();
+    const cell = screen.getByTestId('celda-Alto-Alta');
+    expect(within(cell).getByText('Ayuda inmediata')).toBeInTheDocument();
+    expect(within(cell).queryByText('Prioridad alta')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Tipo de incidente'), { target: { value: 'Todos' } });
+    expect(within(screen.getByTestId('celda-Bajo-Baja')).getByText('Etiqueta confusa')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Buscar incidentes'), {
+      target: { value: 'sin perder el carrito' },
+    });
+    expect(within(cell).getByText('Checkout falla')).toBeInTheDocument();
+    expect(screen.queryByText('Ayuda inmediata')).not.toBeInTheDocument();
+  });
+  it('conserva el borrador cuando se cancela el descarte y libera el permiso al confirmar', async () => {
+    abrirNuevo();
+    fireEvent.change(screen.getByLabelText('Nombre del incidente 1'), { target: { value: 'Sin guardar' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+    await waitFor(() => expect(state.confirm).toHaveBeenCalled());
+    expect(screen.getByLabelText('Nombre del incidente 1')).toHaveValue('Sin guardar');
+    state.confirm.mockResolvedValue(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+    await waitFor(() => expect(screen.queryByLabelText('Nombre del incidente 1')).not.toBeInTheDocument());
+    expect(state.release).toHaveBeenCalled();
+  });
+  it('mantiene el borrador ante errores de guardado', () => {
+    state.error = new Error('Sin conexión');
+    abrirNuevo();
+    fireEvent.change(screen.getByLabelText('Nombre del incidente 1'), { target: { value: 'Conservar' } });
+    expect(screen.getByRole('alert')).toHaveTextContent('Sin conexión');
+    expect(screen.getByLabelText('Nombre del incidente 1')).toHaveValue('Conservar');
   });
 });

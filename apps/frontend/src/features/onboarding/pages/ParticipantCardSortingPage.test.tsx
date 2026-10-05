@@ -129,6 +129,7 @@ describe('ParticipantCardSortingPage · preguntas del evaluador', () => {
     );
     renderPage();
     await userEvent.click(await screen.findByRole('button', { name: 'Enviar clasificación' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Enviar ahora' }));
     expect(submitCardSortingResult).toHaveBeenCalledTimes(1);
     expect(vi.mocked(submitCardSortingResult).mock.calls[0][2]).toEqual([
       { questionId: PREGUNTA, respuesta: 'Nada' },
@@ -164,6 +165,7 @@ describe('ParticipantCardSortingPage · subcategorías', () => {
     );
     renderPage();
     await userEvent.click(await screen.findByRole('button', { name: 'Enviar clasificación' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Enviar ahora' }));
     expect(vi.mocked(submitCardSortingResult).mock.calls[0][1]).toEqual([
       { categoriaNombre: 'Recursos', cardIds: ['c1', 'c2'] },
     ]);
@@ -182,9 +184,55 @@ describe('ParticipantCardSortingPage · subcategorías', () => {
     );
     renderPage();
     await userEvent.click(await screen.findByRole('button', { name: 'Enviar clasificación' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Enviar ahora' }));
     expect(vi.mocked(submitCardSortingResult).mock.calls[0][1]).toEqual([
       { categoriaNombre: 'Recursos', cardIds: ['c2'] },
       { categoriaNombre: 'Biblioteca', categoriaPadre: 'Recursos', cardIds: ['c1'] },
     ]);
+  });
+});
+
+describe('ParticipantCardSortingPage · progreso y confirmación', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.mocked(getParticipantCardSortingSession).mockReset();
+    vi.mocked(submitCardSortingResult).mockReset();
+  });
+
+  it('la intro estima el tiempo y muestra los 3 pasos', async () => {
+    vi.mocked(getParticipantCardSortingSession).mockResolvedValue(sesion('ABIERTO'));
+    renderPage();
+    expect(await screen.findByTestId('participant-time')).toHaveTextContent('unos 3 minutos');
+    expect(screen.getByRole('list', { name: 'Cómo funciona' }).children).toHaveLength(3);
+  });
+
+  it('muestra el progreso y el aviso de avance guardado', async () => {
+    vi.mocked(getParticipantCardSortingSession).mockResolvedValue(sesion('CERRADO'));
+    localStorage.setItem(`cardSorting:progreso:${SESION_ID}`, JSON.stringify({ asignaciones: { c1: 'k1' }, categoriasCreadas: [] }));
+    renderPage();
+    expect(await screen.findByText('1 de 2 clasificadas')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: 'Tarjetas clasificadas' })).toHaveAttribute('aria-valuenow', '1');
+    expect(screen.getByText(/Avance guardado en este dispositivo/, { selector: '.cs-progress-note' })).toBeInTheDocument();
+  });
+
+  it('pide confirmación: Revisar no envía, Enviar ahora sí y muestra el resumen', async () => {
+    vi.mocked(getParticipantCardSortingSession).mockResolvedValue(sesion('CERRADO'));
+    vi.mocked(submitCardSortingResult).mockResolvedValue({ ok: true });
+    localStorage.setItem(`cardSorting:progreso:${SESION_ID}`, JSON.stringify({ asignaciones: { c1: 'k1', c2: 'k1' }, categoriasCreadas: [] }));
+    renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: 'Enviar clasificación' }));
+    expect(screen.getByRole('dialog', { name: '¿Enviar tu clasificación?' })).toHaveTextContent('2 tarjetas en 1 categoría');
+    await userEvent.click(screen.getByRole('button', { name: 'Revisar' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(submitCardSortingResult).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar clasificación' }));
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar clasificación' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar ahora' }));
+    expect(submitCardSortingResult).toHaveBeenCalledTimes(1);
+    expect(await screen.findByTestId('participant-summary')).toHaveTextContent('Enviaste 2 tarjetas en 1 categoría.');
   });
 });
