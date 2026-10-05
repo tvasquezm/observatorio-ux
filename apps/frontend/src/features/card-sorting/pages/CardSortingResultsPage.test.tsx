@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { CardSortingAnalytics } from '../api/card-sorting.api';
 import { CardSortingResultsPage } from './CardSortingResultsPage';
@@ -27,6 +27,9 @@ let data: CardSortingAnalytics = {
   ],
   preguntas: [],
 } as unknown as CardSortingAnalytics;
+
+const { exportarEstudioPdf } = vi.hoisted(() => ({ exportarEstudioPdf: vi.fn(async (..._args: unknown[]) => {}) }));
+vi.mock('../card-sorting-pdf', () => ({ exportarEstudioPdf }));
 
 vi.mock('../hooks/useCardSortingQueries', () => ({
   useCardSortingAnalytics: () => ({ data, isLoading: false, error: null, refetch: vi.fn() }),
@@ -107,7 +110,9 @@ describe('CardSortingResultsPage (minimalista)', () => {
 
   it('descargas y actualizar son botones de ícono con nombre accesible', () => {
     setup();
-    expect(screen.getByRole('button', { name: 'Descargar CSV · resultados' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Descargar CSV de esta vista' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Descargar PDF de esta vista' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Descargar PDF de todas las vistas' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Actualizar resultados' })).toBeTruthy();
   });
 
@@ -162,21 +167,58 @@ describe('CardSortingResultsPage · respuestas del participante', () => {
     expect(screen.getByText('Ayudas: Becas')).toBeTruthy();
   });
 
-  it('descarga el CSV de resultados y el de similitud', async () => {
-    const blobs: Blob[] = [];
-    Object.assign(URL, { createObjectURL: (b: Blob) => { blobs.push(b); return 'blob:x'; }, revokeObjectURL: vi.fn() });
-    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
-    setup();
-    fireEvent.click(screen.getByRole('button', { name: 'Descargar CSV · resultados' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Descargar CSV · similitud' }));
-    expect(click).toHaveBeenCalledTimes(2);
-    const texto = await new Promise<string>((resolve) => {
+  async function leerBlob(blob: Blob) {
+    return new Promise<string>((resolve) => {
       const lector = new FileReader();
       lector.onload = () => resolve(String(lector.result));
-      lector.readAsText(blobs[1]);
+      lector.readAsText(blob);
     });
-    expect(texto).toContain('Tarjeta,Biblioteca,Becas');
-    expect(texto).toContain('Biblioteca,100,40');
+  }
+
+  it('el CSV corresponde a la vista activa, con ";" y nombre de archivo del estudio', async () => {
+    const blobs: Blob[] = [];
+    const nombres: string[] = [];
+    Object.assign(URL, { createObjectURL: (b: Blob) => { blobs.push(b); return 'blob:x'; }, revokeObjectURL: vi.fn() });
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) { nombres.push(this.download); });
+    setup('/r/e1?vista=similarity');
+    fireEvent.click(screen.getByRole('button', { name: 'Descargar CSV de esta vista' }));
+    const texto = await leerBlob(blobs[0]);
+    expect(nombres[0]).toBe('card-sorting-estudio-demo-similarity.csv');
+    expect(texto).toContain('Tarjeta (% similitud);Biblioteca;Becas');
+    expect(texto).toContain('Biblioteca;100;40');
+  });
+
+  it('el CSV de Tarjetas trae estado y categoría principal', async () => {
+    const blobs: Blob[] = [];
+    Object.assign(URL, { createObjectURL: (b: Blob) => { blobs.push(b); return 'blob:x'; }, revokeObjectURL: vi.fn() });
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Descargar CSV de esta vista' }));
+    const texto = await leerBlob(blobs[0]);
+    expect(texto).toContain('Tarjeta;Estado;Categoría principal;% participantes;Participantes;Otras categorías');
+    expect(texto).toContain('Biblioteca;Consenso;A;67;2;B 33%');
+  });
+
+  it('PDF de esta vista y PDF completo piden las vistas correctas', async () => {
+    exportarEstudioPdf.mockClear();
+    setup('/r/e1?vista=participants');
+    fireEvent.click(screen.getByRole('button', { name: 'Descargar PDF de esta vista' }));
+    await waitFor(() => expect(exportarEstudioPdf).toHaveBeenCalledTimes(1));
+    expect(exportarEstudioPdf).toHaveBeenLastCalledWith(data, ['participants'], 'vista');
+    fireEvent.click(screen.getByRole('button', { name: 'Descargar PDF de todas las vistas' }));
+    await waitFor(() => expect(exportarEstudioPdf).toHaveBeenCalledTimes(2));
+    expect(exportarEstudioPdf).toHaveBeenLastCalledWith(
+      data,
+      ['cards', 'categories', 'results', 'popular', 'similarity', 'dendrogram', 'participants'],
+      'todas',
+    );
+  });
+
+  it('si el PDF falla, avisa con un mensaje', async () => {
+    exportarEstudioPdf.mockRejectedValueOnce(new Error('No pudimos cargar la identidad del informe.'));
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Descargar PDF de esta vista' }));
+    expect((await screen.findByRole('alert')).textContent).toContain('No pudimos cargar la identidad');
   });
 
   it('pestaña Dendrograma: dibuja el árbol y lista las uniones en texto', () => {

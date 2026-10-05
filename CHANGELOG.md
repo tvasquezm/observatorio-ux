@@ -6,6 +6,12 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **card-sorting:** exportación por vista en "Vistas del estudio": un botón "CSV"
+  y "PDF" que exportan la pestaña activa, y "PDF completo" con todas las vistas.
+  El CSV pasa a separar con `;` (Excel con coma decimal) y trae columnas
+  legibles (estado, categoría principal, porcentajes). El PDF usa la marca del
+  informe general; Tarjetas incluye barras de distribución y las matrices
+  anchas salen apaisadas.
 * **card-sorting:** ayuda contextual con ⓘ (`InfoTip`) en la creación del
   estudio y menos texto visible; guía de 8 pasos con una sola numeración;
   íconos `info`, `download` y `refresh`.

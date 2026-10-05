@@ -910,3 +910,20 @@ con red real (o Docker, como en sprints anteriores) para confirmar esas
   es el único dato, siempre va el nombre y el porcentaje.
 - Se retiran las tablas anteriores de ambas pestañas.
 - Tests: lógica, vistas y página de resultados.
+
+## Auditoría UI/UX — Fase 9b y 9c: CSV legible y PDF por vista
+
+- `card-sorting-export.ts` (nuevo): convierte cada vista (Tarjetas, Categorías,
+  Matriz, Populares, Similitud, Dendrograma, Participantes, Respuestas) en una
+  tabla plana con columnas legibles. Es la fuente única del CSV y del PDF.
+- `card-sorting-csv.ts`: separador `;` (hipótesis: Excel en configuración
+  regional es-CL/es-ES espera punto y coma); se mantiene BOM y neutralización de
+  fórmulas; nueva `tablaACsv`.
+- `card-sorting-pdf.ts` (nuevo): PDF del estudio con portada de marca y una
+  sección por vista. Matrices de más de 6 columnas van apaisadas; sobre 16
+  columnas se indica descargar el CSV.
+- `shared/utils/pdf.ts`: se exportan helpers (`table` con modo compacto,
+  `brandChrome`, `cargarPdfMake`, etc.). El informe general no cambia.
+- `CardSortingResultsPage.tsx`: botones "CSV", "PDF" y "PDF completo" en lugar
+  de los dos CSV fijos; el PDF se carga bajo demanda y muestra error si falla.
+- Tests: export, pdf, csv y página de resultados.

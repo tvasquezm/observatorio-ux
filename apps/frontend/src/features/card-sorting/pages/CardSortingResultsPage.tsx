@@ -9,7 +9,8 @@ import { useCardSortingAnalytics } from '../hooks/useCardSortingQueries';
 import { CardSortingDendrogram } from '../components/CardSortingDendrogram';
 import { CardSortingCardsView } from '../components/CardSortingCardsView';
 import { CardSortingCategoriesView } from '../components/CardSortingCategoriesView';
-import { descargarCsv, matrizACsv, similitudACsv } from '../card-sorting-csv';
+import { descargarCsv, tablaACsv } from '../card-sorting-csv';
+import { nombreArchivo, tablaDeVista } from '../card-sorting-export';
 import { Icon } from '../../../shared/components/ui/Icon';
 import { InfoTip } from '../../../shared/components/ui/InfoTip';
 
@@ -85,6 +86,21 @@ export function CardSortingResultsPage() {
     window.addEventListener('resize', updateEdges);
     return () => window.removeEventListener('resize', updateEdges);
   }, []);
+  const [exportando, setExportando] = useState(false);
+  const [errorPdf, setErrorPdf] = useState<string | null>(null);
+  const exportarPdf = async (vistas: ResultsTab[], alcance: 'vista' | 'todas') => {
+    if (!data) return;
+    setExportando(true);
+    setErrorPdf(null);
+    try {
+      const { exportarEstudioPdf } = await import('../card-sorting-pdf');
+      await exportarEstudioPdf(data, vistas, alcance);
+    } catch (error) {
+      setErrorPdf(error instanceof Error ? error.message : 'No pudimos generar el PDF. Inténtalo nuevamente.');
+    } finally {
+      setExportando(false);
+    }
+  };
   const foco = searchParams.get('foco') ?? undefined;
   const setActiveTab = (tab: ResultsTab, nuevoFoco?: string) => {
     const next = new URLSearchParams(searchParams);
@@ -163,20 +179,31 @@ export function CardSortingResultsPage() {
                 <button
                   type="button"
                   className="ghost cs-icon-btn"
-                  aria-label="Descargar CSV · resultados"
-                  title="Descargar CSV · resultados"
-                  onClick={() => descargarCsv('card-sorting-matriz-resultados.csv', matrizACsv(data.resultsMatrix))}
+                  aria-label="Descargar CSV de esta vista"
+                  title="CSV de esta vista (Excel)"
+                  onClick={() => descargarCsv(nombreArchivo(data.estudio.nombre, activeTab, 'csv'), tablaACsv(tablaDeVista(activeTab, data)))}
                 >
-                  <Icon name="download" size={16} /><span className="cs-icon-btn-text">Resultados</span>
+                  <Icon name="download" size={16} /><span className="cs-icon-btn-text">CSV</span>
                 </button>
                 <button
                   type="button"
                   className="ghost cs-icon-btn"
-                  aria-label="Descargar CSV · similitud"
-                  title="Descargar CSV · similitud"
-                  onClick={() => descargarCsv('card-sorting-similitud.csv', similitudACsv(data.tarjetas, data.matrizSimilitud))}
+                  aria-label="Descargar PDF de esta vista"
+                  title="PDF de esta vista"
+                  disabled={exportando}
+                  onClick={() => exportarPdf([activeTab], 'vista')}
                 >
-                  <Icon name="download" size={16} /><span className="cs-icon-btn-text">Similitud</span>
+                  <Icon name="download" size={16} /><span className="cs-icon-btn-text">{exportando ? 'Preparando…' : 'PDF'}</span>
+                </button>
+                <button
+                  type="button"
+                  className="ghost cs-icon-btn"
+                  aria-label="Descargar PDF de todas las vistas"
+                  title="PDF con todas las vistas"
+                  disabled={exportando}
+                  onClick={() => exportarPdf(tabs.map((tab) => tab.id), 'todas')}
+                >
+                  <Icon name="download" size={16} /><span className="cs-icon-btn-text">PDF completo</span>
                 </button>
                 <button
                   type="button"
@@ -189,6 +216,8 @@ export function CardSortingResultsPage() {
                 </button>
               </div>
             </div>
+
+            {errorPdf && <p role="alert" className="error-text">{errorPdf}</p>}
 
             <div className={`cs-tabs-wrap${edges.start ? ' has-start' : ''}${edges.end ? ' has-end' : ''}`}>
             <div className="cs-analysis-tabs" role="tablist" aria-label="Vistas de resultados" ref={tabsRef} onScroll={updateEdges}>
