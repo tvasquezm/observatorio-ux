@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CardSortingAnalytics } from './api/card-sorting.api';
-import { nombreArchivo, tablaDeVista } from './card-sorting-export';
+import { nombreArchivo, tablaDeVista, tablaSinConsenso } from './card-sorting-export';
 
 const data = {
   estudio: { id: 'e1', proyectoId: 'p1', nombre: 'Estudio demo', cerrado: false, createdAt: '2026-10-02' },
@@ -78,5 +78,16 @@ describe('nombreArchivo', () => {
 
   it('nombre vacío usa "estudio"', () => {
     expect(nombreArchivo('???', 'todas-las-vistas', 'pdf')).toBe('card-sorting-estudio-todas-las-vistas.pdf');
+  });
+});
+
+describe('tablaSinConsenso', () => {
+  it('lista las tarjetas sin consenso con su segunda categoría', () => {
+    expect(tablaSinConsenso(data)?.filas).toEqual([['Libro', 'A', 50, 'B', 50]]);
+  });
+
+  it('con el umbral más bajo no hay sección', () => {
+    const laxo = { ...data, umbrales: { ...data.umbrales, consenso: 40 } } as unknown as CardSortingAnalytics;
+    expect(tablaSinConsenso(laxo)).toBeNull();
   });
 });

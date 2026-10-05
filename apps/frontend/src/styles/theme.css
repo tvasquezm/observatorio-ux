@@ -590,6 +590,12 @@ button { cursor: pointer; }
 .cs-new-category-row input { min-width: 0; flex: 1; padding: 9px 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--ink); }
 .cs-selected-hint { margin: 8px 0 0; color: var(--muted); font-size: 12px; }
 .cs-submit-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.cs-threshold { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 14px; font-size: 12px; color: var(--muted); }
+.cs-threshold label { font-weight: 700; color: var(--ink); }
+.cs-threshold input[type='range'] { width: 160px; accent-color: var(--teal); }
+.cs-threshold strong { min-width: 44px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.cs-matrix-strong { outline: 2px solid var(--teal); outline-offset: -2px; }
+.cs-matrix-legend { margin: 0 0 8px; }
 .cs-progress { position: sticky; top: 0; z-index: 6; display: grid; gap: 6px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
 .cs-progress-row { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; color: var(--ink); font-size: 13px; }
 .cs-progress-note { color: var(--muted); font-size: 12px; }

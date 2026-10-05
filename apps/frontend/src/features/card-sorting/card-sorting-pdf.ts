@@ -5,7 +5,7 @@ import {
   brandChrome, cargarPdfMake, date, INK, MUTED, paragraph, table, TEAL, type ReportBrand,
 } from '../../shared/utils/pdf';
 import {
-  nombreArchivo, resumenEstudio, tablaDeVista, type SegmentoBarra, type TablaVista, type VistaExportable,
+  nombreArchivo, resumenEstudio, tablaDeVista, tablaSinConsenso, type SegmentoBarra, type TablaVista, type VistaExportable,
 } from './card-sorting-export';
 
 // Mismos colores que --c1..--c8 del tema claro (el PDF siempre es claro).
@@ -78,7 +78,11 @@ export function buildEstudioPdfDefinition(
 
 export async function exportarEstudioPdf(data: CardSortingAnalytics, vistas: VistaExportable[], alcance: 'vista' | 'todas'): Promise<void> {
   const { pdfMake, brand } = await cargarPdfMake();
-  const tablas = vistas.map((vista) => tablaDeVista(vista, data));
+  const tablas = vistas.flatMap((vista) => {
+    const tabla = tablaDeVista(vista, data);
+    const sinConsenso = vista === 'cards' ? tablaSinConsenso(data) : null;
+    return sinConsenso ? [tabla, sinConsenso] : [tabla];
+  });
   const etiqueta = alcance === 'todas' ? 'todas-las-vistas' : vistas[0];
   const ahora = new Date();
   await pdfMake.createPdf(buildEstudioPdfDefinition(data, tablas, alcance === 'todas' ? 'TODAS LAS VISTAS' : tablas[0].titulo.toUpperCase(), ahora, brand)).download(nombreArchivo(data.estudio.nombre, etiqueta, 'pdf'));

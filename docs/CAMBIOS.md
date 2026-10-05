@@ -939,3 +939,17 @@ con red real (o Docker, como en sprints anteriores) para confirmar esas
 - Las preguntas del estudio son opcionales, por eso no bloquean ni se cuentan
   en el progreso.
 - Tests: progreso, confirmación (Revisar / Escape / Enviar ahora) y resumen.
+
+## Auditoría UI/UX — Fase 10b: umbral de consenso editable
+
+- `CardSortingResultsPage.tsx`: control deslizante 50–95% (paso 5) con ayuda;
+  el valor viaja en `?umbral=` y solo vive en el navegador (no cambia el
+  estudio ni el backend). Con otro valor, las vistas, el CSV y el PDF usan el
+  nuevo umbral porque reciben los datos con `umbrales.consenso` reemplazado.
+- "Agrupaciones dominantes" siguen calculadas por el servidor con el umbral del
+  curso; la lista "Sin consenso" se recalcula en el navegador.
+- Similitud: borde en pares con más del umbral (desviación del plan: se marcan
+  los pares *sobre* el umbral, que son los útiles; bajo el umbral sería casi todo).
+- `card-sorting-export.ts` / `card-sorting-pdf.ts`: `tablaSinConsenso` agrega
+  una sección propia en el PDF de Tarjetas. El CSV no la repite porque ya trae
+  la columna Estado.

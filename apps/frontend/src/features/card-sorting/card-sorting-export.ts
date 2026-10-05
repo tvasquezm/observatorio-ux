@@ -142,6 +142,25 @@ export function tablaDeVista(vista: VistaExportable, data: CardSortingAnalytics)
   }
 }
 
+// Tarjetas sin consenso con su categoría más elegida y la siguiente. null si no hay.
+export function tablaSinConsenso(data: CardSortingAnalytics): TablaVista | null {
+  const filas = filasTarjetas(data).filter((fila) => fila.estado === 'sin-consenso');
+  if (filas.length === 0) return null;
+  return {
+    vista: 'cards',
+    titulo: 'Tarjetas sin consenso',
+    descripcion: `Ninguna categoría supera el ${data.umbrales.consenso}% de los participantes. Conviene revisar su nombre o dónde deberían ir.`,
+    columnas: ['Tarjeta', 'Categoría principal', '% participantes', 'Segunda categoría', '% segunda'],
+    filas: filas.map((fila) => [
+      fila.tarjeta,
+      fila.lider?.nombre ?? '',
+      fila.lider?.pct ?? '',
+      fila.segmentos[1]?.nombre ?? '',
+      fila.segmentos[1]?.pct ?? '',
+    ]),
+  };
+}
+
 export function resumenEstudio(data: CardSortingAnalytics): Array<[string, string]> {
   return [
     ['Participantes', String(data.participantesCount)],

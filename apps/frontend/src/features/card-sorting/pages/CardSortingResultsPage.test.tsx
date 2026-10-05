@@ -236,4 +236,33 @@ describe('CardSortingResultsPage · respuestas del participante', () => {
     expect(screen.queryByRole('tab', { name: 'Dendrograma' })).toBeNull();
     data = anterior;
   });
+
+  it('umbral de consenso editable: recalcula la vista y se puede restablecer', () => {
+    setup();
+    expect(screen.getByText(/con consenso ·/)).toHaveTextContent('1 con consenso · 0 sin consenso');
+    const control = screen.getByRole('slider', { name: 'Umbral de consenso' });
+    expect(control).toHaveValue('50');
+    expect(screen.queryByRole('button', { name: /Restablecer/ })).toBeNull();
+
+    fireEvent.change(control, { target: { value: '70' } });
+    expect(screen.getByText(/con consenso ·/)).toHaveTextContent('0 con consenso · 1 sin consenso');
+    fireEvent.click(screen.getByRole('button', { name: 'Restablecer (50%)' }));
+    expect(screen.getByText(/con consenso ·/)).toHaveTextContent('1 con consenso · 0 sin consenso');
+  });
+
+  it('?umbral= se respeta y uno fuera de rango se ignora', () => {
+    setup('/r/e1?umbral=80');
+    expect(screen.getByRole('slider', { name: 'Umbral de consenso' })).toHaveValue('80');
+  });
+
+  it('?umbral=10 (fuera de rango) usa el del curso', () => {
+    setup('/r/e1?umbral=10');
+    expect(screen.getByRole('slider', { name: 'Umbral de consenso' })).toHaveValue('50');
+  });
+
+  it('similitud: marca con borde los pares sobre el umbral', () => {
+    const { container } = setup('/r/e1?vista=similarity&umbral=35');
+    expect(screen.getByText('Borde: pares con más de 35% de similitud.')).toBeTruthy();
+    expect(container.querySelectorAll('td.cs-matrix-strong')).toHaveLength(2);
+  });
 });

@@ -6,6 +6,11 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **card-sorting:** umbral de consenso editable en los resultados (50–95%, desde
+  el valor del curso): recalcula Tarjetas, Categorías, "Sin consenso", CSV y PDF
+  en el navegador, con botón Restablecer y parámetro `?umbral=`. La matriz de
+  similitud marca con borde los pares sobre el umbral y el PDF agrega la
+  sección "Tarjetas sin consenso".
 * **card-sorting:** experiencia del participante: la intro estima el tiempo y
   muestra 3 pasos; barra de progreso fija ("12 de 30 clasificadas") con aviso de
   avance guardado; confirmación antes de enviar (resumen + Revisar / Enviar

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import type {
   CardSortingMatrix,
@@ -11,6 +11,7 @@ import { CardSortingCardsView } from '../components/CardSortingCardsView';
 import { CardSortingCategoriesView } from '../components/CardSortingCategoriesView';
 import { descargarCsv, tablaACsv } from '../card-sorting-csv';
 import { nombreArchivo, tablaDeVista } from '../card-sorting-export';
+import { filasTarjetas } from '../card-sorting-views';
 import { Icon } from '../../../shared/components/ui/Icon';
 import { InfoTip } from '../../../shared/components/ui/InfoTip';
 
@@ -38,6 +39,9 @@ const VIEW_HELP: Partial<Record<ResultsTab, { title: string; help: string }>> = 
   similarity: { title: 'Similitud entre tarjetas', help: 'Qué tan seguido los participantes agruparon cada par de tarjetas en la misma categoría (100% = siempre juntas).' },
 };
 
+const UMBRAL_MIN = 50;
+const UMBRAL_MAX = 95;
+
 const SAMPLE_LABELS: Record<'baja' | 'aceptable' | 'estable', string> = {
   baja: 'Muestra baja',
   aceptable: 'Muestra aceptable',
@@ -54,7 +58,27 @@ export function CardSortingResultsPage() {
   const { estudioId } = useParams<{ estudioId: string }>();
   const analyticsQuery = useCardSortingAnalytics(estudioId ?? null);
   const [searchParams, setSearchParams] = useSearchParams();
-  const data = analyticsQuery.data;
+  const servidor = analyticsQuery.data;
+  const umbralCurso = servidor?.umbrales.consenso;
+  const umbralParam = Number(searchParams.get('umbral'));
+  const umbral =
+    umbralCurso !== undefined && Number.isInteger(umbralParam) && umbralParam >= UMBRAL_MIN && umbralParam <= UMBRAL_MAX
+      ? umbralParam
+      : umbralCurso;
+  // Con otro umbral se recalculan consenso, filtros, CSV y PDF en el navegador; no se guarda.
+  const data = useMemo(
+    () => (servidor && umbral !== undefined && umbral !== servidor.umbrales.consenso
+      ? { ...servidor, umbrales: { ...servidor.umbrales, consenso: umbral } }
+      : servidor),
+    [servidor, umbral],
+  );
+  const umbralEditado = Boolean(servidor && data && data.umbrales.consenso !== servidor.umbrales.consenso);
+  const cambiarUmbral = (valor: number) => {
+    const next = new URLSearchParams(searchParams);
+    if (valor === umbralCurso) next.delete('umbral');
+    else next.set('umbral', String(valor));
+    setSearchParams(next, { replace: true });
+  };
   const withAnswers = data && data.preguntas?.length > 0 ? [...TABS, ANSWERS_TAB] : TABS;
   // El dendrograma necesita al menos 2 tarjetas.
   const tabs = data && data.tarjetas.length < 2 ? withAnswers.filter((tab) => tab.id !== 'dendrogram') : withAnswers;
@@ -126,6 +150,10 @@ export function CardSortingResultsPage() {
     );
   }
 
+  const sinConsenso = umbralEditado
+    ? filasTarjetas(data).filter((fila) => fila.estado === 'sin-consenso').map((fila) => fila.tarjeta)
+    : data.sinConsenso;
+
   return (
     <div className="fade cs-results">
       <header className="page-head">
@@ -164,6 +192,31 @@ export function CardSortingResultsPage() {
           {SAMPLE_MESSAGES[data.muestra](data.umbrales.muestraMinima, data.umbrales.muestraEstable)}
         </InfoTip>
       </p>
+
+      {data.participantesCount > 0 && (
+        <div className="cs-threshold" data-testid="cs-threshold">
+          <label htmlFor="cs-umbral">Umbral de consenso</label>
+          <input
+            id="cs-umbral"
+            type="range"
+            min={UMBRAL_MIN}
+            max={UMBRAL_MAX}
+            step={5}
+            value={data.umbrales.consenso}
+            aria-valuetext={`más del ${data.umbrales.consenso}%`}
+            onChange={(event) => cambiarUmbral(Number(event.target.value))}
+          />
+          <strong>&gt; {data.umbrales.consenso}%</strong>
+          <InfoTip label="Ayuda: umbral de consenso" align="start">
+            Porcentaje de participantes que deben ubicar la tarjeta en la misma categoría para que cuente como consenso. El valor del curso es {servidor!.umbrales.consenso}%. Al cambiarlo se recalculan las vistas, el CSV y el PDF en tu navegador; no se guarda en el estudio.
+          </InfoTip>
+          {umbralEditado && (
+            <button type="button" className="ghost" onClick={() => cambiarUmbral(servidor!.umbrales.consenso)}>
+              Restablecer ({servidor!.umbrales.consenso}%)
+            </button>
+          )}
+        </div>
+      )}
 
       {data.participantesCount === 0 ? (
         <article className="panel">
@@ -282,6 +335,7 @@ export function CardSortingResultsPage() {
                   }}
                   format={(value) => `${value}%`}
                   heat
+                  umbralFuerte={data.umbrales.consenso}
                 />
               )}
             </div>
@@ -317,10 +371,10 @@ export function CardSortingResultsPage() {
                   </div>
                 ))}
               </div>
-              {data.sinConsenso.length > 0 && (
+              {sinConsenso.length > 0 && (
                 <div className="cs-no-consensus">
                   <h3>Sin consenso (≤{data.umbrales.consenso}%)</h3>
-                  <div className="chip-list">{data.sinConsenso.map((card) => <span key={card} className="chip">{card}</span>)}</div>
+                  <div className="chip-list">{sinConsenso.map((card) => <span key={card} className="chip">{card}</span>)}</div>
                 </div>
               )}
             </article>
@@ -336,14 +390,19 @@ function MatrixTable({
   matrix,
   format,
   heat = false,
+  umbralFuerte,
 }: {
   title: string;
   matrix: CardSortingMatrix;
   format: (value: number) => string;
   heat?: boolean;
+  // Marca con borde los pares (fuera de la diagonal) con más de este % de similitud.
+  umbralFuerte?: number;
 }) {
   if (matrix.categorias.length === 0) return <p className="text-muted-sm">No hay categorías para esta vista.</p>;
   return (
+    <>
+    {umbralFuerte !== undefined && <p className="text-muted-sm cs-matrix-legend">Borde: pares con más de {umbralFuerte}% de similitud.</p>}
     <div className="cs-table-wrap"><table className="cs-table cs-matrix">
       <caption className="sr-only">{title}</caption>
       <thead><tr><th scope="col">Tarjeta</th>{matrix.categorias.map((category) => <th scope="col" key={category}>{category}</th>)}</tr></thead>
@@ -357,6 +416,7 @@ function MatrixTable({
                 'cs-matrix-cell',
                 heat && value > 0 ? 'heat' : '',
                 heat && row.tarjeta === matrix.categorias[index] ? 'cs-matrix-diag' : '',
+                umbralFuerte !== undefined && row.tarjeta !== matrix.categorias[index] && value > umbralFuerte ? 'cs-matrix-strong' : '',
               ].filter(Boolean).join(' ')}
               style={heat ? ({ '--cell-intensity': value / 100 } as CSSProperties) : undefined}
             >
@@ -366,6 +426,7 @@ function MatrixTable({
         </tr>
       ))}</tbody>
     </table></div>
+    </>
   );
 }
 
