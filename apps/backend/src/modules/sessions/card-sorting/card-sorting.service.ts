@@ -64,9 +64,9 @@ export class CardSortingService {
       orderBy: { createdAt: 'desc' },
       include: {
         cardsDefinidas: true,
-        categoriasDefinidas: true,
+        categoriasDefinidas: { where: { esPredefinida: true } },
         agrupaciones: { include: { card: true, category: true } },
-        estudio: { include: { cardsDefinidas: true, categoriasDefinidas: true } },
+        estudio: { include: { cardsDefinidas: true, categoriasDefinidas: { where: { esPredefinida: true } } } },
       },
     });
 
@@ -92,9 +92,9 @@ export class CardSortingService {
       orderBy: { createdAt: 'desc' },
       include: {
         cardsDefinidas: true,
-        categoriasDefinidas: true,
+        categoriasDefinidas: { where: { esPredefinida: true } },
         agrupaciones: { include: { card: true, category: true } },
-        estudio: { include: { cardsDefinidas: true, categoriasDefinidas: true } },
+        estudio: { include: { cardsDefinidas: true, categoriasDefinidas: { where: { esPredefinida: true } } } },
         _count: {
           select: {
             participantesDeEsteEstudio: {
@@ -165,7 +165,7 @@ export class CardSortingService {
             }
           : undefined,
       },
-      include: { cardsDefinidas: true, categoriasDefinidas: true },
+      include: { cardsDefinidas: true, categoriasDefinidas: { where: { esPredefinida: true } } },
     });
 
     return this.getSession(participantSession.id, user);
@@ -191,7 +191,7 @@ export class CardSortingService {
     return this.prisma.researchSession.update({
       where: { id: estudioId },
       data: { cerrado },
-      include: { cardsDefinidas: true, categoriasDefinidas: true },
+      include: { cardsDefinidas: true, categoriasDefinidas: { where: { esPredefinida: true } } },
     });
   }
 
@@ -263,13 +263,13 @@ export class CardSortingService {
       where: { id },
       include: {
         cardsDefinidas: true,
-        categoriasDefinidas: true,
+        categoriasDefinidas: { where: { esPredefinida: true } },
         preguntas: { orderBy: { orden: 'asc' } },
         agrupaciones: { include: { card: true, category: true } },
         estudio: {
           include: {
             cardsDefinidas: true,
-            categoriasDefinidas: true,
+            categoriasDefinidas: { where: { esPredefinida: true } },
             preguntas: { orderBy: { orden: 'asc' } },
           },
         },
@@ -716,6 +716,9 @@ export class CardSortingService {
           const category = categoriesById.get(group.categoriaId);
           if (!category || category.sessionId !== study.id) {
             throw new BadRequestException('La categoría no pertenece a este estudio.');
+          }
+          if (!category.esPredefinida) {
+            throw new BadRequestException('Solo se pueden usar categorías predefinidas por id.');
           }
           categoryId = category.id;
         } else {

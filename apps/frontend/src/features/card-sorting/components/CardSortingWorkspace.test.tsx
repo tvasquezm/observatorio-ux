@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CardSortingWorkspace } from './CardSortingWorkspace';
@@ -133,9 +133,10 @@ function HierarchicalWorkspace({
   withPadres = true,
   initialPadres = {} as Record<string, string>,
   initialCategories = [] as string[],
+  initialAssignments = {} as Record<string, string>,
   onSubmit = vi.fn(),
 }) {
-  const [assignments, setAssignments] = useState<Record<string, string>>({});
+  const [assignments, setAssignments] = useState<Record<string, string>>(initialAssignments);
   const [categories, setCategories] = useState<string[]>(initialCategories);
   const [padres, setPadres] = useState<Record<string, string>>(initialPadres);
   return (
@@ -260,5 +261,58 @@ describe('CardSortingWorkspace · subcategorías', () => {
     await crearCategoria('Recursos');
     await crearCategoria('Otra');
     expect(screen.queryByLabelText('Dentro de (opcional)')).not.toBeInTheDocument();
+  });
+});
+
+
+describe('CardSortingWorkspace · límites y nombres normalizados', () => {
+  it('rechaza una categoría propia equivalente sin tilde, incluso al anidarla', async () => {
+    render(<HierarchicalWorkspace />);
+    await crearCategoria('Menú');
+    await crearCategoria('Menu', 'Menú');
+    expect(screen.getByRole('alert')).toHaveTextContent('Ya existe una categoría con ese nombre.');
+    expect(screen.queryByRole('heading', { name: 'Menu' })).not.toBeInTheDocument();
+  });
+
+  it('rechaza la variante con tilde de una categoría híbrida predefinida', async () => {
+    render(<ControlledWorkspace hybrid />);
+    await crearCategoria('Sérvicios');
+    expect(screen.getByRole('alert')).toHaveTextContent('Ya existe una categoría con ese nombre.');
+  });
+
+  it('rechaza nombres nuevos de 61 caracteres y acepta el límite de 60', async () => {
+    render(<HierarchicalWorkspace />);
+    const input = screen.getByLabelText('Nombre');
+    expect(input).toHaveAttribute('maxlength', '60');
+    fireEvent.change(input, { target: { value: 'a'.repeat(61) } });
+    await userEvent.click(screen.getByRole('button', { name: 'Crear' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('El máximo es 60 caracteres');
+    fireEvent.change(input, { target: { value: 'a'.repeat(60) } });
+    await userEvent.click(screen.getByRole('button', { name: 'Crear' }));
+    expect(screen.getByRole('heading', { name: 'a'.repeat(60) })).toBeInTheDocument();
+  });
+
+  it('permite reparar un padre largo del caché sin perder tarjetas ni subcategorías', async () => {
+    const longName = 'a'.repeat(61);
+    const onSubmit = vi.fn();
+    render(<HierarchicalWorkspace
+      initialCategories={[longName, 'Sub']}
+      initialPadres={{ Sub: longName }}
+      initialAssignments={{ 'card-1': longName, 'card-2': 'Sub' }}
+      onSubmit={onSubmit}
+    />);
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar clasificación' }));
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent('Acorta las categorías');
+    const input = screen.getByLabelText('Acorta el nombre de la categoría');
+    await userEvent.clear(input);
+    await userEvent.type(input, 'Recursos');
+    await userEvent.tab();
+    expect(screen.getByLabelText('Subcategorías de Recursos')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar clasificación' }));
+    expect(onSubmit).toHaveBeenCalledWith([
+      { categoriaNombre: 'Recursos', cardIds: ['card-1'] },
+      { categoriaNombre: 'Sub', categoriaPadre: 'Recursos', cardIds: ['card-2'] },
+    ]);
   });
 });
