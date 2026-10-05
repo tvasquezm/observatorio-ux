@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { descargarCsv, escaparCeldaCsv, generarCsv, matrizACsv, similitudACsv } from './card-sorting-csv';
+import { descargarCsv, escaparCeldaCsv, generarCsv, matrizACsv, similitudACsv, tablaACsv } from './card-sorting-csv';
 
 describe('escaparCeldaCsv', () => {
   it.each(['=1+1', '+SUMA(A1)', '-2+3', '@cmd', '\tx', '\rx'])('neutraliza la fórmula %j', (valor) => {
@@ -16,28 +16,37 @@ describe('escaparCeldaCsv', () => {
     expect(escaparCeldaCsv('a=b')).toBe('a=b');
   });
 
-  it('entrecomilla y duplica comillas, comas y saltos de línea', () => {
-    expect(escaparCeldaCsv('di "hola", ok')).toBe('"di ""hola"", ok"');
+  it('entrecomilla y duplica comillas, punto y coma y saltos de línea', () => {
+    expect(escaparCeldaCsv('di "hola"; ok')).toBe('"di ""hola""; ok"');
+    expect(escaparCeldaCsv('a, b')).toBe('a, b');
     expect(escaparCeldaCsv('a\nb')).toBe('"a\nb"');
   });
 
   it('combina neutralización y comillas', () => {
-    expect(escaparCeldaCsv('=HYPERLINK("x","y")')).toBe('"\'=HYPERLINK(""x"",""y"")"');
+    expect(escaparCeldaCsv('=HYPERLINK("x";"y")')).toBe('"\'=HYPERLINK(""x"";""y"")"');
   });
 });
 
 describe('generarCsv / matrices', () => {
   it('une filas con CRLF', () => {
-    expect(generarCsv([['a', 1], ['b', 2]])).toBe('a,1\r\nb,2');
+    expect(generarCsv([['a', 1], ['b', 2]])).toBe('a;1\r\nb;2');
   });
 
   it('matriz de resultados: encabezado, tarjetas y escape en nombres de categoría', () => {
     const csv = matrizACsv({ categorias: ['Servicios', '=evil'], filas: [{ tarjeta: 'Biblioteca', valores: [3, 0] }] });
-    expect(csv).toBe("Tarjeta,Servicios,'=evil\r\nBiblioteca,3,0");
+    expect(csv).toBe("Tarjeta;Servicios;'=evil\r\nBiblioteca;3;0");
   });
 
   it('similitud: tarjetas en filas y columnas', () => {
-    expect(similitudACsv(['A', 'B'], [[100, 40], [40, 100]])).toBe('Tarjeta,A,B\r\nA,100,40\r\nB,40,100');
+    expect(similitudACsv(['A', 'B'], [[100, 40], [40, 100]])).toBe('Tarjeta;A;B\r\nA;100;40\r\nB;40;100');
+  });
+});
+
+describe('tablaACsv', () => {
+  it('encabezado y filas con texto, números y celdas vacías', () => {
+    expect(tablaACsv({ columnas: ['Tarjeta', 'Estado', '%'], filas: [['Becas', 'Consenso', 80], ['Otra', 'Sin datos', '']] })).toBe(
+      'Tarjeta;Estado;%\r\nBecas;Consenso;80\r\nOtra;Sin datos;',
+    );
   });
 });
 

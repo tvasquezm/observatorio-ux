@@ -60,6 +60,7 @@ export async function apiFetch<T>(url: string, options: RequestInit = {}): Promi
   const token = sessionStorage.getItem('participanteToken');
   const res = await fetch(url, {
     ...options,
+    credentials: 'omit', // La cookie del evaluador no debe sustituir al Bearer del participante.
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),

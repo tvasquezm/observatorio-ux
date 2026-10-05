@@ -4,8 +4,8 @@ export const MAX_ETIQUETA = 100;
 export const AVISO_ETIQUETA = 80;
 export const MAX_CATEGORIA = 60;
 export const MAX_TARJETAS = 100;
-export const MIN_RECOMENDADAS = 30;
-export const MAX_RECOMENDADAS = 60;
+export const MIN_RECOMENDADAS = 15;
+export const MAX_RECOMENDADAS = 40;
 export const MIN_CATEGORIAS_CERRADO = 2;
 export const MAX_PREGUNTAS = 5;
 export const MAX_PREGUNTA = 300;
@@ -50,6 +50,51 @@ export function analizarEntrada(texto: string, max: number, aviso = max): Analis
     largas: items.filter((item) => item.length >= aviso && item.length <= max),
     excedidas: items.filter((item) => item.length > max),
   };
+}
+
+// Agrega un elemento como línea nueva al final del texto.
+export function agregarLinea(texto: string, valor: string): string {
+  const limpio = valor.trim();
+  if (!limpio) return texto;
+  const base = texto.replace(/\s+$/, '');
+  return base ? `${base}\n${limpio}` : limpio;
+}
+
+// Separa un bloque pegado en elementos nuevos. Omite los que ya están en `actual`
+// y los repetidos dentro del propio bloque (sin importar tildes ni mayúsculas).
+export function elementosNuevos(actual: string, bloque: string): { nuevas: string[]; omitidas: number } {
+  const existentes = new Set(
+    actual.split('\n').map((linea) => linea.trim()).filter(Boolean).map(normalizarTexto),
+  );
+  const nuevas: string[] = [];
+  let omitidas = 0;
+  for (const linea of bloque.split('\n').map((l) => l.trim()).filter(Boolean)) {
+    const clave = normalizarTexto(linea);
+    if (existentes.has(clave)) {
+      omitidas += 1;
+    } else {
+      existentes.add(clave);
+      nuevas.push(linea);
+    }
+  }
+  return { nuevas, omitidas };
+}
+
+export function existeElemento(actual: string, valor: string): boolean {
+  return elementosNuevos(actual, valor).nuevas.length === 0 && valor.trim() !== '';
+}
+
+// Quita el n-ésimo elemento no vacío (el mismo índice que `analizarEntrada().items`).
+export function quitarElemento(texto: string, indice: number): string {
+  let visto = -1;
+  return texto
+    .split('\n')
+    .filter((linea) => {
+      if (!linea.trim()) return true;
+      visto += 1;
+      return visto !== indice;
+    })
+    .join('\n');
 }
 
 export type EstadoCantidad = 'bajo' | 'ok' | 'alto' | 'excedido';
