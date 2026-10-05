@@ -1,12 +1,11 @@
 import { useMemo } from 'react';
-import { InfoTip } from '../../../shared/components/ui/InfoTip';
 import { clusterPromedio, fusiones, type NodoCluster } from '../card-sorting-cluster';
 
 const FILA = 20;
 const ETIQUETA_W = 190;
 const GRAFICO_W = 420;
 const MARGEN = 16;
-const EJE_H = 50;
+const EJE_H = 34;
 const MAX_ETIQUETA = 28;
 const MARCAS = [100, 75, 50, 25, 0];
 
@@ -52,20 +51,17 @@ export function CardSortingDendrogram({ tarjetas, similitud }: { tarjetas: strin
 
   return (
     <div className="cs-dendrogram">
-      <div className="cs-view-head">
-        <h3>Árbol de agrupamiento</h3>
-        <InfoTip label="Ayuda: cómo leer el dendrograma" align="start">
-          Agrupamiento jerárquico por enlace promedio sobre la similitud entre tarjetas. Cuanto más a la izquierda se
-          unen dos grupos, más veces los participantes los agruparon juntos.
-        </InfoTip>
-      </div>
+      <p className="text-muted-sm">
+        Agrupamiento jerárquico por enlace promedio sobre la similitud entre tarjetas. Cuanto más a la izquierda se
+        unen dos grupos, más veces los participantes los agruparon juntos.
+      </p>
       <div className="cs-table-wrap">
         <svg
           role="img"
           aria-label={`Dendrograma de ${tarjetas.length} tarjetas, enlace promedio`}
           viewBox={`0 0 ${ancho} ${alto}`}
-          className="cs-dendro-svg"
-          style={{ maxWidth: ancho }}
+          width={ancho}
+          height={alto}
         >
           {orden.map((indice) => (
             <text key={indice} x={ETIQUETA_W - 8} y={(yHoja.get(indice) ?? 0) + 4} textAnchor="end" className="cs-dendro-label">
@@ -81,11 +77,9 @@ export function CardSortingDendrogram({ tarjetas, similitud }: { tarjetas: strin
               <text x={posX(100 - marca)} y={yEje + 17} textAnchor="middle" className="cs-dendro-tick">{marca}%</text>
             </g>
           ))}
-          <text x={ETIQUETA_W + GRAFICO_W / 2} y={yEje + 36} textAnchor="middle" className="cs-dendro-axis-title">
-            Similitud al unirse los grupos
-          </text>
         </svg>
       </div>
+      <p className="text-muted-sm">Eje: similitud al unirse los grupos.</p>
 
       <details className="cs-dendro-merges">
         <summary>Ver las {lista.length} uniones en texto</summary>

@@ -15,7 +15,6 @@ import {
 import { PrismaService } from '../../../core/database/prisma.service';
 import { ProjectAccessService } from '../../../core/access/project-access.service';
 import { AuthenticatedUser } from '../../auth/types/authenticated-user.interface';
-import { CreateCardSortingSessionPayloadSchema } from '@observatorio-ux/shared-types';
 import {
   CardSortingTypeDto,
   CreateCardSortingSessionDto,
@@ -134,35 +133,25 @@ export class CardSortingService {
     );
     validarPreguntas((dto.preguntas ?? []).map((pregunta) => pregunta.texto));
 
-    const configuration = CreateCardSortingSessionPayloadSchema.safeParse(dto);
-    if (!configuration.success) {
-      throw new BadRequestException({
-        message: 'Revisa la configuración del estudio.',
-        errores: configuration.error.issues.map((issue) => ({
-          campo: issue.path.join('.'), mensaje: issue.message,
-        })),
-      });
-    }
-    const study = configuration.data;
     const participantSession = await this.prisma.researchSession.create({
       data: {
         proyectoId: dto.proyectoId,
         evaluadorId: user.id,
-        nombre: study.nombre,
+        nombre: dto.nombre.trim(),
         tipo: TipoSesion.CARD_SORTING,
         estado: EstadoSesion.INVITADO,
         actor: ActorSesion.EVALUADOR,
         tipoCardSorting: tipo,
         cardsDefinidas: {
-          create: study.tarjetas.map((tarjeta) => ({
-            etiqueta: tarjeta.etiqueta,
+          create: dto.tarjetas.map((tarjeta) => ({
+            etiqueta: tarjeta.etiqueta.trim(),
           })),
         },
         categoriasDefinidas:
-          study.categorias?.length
+          dto.categorias?.length
             ? {
-                create: study.categorias.map((categoria) => ({
-                  nombre: categoria.nombre,
+                create: dto.categorias.map((categoria) => ({
+                  nombre: categoria.nombre.trim(),
                   esPredefinida: true,
                 })),
               }

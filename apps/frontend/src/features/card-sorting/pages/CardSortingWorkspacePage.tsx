@@ -71,8 +71,12 @@ export function CardSortingWorkspacePage() {
     <div className="fade">
       <header className="page-head">
         <div>
-          <span className="kicker">CARD SORTING · PRUEBA</span>
+          <span className="kicker">CARD SORTING · WORKSPACE</span>
           <h2>{session.nombre}</h2>
+          <p>
+            Prueba la interacción localmente, comparte el estudio y controla cuándo recibe
+            respuestas. La práctica de esta pantalla no altera la analítica.
+          </p>
         </div>
         <Link
           className="secondary button-like"
@@ -84,8 +88,9 @@ export function CardSortingWorkspacePage() {
 
       <section className="panel cs-share-bar">
         <div className="cs-share-copy">
+          <span className="kicker">ESTADO DEL ESTUDIO</span>
           <strong>{session.cerrado ? 'El estudio está cerrado' : 'El estudio recibe respuestas'}</strong>
-          {canManageStudy && <details className="cs-help"><summary>Ver enlace</summary><code>{participantLink}</code></details>}
+          {canManageStudy && <code>{participantLink}</code>}
         </div>
         <div className="cs-share-actions">
           {canManageStudy && (

@@ -20,12 +20,10 @@ export const FrecuenciaIncidenteEnum = z.enum(['Alta', 'Media', 'Baja'], {
 export const IncidenteCriticoSchema = z.object({
   nombre: z
     .string({ error: 'El nombre del incidente es obligatorio y debe ser un texto.' })
-    .trim()
     .min(1, 'El nombre del incidente no puede estar vacío.'),
 
   descripcion: z
     .string({ error: 'La descripción del incidente es obligatoria y debe ser un texto.' })
-    .trim()
     .min(1, 'La descripción del incidente no puede estar vacía.'),
 
   tipo: TipoIncidenteEnum,
@@ -36,14 +34,12 @@ export const IncidenteCriticoSchema = z.object({
 
   causa: z
     .string({ error: 'La causa del incidente es obligatoria y debe ser un texto.' })
-    .trim()
     .min(1, 'La causa del incidente no puede estar vacía.'),
 
   accionesSugeridas: z
     .array(
       z
         .string({ error: 'Cada acción sugerida debe ser un texto.' })
-        .trim()
         .min(1, 'La acción sugerida no puede estar vacía.'),
       { error: 'Las acciones sugeridas deben proporcionarse como un arreglo de textos.' },
     )
@@ -53,16 +49,7 @@ export const IncidenteCriticoSchema = z.object({
 // --- Esquema raíz del artefacto MOMENTOS_CRITICOS ---
 
 export const MomentosCriticosSchema = z.object({
-  perfilUsuario: UserProfileSchema.extend({
-    nombre: z
-      .string({ error: 'El nombre del perfil de usuario es obligatorio.' })
-      .trim()
-      .min(2, 'El nombre del perfil de usuario debe tener al menos 2 caracteres.'),
-    rol: z
-      .string({ error: 'El rol del perfil de usuario es obligatorio.' })
-      .trim()
-      .min(2, 'El rol del perfil de usuario debe tener al menos 2 caracteres.'),
-  }),
+  perfilUsuario: UserProfileSchema,
 
   incidentes: z
     .array(IncidenteCriticoSchema, {

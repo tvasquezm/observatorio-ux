@@ -197,8 +197,6 @@ Si falla, el log de cada paso está ahí mismo.
 - [`docs/CAMBIOS.md`](docs/CAMBIOS.md) — changelog granular, archivo por archivo modificado
 
 **Guías de referencia:**
-
-- [`docs/integracion-card-sorting-momentos-criticos.md`](docs/integracion-card-sorting-momentos-criticos.md) — comparación de los PR #27/#28, unificación de Card Sorting, mejoras de Momentos Críticos y verificaciones
 - [`docs/BACKEND.md`](docs/BACKEND.md) — guía de arranque del backend y flujo completo de autenticación/artefactos
 - [`docs/ONBOARDING-FRONTEND.md`](docs/ONBOARDING-FRONTEND.md) — guía de arranque para `apps/frontend`
 - [`docs/COMANDOS.md`](docs/COMANDOS.md) — referencia rápida de todos los comandos del proyecto

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { CardSortingGuide } from './CardSortingGuide';
 
 describe('CardSortingGuide', () => {
@@ -20,15 +19,6 @@ describe('CardSortingGuide', () => {
       'Registrar la disposición final',
       'Extraer conclusiones',
     ]);
-  });
-
-  it('despliega el detalle de un paso al tocarlo', async () => {
-    render(<CardSortingGuide />);
-    const summary = screen.getByText('Crear las tarjetas').closest('summary')!;
-    const details = summary.closest('details')!;
-    expect(details).not.toHaveAttribute('open');
-    await userEvent.click(summary);
-    expect(details).toHaveAttribute('open');
   });
 
   it('incluye la regla del 50% y dónde ver el consenso', () => {

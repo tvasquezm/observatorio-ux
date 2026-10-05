@@ -32,9 +32,6 @@ export function AppLayout() {
     return savedTheme === 'dark' || (savedTheme === null && window.matchMedia('(prefers-color-scheme: dark)').matches);
   });
   const [exportOpen, setExportOpen] = useState(false);
-  const [highContrast, setHighContrast] = useState(() =>
-    window.localStorage.getItem('observatorio-ux-contrast') === 'high',
-  );
   const crumb = CRUMB_LABELS[location.pathname] ?? 'Proyecto';
   const activeRole = user ? resolvePerspective(user.rol, perspectiveRole) : null;
   const visibleNavItems = NAV_ITEMS.filter((item) => {
@@ -47,12 +44,6 @@ export function AppLayout() {
     document.documentElement.dataset.theme = darkMode ? 'dark' : 'light';
     window.localStorage.setItem('observatorio-ux-theme', darkMode ? 'dark' : 'light');
   }, [darkMode]);
-
-  useEffect(() => {
-    const contrast = highContrast ? 'high' : 'normal';
-    document.documentElement.dataset.contrast = contrast;
-    window.localStorage.setItem('observatorio-ux-contrast', contrast);
-  }, [highContrast]);
 
   const iniciales = (user?.nombre ?? '?')
     .split(' ')
@@ -134,14 +125,6 @@ export function AppLayout() {
               onClick={() => setDarkMode((current) => !current)}
             >
               {darkMode ? 'Modo claro' : 'Modo oscuro'}
-            </button>
-            <button
-              type="button"
-              className="theme-toggle"
-              aria-pressed={highContrast}
-              onClick={() => setHighContrast((current) => !current)}
-            >
-              Alto contraste
             </button>
             <button
               type="button"

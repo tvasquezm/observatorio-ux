@@ -57,8 +57,7 @@ export function CardSortingGuide() {
           <details>
             <summary>
               <span className="cs-guide-n" aria-hidden="true">{index + 1}</span>
-              <span className="cs-guide-title">{step.title}</span>
-              <span className="cs-guide-chev" aria-hidden="true" />
+              {step.title}
             </summary>
             <p>{step.text}</p>
             <p className="cs-guide-where">{step.where}</p>

@@ -1,15 +1,13 @@
 import type { Content, ContentCanvas, TDocumentDefinitions } from 'pdfmake/interfaces';
 import type { ProjectReport, ReportMethod } from '../../features/reports/report-data';
-import { INK, MUTED, TEAL, paragraph, table, textValue, title } from './pdf-base';
-import { cuerpoVista } from '../../features/card-sorting/card-sorting-pdf-content';
-import { tablaDeVista, tablaSinConsenso } from '../../features/card-sorting/card-sorting-export';
 
-export { INK, MUTED, TEAL, paragraph, table, title };
-
-export type ReportBrand = { logo: string; logoWhite: string };
+const INK = '#1f2d4a';
+const TEAL = '#3049b2';
+const MUTED = '#526a73';
+type ReportBrand = { logo: string; logoWhite: string };
 
 // Vector rectangles keep the brand gradient sharp in print, without a raster background.
-export function brandBand(width: number, height: number): ContentCanvas {
+function brandBand(width: number, height: number): ContentCanvas {
   return { canvas: [...Array.from({ length: 128 }, (_, index) => {
     const progress = index / 127;
     const color = [21, 32, 56].map((start, channel) => Math.round(start + ([38, 59, 196][channel] - start) * progress).toString(16).padStart(2, '0')).join('');
@@ -18,8 +16,30 @@ export function brandBand(width: number, height: number): ContentCanvas {
 }
 const severityLabels = ['Sin problema', 'Cosmético', 'Menor', 'Mayor', 'Crítico'];
 const severityColors = ['#526a73', '#526a73', '#85601b', '#a44626', '#922f3d'];
-export const date = (value: string | Date): string => new Intl.DateTimeFormat('es-CL', { dateStyle: 'medium' }).format(new Date(value));
+const textValue = (value: unknown): string => Array.isArray(value) ? value.join('\n') || 'No registrado' : value == null || value === '' ? 'No registrado' : String(value);
+const date = (value: string | Date): string => new Intl.DateTimeFormat('es-CL', { dateStyle: 'medium' }).format(new Date(value));
+const title = (text: string): Content => ({ text, style: 'subheading', margin: [0, 16, 0, 8], headlineLevel: 2 });
+const paragraph = (text: string): Content => ({ text, margin: [0, 0, 0, 8] });
 const empty = (): Content => ({ text: 'Sin registros guardados para esta técnica dentro de tu acceso actual.', color: MUTED, italics: true, margin: [0, 16, 0, 12] });
+
+function table(headers: string[], rows: unknown[][], widths?: Array<string | number>): Content {
+  return {
+    table: {
+      headerRows: 1,
+      widths: widths ?? headers.map(() => '*'),
+      body: [
+        headers.map((text) => ({ text, bold: true, color: '#ffffff', fillColor: INK, fontSize: 9 })),
+        ...rows.map((row, index) => row.map((value) => ({ text: textValue(value), fillColor: index % 2 ? '#ffffff' : '#f3f5f9' }))),
+      ],
+    },
+    layout: {
+      hLineWidth: () => 0, vLineWidth: () => 0,
+      paddingLeft: () => 9, paddingRight: () => 9,
+      paddingTop: () => 6, paddingBottom: () => 6,
+    },
+    margin: [0, 0, 0, 12],
+  };
+}
 
 function details(rows: Array<[string, unknown]>): Content {
   return {
@@ -34,20 +54,6 @@ function details(rows: Array<[string, unknown]>): Content {
       paddingTop: () => 7, paddingBottom: () => 7,
     }, margin: [0, 0, 0, 12],
   };
-}
-
-// Mismas vistas que la pantalla de resultados: Tarjetas (con barras), sin consenso y Categorías.
-function detalleCardSorting(analytics: Parameters<typeof tablaDeVista>[1]): Content[] {
-  const sinConsenso = tablaSinConsenso(analytics);
-  return [
-    title('Tarjetas'),
-    paragraph(tablaDeVista('cards', analytics).descripcion),
-    ...cuerpoVista(tablaDeVista('cards', analytics)),
-    ...(sinConsenso ? [title('Tarjetas sin consenso'), paragraph(sinConsenso.descripcion), ...cuerpoVista(sinConsenso)] : []),
-    title('Categorías'),
-    paragraph(tablaDeVista('categories', analytics).descripcion),
-    ...cuerpoVista(tablaDeVista('categories', analytics)),
-  ];
 }
 
 function sections(report: ProjectReport): Record<ReportMethod, Content[]> {
@@ -102,9 +108,10 @@ function sections(report: ProjectReport): Record<ReportMethod, Content[]> {
       details([['Tarjetas definidas', study.cardsDefinidas.map((card) => card.etiqueta)], ['Categorías predefinidas', study.categoriasDefinidas.map((category) => category.nombre)]]),
       ...(analytics.participantesCount ? [{
         stack: [
-          ...detalleCardSorting(analytics),
+          title('Distribución por tarjeta'),
+          table(['Tarjeta', 'Categoría', 'Asignaciones'], analytics.porCarta.flatMap((card) => card.categorias.length ? card.categorias.map((category) => [card.tarjeta, category.nombre, category.frecuencia]) : [[card.tarjeta, 'Sin asignaciones', 0]]), ['*', '*', 75]),
           ...(analytics.clusters.length ? [title('Agrupaciones sugeridas'), table(['Grupo', 'Tarjetas', 'Acuerdo'], analytics.clusters.map((cluster) => [cluster.nombre, cluster.tarjetas, `${cluster.acuerdo}%`]), [100, '*', 60])] : []),
-        ],
+        ], unbreakable: JSON.stringify([analytics.porCarta, analytics.clusters]).length < 1600,
       } as Content] : [paragraph('Aún no hay respuestas completadas para calcular resultados.')]),
     ]) ?? [],
     heuristica: report.heuristics?.flatMap((session, i) => {
@@ -127,8 +134,18 @@ function sections(report: ProjectReport): Record<ReportMethod, Content[]> {
   };
 }
 
-export function brandChrome(brand: ReportBrand | undefined, scope: string, generatedAt: Date): Pick<TDocumentDefinitions, 'background' | 'header' | 'footer'> {
+export function buildReportDefinition(report: ProjectReport, brand?: ReportBrand): TDocumentDefinitions {
+  const blocks = sections(report);
+  const counts: Record<ReportMethod, number> = {
+    personas: report.personas?.length ?? 0, journey: report.journeys?.length ?? 0,
+    momentos: report.moments?.length ?? 0, cards: report.cards?.length ?? 0, heuristica: report.heuristics?.length ?? 0,
+  };
+  const scope = report.methods.length === 5 ? 'INFORME COMPLETO' : 'INFORME POR TÉCNICAS';
   return {
+    info: { title: `Informe UX · ${report.project.nombre}`, subject: report.methods.map(({ label }) => label).join(', '), creator: 'UXLab Observatorio' },
+    pageSize: 'A4', pageMargins: [44, 66, 44, 54],
+    defaultStyle: { font: 'Roboto', fontSize: 9.5, lineHeight: 1.2, color: INK },
+    images: brand ? { brandLogo: brand.logo, brandLogoWhite: brand.logoWhite } : {},
     background: (page, size) => page === 1 ? brandBand(size.width, 156) : null,
     header: (page) => page === 1 ? {
       stack: [
@@ -142,26 +159,10 @@ export function brandChrome(brand: ReportBrand | undefined, scope: string, gener
     },
     footer: (page, total) => ({
       columns: [
-        { text: `Evidencia de investigación · ${date(generatedAt)}`, fontSize: 8, color: MUTED },
+        { text: `Evidencia de investigación · ${date(report.generatedAt)}`, fontSize: 8, color: MUTED },
         { text: `${page} / ${total}`, alignment: 'right', fontSize: 8, color: MUTED },
       ], margin: [44, 18, 44, 0],
     }),
-  };
-}
-
-export function buildReportDefinition(report: ProjectReport, brand?: ReportBrand): TDocumentDefinitions {
-  const blocks = sections(report);
-  const counts: Record<ReportMethod, number> = {
-    personas: report.personas?.length ?? 0, journey: report.journeys?.length ?? 0,
-    momentos: report.moments?.length ?? 0, cards: report.cards?.length ?? 0, heuristica: report.heuristics?.length ?? 0,
-  };
-  const scope = report.methods.length === 5 ? 'INFORME COMPLETO' : 'INFORME POR TÉCNICAS';
-  return {
-    info: { title: `Informe UX · ${report.project.nombre}`, subject: report.methods.map(({ label }) => label).join(', '), creator: 'UXLab Observatorio' },
-    pageSize: 'A4', pageMargins: [44, 66, 44, 54],
-    defaultStyle: { font: 'Roboto', fontSize: 9.5, lineHeight: 1.2, color: INK },
-    images: brand ? { brandLogo: brand.logo, brandLogoWhite: brand.logoWhite } : {},
-    ...brandChrome(brand, scope, report.generatedAt),
     content: [
       { text: 'INFORME DE INVESTIGACIÓN UX', style: 'eyebrow', margin: [0, 116, 0, 12] },
       { text: report.project.nombre, fontSize: 32, bold: true, lineHeight: 1.08, margin: [0, 0, 0, 16] },
@@ -191,7 +192,7 @@ export function buildReportDefinition(report: ProjectReport, brand?: ReportBrand
   };
 }
 
-export async function loadBrandImage(path: string): Promise<string> {
+async function loadBrandImage(path: string): Promise<string> {
   const response = await fetch(path);
   if (!response.ok) throw new Error('No pudimos cargar la identidad del informe. Inténtalo nuevamente.');
   const blob = await response.blob();
@@ -203,25 +204,7 @@ export async function loadBrandImage(path: string): Promise<string> {
   });
 }
 
-let cargaPdf: ReturnType<typeof cargarPdfMakeSinCache> | null = null;
-
-// Una sola carga por sesión (pdfmake, fuentes y logos pesan ~1,8 MB); si falla se puede reintentar.
-export function cargarPdfMake() {
-  if (!cargaPdf) {
-    cargaPdf = cargarPdfMakeSinCache().catch((error) => {
-      cargaPdf = null;
-      throw error;
-    });
-  }
-  return cargaPdf;
-}
-
-// Se llama al pasar el mouse o enfocar un botón de exportar, para que el clic ya encuentre todo cargado.
-export function precargarPdf(): void {
-  cargarPdfMake().catch(() => {});
-}
-
-async function cargarPdfMakeSinCache() {
+export async function exportarReportePdf(report: ProjectReport): Promise<void> {
   const [pdfMakeModule, fontContainerModule, logo, logoWhite] = await Promise.all([
     import('pdfmake/build/pdfmake'), import('pdfmake/build/vfs_fonts'),
     loadBrandImage('/brand/uxlab-observatorio.png'), loadBrandImage('/brand/uxlab-observatorio-white.png'),
@@ -229,12 +212,7 @@ async function cargarPdfMakeSinCache() {
   const pdfMake = pdfMakeModule.default ?? pdfMakeModule;
   pdfMake.addVirtualFileSystem(fontContainerModule.default ?? fontContainerModule);
   pdfMake.addFonts({ Roboto: { normal: 'Roboto-Regular.ttf', bold: 'Roboto-Medium.ttf', italics: 'Roboto-Italic.ttf', bolditalics: 'Roboto-MediumItalic.ttf' } });
-  return { pdfMake, brand: { logo, logoWhite } as ReportBrand };
-}
-
-export async function exportarReportePdf(report: ProjectReport): Promise<void> {
-  const { pdfMake, brand } = await cargarPdfMake();
   const slug = report.project.nombre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'proyecto';
   const scope = report.methods.length === 5 ? 'completo' : report.methods.map(({ id }) => id).join('-');
-  await pdfMake.createPdf(buildReportDefinition(report, brand)).download(`observatorio-ux-${slug}-${scope}-${report.generatedAt.toISOString().slice(0, 10)}.pdf`);
+  await pdfMake.createPdf(buildReportDefinition(report, { logo, logoWhite })).download(`observatorio-ux-${slug}-${scope}-${report.generatedAt.toISOString().slice(0, 10)}.pdf`);
 }

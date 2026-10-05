@@ -3,11 +3,11 @@ import { z } from 'zod';
 export const TipoCardSortingSchema = z.enum(['ABIERTO', 'CERRADO', 'HIBRIDO']);
 
 export const CardSortingCardInputSchema = z.object({
-  etiqueta: z.string().trim().min(1, 'Escribe el nombre de cada tarjeta.').max(100),
+  etiqueta: z.string().trim().min(1).max(100),
 });
 
 export const CardSortingCategoryInputSchema = z.object({
-  nombre: z.string().trim().min(1, 'Escribe el nombre de cada categoría.').max(60),
+  nombre: z.string().trim().min(1).max(60),
 });
 
 export const CardSortingQuestionInputSchema = z.object({
@@ -21,23 +21,11 @@ export const CardSortingAnswerInputSchema = z.object({
 
 export const CreateCardSortingSessionPayloadSchema = z.object({
   proyectoId: z.string().uuid(),
-  nombre: z.string().trim().min(1, 'Escribe el nombre del estudio.').max(120),
+  nombre: z.string().trim().min(1).max(120),
   tipo: TipoCardSortingSchema.optional(),
-  tarjetas: z.array(CardSortingCardInputSchema)
-    .min(1, 'Agrega al menos una tarjeta.').max(100)
-    .refine((cards) => new Set(cards.map((card) => card.etiqueta.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es'))).size === cards.length,
-      'Hay tarjetas repetidas. Usa un nombre distinto para cada tarjeta.'),
-  categorias: z.array(CardSortingCategoryInputSchema)
-    .refine((categories) => new Set(categories.map((category) => category.nombre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es'))).size === categories.length,
-      'Hay categorías repetidas. Usa un nombre distinto para cada categoría.')
-    .optional(),
+  tarjetas: z.array(CardSortingCardInputSchema).min(1).max(100),
+  categorias: z.array(CardSortingCategoryInputSchema).optional(),
   preguntas: z.array(CardSortingQuestionInputSchema).max(5).optional(),
-}).refine((study) => study.tipo !== 'CERRADO' || (study.categorias?.length ?? 0) >= 2, {
-  path: ['categorias'],
-  message: 'Agrega al menos dos categorías para el estudio cerrado.',
-}).refine((study) => study.tipo !== 'HIBRIDO' || !!study.categorias?.length, {
-  path: ['categorias'],
-  message: 'Agrega al menos una categoría para el estudio híbrido.',
 });
 
 export const SubmitCardSortingGrupoSchema = z

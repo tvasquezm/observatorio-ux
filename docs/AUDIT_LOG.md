@@ -1,11 +1,5 @@
 # Audit Log
 
-## Corrección de Momentos Críticos (05-10-2026)
-
-En Card Sorting, el cliente del participante enviaba también la cookie del evaluador por usar `fetch` del mismo origen. El endpoint de lectura elegía primero la identidad del evaluador y rechazaba la sesión del participante. Corregido con `credentials: 'omit'` en el cliente del participante, sin cambiar permisos del servidor. Una prueba unitaria y el recorrido completo con ambas identidades en escritorio/móvil verifican la separación.
-
-El formulario habilitaba el envío mientras esperaba adquirir el Bloqueo Pesimista de un `UxArtifact`. Ahora espera el resultado, permanece deshabilitado ante conflicto o pérdida del bloqueo y mantiene `expectedVersion`. Una respuesta tardía no cambia una edición cancelada. Verificado con pruebas de espera, conflicto 409 y edición real versionada en escritorio y móvil; detalle en [integración](integracion-card-sorting-momentos-criticos.md).
-
 Registro de hallazgos de auditoría/troubleshooting y su corrección — bugs
 reales encontrados en código ya escrito, no features nuevas. Cada entrada
 referencia el sprint donde se detectó y dónde queda el detalle completo.
