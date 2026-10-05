@@ -8,6 +8,41 @@ import {
   loginAsStudent,
 } from './helpers';
 
+test('clasifica y consulta resultados sin confundir evaluador y participante', async ({ page }, testInfo) => {
+  await loginAsStudent(page);
+  await page.goto(`/proyectos/${STUDENT_PROJECT_ID}/card-sorting`);
+  await page.locator('summary').filter({ hasText: 'Nuevo estudio' }).click();
+  const nombre = `Card Sorting E2E ${testInfo.project.name}`;
+  await page.getByLabel('Nombre del estudio', { exact: true }).fill(nombre);
+  await page.getByLabel('Pegar lista de tarjetas', { exact: true }).fill('Biblioteca\nCalendario\nAsignaturas');
+  await page.getByRole('button', { name: 'Agregar 3 tarjetas', exact: true }).click();
+  await page.getByRole('button', { name: 'Crear y abrir el workspace →', exact: true }).click();
+  await expect(page.getByRole('heading', { name: nombre, exact: true })).toBeVisible();
+  const workspaceUrl = page.url();
+  await page.locator('summary').filter({ hasText: 'Ver enlace' }).click();
+  const enlace = await page.locator('code').innerText();
+  // La cookie del evaluador sigue presente en este mismo navegador.
+  await page.goto(enlace);
+  await page.getByRole('button', { name: 'Continuar al consentimiento', exact: true }).click();
+  await page.getByRole('button', { name: 'Acepto participar', exact: true }).click();
+  await page.getByRole('button', { name: 'Comenzar', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Nombre', exact: true }).fill('Servicios');
+  await page.getByRole('button', { name: 'Crear', exact: true }).click();
+  for (const tarjeta of ['Biblioteca', 'Calendario', 'Asignaturas']) {
+    await page.getByRole('button', { name: tarjeta, exact: true }).click();
+    await page.getByRole('button', { name: 'Mover aquí', exact: true }).click();
+  }
+  await expectNoPageOverflow(page);
+  await page.getByRole('button', { name: 'Enviar clasificación', exact: true }).click();
+  await expect(page.getByRole('dialog')).toContainText('3 tarjetas');
+  await page.getByRole('button', { name: 'Enviar ahora', exact: true }).click();
+  await expect(page.getByText('Gracias por participar. Tu participación es anónima y ya puedes cerrar esta ventana.', { exact: true })).toBeVisible();
+  await page.goto(`${workspaceUrl}/resultados`);
+  await expect(page.getByRole('tab', { name: 'Tarjetas', exact: true })).toBeVisible();
+  await expect(page.getByText('Biblioteca', { exact: true }).first()).toBeVisible();
+  await expectNoPageOverflow(page);
+});
+
 test('recorre login, proyecto y las cinco técnicas UX', async ({ page }, testInfo) => {
   await loginAsProfessor(page);
   await page.getByRole('link', { name: /Proyectos/ }).first().click();
@@ -87,7 +122,7 @@ test('crea, lee y edita un momento crítico con la API real', async ({ page }, t
   await expect(page.getByRole('alert')).toContainText('Revisa los campos');
   await page.getByLabel('Nombre del perfil de usuario', { exact: true }).fill('Perfil E2E');
   await page.getByLabel('Rol', { exact: true }).fill('Solicitante');
-  const nombre = `Incidente de prueba ${testInfo.project.name}`;
+  const nombre = `Incidente de prueba ${testInfo.project.name} ${Date.now()}`;
   await page.getByLabel('Nombre del incidente 1', { exact: true }).fill(nombre);
   await page.getByLabel('Descripción incidente 1', { exact: true }).fill('No logra completar la tarea.');
   await page.getByLabel('Causa incidente 1', { exact: true }).fill('Hipótesis: instrucciones confusas.');

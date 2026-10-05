@@ -13,6 +13,7 @@ Se integra sobre `main` (4ec8ad6), con el PR #27 como origen del menú, contrast
 - El umbral entre 50 y 95 % recalcula también las agrupaciones; la revisión detectó que en #28 podían seguir usando el consenso original. CSV y PDF reciben el mismo conjunto de datos que la pantalla.
 - Se reutilizan los colores y dependencias actuales; los tokens de los componentes importados se vinculan al tema existente. No se incorpora la renovación de pantallas ajenas al alcance solicitado.
 - La página de privacidad documenta también la preferencia local de alto contraste.
+- La prueba con ambas sesiones presentes detectó que el cliente del participante enviaba también la cookie del evaluador. Se fija `credentials: 'omit'` en ese cliente para que la API use exclusivamente su Bearer, manteniendo los controles del backend. El recorrido completo verifica creación, consentimiento de prueba, clasificación, confirmación y resultados con la API real.
 
 ### Momentos críticos
 
@@ -28,8 +29,8 @@ La edición espera el bloqueo antes de habilitar el guardado, mantiene la versi�
 - `pnpm --filter backend exec prisma generate`: cliente real generado.
 - `pnpm build:all`: contratos, backend y frontend compilados.
 - `pnpm --filter backend test -- --runInBand`: 250 pruebas aprobadas.
-- `pnpm --filter frontend test --maxWorkers=2`: 227 pruebas aprobadas.
-- `pnpm test:e2e`: 10 recorridos aprobados en Chromium de escritorio (1440 px) y móvil (390 px), con PostgreSQL real aislado. Incluyen creación, lectura y edición de momentos críticos, versionado y ausencia de desbordamiento de página.
+- `pnpm --filter frontend test --maxWorkers=2`: 228 pruebas aprobadas.
+- `pnpm test:e2e`: 12 recorridos aprobados en Chromium de escritorio (1440 px) y móvil (390 px), con PostgreSQL real aislado. Incluyen creación, lectura y edición de momentos críticos, versionado, Card Sorting de principio a fin y ausencia de desbordamiento de página.
 - Revisión visual en navegador: lista y formulario de momentos críticos, configuración de Card Sorting con alto contraste, creación de estudio con la API real y navegación. El menú abre con Enter y cierra con Escape devolviendo el foco.
 - `pnpm audit --audit-level high`: sin vulnerabilidades conocidas.
 

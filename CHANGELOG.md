@@ -13,6 +13,8 @@ All notable changes to this project will be documented in this file. See [commit
   valida los campos requeridos, protege borradores y espera el bloqueo de edición.
 * **card-sorting:** recalcula las agrupaciones al explorar otro umbral de consenso;
   conserva los campos ampliados de Journey Map en la exportación de informes.
+* **card-sorting:** evita mezclar la cookie del evaluador con el Bearer del participante
+  al probar un estudio en el mismo navegador; agrega cobertura E2E del flujo completo.
 
 * **persona:** amplía la ficha con rol y relación con el servicio,
   características distintivas, evidencia y validación del perfil.

@@ -10,6 +10,7 @@ y quirúrgicas. No hay archivos inventados desde cero salvo los indicados.
 - `pages/MomentosCriticosPage.tsx`, su prueba y `shared-types/src/domains/momentos-criticos.ts`: validación de campos, conservación de acciones con comas y borradores, lectura sin edición, filtros, matriz y espera del Bloqueo Pesimista.
 - `shared/components/ui/{Icon,InfoTip}.tsx`, `shared/utils/{pdf,pdf-base}.ts` y `styles/theme.css`: reutilizan la interfaz de Card Sorting, conservan los campos de Journey Map en informes y adaptan las nuevas vistas al tema.
 - `features/onboarding/pages/ParticipantCardSortingPage.tsx` y pruebas: progreso de clasificación y confirmación de envío.
+- `shared/api/api-client.ts` y su prueba: omiten la cookie del evaluador al enviar el Bearer del participante; el E2E verifica ambas identidades presentes en el mismo navegador y el flujo completo hasta resultados.
 - `features/legal/pages/PrivacyPage.tsx`: documenta la preferencia local de contraste. `tests/e2e/main-flow.spec.ts`: valida creación y edición con API real en escritorio y móvil.
 - `docs/integracion-card-sorting-momentos-criticos.md`, `README.md` y `CHANGELOG.md`: registran decisiones y evidencia de verificación. Se conservan backend, migraciones y dependencias de `main`.
 
