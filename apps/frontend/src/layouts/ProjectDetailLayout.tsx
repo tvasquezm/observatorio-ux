@@ -56,7 +56,11 @@ export function ProjectDetailLayout() {
         </div>
       </div>
 
-      <details ref={menuRef} className="project-menu">
+      <details ref={menuRef} className="project-menu" onKeyDown={(event) => {
+        if (event.key !== 'Escape') return;
+        event.currentTarget.open = false;
+        event.currentTarget.querySelector('summary')?.focus();
+      }}>
         <summary><span>Secciones del proyecto</span><strong>{currentSection}</strong></summary>
         <nav aria-label="Secciones del proyecto">
           {['Proyecto', 'Técnicas'].map((group) => (

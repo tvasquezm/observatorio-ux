@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { CardSortingAnalytics } from '../api/card-sorting.api';
 import { CardSortingResultsPage } from './CardSortingResultsPage';
@@ -27,6 +27,9 @@ let data: CardSortingAnalytics = {
   ],
   preguntas: [],
 } as unknown as CardSortingAnalytics;
+
+const { exportarEstudioPdf } = vi.hoisted(() => ({ exportarEstudioPdf: vi.fn(async (..._args: unknown[]) => {}) }));
+vi.mock('../card-sorting-pdf', () => ({ exportarEstudioPdf, precargarEstudioPdf: vi.fn() }));
 
 vi.mock('../hooks/useCardSortingQueries', () => ({
   useCardSortingAnalytics: () => ({ data, isLoading: false, error: null, refetch: vi.fn() }),
@@ -78,10 +81,46 @@ describe('CardSortingResultsPage (minimalista)', () => {
     expect(screen.getByRole('tab', { name: 'Tarjetas' }).getAttribute('aria-selected')).toBe('true');
   });
 
-  it('distribución en texto plano: "nombre (n)"', () => {
+  it('cada tarjeta muestra su distribución en porcentaje y su estado de consenso', () => {
     setup();
-    expect(screen.getByText('A (2)')).toBeTruthy();
-    expect(screen.getByText('B (1)')).toBeTruthy();
+    const fila = screen.getByTestId('cs-card-row-Biblioteca');
+    expect(fila).toHaveTextContent('A 67% (2)');
+    expect(fila).toHaveTextContent('B 33% (1)');
+    expect(fila).toHaveTextContent('Consenso · 67%');
+    expect(screen.getByTestId('cs-cards-summary')).toHaveTextContent('1 con consenso');
+  });
+
+  it('tocar una categoría de una tarjeta abre la pestaña Categorías', () => {
+    setup();
+    fireEvent.click(within(screen.getByTestId('cs-card-row-Biblioteca')).getByRole('button', { name: 'A' }));
+    expect(screen.getByRole('tab', { name: 'Categorías' }).getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('KPIs sin subtítulos y "Acuerdo global" con ayuda', () => {
+    setup();
+    expect(screen.queryByText('clasificaciones completadas')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Ayuda: acuerdo global' })).toBeTruthy();
+  });
+
+  it('muestra baja como etiqueta corta con la explicación en la ayuda', () => {
+    setup();
+    expect(screen.getByText('Muestra baja', { selector: 'span:not(.info-tip-panel)' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Ayuda: tamaño de muestra' })).toBeTruthy();
+  });
+
+  it('descargas y actualizar son botones de ícono con nombre accesible', () => {
+    setup();
+    expect(screen.getByRole('button', { name: 'Descargar CSV de esta vista' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Descargar PDF de esta vista' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Descargar PDF de todas las vistas' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Actualizar resultados' })).toBeTruthy();
+  });
+
+  it('pestañas con etiquetas cortas y título con ayuda por vista', () => {
+    setup('/r/e1?vista=results');
+    expect(screen.getByRole('tab', { name: 'Matriz' }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByRole('tab', { name: 'Populares' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Cantidad de ubicaciones' })).toBeTruthy();
   });
 
   it('similitud: la diagonal se marca atenuada', () => {
@@ -128,21 +167,58 @@ describe('CardSortingResultsPage · respuestas del participante', () => {
     expect(screen.getByText('Ayudas: Becas')).toBeTruthy();
   });
 
-  it('descarga el CSV de resultados y el de similitud', async () => {
-    const blobs: Blob[] = [];
-    Object.assign(URL, { createObjectURL: (b: Blob) => { blobs.push(b); return 'blob:x'; }, revokeObjectURL: vi.fn() });
-    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
-    setup();
-    fireEvent.click(screen.getByRole('button', { name: 'Descargar CSV · resultados' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Descargar CSV · similitud' }));
-    expect(click).toHaveBeenCalledTimes(2);
-    const texto = await new Promise<string>((resolve) => {
+  async function leerBlob(blob: Blob) {
+    return new Promise<string>((resolve) => {
       const lector = new FileReader();
       lector.onload = () => resolve(String(lector.result));
-      lector.readAsText(blobs[1]);
+      lector.readAsText(blob);
     });
-    expect(texto).toContain('Tarjeta,Biblioteca,Becas');
-    expect(texto).toContain('Biblioteca,100,40');
+  }
+
+  it('el CSV corresponde a la vista activa, con ";" y nombre de archivo del estudio', async () => {
+    const blobs: Blob[] = [];
+    const nombres: string[] = [];
+    Object.assign(URL, { createObjectURL: (b: Blob) => { blobs.push(b); return 'blob:x'; }, revokeObjectURL: vi.fn() });
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) { nombres.push(this.download); });
+    setup('/r/e1?vista=similarity');
+    fireEvent.click(screen.getByRole('button', { name: 'Descargar CSV de esta vista' }));
+    const texto = await leerBlob(blobs[0]);
+    expect(nombres[0]).toBe('card-sorting-estudio-demo-similarity.csv');
+    expect(texto).toContain('Tarjeta (% similitud);Biblioteca;Becas');
+    expect(texto).toContain('Biblioteca;100;40');
+  });
+
+  it('el CSV de Tarjetas trae estado y categoría principal', async () => {
+    const blobs: Blob[] = [];
+    Object.assign(URL, { createObjectURL: (b: Blob) => { blobs.push(b); return 'blob:x'; }, revokeObjectURL: vi.fn() });
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Descargar CSV de esta vista' }));
+    const texto = await leerBlob(blobs[0]);
+    expect(texto).toContain('Tarjeta;Estado;Categoría principal;% participantes;Participantes;Otras categorías');
+    expect(texto).toContain('Biblioteca;Consenso;A;67;2;B 33%');
+  });
+
+  it('PDF de esta vista y PDF completo piden las vistas correctas', async () => {
+    exportarEstudioPdf.mockClear();
+    setup('/r/e1?vista=participants');
+    fireEvent.click(screen.getByRole('button', { name: 'Descargar PDF de esta vista' }));
+    await waitFor(() => expect(exportarEstudioPdf).toHaveBeenCalledTimes(1));
+    expect(exportarEstudioPdf).toHaveBeenLastCalledWith(data, ['participants'], 'vista');
+    fireEvent.click(screen.getByRole('button', { name: 'Descargar PDF de todas las vistas' }));
+    await waitFor(() => expect(exportarEstudioPdf).toHaveBeenCalledTimes(2));
+    expect(exportarEstudioPdf).toHaveBeenLastCalledWith(
+      data,
+      ['cards', 'categories', 'results', 'popular', 'similarity', 'dendrogram', 'participants'],
+      'todas',
+    );
+  });
+
+  it('si el PDF falla, avisa con un mensaje', async () => {
+    exportarEstudioPdf.mockRejectedValueOnce(new Error('No pudimos cargar la identidad del informe.'));
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Descargar PDF de esta vista' }));
+    expect((await screen.findByRole('alert')).textContent).toContain('No pudimos cargar la identidad');
   });
 
   it('pestaña Dendrograma: dibuja el árbol y lista las uniones en texto', () => {
@@ -158,6 +234,38 @@ describe('CardSortingResultsPage · respuestas del participante', () => {
     data = { ...data, tarjetas: ['Solo'], matrizSimilitud: [[100]] };
     setup();
     expect(screen.queryByRole('tab', { name: 'Dendrograma' })).toBeNull();
+    data = anterior;
+  });
+
+  it('umbral de consenso editable: recalcula la vista y se puede restablecer', () => {
+    setup();
+    expect(screen.getByText(/con consenso ·/)).toHaveTextContent('1 con consenso · 0 sin consenso');
+    const control = screen.getByRole('slider', { name: 'Umbral de consenso' });
+    expect(control).toHaveValue('50');
+    expect(screen.queryByRole('button', { name: /Restablecer/ })).toBeNull();
+
+    fireEvent.change(control, { target: { value: '70' } });
+    expect(screen.getByText(/con consenso ·/)).toHaveTextContent('0 con consenso · 1 sin consenso');
+    fireEvent.click(screen.getByRole('button', { name: 'Restablecer (50%)' }));
+    expect(screen.getByText(/con consenso ·/)).toHaveTextContent('1 con consenso · 0 sin consenso');
+  });
+
+  it('?umbral= se respeta y uno fuera de rango se ignora', () => {
+    setup('/r/e1?umbral=80');
+    expect(screen.getByRole('slider', { name: 'Umbral de consenso' })).toHaveValue('80');
+  });
+
+  it('?umbral=10 (fuera de rango) usa el del curso', () => {
+    setup('/r/e1?umbral=10');
+    expect(screen.getByRole('slider', { name: 'Umbral de consenso' })).toHaveValue('50');
+  });
+
+  it('similitud: marca con borde los pares sobre el umbral', () => {
+    const anterior = data;
+    data = { ...data, matrizSimilitud: [[100, 70], [70, 100]] };
+    const { container } = setup('/r/e1?vista=similarity&umbral=60');
+    expect(screen.getByText('Borde: pares con más de 60% de similitud.')).toBeTruthy();
+    expect(container.querySelectorAll('td.cs-matrix-strong')).toHaveLength(2);
     data = anterior;
   });
 });

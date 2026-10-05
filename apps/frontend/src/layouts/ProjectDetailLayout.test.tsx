@@ -22,6 +22,16 @@ function mount(section = 'card-sorting/study/resultados') {
 beforeEach(() => { state.role = 'ADMIN'; state.owner = 'reviewer'; });
 
 describe('Menú de secciones del proyecto', () => {
+  it('permite abrir con teclado y cerrar con Escape devolviendo el foco', async () => {
+    mount();
+    const summary = screen.getByText('Secciones del proyecto').closest('summary')!;
+    await userEvent.click(summary);
+    expect(summary.closest('details')).toHaveAttribute('open');
+    await userEvent.tab();
+    await userEvent.keyboard('{Escape}');
+    expect(summary.closest('details')).not.toHaveAttribute('open');
+    expect(summary).toHaveFocus();
+  });
   it('muestra la técnica actual y abre todas las secciones sin desplazamiento lateral', async () => {
     mount();
     const summary = screen.getByText('Secciones del proyecto').closest('summary')!;

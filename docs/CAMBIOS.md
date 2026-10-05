@@ -3,6 +3,16 @@
 Todo acá parte de TUS archivos reales que subiste, con ediciones mínimas
 y quirúrgicas. No hay archivos inventados desde cero salvo los indicados.
 
+## Integración de Card Sorting y Momentos Críticos (05-10-2026)
+
+- `features/card-sorting/`, `pages/CardSortingPage.tsx` y sus pruebas: integran la entrada guiada, las vistas y exportaciones de Tomás con validación compartida y desplegables; corrigen el recálculo de agrupaciones según el umbral.
+- `layouts/ProjectDetailLayout.tsx`, `layouts/AppLayout.tsx` y sus pruebas: incorporan el menú por secciones y el alto contraste del PR #27, con cierre mediante Escape.
+- `pages/MomentosCriticosPage.tsx`, su prueba y `shared-types/src/domains/momentos-criticos.ts`: validación de campos, conservación de acciones con comas y borradores, lectura sin edición, filtros, matriz y espera del Bloqueo Pesimista.
+- `shared/components/ui/{Icon,InfoTip}.tsx`, `shared/utils/{pdf,pdf-base}.ts` y `styles/theme.css`: reutilizan la interfaz de Card Sorting, conservan los campos de Journey Map en informes y adaptan las nuevas vistas al tema.
+- `features/onboarding/pages/ParticipantCardSortingPage.tsx` y pruebas: progreso de clasificación y confirmación de envío.
+- `features/legal/pages/PrivacyPage.tsx`: documenta la preferencia local de contraste. `tests/e2e/main-flow.spec.ts`: valida creación y edición con API real en escritorio y móvil.
+- `docs/integracion-card-sorting-momentos-criticos.md`, `README.md` y `CHANGELOG.md`: registran decisiones y evidencia de verificación. Se conservan backend, migraciones y dependencias de `main`.
+
 ## Revisión del PR #22 — Personas y reportes (30-09-2026)
 
 - `apps/frontend/src/pages/PersonasPage.tsx` y `apps/frontend/src/styles/theme.css`:
