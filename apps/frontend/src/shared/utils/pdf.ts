@@ -1,4 +1,4 @@
-import type { Content, ContentCanvas, TDocumentDefinitions } from 'pdfmake/interfaces';
+import type { Content, ContentCanvas, TableCell, TDocumentDefinitions } from 'pdfmake/interfaces';
 import type { ProjectReport, ReportMethod } from '../../features/reports/report-data';
 
 export const INK = '#1f2d4a';
@@ -31,7 +31,7 @@ export function table(headers: string[], rows: unknown[][], widths?: Array<strin
         headers.map((text) => ({ text, bold: true, color: '#ffffff', fillColor: INK, fontSize: compact ? 7 : 9 })),
         ...rows.map((row, index) => row.map((value) => {
           const fillColor = index % 2 ? '#ffffff' : '#f3f5f9';
-          if (value && typeof value === 'object' && !Array.isArray(value)) return { ...(value as object), fillColor };
+          if (value && typeof value === 'object' && !Array.isArray(value)) return { ...(value as object), fillColor } as TableCell;
           return { text: textValue(value), fillColor, ...(compact ? { fontSize: 7.5 } : {}) };
         })),
       ],
