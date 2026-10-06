@@ -2,9 +2,9 @@ import { UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
-import { PrismaService } from '../../../core/database/prisma.service';
-import { AuthService } from '../auth.service';
-import { ParticipanteJwtService } from '../participante-jwt.service';
+import { PrismaService } from '../../../core/database/prisma.service.js';
+import { AuthService } from '../auth.service.js';
+import { ParticipanteJwtService } from '../participante-jwt.service.js';
 
 describe('AuthService.validateTokenPayload — cache de identidad', () => {
   let service: AuthService;

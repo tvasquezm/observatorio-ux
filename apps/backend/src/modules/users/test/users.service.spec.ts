@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
-import { UsersService } from '../users.service';
-import type { AuthenticatedUser } from '../../auth/types/authenticated-user.interface';
+import { UsersService } from '../users.service.js';
+import type { AuthenticatedUser } from '../../auth/types/authenticated-user.interface.js';
 
 describe('UsersService', () => {
   const prisma = {

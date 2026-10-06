@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import type { Request } from 'express';
-import { AuthService } from './auth.service';
+import { AuthService } from './auth.service.js';
 
 // EVALUADOR se autentica exclusivamente por cookie httpOnly `evaluadorToken`
 // (Fase 3 — ver docs/ARCHITECTURE.md), firmada con jwt.secret. PARTICIPANTE

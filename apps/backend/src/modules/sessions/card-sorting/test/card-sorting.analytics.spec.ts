@@ -1,8 +1,8 @@
 import { ActorSesion, EstadoSesion, TipoSesion } from '@prisma/client';
-import { PrismaService } from '../../../../core/database/prisma.service';
-import { ProjectAccessService } from '../../../../core/access/project-access.service';
-import { AuthenticatedUser } from '../../../auth/types/authenticated-user.interface';
-import { CardSortingService } from '../card-sorting.service';
+import { PrismaService } from '../../../../core/database/prisma.service.js';
+import { ProjectAccessService } from '../../../../core/access/project-access.service.js';
+import { AuthenticatedUser } from '../../../auth/types/authenticated-user.interface.js';
+import { CardSortingService } from '../card-sorting.service.js';
 
 describe('CardSortingService analytics y ciclo de vida', () => {
   const user = {

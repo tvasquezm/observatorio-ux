@@ -43,7 +43,7 @@ La interfaz usa un sistema de diseño propio, **Academic Minimalism**: paleta mo
 
 ## Stack tecnológico
 
-- **Backend:** NestJS, Prisma ORM, PostgreSQL, validación con Zod (`nestjs-zod`)
+- **Backend:** NestJS, Prisma ORM, PostgreSQL, validación con `class-validator`
 - **Frontend:** React (Vite), TypeScript, Zustand, TanStack Query, Tailwind CSS
 - **Concurrencia:** bloqueo pesimista con TTL para edición de artefactos (`POST`/`DELETE .../artifacts/:id/lock`) + constraints a nivel de base de datos
 - **Infra:** Docker Compose para desarrollo y despliegue productivo con Nginx como reverse proxy

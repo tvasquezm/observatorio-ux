@@ -1,9 +1,9 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import PdfPrinter from 'pdfmake';
-import { PrismaService } from '../../core/database/prisma.service';
-import { ProjectAccessService } from '../../core/access/project-access.service';
-import { AuthenticatedUser } from '../auth/types/authenticated-user.interface';
-import { ReportsService } from './reports.service';
+import { PrismaService } from '../../core/database/prisma.service.js';
+import { ProjectAccessService } from '../../core/access/project-access.service.js';
+import { AuthenticatedUser } from '../auth/types/authenticated-user.interface.js';
+import { ReportsService } from './reports.service.js';
 
 describe('ReportsService', () => {
   const user: AuthenticatedUser = { id: 'owner', actor: 'EVALUADOR', rol: 'ESTUDIANTE' };

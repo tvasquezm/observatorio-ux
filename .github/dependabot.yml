@@ -13,6 +13,16 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: "chore(deps)"
+    # Saltos mayores bloqueados hasta migrar a mano (Nest: leer su guía de migración). Prisma 7 exige
+    # prisma.config.ts, driver
+    # adapter y generador nuevo. Minor y patch siguen llegando agrupados.
+    ignore:
+      - dependency-name: "@nestjs/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "prisma"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@prisma/client"
+        update-types: ["version-update:semver-major"]
     groups:
       minor-and-patch:
         update-types:

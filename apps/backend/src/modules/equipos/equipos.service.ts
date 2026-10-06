@@ -5,9 +5,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Sala } from '@prisma/client';
-import { PrismaService } from '../../core/database/prisma.service';
-import { AuthenticatedUser } from '../auth/types/authenticated-user.interface';
-import { AddMiembroEquipoDto, CreateEquipoDto, UpdateEquipoDto } from './equipos.dto';
+import { PrismaService } from '../../core/database/prisma.service.js';
+import { AuthenticatedUser } from '../auth/types/authenticated-user.interface.js';
+import { AddMiembroEquipoDto, CreateEquipoDto, UpdateEquipoDto } from './equipos.dto.js';
 
 @Injectable()
 export class EquiposService {

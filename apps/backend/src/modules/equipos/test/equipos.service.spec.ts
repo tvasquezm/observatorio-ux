@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
-import { EquiposService } from '../equipos.service';
-import { PrismaService } from '../../../core/database/prisma.service';
+import { EquiposService } from '../equipos.service.js';
+import { PrismaService } from '../../../core/database/prisma.service.js';
 
 describe('EquiposService', () => {
   let service: EquiposService;

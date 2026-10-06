@@ -3,17 +3,17 @@ import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
 import { randomBytes } from 'crypto';
 import type { Response } from 'express';
-import { CurrentUser } from './decorators/current-user.decorator';
-import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
-import { AuthService } from './auth.service';
+import { CurrentUser } from './decorators/current-user.decorator.js';
+import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard.js';
+import { AuthService } from './auth.service.js';
 import {
   LoginDto,
   ParticipantAccessDto,
   ParticipantTokenDto,
   RegisterParticipantDto,
   RegisterParticipantConsentDto,
-} from './auth.dto';
-import type { AuthenticatedUser } from './types/authenticated-user.interface';
+} from './auth.dto.js';
+import type { AuthenticatedUser } from './types/authenticated-user.interface.js';
 
 // Los E2E recorren dos viewports y pueden repetir un caso fallido. Se evita
 // que el propio runner se bloquee por IP sin relajar el límite de producción.

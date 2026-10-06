@@ -7,10 +7,10 @@ import {
 } from '@nestjs/common';
 import { EstadoSesion, Prisma, TipoSesion } from '@prisma/client';
 import { randomUUID } from 'crypto';
-import { PrismaService } from '../../../core/database/prisma.service';
-import { ProjectAccessService } from '../../../core/access/project-access.service';
-import { AuthenticatedUser } from '../../auth/types/authenticated-user.interface';
-import { HeuristicaDto } from './dto/heuristica.dto';
+import { PrismaService } from '../../../core/database/prisma.service.js';
+import { ProjectAccessService } from '../../../core/access/project-access.service.js';
+import { AuthenticatedUser } from '../../auth/types/authenticated-user.interface.js';
+import { HeuristicaDto } from './dto/heuristica.dto.js';
 
 export interface HeuristicFinding {
   id: string;

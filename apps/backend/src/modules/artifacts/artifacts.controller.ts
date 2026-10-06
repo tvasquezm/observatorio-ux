@@ -11,17 +11,17 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { TipoArtefacto } from '@prisma/client';
-import { CurrentUser } from '../../core/decorators/current-user.decorator';
-import { Roles } from '../../core/decorators/roles.decorator';
-import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
-import { RolesGuard } from '../../core/guards/roles.guard';
-import { AuthenticatedUser } from '../auth/types/authenticated-user.interface';
+import { CurrentUser } from '../../core/decorators/current-user.decorator.js';
+import { Roles } from '../../core/decorators/roles.decorator.js';
+import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard.js';
+import { RolesGuard } from '../../core/guards/roles.guard.js';
+import { AuthenticatedUser } from '../auth/types/authenticated-user.interface.js';
 import {
   AcquireLockDto,
   CreateArtifactDto,
   CreateArtifactVersionDto,
-} from './artifacts.dto';
-import { ArtifactsService } from './artifacts.service';
+} from './artifacts.dto.js';
+import { ArtifactsService } from './artifacts.service.js';
 
 @ApiTags('ux-artifacts')
 @ApiBearerAuth()

@@ -12,15 +12,15 @@ import {
   TipoCardSorting,
   TipoSesion,
 } from '@prisma/client';
-import { PrismaService } from '../../../core/database/prisma.service';
-import { ProjectAccessService } from '../../../core/access/project-access.service';
-import { AuthenticatedUser } from '../../auth/types/authenticated-user.interface';
+import { PrismaService } from '../../../core/database/prisma.service.js';
+import { ProjectAccessService } from '../../../core/access/project-access.service.js';
+import { AuthenticatedUser } from '../../auth/types/authenticated-user.interface.js';
 import { CreateCardSortingSessionPayloadSchema } from '@observatorio-ux/shared-types';
 import {
   CardSortingTypeDto,
   CreateCardSortingSessionDto,
-} from './dto/card-sorting.dto';
-import { normalizarTexto, validarEntradaEstudio, validarPreguntas } from './card-sorting-input';
+} from './dto/card-sorting.dto.js';
+import { normalizarTexto, validarEntradaEstudio, validarPreguntas } from './card-sorting-input.js';
 
 // Criterio del curso (no estándar de la industria): una tarjeta tiene consenso
 // si más del 50% de los participantes la ubicó en la misma categoría.

@@ -1,4 +1,4 @@
-import * as Joi from 'joi';
+import Joi from 'joi';
 
 export const envValidationSchema = Joi.object({
   // Antes tenía `.default('development')`. Eso significa que si en
