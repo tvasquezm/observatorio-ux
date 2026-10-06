@@ -8,6 +8,7 @@ import {
 } from '../../projects/hooks/useProjectsQueries';
 import type { AdminProjectOverview } from '../../projects/api/projects.api';
 import { useConfirm } from '../../../shared/api/confirm';
+import { useDiscardChanges } from '../../../shared/hooks/useDiscardChanges';
 
 function ProjectProgress({ project }: { project: AdminProjectOverview }) {
   const total = project.sesiones.length;
@@ -36,6 +37,12 @@ export function AdminProjectsPanel() {
   const [description, setDescription] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editing, setEditing] = useState({ nombre: '', descripcion: '' });
+  const { confirmDiscard } = useDiscardChanges(creating || editingId !== null, { name, description, editing }, createProject.isPending || updateProject.isPending, editingId ?? 'new');
+  async function closeEditor() {
+    if (!(await confirmDiscard())) return false;
+    setCreating(false); setEditingId(null); setName(''); setDescription(''); setEditing({ nombre: '', descripcion: '' });
+    return true;
+  }
 
   function handleCreate(event: React.FormEvent) {
     event.preventDefault();
@@ -52,7 +59,8 @@ export function AdminProjectsPanel() {
     );
   }
 
-  function startEditing(project: AdminProjectOverview) {
+  async function startEditing(project: AdminProjectOverview) {
+    if (!(await closeEditor())) return;
     setEditingId(project.id);
     setEditing({ nombre: project.nombre, descripcion: project.descripcion ?? '' });
   }
@@ -88,7 +96,10 @@ export function AdminProjectsPanel() {
         </div>
         <div className="page-head-actions">
           <span className="count">{projects?.length ?? 0}</span>
-          <button type="button" className="primary" onClick={() => setCreating((value) => !value)}>
+          <button type="button" className="primary" onClick={async () => {
+            const wasCreating = creating;
+            if (await closeEditor()) setCreating(!wasCreating);
+          }}>
             Nuevo proyecto
           </button>
         </div>
@@ -105,7 +116,7 @@ export function AdminProjectsPanel() {
             <input id="admin-project-description" value={description} onChange={(event) => setDescription(event.target.value)} />
           </label>
           <div className="form-actions">
-            <button type="button" className="secondary" onClick={() => setCreating(false)}>Cancelar</button>
+            <button type="button" className="secondary" onClick={() => void closeEditor()}>Cancelar</button>
             <button type="submit" className="primary" disabled={createProject.isPending}>
               {createProject.isPending ? 'Creando…' : 'Crear proyecto'}
             </button>
@@ -142,7 +153,7 @@ export function AdminProjectsPanel() {
                         <input id={`project-description-${project.id}`} value={editing.descripcion} onChange={(event) => setEditing({ ...editing, descripcion: event.target.value })} placeholder="Descripción" />
                         <div className="form-actions">
                           <button className="primary" disabled={updateProject.isPending}>Guardar</button>
-                          <button type="button" className="secondary" onClick={() => setEditingId(null)}>Cancelar</button>
+                          <button type="button" className="secondary" onClick={() => void closeEditor()}>Cancelar</button>
                         </div>
                       </form>
                     ) : (

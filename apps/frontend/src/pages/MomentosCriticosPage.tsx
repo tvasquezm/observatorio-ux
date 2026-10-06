@@ -79,12 +79,10 @@ export function MomentosCriticosPage() {
   const [errores, setErrores] = useState<Record<string, string>>({});
   const [busqueda, setBusqueda] = useState('');
   const [tipoFiltro, setTipoFiltro] = useState('Todos');
-  const baseline = useRef('');
   const editRequest = useRef(0);
   const isSaving = isCreating || isUpdating;
   const disabled = isSaving || lockPending || readOnly || editLock.lockLost;
-  const snapshot = JSON.stringify({ form, accionesInputs });
-  useUnsavedChanges(mostrarForm, { form, accionesInputs }, isSaving);
+  const { confirmDiscard } = useUnsavedChanges(mostrarForm, { form, accionesInputs }, isSaving, editando?.id ?? 'new');
 
   function resetForm() {
     editRequest.current += 1;
@@ -99,21 +97,15 @@ export function MomentosCriticosPage() {
   }
   async function cancelar() {
     if (isSaving) return;
-    if (
-      snapshot !== baseline.current &&
-      !(await confirm('Tienes cambios sin guardar. ¿Quieres descartarlos?'))
-    )
-      return;
+    if (!(await confirmDiscard())) return;
     resetForm();
   }
   function nuevo() {
-    baseline.current = snapshot;
     setMostrarForm(true);
   }
   async function handleStartEdit(m: MomentosCriticosArtifact) {
     if (mostrarForm || !puedeEditar) return;
     const acciones = m.contenido.incidentes.map((inc) => inc.accionesSugeridas.join('\n'));
-    baseline.current = JSON.stringify({ form: m.contenido, accionesInputs: acciones });
     setEditando(m);
     setForm(m.contenido);
     setAccionesInputs(acciones);

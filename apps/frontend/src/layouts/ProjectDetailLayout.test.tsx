@@ -39,8 +39,8 @@ describe('Menú de secciones del proyecto', () => {
     expect(summary.closest('details')).not.toHaveAttribute('open');
     await userEvent.click(summary);
     const nav = screen.getByRole('navigation', { name: 'Secciones del proyecto' });
-    for (const name of ['Resumen', 'Personas', 'Journey Map', 'Momentos Críticos',
-      'Card Sorting', 'Evaluación Heurística', 'Comentarios', 'Analítica', 'Miembros', 'Participantes']) {
+    for (const name of ['Resumen', 'Personas', 'Journey Map', 'Momentos críticos',
+      'Card Sorting', 'Evaluación heurística', 'Comentarios', 'Analítica', 'Miembros', 'Participantes']) {
       expect(within(nav).getByRole('link', { name })).toBeVisible();
     }
   });
@@ -53,6 +53,14 @@ describe('Menú de secciones del proyecto', () => {
     expect(router.state.location.pathname).toBe('/proyectos/p1/journey-map');
     expect(summary.closest('details')).not.toHaveAttribute('open');
     expect(within(summary).getByText('Journey Map')).toBeInTheDocument();
+  });
+  it('identifica la pantalla con un título y una ruta de navegación', () => {
+    mount('journey-map');
+    expect(document.title).toBe('Journey Map · Proyecto UX · Observatorio UX');
+    const crumbs = screen.getByRole('navigation', { name: 'Ubicación del proyecto' });
+    expect(within(crumbs).getByRole('link', { name: 'Proyectos' })).toHaveAttribute('href', '/proyectos');
+    expect(within(crumbs).getByRole('link', { name: 'Proyecto UX' })).toHaveAttribute('href', '/proyectos/p1');
+    expect(within(crumbs).getByText('Journey Map')).toHaveAttribute('aria-current', 'page');
   });
 
   it('mantiene las restricciones de analítica y participantes para un estudiante que no es dueño', async () => {

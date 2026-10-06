@@ -53,21 +53,23 @@ test('recorre login, proyecto y las cinco técnicas UX', async ({ page }, testIn
   const techniques = [
     ['Personas', 'Personas'],
     ['Journey Map', 'Journey Maps'],
-    ['Momentos Críticos', 'Momentos críticos'],
+    ['Momentos críticos', 'Momentos críticos'],
     ['Card Sorting', 'Card Sorting'],
-    ['Evaluación Heurística', 'Hallazgos heurísticos'],
+    ['Evaluación heurística', 'Hallazgos heurísticos'],
   ] as const;
 
   const projectMenu = page.locator('.project-menu');
+  const mobile = testInfo.project.name === 'mobile-chromium';
   for (const [linkName, headingName] of techniques) {
-    await projectMenu.locator('summary').click();
+    if (mobile) await projectMenu.locator('summary').click();
     await projectMenu.getByRole('link', { name: linkName, exact: true }).click();
-    await expect(projectMenu).not.toHaveAttribute('open', '');
+    if (mobile) await expect(projectMenu).not.toHaveAttribute('open', '');
+    else await expect(projectMenu).toHaveAttribute('open', '');
     await expect(page.getByRole('heading', { name: headingName, exact: true }).first()).toBeVisible();
     await expectNoPageOverflow(page);
   }
 
-  await projectMenu.locator('summary').click();
+  if (mobile) await projectMenu.locator('summary').click();
   await projectMenu.getByRole('link', { name: 'Analítica', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Analítica general' })).toBeVisible();
   await expectNoPageOverflow(page);
@@ -81,7 +83,7 @@ test('recorre login, proyecto y las cinco técnicas UX', async ({ page }, testIn
     await expectInsideViewport(page, sidebar.getByRole('img', { name: 'UXLab' }));
     await expectInsideViewport(page, sidebar.getByRole('button', { name: 'Salir' }));
 
-    for (const name of ['Dashboard', 'Proyectos', 'Salas']) {
+    for (const name of ['Inicio', 'Proyectos', 'Salas']) {
       const link = sidebar.getByRole('link', { name: new RegExp(name) });
       const box = await link.boundingBox();
       expect(box?.height).toBeGreaterThanOrEqual(44);
