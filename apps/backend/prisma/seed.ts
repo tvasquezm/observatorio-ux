@@ -8,9 +8,12 @@ import {
   TipoCardSorting,
   TipoSesion,
 } from '../src/generated/prisma/client.js';
+import { PrismaPg } from '@prisma/adapter-pg';
 import bcrypt from 'bcrypt';
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+});
 const demoPassword = process.env.SEED_PASSWORD || 'Demo1234!';
 const projectId = '2220b224-865d-4230-a484-19338c66b9e6';
 
