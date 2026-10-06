@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Sala } from '@prisma/client';
+import { Sala } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../core/database/prisma.service.js';
 import { AuthenticatedUser } from '../auth/types/authenticated-user.interface.js';
 import { AddMiembroEquipoDto, CreateEquipoDto, UpdateEquipoDto } from './equipos.dto.js';

@@ -1,4 +1,4 @@
-import { TipoArtefacto } from '@prisma/client';
+import { TipoArtefacto } from '../../generated/prisma/client.js';
 import {
   IsEnum,
   IsInt,

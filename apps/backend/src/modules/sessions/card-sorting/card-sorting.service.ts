@@ -11,7 +11,7 @@ import {
   Prisma,
   TipoCardSorting,
   TipoSesion,
-} from '@prisma/client';
+} from '../../../generated/prisma/client.js';
 import { PrismaService } from '../../../core/database/prisma.service.js';
 import { ProjectAccessService } from '../../../core/access/project-access.service.js';
 import { AuthenticatedUser } from '../../auth/types/authenticated-user.interface.js';

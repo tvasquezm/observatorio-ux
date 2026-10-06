@@ -1,7 +1,11 @@
-const { PrismaClient, Rol } = require('@prisma/client');
-const bcrypt = require('bcrypt');
+import 'dotenv/config';
+import { PrismaClient, Rol } from '../src/generated/prisma/client.js';
+import { createPrismaAdapter } from './adapter.js';
+import bcrypt from 'bcrypt';
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  adapter: createPrismaAdapter(),
+});
 
 async function main() {
   // H3: mismo guard que prisma/seed.ts — este script no debe correr en

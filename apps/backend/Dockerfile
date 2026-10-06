@@ -62,16 +62,16 @@ RUN pnpm install --prod --frozen-lockfile
 
 COPY --from=build /app/apps/backend/dist ./apps/backend/dist
 COPY --from=build /app/apps/backend/prisma ./apps/backend/prisma
+COPY --from=build /app/apps/backend/prisma.config.ts ./apps/backend/prisma.config.ts
+COPY --from=build /app/apps/backend/src/generated ./apps/backend/src/generated
 COPY --from=build /app/packages/shared-types/dist ./packages/shared-types/dist
 COPY apps/backend/entrypoint.prod.sh ./apps/backend/entrypoint.prod.sh
 
-# H7 fix: el pnpm install --prod de arriba dispara el postinstall de
-# @prisma/client antes de que el schema exista en esta etapa (recién se
-# copia una línea más arriba) — deja instalado el cliente genérico, sin
-# los enums/modelos del schema real (ej. TipoArtefacto queda undefined y
-# revienta @IsEnum en artifacts.dto.ts al arrancar). Se genera explícito
-# acá, ya con el schema real disponible.
-RUN pnpm --filter backend exec prisma generate
+# Prisma 7: el cliente se genera en apps/backend/src/generated (no en
+# node_modules), así que `pnpm install --prod` no lo pisa. Ya viene compilado
+# dentro de dist; el código fuente generado se copia de la etapa `build` para
+# que `tsx prisma/seed.ts` y `tsx prisma/bootstrap-admin.ts` lo importen.
+# prisma.config.ts lo necesita `prisma migrate deploy` (entrypoint.prod.sh).
 
 RUN chmod +x apps/backend/entrypoint.prod.sh \
     && chown -R node:node /app

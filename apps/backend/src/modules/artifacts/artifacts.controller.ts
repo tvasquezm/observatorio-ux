@@ -10,7 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { TipoArtefacto } from '@prisma/client';
+import { TipoArtefacto } from '../../generated/prisma/client.js';
 import { CurrentUser } from '../../core/decorators/current-user.decorator.js';
 import { Roles } from '../../core/decorators/roles.decorator.js';
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard.js';

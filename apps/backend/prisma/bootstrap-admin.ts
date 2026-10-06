@@ -10,10 +10,13 @@
 //      pnpm run bootstrap:admin
 
 import 'dotenv/config';
-import { PrismaClient, Rol } from '@prisma/client';
+import { PrismaClient, Rol } from '../src/generated/prisma/client.js';
+import { createPrismaAdapter } from './adapter.js';
 import bcrypt from 'bcrypt';
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  adapter: createPrismaAdapter(),
+});
 
 async function main() {
   const email = process.env.BOOTSTRAP_ADMIN_EMAIL;

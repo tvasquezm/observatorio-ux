@@ -1,7 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { ActorSesion, EstadoSesion, TipoSesion } from '@prisma/client';
+import { ActorSesion, EstadoSesion, TipoSesion } from '../../../../generated/prisma/client.js';
 import { PrismaService } from '../../../../core/database/prisma.service.js';
 import { ProjectAccessService } from '../../../../core/access/project-access.service.js';
 import { AuthenticatedUser } from '../../../auth/types/authenticated-user.interface.js';

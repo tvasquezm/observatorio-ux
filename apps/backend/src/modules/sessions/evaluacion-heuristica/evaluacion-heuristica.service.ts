@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { EstadoSesion, Prisma, TipoSesion } from '@prisma/client';
+import { EstadoSesion, Prisma, TipoSesion } from '../../../generated/prisma/client.js';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../../../core/database/prisma.service.js';
 import { ProjectAccessService } from '../../../core/access/project-access.service.js';

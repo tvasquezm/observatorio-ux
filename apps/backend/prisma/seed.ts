@@ -7,10 +7,13 @@ import {
   TipoArtefacto,
   TipoCardSorting,
   TipoSesion,
-} from '@prisma/client';
+} from '../src/generated/prisma/client.js';
+import { createPrismaAdapter } from './adapter.js';
 import bcrypt from 'bcrypt';
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  adapter: createPrismaAdapter(),
+});
 const demoPassword = process.env.SEED_PASSWORD || 'Demo1234!';
 const projectId = '2220b224-865d-4230-a484-19338c66b9e6';
 
