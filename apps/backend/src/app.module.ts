@@ -33,6 +33,11 @@ import { UsersModule } from './modules/users/users.module.js';
     // más estricto — ver auth.controller.ts.
     ThrottlerModule.forRoot({
       throttlers: [{ name: 'default', ttl: 60_000, limit: 60 }],
+      // Solo para pruebas de carga (tests/load): LOAD_TEST=true apaga el
+      // throttle, y nunca aplica con NODE_ENV=production.
+      skipIf: () =>
+        process.env.LOAD_TEST === 'true' &&
+        process.env.NODE_ENV !== 'production',
     }),
     DatabaseModule,
     ProjectAccessModule,

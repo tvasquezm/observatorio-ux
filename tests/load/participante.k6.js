@@ -12,17 +12,24 @@
 // consistente con H1 (deuda técnica, topología de un solo salto) y este
 // script lo mide, no lo evita.
 //
-// Uso:
-//   BASE_URL=http://localhost \
-//   PROYECTO_ID=<uuid> \
-//   ESTUDIO_ID=<uuid> \
+// Uso (seed demo: PROYECTO_ID y ESTUDIO_ID de abajo):
+//   FASE=smoke|baseline|load|stress|spike|soak \
+//   BASE_URL=http://localhost:3000 \
+//   PROYECTO_ID=f1e1b6a1-0001-4a11-9c00-000000000002 \
+//   ESTUDIO_ID=f1e1b6a1-0002-4a11-9c00-000000000003 \
 //   k6 run tests/load/participante.k6.js
+//
+// Cada iteración crea un participante nuevo: subir
+// PARTICIPANTS_ACCESS_LIMIT_PER_HOUR en el backend (default 300 por
+// proyecto) o las pruebas largas toparán con 429.
 
 import http from 'k6/http';
 import { check, fail } from 'k6';
-import { Rate, Trend } from 'k6/metrics';
+import { Trend } from 'k6/metrics';
+import { BASE_URL, FASE, pensar } from './lib/config.js';
+import { etapas, umbrales } from './lib/fases.js';
+import { flowErrors } from './lib/metricas.js';
 
-const BASE_URL = __ENV.BASE_URL || 'http://localhost';
 const PROYECTO_ID = __ENV.PROYECTO_ID;
 const ESTUDIO_ID = __ENV.ESTUDIO_ID;
 const CONSENT_VERSION = __ENV.CONSENT_VERSION || '1.0';
@@ -31,7 +38,6 @@ if (!PROYECTO_ID || !ESTUDIO_ID) {
   fail('Faltan PROYECTO_ID y/o ESTUDIO_ID (env vars).');
 }
 
-const flowErrors = new Rate('flow_errors');
 const joinDuration = new Trend('join_duration', true);
 const resultsDuration = new Trend('results_duration', true);
 
@@ -39,21 +45,12 @@ export const options = {
   scenarios: {
     participante_flow: {
       executor: 'ramping-vus',
+      exec: 'participante',
       startVUs: 0,
-      stages: [
-        { duration: '30s', target: 50 },
-        { duration: '30s', target: 120 },
-        { duration: '1m', target: 200 },
-        { duration: '2m', target: 200 },
-        { duration: '30s', target: 0 },
-      ],
+      stages: etapas(FASE),
     },
   },
-  thresholds: {
-    http_req_failed: ['rate<0.05'],
-    http_req_duration: ['p(95)<800'],
-    flow_errors: ['rate<0.05'],
-  },
+  thresholds: { ...umbrales(FASE), flow_errors: ['rate<0.05'] },
 };
 
 const jsonHeaders = { 'Content-Type': 'application/json' };
@@ -65,7 +62,7 @@ function step(res, label) {
   return ok;
 }
 
-export default function () {
+export function participante() {
   // 1. access: crea al participante y devuelve access_token + resume_token.
   const accessRes = http.post(
     `${BASE_URL}/api/auth/participants/access`,
@@ -112,6 +109,7 @@ export default function () {
   joinDuration.add(joinRes.timings.duration);
   if (!step(joinRes, 'join')) return;
   const session = joinRes.json();
+  pensar(); // tiempo de ordenar las tarjetas
 
   const cards = session.cardsDefinidas || [];
   const categorias = session.categoriasDefinidas || [];
@@ -148,3 +146,5 @@ export default function () {
   resultsDuration.add(resultsRes.timings.duration);
   step(resultsRes, 'results');
 }
+
+export default participante;
