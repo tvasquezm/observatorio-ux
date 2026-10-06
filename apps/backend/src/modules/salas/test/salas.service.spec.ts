@@ -1,8 +1,8 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { PrismaService } from '../../../core/database/prisma.service';
-import type { AuthenticatedUser } from '../../auth/types/authenticated-user.interface';
-import { SalasService } from '../salas.service';
+import { PrismaService } from '../../../core/database/prisma.service.js';
+import type { AuthenticatedUser } from '../../auth/types/authenticated-user.interface.js';
+import { SalasService } from '../salas.service.js';
 
 describe('SalasService', () => {
   let service: SalasService;

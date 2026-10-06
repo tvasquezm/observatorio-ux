@@ -9,13 +9,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { CurrentUser } from '../../../core/decorators/current-user.decorator';
-import { Roles } from '../../../core/decorators/roles.decorator';
-import { JwtAuthGuard } from '../../../core/guards/jwt-auth.guard';
-import { RolesGuard } from '../../../core/guards/roles.guard';
-import { AuthenticatedUser } from '../../auth/types/authenticated-user.interface';
-import { HeuristicaDto } from './dto/heuristica.dto';
-import { EvaluacionHeuristicaService } from './evaluacion-heuristica.service';
+import { CurrentUser } from '../../../core/decorators/current-user.decorator.js';
+import { Roles } from '../../../core/decorators/roles.decorator.js';
+import { JwtAuthGuard } from '../../../core/guards/jwt-auth.guard.js';
+import { RolesGuard } from '../../../core/guards/roles.guard.js';
+import { AuthenticatedUser } from '../../auth/types/authenticated-user.interface.js';
+import { HeuristicaDto } from './dto/heuristica.dto.js';
+import { EvaluacionHeuristicaService } from './evaluacion-heuristica.service.js';
 
 @ApiTags('evaluacion-heuristica')
 @ApiBearerAuth()

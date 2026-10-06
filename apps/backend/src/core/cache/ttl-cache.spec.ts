@@ -1,4 +1,4 @@
-import { TtlCache } from './ttl-cache';
+import { TtlCache } from './ttl-cache.js';
 
 describe('TtlCache', () => {
   let now: number;

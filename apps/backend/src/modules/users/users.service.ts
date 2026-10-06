@@ -4,11 +4,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import * as bcrypt from 'bcrypt';
-import { PrismaService } from '../../core/database/prisma.service';
-import { CreateDocenteDto, UpdateUserRoleDto } from './dto/user.dto';
-import type { AuthenticatedUser } from '../auth/types/authenticated-user.interface';
-import { AuthService } from '../auth/auth.service';
+import bcrypt from 'bcrypt';
+import { PrismaService } from '../../core/database/prisma.service.js';
+import { CreateDocenteDto, UpdateUserRoleDto } from './dto/user.dto.js';
+import type { AuthenticatedUser } from '../auth/types/authenticated-user.interface.js';
+import { AuthService } from '../auth/auth.service.js';
 
 @Injectable()
 export class UsersService {

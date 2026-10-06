@@ -3,8 +3,8 @@
 // tests fijan ese contrato en el `where` real que se manda a Prisma.
 
 import { Test } from '@nestjs/testing';
-import { ParticipantesCleanupService } from '../participantes-cleanup.service';
-import { PrismaService } from '../../../core/database/prisma.service';
+import { ParticipantesCleanupService } from '../participantes-cleanup.service.js';
+import { PrismaService } from '../../../core/database/prisma.service.js';
 
 describe('ParticipantesCleanupService.limpiarHuerfanos', () => {
   let service: ParticipantesCleanupService;

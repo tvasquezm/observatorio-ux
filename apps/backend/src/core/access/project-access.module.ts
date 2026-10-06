@@ -1,5 +1,5 @@
 import { Global, Module } from '@nestjs/common';
-import { ProjectAccessService } from './project-access.service';
+import { ProjectAccessService } from './project-access.service.js';
 
 @Global()
 @Module({

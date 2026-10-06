@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
-import { SalasController } from './salas.controller';
-import { SalasService } from './salas.service';
-import { DatabaseModule } from '../../core/database/database.module';
+import { SalasController } from './salas.controller.js';
+import { SalasService } from './salas.service.js';
+import { DatabaseModule } from '../../core/database/database.module.js';
 
 @Module({
   imports: [DatabaseModule],

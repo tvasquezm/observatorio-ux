@@ -4,10 +4,10 @@
 
 import { Test } from '@nestjs/testing';
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
-import { ProjectsService } from '../projects.service';
-import { PrismaService } from '../../../core/database/prisma.service';
-import { ProjectAccessService } from '../../../core/access/project-access.service';
-import { AuthenticatedUser } from '../../auth/types/authenticated-user.interface';
+import { ProjectsService } from '../projects.service.js';
+import { PrismaService } from '../../../core/database/prisma.service.js';
+import { ProjectAccessService } from '../../../core/access/project-access.service.js';
+import { AuthenticatedUser } from '../../auth/types/authenticated-user.interface.js';
 
 describe('ProjectsService', () => {
   let service: ProjectsService;

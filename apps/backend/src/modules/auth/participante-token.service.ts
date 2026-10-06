@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { AuthService } from './auth.service';
+import { AuthService } from './auth.service.js';
 
 /** Compatibilidad para consumidores antiguos; la emisión vive en AuthService. */
 @Injectable()

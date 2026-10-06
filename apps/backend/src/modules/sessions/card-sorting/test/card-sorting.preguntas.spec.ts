@@ -2,15 +2,15 @@ import { BadRequestException } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { ActorSesion, EstadoSesion, TipoSesion } from '@prisma/client';
-import { PrismaService } from '../../../../core/database/prisma.service';
-import { ProjectAccessService } from '../../../../core/access/project-access.service';
-import { AuthenticatedUser } from '../../../auth/types/authenticated-user.interface';
-import { CardSortingService } from '../card-sorting.service';
+import { PrismaService } from '../../../../core/database/prisma.service.js';
+import { ProjectAccessService } from '../../../../core/access/project-access.service.js';
+import { AuthenticatedUser } from '../../../auth/types/authenticated-user.interface.js';
+import { CardSortingService } from '../card-sorting.service.js';
 import {
   CreateCardSortingSessionDto,
   SubmitCardSortingResultDto,
-} from '../dto/card-sorting.dto';
-import { validarPreguntas } from '../card-sorting-input';
+} from '../dto/card-sorting.dto.js';
+import { validarPreguntas } from '../card-sorting-input.js';
 
 const UUID_A = '3f2b8f0e-5c1d-4e3a-9a77-2d6f4b1c9e10';
 const UUID_B = '4a1c9d2e-6b7f-4c3d-8e51-7f2a3b4c5d6e';

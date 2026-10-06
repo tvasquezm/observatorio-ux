@@ -7,10 +7,10 @@
 import { Test } from '@nestjs/testing';
 import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { ActorSesion, EstadoSesion, TipoSesion } from '@prisma/client';
-import { CardSortingService } from '../card-sorting.service';
-import { PrismaService } from '../../../../core/database/prisma.service';
-import { ProjectAccessService } from '../../../../core/access/project-access.service';
-import { AuthenticatedUser } from '../../../auth/types/authenticated-user.interface';
+import { CardSortingService } from '../card-sorting.service.js';
+import { PrismaService } from '../../../../core/database/prisma.service.js';
+import { ProjectAccessService } from '../../../../core/access/project-access.service.js';
+import { AuthenticatedUser } from '../../../auth/types/authenticated-user.interface.js';
 
 describe('CardSortingService.submitResult', () => {
   let service: CardSortingService;

@@ -9,7 +9,7 @@ import {
   ParseUUIDPipe,
   UseGuards,
 } from '@nestjs/common';
-import { SalasService } from './salas.service';
+import { SalasService } from './salas.service.js';
 import {
   BulkCreateSalaEstudiantesDto,
   ConfirmHardDeleteDto,
@@ -18,12 +18,12 @@ import {
   CreateSalaEstudianteDto,
   UpdateSalaDto,
   UpdateSalaEstudianteDto,
-} from './dto/sala.dto';
-import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
-import { RolesGuard } from '../../core/guards/roles.guard';
-import { Roles } from '../../core/decorators/roles.decorator';
-import { CurrentUser } from '../../core/decorators/current-user.decorator';
-import { AuthenticatedUser } from '../auth/types/authenticated-user.interface';
+} from './dto/sala.dto.js';
+import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard.js';
+import { RolesGuard } from '../../core/guards/roles.guard.js';
+import { Roles } from '../../core/decorators/roles.decorator.js';
+import { CurrentUser } from '../../core/decorators/current-user.decorator.js';
+import { AuthenticatedUser } from '../auth/types/authenticated-user.interface.js';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('salas')

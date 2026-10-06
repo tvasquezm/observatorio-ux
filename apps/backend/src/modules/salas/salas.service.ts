@@ -6,8 +6,8 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { PrismaService } from '../../core/database/prisma.service'; // o tu ruta de prisma service
-import { AuthenticatedUser } from '../auth/types/authenticated-user.interface';
+import { PrismaService } from '../../core/database/prisma.service.js'; // o tu ruta de prisma service
+import { AuthenticatedUser } from '../auth/types/authenticated-user.interface.js';
 import {
   BulkCreateSalaEstudiantesDto,
   ConfirmHardDeleteDto,
@@ -16,7 +16,7 @@ import {
   CreateSalaEstudianteDto,
   UpdateSalaDto,
   UpdateSalaEstudianteDto,
-} from './dto/sala.dto';
+} from './dto/sala.dto.js';
 
 // Ventana de recuperación tras un soft delete de Sala. Pasado este plazo,
 // solo queda el hard delete definitivo (ADMIN + confirmación).

@@ -12,14 +12,15 @@ import {
   TipoCardSorting,
   TipoSesion,
 } from '@prisma/client';
-import { PrismaService } from '../../../core/database/prisma.service';
-import { ProjectAccessService } from '../../../core/access/project-access.service';
-import { AuthenticatedUser } from '../../auth/types/authenticated-user.interface';
+import { PrismaService } from '../../../core/database/prisma.service.js';
+import { ProjectAccessService } from '../../../core/access/project-access.service.js';
+import { AuthenticatedUser } from '../../auth/types/authenticated-user.interface.js';
+import { CreateCardSortingSessionPayloadSchema } from '@observatorio-ux/shared-types';
 import {
   CardSortingTypeDto,
   CreateCardSortingSessionDto,
-} from './dto/card-sorting.dto';
-import { normalizarTexto, validarEntradaEstudio, validarPreguntas } from './card-sorting-input';
+} from './dto/card-sorting.dto.js';
+import { normalizarTexto, validarEntradaEstudio, validarPreguntas } from './card-sorting-input.js';
 
 // Criterio del curso (no estándar de la industria): una tarjeta tiene consenso
 // si más del 50% de los participantes la ubicó en la misma categoría.
@@ -133,25 +134,35 @@ export class CardSortingService {
     );
     validarPreguntas((dto.preguntas ?? []).map((pregunta) => pregunta.texto));
 
+    const configuration = CreateCardSortingSessionPayloadSchema.safeParse(dto);
+    if (!configuration.success) {
+      throw new BadRequestException({
+        message: 'Revisa la configuración del estudio.',
+        errores: configuration.error.issues.map((issue) => ({
+          campo: issue.path.join('.'), mensaje: issue.message,
+        })),
+      });
+    }
+    const study = configuration.data;
     const participantSession = await this.prisma.researchSession.create({
       data: {
         proyectoId: dto.proyectoId,
         evaluadorId: user.id,
-        nombre: dto.nombre.trim(),
+        nombre: study.nombre,
         tipo: TipoSesion.CARD_SORTING,
         estado: EstadoSesion.INVITADO,
         actor: ActorSesion.EVALUADOR,
         tipoCardSorting: tipo,
         cardsDefinidas: {
-          create: dto.tarjetas.map((tarjeta) => ({
-            etiqueta: tarjeta.etiqueta.trim(),
+          create: study.tarjetas.map((tarjeta) => ({
+            etiqueta: tarjeta.etiqueta,
           })),
         },
         categoriasDefinidas:
-          dto.categorias?.length
+          study.categorias?.length
             ? {
-                create: dto.categorias.map((categoria) => ({
-                  nombre: categoria.nombre.trim(),
+                create: study.categorias.map((categoria) => ({
+                  nombre: categoria.nombre,
                   esPredefinida: true,
                 })),
               }

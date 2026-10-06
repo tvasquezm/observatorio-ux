@@ -1,4 +1,4 @@
-import { envValidationSchema } from '../env.validation';
+import { envValidationSchema } from '../env.validation.js';
 
 describe('envValidationSchema (A4 fix smoke test)', () => {
   const base = {

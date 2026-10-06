@@ -13,14 +13,14 @@ import {
   MomentosCriticosSchema,
   PersonaSchema,
 } from '@observatorio-ux/shared-types';
-import { PrismaService } from '../../core/database/prisma.service';
-import { ProjectAccessService } from '../../core/access/project-access.service';
-import { AuthenticatedUser } from '../auth/types/authenticated-user.interface';
+import { PrismaService } from '../../core/database/prisma.service.js';
+import { ProjectAccessService } from '../../core/access/project-access.service.js';
+import { AuthenticatedUser } from '../auth/types/authenticated-user.interface.js';
 import {
   AcquireLockDto,
   CreateArtifactDto,
   CreateArtifactVersionDto,
-} from './artifacts.dto';
+} from './artifacts.dto.js';
 
 /** TTL por defecto del bloqueo pesimista si el cliente no envía uno propio. */
 const DEFAULT_LOCK_TTL_MS = 5 * 60 * 1000; // 5 minutos

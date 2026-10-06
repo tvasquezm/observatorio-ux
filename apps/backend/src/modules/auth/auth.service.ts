@@ -10,11 +10,11 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { createHash, randomBytes, timingSafeEqual } from 'crypto';
-import * as bcrypt from 'bcrypt';
-import { PrismaService } from '../../core/database/prisma.service';
-import { AuthenticatedUser } from './types/authenticated-user.interface';
-import { ParticipanteJwtService } from './participante-jwt.service';
-import { TtlCache } from '../../core/cache/ttl-cache';
+import bcrypt from 'bcrypt';
+import { PrismaService } from '../../core/database/prisma.service.js';
+import { AuthenticatedUser } from './types/authenticated-user.interface.js';
+import { ParticipanteJwtService } from './participante-jwt.service.js';
+import { TtlCache } from '../../core/cache/ttl-cache.js';
 
 // Identidad ya verificada contra la base: evita un findUnique por request.
 // Un cambio de rol o un borrado invalida la entrada (`invalidateUser`); si
