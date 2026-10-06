@@ -9,7 +9,7 @@
 
 Plataforma SaaS para la ejecución, gestión y análisis matemático de metodologías de investigación en Experiencia de Usuario (UX), desarrollada para el **Observatorio UX para la Inclusión Social** de la Universidad Tecnológica Metropolitana (UTEM).
 
-Trabajo de título de **Ingeniería en Informatica (UTEM)**. Centraliza en un solo lugar cinco metodologías de UX Research —Evaluación Heurística, Card Sorting, Perfil de Persona, Journey Map y Mapa de Momentos Críticos—, con autenticación por roles, gestión de proyectos y un modelo de datos pensado para el análisis, no solo el almacenamiento.
+Trabajo de título de **Ingeniería en Informática (UTEM)**. Centraliza en un solo lugar cinco metodologías de UX Research —Evaluación Heurística, Card Sorting, Perfil de Persona, Journey Map y Mapa de Momentos Críticos—, con autenticación por roles, gestión de proyectos y un modelo de datos pensado para el análisis, no solo el almacenamiento.
 
 > **Estado:** en desarrollo activo. Los entregables técnicos de los Sprints 1–7 están implementados (incluye reportería PDF/JSON y prueba de carga k6); las reuniones y validaciones humanas pendientes se registran por separado. Antes de auditar o contribuir, revisa [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Vulnerabilidades: [`SECURITY.md`](SECURITY.md).
 

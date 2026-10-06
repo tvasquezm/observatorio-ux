@@ -1,14 +1,16 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import { PrismaPg } from '@prisma/adapter-pg';
+import { createPrismaAdapter } from '../../../prisma/adapter.js';
 import { PrismaClient } from '../../generated/prisma/client.js';
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit {
   constructor() {
-    super({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
+    super({ adapter: createPrismaAdapter() });
   }
 
   async onModuleInit(): Promise<void> {
     await this.$connect();
+    // El pool de pg conecta de forma diferida: $connect() no verifica el servidor.
+    await this.$queryRaw`SELECT 1`;
   }
 }
