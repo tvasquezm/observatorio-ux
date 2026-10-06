@@ -19,13 +19,13 @@ export function ProjectOverviewPage() {
       <div className="tech-grid">
         {TECHNIQUES.map((technique) => (
           <Link key={technique.to} to={technique.to} className="tech-card">
-            <span className={`tech-icon ${technique.color}`}>{technique.icon}</span>
+            <span className={`tech-icon ${technique.color}`} aria-hidden="true">{technique.icon}</span>
             <span className="tech-card-copy"><h3>{technique.title}</h3><p>{technique.description}</p></span>
-            <span className="arrow">→</span>
+            <span className="arrow" aria-hidden="true">→</span>
           </Link>
         ))}
       </div>
-      <div className="panel overview-note"><span className="note-icon">i</span><div><b>Proyecto listo para trabajar</b><p>Los cambios se guardan como versiones para mantener la trazabilidad de tu investigación.</p><small>ID: {proyectoId}</small></div></div>
+      <div className="panel overview-note"><span className="note-icon" aria-hidden="true">i</span><div><b>Proyecto listo para trabajar</b><p>Los cambios se guardan como versiones para mantener la trazabilidad de tu investigación.</p><details><summary>Información para soporte</summary><small>ID: {proyectoId}</small></details></div></div>
     </div>
   );
 }

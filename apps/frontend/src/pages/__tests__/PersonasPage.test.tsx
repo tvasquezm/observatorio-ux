@@ -49,12 +49,12 @@ beforeEach(() => {
 });
 
 describe('Personas — presentación y edición', () => {
-  it('agrupa los campos con etiquetas persistentes y conserva el contenido al guardar', () => {
+  it('agrupa los campos con etiquetas persistentes y conserva el contenido al guardar', async () => {
     renderPage();
     fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
     for (const name of ['Identidad y contexto personal', 'Necesidades y comportamiento',
       'Relación con el servicio', 'Evidencia y validación']) {
-      expect(screen.getByRole('region', { name })).toBeInTheDocument();
+      expect(await screen.findByRole('region', { name })).toBeInTheDocument();
     }
     expect(screen.getByLabelText('Nombre completo')).toHaveValue('Ana Pérez');
     fireEvent.change(screen.getByLabelText('Evidencia que sustenta el perfil'), { target: { value: 'Entrevista 1, Observación' } });

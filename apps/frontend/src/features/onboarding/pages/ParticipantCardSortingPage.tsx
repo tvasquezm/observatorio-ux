@@ -61,6 +61,11 @@ function limpiarCache(sesionId: string) {
   localStorage.removeItem(claveCache(sesionId));
 }
 
+// Estimación orientativa: ~5 tarjetas por minuto, mínimo 3.
+function minutosEstimados(tarjetas: number) {
+  return Math.max(3, Math.ceil(tarjetas / 5));
+}
+
 export function ParticipantCardSortingPage() {
   const { sesionId } = useParams<{ sesionId: string }>();
   const [sesion, setSesion] = useState<ParticipantCardSortingSession | null>(null);
@@ -69,6 +74,7 @@ export function ParticipantCardSortingPage() {
   const [sesionExpirada, setSesionExpirada] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [enviado, setEnviado] = useState(false);
+  const [resumenEnvio, setResumenEnvio] = useState<{ tarjetas: number; categorias: number } | null>(null);
 
   const [asignaciones, setAsignaciones] = useState<Record<string, string>>({});
   const [categoriasCreadas, setCategoriasCreadas] = useState<string[]>([]);
@@ -147,6 +153,7 @@ export function ParticipantCardSortingPage() {
         .map(([questionId, texto]) => ({ questionId, respuesta: texto.trim() }));
       await submitCardSortingResult(sesionId, grupos, respuestasEnvio);
       limpiarCache(sesionId);
+      setResumenEnvio({ tarjetas: grupos.reduce((suma, grupo) => suma + grupo.cardIds.length, 0), categorias: grupos.length });
       setEnviado(true);
       notify.success('¡Gracias! Tus respuestas fueron enviadas.');
     } catch (e) {
@@ -208,7 +215,13 @@ export function ParticipantCardSortingPage() {
         <section className="participant-card participant-state">
           <span className="participant-complete" aria-hidden="true">✓</span>
           <h1>Clasificación enviada</h1>
-          <p>Gracias por participar. Ya puedes cerrar esta ventana.</p>
+          {resumenEnvio && (
+            <p data-testid="participant-summary">
+              Enviaste {resumenEnvio.tarjetas} {resumenEnvio.tarjetas === 1 ? 'tarjeta' : 'tarjetas'} en{' '}
+              {resumenEnvio.categorias} {resumenEnvio.categorias === 1 ? 'categoría' : 'categorías'}.
+            </p>
+          )}
+          <p>Gracias por participar. Tu participación es anónima y ya puedes cerrar esta ventana.</p>
         </section>
       </main>
     );
@@ -236,8 +249,15 @@ export function ParticipantCardSortingPage() {
     return (
       <main className="onboarding participant-entry">
         <section className="participant-card participant-intro" aria-labelledby="participant-intro-title">
-          <span className="eyebrow">Card Sorting · Participación anónima</span>
           <h1 id="participant-intro-title">{sesion.estudio.nombre}</h1>
+          <p className="participant-intro-time" data-testid="participant-time">
+            Toma unos {minutosEstimados(sesion.estudio.cardsDefinidas.length)} minutos (aprox.). Puedes pausar: tu avance se guarda.
+          </p>
+          <ol className="participant-intro-steps" aria-label="Cómo funciona">
+            <li><span aria-hidden="true">1</span> Mira las tarjetas</li>
+            <li><span aria-hidden="true">2</span> Agrúpalas en categorías</li>
+            <li><span aria-hidden="true">3</span> Revisa y envía</li>
+          </ol>
           <ul>
             <li>No hay respuestas correctas: agrupa las tarjetas según cómo las relacionas tú.</li>
             <li>
@@ -250,7 +270,7 @@ export function ParticipantCardSortingPage() {
             <li>
               Son {sesion.estudio.cardsDefinidas.length} tarjetas y debes ubicarlas todas antes de enviar.
             </li>
-            <li>Tu avance se guarda en este dispositivo. No escribas datos personales.</li>
+            <li>Tu participación es anónima y tu avance se guarda en este dispositivo. No escribas datos personales.</li>
           </ul>
           <button type="button" className="primary" onClick={() => setIntroVista(true)}>
             Comenzar
@@ -265,7 +285,6 @@ export function ParticipantCardSortingPage() {
       <header className="participant-study-head">
         <img src="/brand/uxlab-observatorio.webp" width="1760" height="440" alt="UXLab Observatorio" />
         <div>
-          <span className="eyebrow">Card Sorting · Participación anónima</span>
           <h1>{sesion.estudio.nombre}</h1>
           <p>Organiza todas las tarjetas según la relación que encuentres entre ellas. Tu avance se guarda en este dispositivo.</p>
         </div>
@@ -285,6 +304,8 @@ export function ParticipantCardSortingPage() {
         onAnswersChange={setRespuestas}
         onSubmit={handleEnviar}
         submitting={enviando}
+        confirmarEnvio
+        notaProgreso="Avance guardado en este dispositivo"
       />
     </main>
   );

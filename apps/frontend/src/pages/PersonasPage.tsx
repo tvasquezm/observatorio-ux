@@ -96,7 +96,7 @@ export function PersonasPage() {
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [editandoVersion, setEditandoVersion] = useState<number | null>(null);
   const [readOnly, setReadOnly] = useState(false);
-  useUnsavedChanges(mostrarForm, { form, listInputs }, isCreating || isUpdating);
+  const { confirmDiscard } = useUnsavedChanges(mostrarForm, { form, listInputs }, isCreating || isUpdating, editandoId ?? 'new');
 
   function resetForm() {
     editLock.release();
@@ -108,7 +108,9 @@ export function PersonasPage() {
     setReadOnly(false);
   }
 
-  function handleIniciarEditar(persona: PersonaArtifact) {
+  async function handleIniciarEditar(persona: PersonaArtifact) {
+    if (!(await confirmDiscard())) return;
+    editLock.release();
     const artefactoId = persona.id;
     setEditandoId(artefactoId);
     setEditandoVersion(persona.version);
@@ -181,7 +183,8 @@ export function PersonasPage() {
         description="Construye perfiles claros para diseñar con las necesidades reales en mente."
         action={puedeEditar ? (
           <button type="button" className={mostrarForm ? 'secondary' : 'primary'}
-            onClick={() => { if (mostrarForm) resetForm(); else setMostrarForm(true); }}>
+            disabled={isCreating || isUpdating}
+            onClick={async () => { if (mostrarForm) { if (await confirmDiscard()) resetForm(); } else setMostrarForm(true); }}>
             {mostrarForm ? 'Cancelar' : '+ Nueva persona'}
           </button>
         ) : <span className="short-id">Solo lectura</span>}

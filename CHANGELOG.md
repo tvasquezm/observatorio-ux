@@ -6,6 +6,19 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **ux-ui:** protege cierres de borradores, distingue errores de proyectos y permite
+  elegir el proyecto activo; mejora navegación, foco, etiquetas, contraste y diseño móvil.
+
+* **card-sorting:** unifica la configuración guiada, las vistas Tarjetas/Categorías y
+  exportaciones CSV/PDF del PR #28 con la validación compartida, los desplegables,
+  el menú de proyecto y el alto contraste del PR #27; conserva el backend de main.
+* **momentos-criticos:** agrega lectura completa, búsqueda, filtros y matriz accesible;
+  valida los campos requeridos, protege borradores y espera el bloqueo de edición.
+* **card-sorting:** recalcula las agrupaciones al explorar otro umbral de consenso;
+  conserva los campos ampliados de Journey Map en la exportación de informes.
+* **card-sorting:** evita mezclar la cookie del evaluador con el Bearer del participante
+  al probar un estudio en el mismo navegador; agrega cobertura E2E del flujo completo.
+
 * **persona:** amplía la ficha con rol y relación con el servicio,
   características distintivas, evidencia y validación del perfil.
 * **persona:** organiza el formulario en cuatro secciones con etiquetas visibles

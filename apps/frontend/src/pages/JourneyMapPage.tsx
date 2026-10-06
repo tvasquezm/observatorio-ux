@@ -112,7 +112,7 @@ export function JourneyMapPage() {
     useState<JourneyMapArtifact | null>(null);
   const [mostrarForm, setMostrarForm] = useState(false);
 
-  useUnsavedChanges(
+  const { confirmDiscard } = useUnsavedChanges(
     mostrarForm,
     { form, listInputs, evidenciaInput },
     isCreating,
@@ -261,8 +261,9 @@ export function JourneyMapPage() {
           {puedeEditar && (
             <button
               className="secondary"
-              onClick={() => {
-                if (mostrarForm) resetForm();
+              disabled={isCreating}
+              onClick={async () => {
+                if (mostrarForm) { if (await confirmDiscard()) resetForm(); }
                 else setMostrarForm(true);
               }}
             >

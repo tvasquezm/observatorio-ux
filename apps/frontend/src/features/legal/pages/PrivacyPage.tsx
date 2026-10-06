@@ -40,7 +40,7 @@ export function PrivacyPage() {
           <li>
             <strong>Docentes, estudiantes y administradores:</strong> tu nombre, correo y rol, para
             mostrar la interfaz mientras se valida tu sesión; la vista que elegiste (en la pestaña
-            actual); y tu preferencia de tema claro u oscuro.
+            actual); y tus preferencias de tema claro u oscuro y alto contraste (observatorio-ux-contrast).
           </li>
           <li>
             <strong>Participantes de un estudio:</strong> un identificador temporal anónimo y la

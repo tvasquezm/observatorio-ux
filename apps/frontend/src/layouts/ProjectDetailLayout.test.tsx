@@ -1,0 +1,74 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { createMemoryRouter, RouterProvider } from 'react-router-dom';
+import { ProjectDetailLayout } from './ProjectDetailLayout';
+
+const state = vi.hoisted(() => ({ role: 'ADMIN', owner: 'reviewer' }));
+vi.mock('../features/auth/store/useAuthStore', () => ({
+  useAuthStore: () => ({ user: { id: 'reviewer', rol: state.role }, perspectiveRole: state.role }),
+}));
+vi.mock('../features/projects/hooks/useProjectsQueries', () => ({
+  useProject: () => ({ data: { nombre: 'Proyecto UX', creadoPorId: state.owner } }),
+}));
+function mount(section = 'card-sorting/study/resultados') {
+  const router = createMemoryRouter([{
+    path: '/proyectos/:proyectoId', element: <ProjectDetailLayout />,
+    children: [{ path: '*', element: <p>Contenido del proyecto</p> }],
+  }], { initialEntries: [`/proyectos/p1/${section}`] });
+  render(<RouterProvider router={router} />);
+  return router;
+}
+beforeEach(() => { state.role = 'ADMIN'; state.owner = 'reviewer'; });
+
+describe('Menú de secciones del proyecto', () => {
+  it('permite abrir con teclado y cerrar con Escape devolviendo el foco', async () => {
+    mount();
+    const summary = screen.getByText('Secciones del proyecto').closest('summary')!;
+    await userEvent.click(summary);
+    expect(summary.closest('details')).toHaveAttribute('open');
+    await userEvent.tab();
+    await userEvent.keyboard('{Escape}');
+    expect(summary.closest('details')).not.toHaveAttribute('open');
+    expect(summary).toHaveFocus();
+  });
+  it('muestra la técnica actual y abre todas las secciones sin desplazamiento lateral', async () => {
+    mount();
+    const summary = screen.getByText('Secciones del proyecto').closest('summary')!;
+    expect(within(summary).getByText('Card Sorting')).toBeInTheDocument();
+    expect(summary.closest('details')).not.toHaveAttribute('open');
+    await userEvent.click(summary);
+    const nav = screen.getByRole('navigation', { name: 'Secciones del proyecto' });
+    for (const name of ['Resumen', 'Personas', 'Journey Map', 'Momentos críticos',
+      'Card Sorting', 'Evaluación heurística', 'Comentarios', 'Analítica', 'Miembros', 'Participantes']) {
+      expect(within(nav).getByRole('link', { name })).toBeVisible();
+    }
+  });
+
+  it('navega desde una ruta de resultados y cierra el menú al elegir una sección', async () => {
+    const router = mount();
+    const summary = screen.getByText('Secciones del proyecto').closest('summary')!;
+    await userEvent.click(summary);
+    await userEvent.click(screen.getByRole('link', { name: 'Journey Map' }));
+    expect(router.state.location.pathname).toBe('/proyectos/p1/journey-map');
+    expect(summary.closest('details')).not.toHaveAttribute('open');
+    expect(within(summary).getByText('Journey Map')).toBeInTheDocument();
+  });
+  it('identifica la pantalla con un título y una ruta de navegación', () => {
+    mount('journey-map');
+    expect(document.title).toBe('Journey Map · Proyecto UX · Observatorio UX');
+    const crumbs = screen.getByRole('navigation', { name: 'Ubicación del proyecto' });
+    expect(within(crumbs).getByRole('link', { name: 'Proyectos' })).toHaveAttribute('href', '/proyectos');
+    expect(within(crumbs).getByRole('link', { name: 'Proyecto UX' })).toHaveAttribute('href', '/proyectos/p1');
+    expect(within(crumbs).getByText('Journey Map')).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('mantiene las restricciones de analítica y participantes para un estudiante que no es dueño', async () => {
+    state.role = 'ESTUDIANTE'; state.owner = 'another-user';
+    mount('');
+    await userEvent.click(screen.getByText('Secciones del proyecto').closest('summary')!);
+    expect(screen.queryByRole('link', { name: 'Analítica' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Participantes' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Card Sorting' })).toBeVisible();
+  });
+});

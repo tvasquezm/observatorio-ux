@@ -32,6 +32,7 @@ import {
 import type { Equipo } from '../../equipos/api/equipos.api';
 import type { Sala } from '../api/salas.api';
 import { useConfirm } from '../../../shared/api/confirm';
+import { useDiscardChanges } from '../../../shared/hooks/useDiscardChanges';
 import { useAuthStore } from '../../auth/store/useAuthStore';
 import { resolvePerspective } from '../../../shared/auth/perspectivas';
 
@@ -475,7 +476,7 @@ function EquiposDeSalaDocente({ salaId, sala }: { salaId: string; sala: Sala }) 
   const { data: equipos, isLoading, isError, error, refetch } = useEquipos(salaId);
   const { mutate: actualizarSala, isPending: guardandoToggle } = useUpdateSala(salaId);
   const { mutate: crearEquipo, isPending: creando } = useCreateEquipo(salaId);
-  const { mutate: renombrarEquipo } = useUpdateEquipo(salaId);
+  const { mutate: renombrarEquipo, isPending: renombrando } = useUpdateEquipo(salaId);
   const { mutate: eliminarEquipo } = useRemoveEquipo(salaId);
   const { mutate: agregarMiembro } = useAddMiembroEquipo(salaId);
   const { mutate: quitarMiembro } = useRemoveMiembroEquipo(salaId);
@@ -487,6 +488,7 @@ function EquiposDeSalaDocente({ salaId, sala }: { salaId: string; sala: Sala }) 
   const [nombreEquipo, setNombreEquipo] = useState('');
   const [equipoRenombrando, setEquipoRenombrando] = useState<string | null>(null);
   const [nombreRenombrado, setNombreRenombrado] = useState('');
+  const { confirmDiscard } = useDiscardChanges(equipoRenombrando !== null, nombreRenombrado, renombrando, equipoRenombrando ?? undefined);
   const [emailPorEquipo, setEmailPorEquipo] = useState<Record<string, string>>({});
 
   function handleGuardarToggle(e: React.FormEvent) {
@@ -505,7 +507,8 @@ function EquiposDeSalaDocente({ salaId, sala }: { salaId: string; sala: Sala }) 
     crearEquipo(limpio, { onSuccess: () => setNombreEquipo('') });
   }
 
-  function iniciarRenombrar(equipo: Equipo) {
+  async function iniciarRenombrar(equipo: Equipo) {
+    if (!(await confirmDiscard())) return;
     setEquipoRenombrando(equipo.id);
     setNombreRenombrado(equipo.nombre);
   }
@@ -607,7 +610,9 @@ function EquiposDeSalaDocente({ salaId, sala }: { salaId: string; sala: Sala }) 
                   <button type="button" className="primary" onClick={() => guardarRenombrar(equipo.id)}>
                     Guardar
                   </button>
-                  <button type="button" className="secondary" onClick={() => setEquipoRenombrando(null)}>
+                  <button type="button" className="secondary" onClick={async () => {
+                    if (await confirmDiscard()) setEquipoRenombrando(null);
+                  }}>
                     Cancelar
                   </button>
                 </div>

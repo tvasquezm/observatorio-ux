@@ -4,6 +4,7 @@ import { getSalas, createSala, updateSala, softDeleteSala, type Sala } from '../
 import { useAuthStore } from '../../auth/store/useAuthStore';
 import { resolvePerspective } from '../../../shared/auth/perspectivas';
 import { useConfirm } from '../../../shared/api/confirm';
+import { useDiscardChanges } from '../../../shared/hooks/useDiscardChanges';
 
 function fechaParaInput(fechaRaw?: string | null) {
   if (!fechaRaw) return '';
@@ -34,6 +35,7 @@ export const ProfesorSalasPage: React.FC = () => {
   const [fechaFin, setFechaFin] = useState('');
   const [instrucciones, setInstrucciones] = useState('');
   const [error, setError] = useState('');
+  const { confirmDiscard } = useDiscardChanges(isModalOpen, { nombre, periodo, fechaInicio, fechaFin, instrucciones }, saving, salaEditando?.id ?? 'new');
 
   useEffect(() => {
     cargarSalas();
@@ -89,6 +91,7 @@ export const ProfesorSalasPage: React.FC = () => {
     setIsModalOpen(false);
     limpiarFormulario();
   };
+  const cancelarModal = async () => { if (await confirmDiscard()) cerrarModal(); };
 
   const handleGuardarSala = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -324,7 +327,7 @@ export const ProfesorSalasPage: React.FC = () => {
           ref={modalRef}
           className="card sala-modal"
           aria-labelledby="sala-modal-title"
-          onCancel={cerrarModal}
+          onCancel={event => { event.preventDefault(); void cancelarModal(); }}
         >
           <h3 id="sala-modal-title">
             {salaEditando ? 'Editar sala' : 'Crear nueva sala'}
@@ -405,7 +408,7 @@ export const ProfesorSalasPage: React.FC = () => {
               <button
                 type="button"
                 className="secondary"
-                onClick={cerrarModal}
+                onClick={() => void cancelarModal()}
                 disabled={saving}
               >
                 Cancelar

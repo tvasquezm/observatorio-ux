@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useBlocker } from 'react-router-dom';
+import { useDiscardChanges } from './useDiscardChanges';
 
 const DEFAULT_MESSAGE = 'Tienes cambios sin guardar. ¿Quieres salir de esta pantalla?';
 
@@ -7,11 +8,9 @@ const DEFAULT_MESSAGE = 'Tienes cambios sin guardar. ¿Quieres salir de esta pan
  * Compara con el contenido al abrir. El router protege enlaces, navegación
  * programática y Atrás/Adelante; beforeunload protege recarga y cierre.
  */
-export function useUnsavedChanges(open: boolean, value: unknown, saving = false) {
-  const snapshot = JSON.stringify(value);
-  const [baseline, setBaseline] = useState(snapshot);
-  useEffect(() => { setBaseline(snapshot); }, [open]); // captura al abrir/cerrar, no al escribir
-  const active = open && snapshot !== baseline && !saving;
+export function useUnsavedChanges(open: boolean, value: unknown, saving = false, identity?: string) {
+  const guard = useDiscardChanges(open, value, saving, identity);
+  const active = guard.isDirty;
   const blocker = useBlocker(active);
 
   useEffect(() => {
@@ -33,4 +32,6 @@ export function useUnsavedChanges(open: boolean, value: unknown, saving = false)
       window.removeEventListener('beforeunload', onBeforeUnload);
     };
   }, [active]);
+
+  return guard;
 }

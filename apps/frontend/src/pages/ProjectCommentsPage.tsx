@@ -10,6 +10,7 @@ import {
 import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { useActivePerspective } from '../shared/auth/useActivePerspective';
 import { useConfirm } from '../shared/api/confirm';
+import { useDiscardChanges } from '../shared/hooks/useDiscardChanges';
 
 export function ProjectCommentsPage() {
   const { proyectoId } = useOutletContext<ProjectOutletContext>();
@@ -23,6 +24,7 @@ export function ProjectCommentsPage() {
   const [texto, setTexto] = useState('');
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [textoEdicion, setTextoEdicion] = useState('');
+  const { confirmDiscard } = useDiscardChanges(editandoId !== null, textoEdicion, false, editandoId ?? undefined);
 
   function handleCrear(event: React.FormEvent) {
     event.preventDefault();
@@ -35,7 +37,8 @@ export function ProjectCommentsPage() {
     return activeRole === 'ADMIN' || currentUser?.id === autorId;
   }
 
-  function iniciarEdicion(comentarioId: string, textoActual: string) {
+  async function iniciarEdicion(comentarioId: string, textoActual: string) {
+    if (!(await confirmDiscard())) return;
     setEditandoId(comentarioId);
     setTextoEdicion(textoActual);
   }
@@ -102,7 +105,7 @@ export function ProjectCommentsPage() {
                 <label className="sr-only" htmlFor={`editar-comentario-${comentario.id}`}>Editar comentario</label>
                 <textarea id={`editar-comentario-${comentario.id}`} value={textoEdicion} onChange={(event) => setTextoEdicion(event.target.value)} rows={3} />
                 <div className="comment-edit-actions">
-                  <button type="button" className="secondary" onClick={cancelarEdicion}>Cancelar</button>
+                  <button type="button" className="secondary" onClick={async () => { if (await confirmDiscard()) cancelarEdicion(); }}>Cancelar</button>
                   <button type="button" className="primary" disabled={!textoEdicion.trim()} onClick={() => guardarEdicion(comentario.id)}>Guardar cambios</button>
                 </div>
               </div>

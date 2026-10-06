@@ -1,7 +1,7 @@
 // apps/frontend/src/layouts/AppLayout.tsx
 
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { canViewAnalytics, canViewSalas, resolvePerspective } from '../shared/auth/perspectivas';
 import { ProfilePerspectiveSwitcher } from '../shared/components/ProfilePerspectiveSwitcher';
@@ -9,16 +9,17 @@ import { PerspectivePreviewNotice } from '../shared/components/PerspectivePrevie
 const ExportReportDialog = lazy(() => import('../features/reports/ExportReportDialog').then((module) => ({ default: module.ExportReportDialog })));
 
 const NAV_ITEMS = [
-  { to: '/', label: 'Dashboard', icon: '◆', end: true },
+  { to: '/', label: 'Inicio', icon: '◆', end: true },
   { to: '/proyectos', label: 'Proyectos', icon: '✣', end: false },
   { to: '/salas', label: 'Salas', icon: '▣', end: false },
   { to: '/admin', label: 'Administración', icon: '⚑', end: false },
 ];
 
 const CRUMB_LABELS: Record<string, string> = {
-  '/': 'Dashboard',
+  '/': 'Inicio',
   '/proyectos': 'Proyectos',
   '/salas': 'Salas',
+  '/salas/eliminadas': 'Salas eliminadas',
   '/admin': 'Administración',
   '/admin/profesores': 'Profesores',
 };
@@ -32,7 +33,11 @@ export function AppLayout() {
     return savedTheme === 'dark' || (savedTheme === null && window.matchMedia('(prefers-color-scheme: dark)').matches);
   });
   const [exportOpen, setExportOpen] = useState(false);
-  const crumb = CRUMB_LABELS[location.pathname] ?? 'Proyecto';
+  const [highContrast, setHighContrast] = useState(() =>
+    window.localStorage.getItem('observatorio-ux-contrast') === 'high',
+  );
+  const crumb = CRUMB_LABELS[location.pathname] ?? (location.pathname.startsWith('/salas/') ? 'Detalle de sala' : 'Proyectos');
+  const [preferencesOpen, setPreferencesOpen] = useState(false);
   const activeRole = user ? resolvePerspective(user.rol, perspectiveRole) : null;
   const visibleNavItems = NAV_ITEMS.filter((item) => {
     if (item.to === '/salas') return !!activeRole && canViewSalas(activeRole);
@@ -44,6 +49,22 @@ export function AppLayout() {
     document.documentElement.dataset.theme = darkMode ? 'dark' : 'light';
     window.localStorage.setItem('observatorio-ux-theme', darkMode ? 'dark' : 'light');
   }, [darkMode]);
+
+  useEffect(() => {
+    const contrast = highContrast ? 'high' : 'normal';
+    document.documentElement.dataset.contrast = contrast;
+    window.localStorage.setItem('observatorio-ux-contrast', contrast);
+  }, [highContrast]);
+
+  useEffect(() => {
+    if (location.pathname.startsWith('/proyectos/')) return;
+    document.title = `${crumb} · Observatorio UX`;
+    const frame = requestAnimationFrame(() => {
+      const heading = document.querySelector<HTMLElement>('#main-content h1') ?? document.getElementById('main-content');
+      if (heading) { heading.tabIndex = -1; heading.focus(); }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [location.pathname, crumb]);
 
   const iniciales = (user?.nombre ?? '?')
     .split(' ')
@@ -86,7 +107,7 @@ export function AppLayout() {
               end={item.end}
               className={({ isActive }) => `nav-btn${isActive ? ' active' : ''}`}
             >
-              <span className="nav-icon">{item.icon}</span>
+              <span className="nav-icon" aria-hidden="true">{item.icon}</span>
               {item.label}
             </NavLink>
           ))}
@@ -106,10 +127,11 @@ export function AppLayout() {
 
       <main className="main">
         <div className="top">
-          <span className="crumb">
-            Observatorio UX <b>›</b> <strong>{crumb}</strong>
-          </span>
+          <nav className="crumb" aria-label="Ubicación general"><Link to="/">Inicio</Link>{location.pathname !== '/' && <><span aria-hidden="true">›</span><strong>{crumb}</strong></>}</nav>
           <div className="top-actions">
+            <details className="app-preferences" open={preferencesOpen} onToggle={event => setPreferencesOpen(event.currentTarget.open)} onKeyDown={event => { if (event.key === 'Escape') { event.currentTarget.open = false; event.currentTarget.querySelector('summary')?.focus(); } }}>
+              <summary>Preferencias{activeRole ? ` · ${activeRole === 'DOCENTE' ? 'Docente' : activeRole === 'ADMIN' ? 'Administrador' : 'Estudiante'}` : ''}</summary>
+              <div className="preferences-panel">
             {user && activeRole && (
               <ProfilePerspectiveSwitcher
                 accountRole={user.rol}
@@ -126,6 +148,16 @@ export function AppLayout() {
             >
               {darkMode ? 'Modo claro' : 'Modo oscuro'}
             </button>
+            <button
+              type="button"
+              className="theme-toggle"
+              aria-pressed={highContrast}
+              onClick={() => setHighContrast((current) => !current)}
+            >
+              Alto contraste
+            </button>
+              </div>
+            </details>
             <button
               type="button"
               className="secondary"
