@@ -13,8 +13,8 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: "chore(deps)"
-    # Saltos mayores bloqueados hasta migrar: Nest 12 es
-    # solo ESM y el backend es CommonJS; Prisma 7 exige prisma.config.ts, driver
+    # Saltos mayores bloqueados hasta migrar a mano (Nest: leer su guía de migración). Prisma 7 exige
+    # prisma.config.ts, driver
     # adapter y generador nuevo. Minor y patch siguen llegando agrupados.
     ignore:
       - dependency-name: "@nestjs/*"
