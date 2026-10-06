@@ -2,7 +2,7 @@ import { Test } from '@nestjs/testing';
 import { BadRequestException } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { ActorSesion, EstadoSesion, TipoSesion } from '@prisma/client';
+import { ActorSesion, EstadoSesion, TipoSesion } from '../../../../generated/prisma/client.js';
 import { CardSortingService, Grupo } from '../card-sorting.service.js';
 import { SubmitCardSortingResultDto } from '../dto/card-sorting.dto.js';
 import { PrismaService } from '../../../../core/database/prisma.service.js';

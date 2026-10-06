@@ -6,7 +6,7 @@
 
 import { Test } from '@nestjs/testing';
 import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
-import { ActorSesion, EstadoSesion, TipoSesion } from '@prisma/client';
+import { ActorSesion, EstadoSesion, TipoSesion } from '../../../../generated/prisma/client.js';
 import { CardSortingService } from '../card-sorting.service.js';
 import { PrismaService } from '../../../../core/database/prisma.service.js';
 import { ProjectAccessService } from '../../../../core/access/project-access.service.js';

@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { jest as jestEsm } from '@jest/globals';
-import { TipoArtefacto } from '@prisma/client';
+import { TipoArtefacto } from '../../../generated/prisma/client.js';
 import { ZodError } from 'zod';
 import type { ArtifactsService } from '../artifacts.service.js';
 import { PrismaService } from '../../../core/database/prisma.service.js';

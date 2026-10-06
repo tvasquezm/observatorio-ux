@@ -150,3 +150,6 @@ output/playwright/
 
 # Archivo diagnóstico local generado accidentalmente
 c --noEmit
+
+# Cliente Prisma generado (prisma generate)
+apps/backend/src/generated/

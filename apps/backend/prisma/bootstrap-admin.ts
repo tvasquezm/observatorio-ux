@@ -10,7 +10,7 @@
 //      pnpm run bootstrap:admin
 
 import 'dotenv/config';
-import { PrismaClient, Rol } from '@prisma/client';
+import { PrismaClient, Rol } from '../src/generated/prisma/client.js';
 import bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();

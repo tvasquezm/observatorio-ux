@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, TipoArtefacto } from '@prisma/client';
+import { Prisma, TipoArtefacto } from '../../generated/prisma/client.js';
 import { randomUUID } from 'crypto';
 import { ZodError } from 'zod';
 import {

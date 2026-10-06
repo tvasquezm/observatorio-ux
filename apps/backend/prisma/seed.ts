@@ -7,7 +7,7 @@ import {
   TipoArtefacto,
   TipoCardSorting,
   TipoSesion,
-} from '@prisma/client';
+} from '../src/generated/prisma/client.js';
 import bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
