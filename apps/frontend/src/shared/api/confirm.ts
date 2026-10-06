@@ -11,6 +11,8 @@
 export interface ConfirmRequestDetail {
   id: number;
   message: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
 }
 
 export interface ConfirmResponseDetail {
@@ -24,7 +26,7 @@ let contador = 0;
  * Pide confirmación al usuario vía el modal global. Se resuelve `true` si
  * confirma, `false` si cancela (incluye cerrar con Escape o click afuera).
  */
-export function askConfirm(message: string): Promise<boolean> {
+export function askConfirm(message: string, labels: { confirmLabel?: string; cancelLabel?: string } = {}): Promise<boolean> {
   if (typeof window === 'undefined') {
     // SSR / entorno de test sin window: no bloquear, asumir cancelado.
     console.warn('[confirm] sin window disponible, se asume cancelado:', message);
@@ -43,12 +45,12 @@ export function askConfirm(message: string): Promise<boolean> {
 
     window.addEventListener('app:confirm-response', onResponse);
     window.dispatchEvent(
-      new CustomEvent<ConfirmRequestDetail>('app:confirm', { detail: { id, message } }),
+      new CustomEvent<ConfirmRequestDetail>('app:confirm', { detail: { id, message, ...labels } }),
     );
   });
 }
 
 /** Hook fino: mantiene la firma `useX()` pedida, sin estado propio. */
-export function useConfirm(): (message: string) => Promise<boolean> {
+export function useConfirm(): typeof askConfirm {
   return askConfirm;
 }

@@ -12,6 +12,11 @@ beforeEach(() => {
   vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false })));
 });
 describe('Preferencia de contraste', () => {
+  it.each([['/salas/sala-1', 'Detalle de sala'], ['/salas/eliminadas', 'Salas eliminadas']])('identifica la ruta %s', (path, title) => {
+    render(<MemoryRouter initialEntries={[path]}><AppLayout /></MemoryRouter>);
+    expect(document.title).toBe(`${title} · Observatorio UX`);
+    expect(screen.getByRole('navigation', { name: 'Ubicación general' })).toHaveTextContent(title);
+  });
   it('activa alto contraste, lo conserva al volver y permite restaurar contraste normal', () => {
     const mount = () => render(<MemoryRouter><AppLayout /></MemoryRouter>);
     mount();

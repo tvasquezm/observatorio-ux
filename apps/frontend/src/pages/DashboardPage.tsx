@@ -1,5 +1,6 @@
 // apps/frontend/src/pages/DashboardPage.tsx
 
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useProjects } from '../features/projects/hooks/useProjectsQueries';
 import { useSalas } from '../features/salas/hooks/useSalasQueries';
@@ -10,10 +11,10 @@ const DOT_COLORS = ['blue', 'green', 'orange'] as const;
 
 const TECHNIQUES = [
   { to: 'personas', label: 'Personas', icon: '◌', desc: 'Necesidades, motivaciones y escenarios reales', cls: 'c2' },
-  { to: 'journey-map', label: 'Journey map', icon: '⌁', desc: 'Acciones, emociones y oportunidades por etapa', cls: 'c4' },
+  { to: 'journey-map', label: 'Journey Map', icon: '⌁', desc: 'Acciones, emociones y oportunidades por etapa', cls: 'c4' },
   { to: 'momentos-criticos', label: 'Momentos críticos', icon: '✚', desc: 'Impacto, frecuencia y priorización cualitativa', cls: 'c5' },
-  { to: 'card-sorting', label: 'Card sorting', icon: '▦', desc: 'Agrupaciones, categorías y nivel de consenso', cls: 'c1' },
-  { to: 'evaluacion-heuristica', label: 'Hallazgos heurísticos', icon: '✦', desc: 'Severidad, evidencia y recomendaciones accionables', cls: 'c3' },
+  { to: 'card-sorting', label: 'Card Sorting', icon: '▦', desc: 'Agrupaciones, categorías y nivel de consenso', cls: 'c1' },
+  { to: 'evaluacion-heuristica', label: 'Evaluación heurística', icon: '✦', desc: 'Severidad, evidencia y recomendaciones accionables', cls: 'c3' },
 ] as const;
 
 function fechaHoy() {
@@ -22,60 +23,53 @@ function fechaHoy() {
 }
 
 export function DashboardPage() {
-  const { data: proyectos, isLoading } = useProjects();
+  const { data: proyectos, isLoading, isError, refetch } = useProjects();
   const { user, perspectiveRole } = useAuthStore();
   const activeRole = user ? resolvePerspective(user.rol, perspectiveRole) : null;
   const esEstudiante = user?.rol === 'ESTUDIANTE';
   const { data: salas, isLoading: isLoadingSalas } = useSalas();
   const total = proyectos?.length ?? 0;
   const totalSesiones = proyectos?.reduce((suma, proyecto) => suma + (proyecto._count?.sesiones ?? 0), 0) ?? 0;
-  const recientes = proyectos?.slice(0, 5) ?? [];
-  const activo = proyectos?.[0] ?? null;
+  const recientes = [...(proyectos ?? [])].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).slice(0, 5);
+  const projectKey = `observatorio-ux-project:${user?.id ?? 'anonymous'}`;
+  const [selectedId, setSelectedId] = useState(() => sessionStorage.getItem(projectKey) ?? '');
+  const activo = proyectos?.find(p => p.id === selectedId) ?? (proyectos?.length === 1 ? proyectos[0] : null);
+  useEffect(() => {
+    if (isLoading || isError || !proyectos) return;
+    if (activo) sessionStorage.setItem(projectKey, activo.id);
+    else { sessionStorage.removeItem(projectKey); if (selectedId) setSelectedId(''); }
+  }, [activo, projectKey, proyectos, isLoading, isError, selectedId]);
+  function chooseProject(id: string) { setSelectedId(id); if (id) sessionStorage.setItem(projectKey, id); else sessionStorage.removeItem(projectKey); }
 
   return (
-    <div className="fade">
+    <div className="fade dashboard-page">
       <section className="welcome">
         <div>
-          <span className="kicker">{fechaHoy()} · <i className="status-dot-active">●</i> {total} PROYECTO{total === 1 ? '' : 'S'} DISPONIBLE{total === 1 ? '' : 'S'}</span>
+          <span className="kicker">{fechaHoy()} · {isLoading || isError ? 'PROYECTOS PENDIENTES DE CARGAR' : `${total} PROYECTO${total === 1 ? '' : 'S'} DISPONIBLE${total === 1 ? '' : 'S'}`}</span>
           <h1>Un mapa claro para decidir mejor.</h1>
           <p>
             {activo
               ? <>Centraliza la evidencia de <b>{activo.nombre}</b> y conecta cada técnica con una decisión de diseño.</>
-              : 'Crea tu primer proyecto para comenzar a centralizar la evidencia de investigación.'}
+              : total > 0 ? 'Elige el proyecto en el que vas a trabajar antes de abrir una técnica.' : 'Crea tu primer proyecto para comenzar a centralizar la evidencia de investigación.'}
           </p>
         </div>
-        <div className="welcome-visual">
+        <div className="welcome-visual" aria-hidden="true">
           <span className="node a">Evidencia</span>
           <span className="node b">Patrones</span>
           <span className="node c">Decisión</span>
           <b>UX<br />LAB</b>
         </div>
         <div className="welcome-actions">
-          <Link to="/proyectos" className="primary">Ver proyectos</Link>
+          <Link to="/proyectos" className="secondary">Ver proyectos</Link>
         </div>
       </section>
 
-      <section className="metrics">
-        <article className="metric rise">
-          <small>Proyectos</small>
-          <strong>{isLoading ? '—' : String(total).padStart(2, '0')}</strong>
-          <p>Proyectos de investigación activos</p>
-        </article>
-        <article className="metric rise">
-          <small>Sesiones</small>
-          <strong>{isLoading ? '—' : String(totalSesiones).padStart(2, '0')}</strong>
-          <p>Sesiones registradas en tus proyectos</p>
-        </article>
-        <article className="metric rise">
-          <small>Perspectiva activa</small>
-          <strong className="stat-value">{activeRole ? PERSPECTIVE_LABELS[activeRole] : '—'}</strong>
-          <p>{user?.nombre} · cuenta {user?.rol?.toLowerCase()}</p>
-        </article>
-        <article className="metric rise">
-          <small>Proyecto reciente</small>
-          <strong className="stat-value">{activo?.nombre ?? 'Ninguno'}</strong>
-          <p>{activo ? 'Abre una técnica para trabajar' : 'Crea uno desde "Proyectos"'}</p>
-        </article>
+      <section className="panel active-project" aria-label="Proyecto de trabajo">
+        {isError ? <div role="alert"><p>No pudimos cargar tus proyectos. Comprueba tu conexión y vuelve a intentarlo.</p><button type="button" className="secondary" onClick={() => void refetch()}>Reintentar</button></div> : isLoading ? <p role="status">Cargando proyectos…</p> : total > 0 ? <>
+          <div className="field"><label htmlFor="active-project">Proyecto activo</label><select id="active-project" value={activo?.id ?? ''} onChange={e => chooseProject(e.target.value)}><option value="">Selecciona un proyecto…</option>{proyectos?.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}</select></div>
+          <p role="status">{activo ? <>Trabajando en: <strong>{activo.nombre}</strong></> : 'Selecciona un proyecto para abrir sus técnicas.'}</p>
+          {activo && <Link to={`/proyectos/${activo.id}`} className="primary">Continuar en {activo.nombre}</Link>}
+        </> : <><p>Todavía no tienes proyectos.</p><Link to="/proyectos" className="primary">Crear tu primer proyecto</Link></>}
       </section>
 
       {esEstudiante && (
@@ -102,7 +96,7 @@ export function DashboardPage() {
         </section>
       )}
 
-      <div className="section-title">
+      <div className="section-title methods-title">
         <div>
           <span className="kicker">MÉTODOS DISPONIBLES</span>
           <h2>Tu investigación, en vistas conectadas</h2>
@@ -116,12 +110,35 @@ export function DashboardPage() {
             to={activo ? `/proyectos/${activo.id.replace(/^\//, '')}/${t.to}` : '/proyectos'}
             className={`tech-card rise ${t.cls}`}
           >
-            <span className="tech-glyph">{t.icon}</span>
+            <span className="tech-glyph" aria-hidden="true">{t.icon}</span>
             <h3>{t.label}</h3>
             <p>{t.desc}</p>
-            <small>Ver método y análisis →</small>
+            <small>{activo ? 'Abrir técnica →' : 'Elegir proyecto →'}</small>
           </Link>
         ))}
+      </section>
+
+      <section className="metrics">
+        <article className="metric rise">
+          <small>Proyectos</small>
+          <strong>{isLoading || isError ? '—' : String(total).padStart(2, '0')}</strong>
+          <p>Proyectos de investigación activos</p>
+        </article>
+        <article className="metric rise">
+          <small>Sesiones</small>
+          <strong>{isLoading || isError ? '—' : String(totalSesiones).padStart(2, '0')}</strong>
+          <p>Sesiones registradas en tus proyectos</p>
+        </article>
+        <article className="metric rise">
+          <small>Perspectiva activa</small>
+          <strong className="stat-value">{activeRole ? PERSPECTIVE_LABELS[activeRole] : '—'}</strong>
+          <p>{user?.nombre} · cuenta {user?.rol?.toLowerCase()}</p>
+        </article>
+        <article className="metric rise">
+          <small>Proyecto seleccionado</small>
+          <strong className="stat-value">{activo?.nombre ?? 'Sin seleccionar'}</strong>
+          <p>{activo ? 'Contexto de tus accesos a técnicas' : 'Elige uno antes de abrir una técnica'}</p>
+        </article>
       </section>
 
       <section className="recent-grid">
@@ -129,7 +146,7 @@ export function DashboardPage() {
           <div className="panel-head">
             <div>
               <span className="kicker">PROYECTOS</span>
-              <h2>Actividad reciente</h2>
+              <h2>Proyectos creados recientemente</h2>
             </div>
             <Link to="/proyectos" className="ghost">Ver todos →</Link>
           </div>
@@ -148,7 +165,7 @@ export function DashboardPage() {
               </div>
             </Link>
           ))}
-          {!isLoading && recientes.length === 0 && (
+          {!isLoading && !isError && recientes.length === 0 && (
             <p>Todavía no tienes proyectos — crea el primero desde "Proyectos".</p>
           )}
         </article>

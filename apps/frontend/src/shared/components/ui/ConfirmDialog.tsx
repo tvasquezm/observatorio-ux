@@ -68,14 +68,14 @@ export function ConfirmDialog() {
           onClick={() => responder(false)}
           className="confirm-btn confirm-btn--cancel"
         >
-          Cancelar
+          {pending.cancelLabel ?? 'Cancelar'}
         </button>
         <button
           type="button"
           onClick={() => responder(true)}
           className="confirm-btn confirm-btn--confirm"
         >
-          Confirmar
+          {pending.confirmLabel ?? 'Confirmar'}
         </button>
       </div>
     </dialog>

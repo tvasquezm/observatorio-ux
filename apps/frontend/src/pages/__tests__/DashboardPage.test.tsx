@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DashboardPage } from '../DashboardPage';
+import userEvent from '@testing-library/user-event';
 
 const mocks = vi.hoisted(() => ({
   useProjects: vi.fn(),
@@ -24,6 +25,7 @@ vi.mock('../../features/auth/store/useAuthStore', () => ({
 }));
 
 beforeEach(() => {
+  sessionStorage.clear();
   mocks.useProjects.mockReturnValue({
     isLoading: false,
     data: [
@@ -49,6 +51,23 @@ beforeEach(() => {
 });
 
 describe('DashboardPage', () => {
+  it('exige elegir entre varios proyectos y conserva el contexto seleccionado', async () => {
+    const mount = () => render(<MemoryRouter><DashboardPage /></MemoryRouter>);
+    const first = mount();
+    expect(screen.getByRole('link', { name: /Personas Necesidades/ })).toHaveAttribute('href', '/proyectos');
+    await userEvent.selectOptions(screen.getByLabelText('Proyecto activo'), 'p2');
+    expect(screen.getByRole('link', { name: /Personas Necesidades/ })).toHaveAttribute('href', '/proyectos/p2/personas');
+    first.unmount();
+    mount();
+    expect(screen.getByLabelText('Proyecto activo')).toHaveValue('p2');
+    expect(screen.getByRole('link', { name: /Personas Necesidades/ })).toHaveAttribute('href', '/proyectos/p2/personas');
+  });
+  it('solicita una nueva elección si el proyecto guardado deja de estar disponible', () => {
+    sessionStorage.setItem('observatorio-ux-project:u1', 'removed');
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>);
+    expect(screen.getByLabelText('Proyecto activo')).toHaveValue('');
+    expect(screen.getByRole('link', { name: /Personas Necesidades/ })).toHaveAttribute('href', '/proyectos');
+  });
   it('resume las sesiones reales informadas por los proyectos', () => {
     render(
       <MemoryRouter>
