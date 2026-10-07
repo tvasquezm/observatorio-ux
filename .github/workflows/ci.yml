@@ -100,6 +100,14 @@ jobs:
       - name: Tests del backend
         run: pnpm --filter backend test
 
+      - name: Instalar k6 para validar los scripts de carga
+        uses: grafana/setup-k6-action@43b9fc21641a76002687994433dd586f56e791b1 # v1
+        with:
+          k6-version: '2.3.0'
+
+      - name: Comprobar contratos y CSRF de los flujos k6 (sin carga real)
+        run: node tests/load/check.mjs
+
       - name: Tests del frontend
         run: pnpm --filter frontend test
 

@@ -2,10 +2,11 @@
 // Ejecutar: node tests/load/check.mjs (k6 en PATH o K6_BIN=/ruta/a/k6).
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { readFile, mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { readFile, readdir, mkdtemp, writeFile, rm } from 'node:fs/promises';
 import http from 'node:http';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import ts from '../../apps/backend/node_modules/typescript/lib/typescript.js';
 
 const main = await readFile(new URL('../../apps/backend/src/main.ts', import.meta.url), 'utf8');
@@ -13,6 +14,7 @@ const csrfSource = main.slice(main.indexOf('const METODOS_MUTANTES'), main.index
 const csrf = new Function(`${ts.transpile(csrfSource)}; return csrfProtection;`)();
 const completed = new Set();
 let violation;
+let rejectResults = false;
 const server = http.createServer(async (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   req.path = req.url;
@@ -39,6 +41,7 @@ const server = http.createServer(async (req, res) => {
       if (req.url === '/api/card-sorting/sessions/session/results') {
         assert.equal(req.headers.authorization, 'Bearer participant-token');
         assert.deepEqual(body.grupos, [{ categoriaId: 'category', cardIds: ['card'] }]);
+        if (rejectResults) return res.status(500).json({ error: 'synthetic failure' });
         completed.add('participante');
         return res.json({ id: 'session' });
       }
@@ -70,9 +73,15 @@ try {
     export { evaluador, participante, admin, setup };
     export const options = { ...base, scenarios: Object.fromEntries(['evaluador', 'participante', 'admin'].map(exec => [exec, {executor:'per-vu-iterations', exec, vus:1, iterations:1}])) };
   `);
-  const result = await new Promise((resolve, reject) => {
-    const processK6 = spawn(process.env.K6_BIN || 'k6', ['run', '--quiet', script], {
-      env: { ...process.env, BASE_URL: `http://127.0.0.1:${server.address().port}`, FASE: 'smoke', PROYECTO_ID: 'project', ESTUDIO_ID: 'study', EVAL_EMAIL: 'evaluator', EVAL_PASSWORD: 'synthetic', ADMIN_EMAIL: 'admin', ADMIN_PASSWORD: 'synthetic', PAUSA_MIN: '0', PAUSA_MAX: '0' },
+  const windows = process.platform === 'win32';
+  const command = windows ? 'pwsh' : (process.env.K6_BIN || 'k6');
+  const args = windows
+      ? ['-NoProfile', '-File', fileURLToPath(new URL('./run.ps1', import.meta.url)), '-Script', script, '-ResultDir', join(directory, 'results'), '-K6Path', process.env.K6_BIN || 'k6']
+      : ['run', '--quiet', script];
+  const environment = { ...process.env, BASE_URL: `http://127.0.0.1:${server.address().port}`, FASE: 'smoke', PROYECTO_ID: 'project', ESTUDIO_ID: 'study', EVAL_EMAIL: 'evaluator', EVAL_PASSWORD: 'synthetic', ADMIN_EMAIL: 'admin', ADMIN_PASSWORD: 'synthetic', PAUSA_MIN: '0', PAUSA_MAX: '0' };
+  const run = (executable, argumentsK6, overrides = {}) => new Promise((resolve, reject) => {
+    const processK6 = spawn(executable, argumentsK6, {
+      env: { ...environment, ...overrides },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     let output = '';
@@ -81,11 +90,32 @@ try {
     processK6.once('error', reject);
     processK6.once('close', (code) => resolve({ code, output }));
   });
+  const result = await run(command, args);
   assert.ifError(violation);
   assert.equal(result.code, 0, result.output);
   assert.deepEqual([...completed].sort(), ['admin', 'evaluador', 'participante']);
-  console.log('OK: login aislado, CSRF y flujos completos de los tres roles.');
+  if (windows) {
+    const [resultName] = await readdir(join(directory, 'results'));
+    const resources = JSON.parse(await readFile(join(directory, 'results', resultName, 'resources.json'), 'utf8'));
+    assert.equal(resources.exitCode, 0);
+    assert.ok(resources.k6PeakRamMiB > 0);
+  }
+  for (const pauses of [{ PAUSA_MIN: '-1' }, { PAUSA_MAX: 'invalid' }, { PAUSA_MIN: '2', PAUSA_MAX: '1' }]) {
+    const invalid = await run(process.env.K6_BIN || 'k6', ['inspect', '--include-system-env-vars', script], pauses);
+    assert.notEqual(invalid.code, 0);
+    assert.match(invalid.output, /PAUSA_MIN.*PAUSA_MAX/);
+  }
+  rejectResults = true;
+  const failed = await run(command, args);
+  assert.equal(failed.code, 99, failed.output);
+  if (windows) {
+    const names = await readdir(join(directory, 'results'));
+    const codes = await Promise.all(names.map(async (name) => JSON.parse(await readFile(join(directory, 'results', name, 'resources.json'), 'utf8')).exitCode));
+    assert.deepEqual(codes.sort((a, b) => a - b), [0, 99]);
+  }
+  console.log('OK: logins, CSRF, tres flujos, configuración de pausas y registro de RAM en Windows.');
 } finally {
   await new Promise((resolve) => server.close(resolve));
+  assert.equal(dirname(resolve(directory)), resolve(tmpdir()));
   await rm(directory, { recursive: true, force: true });
 }

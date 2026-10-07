@@ -153,3 +153,6 @@ c --noEmit
 
 # Cliente Prisma generado (prisma generate)
 apps/backend/src/generated/
+
+# Resultados locales de k6
+tests/load/results/

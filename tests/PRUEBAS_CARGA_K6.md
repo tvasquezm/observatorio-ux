@@ -1,283 +1,222 @@
-# Pruebas de carga k6 — comandos en orden
+# Pruebas de carga con k6
 
-Objetivo: 200 usuarios simultáneos. Dos pasadas:
+k6 simula usuarios que envían peticiones HTTP a la API. Estos scripts no abren
+navegadores. El objetivo es verificar tiempos de respuesta y errores hasta
+200 usuarios simultáneos; `stress` llega a 300 para buscar el punto de quiebre.
 
-- **Capacidad:** throttle de Nest y `limit_req` de nginx apagados. Mide el servidor.
-- **Realista:** todo como en producción. Mide el efecto de que un curso comparta IP (NAT).
+Hay dos pasadas:
 
-Todos los comandos son para **PowerShell** en Windows 11, ejecutados en la raíz del repo salvo que se diga otra cosa.
+- **Capacidad:** se desactiva el throttle y se eleva el límite de nginx para
+  medir el servidor. Solo en el proyecto Docker de pruebas.
+- **Realista:** se conservan los límites de producción para medir el efecto
+  de muchos participantes conectados desde una misma IP.
 
----
+Los scripts descartan los cuerpos de respuesta que no necesitan. Conservan
+únicamente los JSON necesarios para continuar el flujo. Los logins de evaluador
+y admin usan cookie jars independientes y mantienen la protección CSRF.
 
-## 0. Antes de empezar
+## 1. Requisitos y RAM
 
-- Notebook enchufado, modo "Máximo rendimiento".
-- Cerrar navegador, IDE y todo lo que no se necesite.
-- Docker Desktop abierto.
-- Versión de Compose (necesita 2.24.4 o superior):
-
-```powershell
-docker compose version
-```
-
-- Instalar k6 (en Windows, no en un contenedor):
+Usa PowerShell en Windows, desde la raíz del repositorio. Necesitas Docker Desktop,
+Docker Compose >= 2.24.4, Node.js >= 24, pnpm 10.34.5 y k6. Para instalar k6:
 
 ```powershell
 winget install k6 --source winget
 k6 version
+docker compose version
 ```
 
-Cierra y abre la terminal después de instalar.
+La comprobación automática en CI usa k6 2.3.0. No necesitas instalar Grafana,
+Prometheus ni navegadores para correr estos scripts.
 
----
+La RAM de k6 y la de Docker son consumos distintos. No atribuyas todo el consumo
+de `VmmemWSL` a k6. El override limita PostgreSQL a 2 GB, backend a 1 GB y nginx
+a 256 MB; faltan frontend y el gasto de WSL/Docker. Son **topes**, no cantidades
+que cada servicio necesariamente consuma. Los builds pueden tener otro pico.
 
-## 1. Limitar WSL2 (una sola vez)
-
-Deja 10 GB y 8 hilos a Docker; quedan 6 GB y 4 hilos para Windows y k6.
-
-```powershell
-notepad $env:USERPROFILE\.wslconfig
-```
-
-Contenido del archivo:
+En un equipo de 16 GB, prueba primero sin modificar WSL. Si necesitas limitarlo,
+este es un punto de partida opcional en `%USERPROFILE%\.wslconfig`:
 
 ```ini
 [wsl2]
-memory=10GB
-processors=8
+memory=6GB
+processors=6
 swap=2GB
 ```
 
-Aplicar:
+El límite de WSL tampoco reserva esos 6 GB al arrancar. Ajusta según mediciones.
+Aplicarlo con `wsl --shutdown` detiene todas las distribuciones WSL; después
+reinicia Docker Desktop. No se requiere hacerlo para ejecutar la prueba.
+
+Durante una fase, observa k6 en el Administrador de tareas y, en otra terminal:
 
 ```powershell
-wsl --shutdown
+docker stats
 ```
 
-Abre Docker Desktop de nuevo y espera a que arranque. Comprobar:
+Si la máquina empieza a paginar intensamente o el generador satura la CPU,
+los tiempos ya mezclan el límite del equipo de pruebas con el de la aplicación.
+Anótalo y detén la fase; no lo presentes como capacidad del servidor. Para una
+medición de capacidad más fiel, ejecuta k6 en otro equipo contra el stack de pruebas.
 
-```powershell
-docker info --format "{{.NCPU}} CPUs, {{.MemTotal}} bytes"
-```
+Referencias: [RAM y optimización de k6](https://grafana.com/docs/k6/latest/testing-guides/running-large-tests/).
 
-Esperado: `8 CPUs` y unos 10 GB.
-
----
-
-## 2. Aplicar los archivos
-
-Extraer el paquete en la raíz del repo (ajusta la ruta de Descargas si hace falta):
-
-```powershell
-tar -xzf $env:USERPROFILE\Downloads\k6-docker.tar.gz
-```
-
-Después **reemplaza `docker-compose.loadtest.yml`** por la última versión que te envié (la que trae `cpus` y `mem_limit`). No uses `k6-carga.tar.gz`: quedó reemplazado.
-
-Comprobar que quedó la versión con límites (deben salir 3 líneas):
-
-```powershell
-Select-String -Path docker-compose.loadtest.yml -Pattern mem_limit
-```
-
-Archivos que quedan:
-
-- `apps/backend/src/app.module.ts` (modificado)
-- `docker-compose.loadtest.yml` (nuevo)
-- `tests/load/participante.k6.js` (modificado)
-- `tests/load/evaluador.k6.js`, `tests/load/mixto.k6.js` (nuevos)
-- `tests/load/lib/config.js`, `fases.js`, `metricas.js` (nuevos)
-
----
-
-## 3. Revisar tipos del backend
-
-```powershell
-cd apps\backend
-pnpm exec tsc --noEmit
-cd ..\..
-```
-
-Debe terminar sin errores. Si falla, no sigas y envíame el error.
-
----
-
-## 4. Crear `.env.loadtest`
+## 2. Preparar una BD y un puerto exclusivos de pruebas
 
 ```powershell
 Copy-Item env.production.example .env.loadtest
 notepad .env.loadtest
 ```
 
-Reemplaza todos los `change_me`:
+Modifica las siguientes variables:
 
-| Variable | Qué poner |
+| Variable | Valor |
 |---|---|
-| `POSTGRES_PASSWORD` | Clave nueva (solo letras y números) |
-| `DATABASE_URL` | La misma clave de arriba; mantén `connection_limit=20&pool_timeout=20` |
-| `JWT_SECRET` | 32 caracteres o más |
-| `JWT_PARTICIPANTE_SECRET` | 32 caracteres o más, **distinto** de `JWT_SECRET` |
-| `SEED_PASSWORD`, `SEED_PROFESOR_PASSWORD`, `SEED_ADMIN_PASSWORD` | Claves nuevas |
-| `CORS_ORIGIN` | `http://localhost:8080` |
+| `APP_PORT` | `8081` para no ocupar el puerto productivo `8080` |
+| `POSTGRES_DB` | `observatorio_ux_loadtest` |
+| `POSTGRES_PASSWORD` | Una contraseña propia para pruebas |
+| `DATABASE_URL` | Mismo usuario/contraseña y BD; host `db`; conserva `schema=public&connection_limit=20&pool_timeout=20` |
+| `JWT_SECRET`, `JWT_PARTICIPANTE_SECRET` | Secretos distintos de al menos 32 caracteres |
+| `CORS_ORIGIN` | `http://localhost:8081` |
+| `SEED_PASSWORD`, `SEED_PROFESOR_PASSWORD`, `SEED_ADMIN_PASSWORD` | Contraseñas propias para los usuarios demo |
 
-Generar una clave aleatoria de 40 caracteres (úsalo una vez por cada secreto):
+`.env.loadtest` está ignorado por Git. No subas credenciales ni resultados con datos sensibles.
+
+Define estos atajos en cada terminal nueva. **Ambos usan el proyecto aislado
+`observatorio-ux-loadtest`**, incluso cuando se omite el override:
 
 ```powershell
--join ((48..57)+(65..90)+(97..122) | Get-Random -Count 40 | ForEach-Object {[char]$_})
+function dc  { docker compose -p observatorio-ux-loadtest --env-file .env.loadtest -f docker-compose.production.yml -f docker-compose.loadtest.yml @args }
+function dcr { docker compose -p observatorio-ux-loadtest --env-file .env.loadtest -f docker-compose.production.yml @args }
 ```
 
-`.env.*` está en `.gitignore`: este archivo no se sube al repo.
+`dc` mide capacidad; `dcr` conserva los controles productivos. El nombre del
+proyecto separa contenedores y volumen de `observatorio-ux-production`.
 
----
-
-## 5. Atajos (repetir en cada terminal nueva)
-
-```powershell
-function dc  { docker compose --env-file .env.loadtest -f docker-compose.production.yml -f docker-compose.loadtest.yml @args }
-function dcr { docker compose --env-file .env.loadtest -f docker-compose.production.yml @args }
-```
-
-- `dc` = pasada de **capacidad** (con el override).
-- `dcr` = pasada **realista** (producción tal cual).
-
----
-
-## 6. Levantar el stack (pasada de capacidad)
-
-La primera vez el build tarda varios minutos.
+## 3. Levantar y sembrar el stack de capacidad
 
 ```powershell
-dc up -d --build
+dc config --quiet
+dc up -d --build --wait --wait-timeout 180
 dc ps
-curl.exe http://localhost:8080/api/health
+curl.exe --fail http://localhost:8081/api/health
 ```
 
-Espera a que `db`, `backend`, `frontend` y `nginx` estén `healthy`. Si algo falla:
-
-```powershell
-dc logs backend --tail 60
-```
-
-Verificar que el override quedó aplicado:
+Si falla, revisa `dc logs backend --tail 60`. Confirma el override:
 
 ```powershell
 dc exec backend printenv LOAD_TEST
 dc exec nginx grep limit_req /etc/nginx/conf.d/default.conf
 ```
 
-Esperado: `true`, y dos líneas con `rate=10000r/s` y `burst=10000`.
-
----
-
-## 7. Cargar el seed (una vez por BD nueva)
-
-Usa las mismas claves de `.env.loadtest`:
+Debe aparecer `true`, `rate=10000r/s` y `burst=10000`. No ejecutes k6 hasta que
+los servicios estén healthy. Carga el seed una vez por BD nueva usando las
+contraseñas de `.env.loadtest`:
 
 ```powershell
 dc exec -e SEED_PASSWORD=<clave> -e SEED_PROFESOR_PASSWORD=<clave> -e SEED_ADMIN_PASSWORD=<clave> backend pnpm run seed
 ```
 
----
+El seed modifica cuentas y datos demo; usa exclusivamente la BD de pruebas.
+El pool conserva los parámetros de DATABASE_URL tanto en el backend como en el seed.
 
-## 8. Variables para k6 (repetir en cada terminal nueva)
-
-```powershell
-$env:BASE_URL = "http://localhost:8080"
-$env:PROYECTO_ID = "f1e1b6a1-0001-4a11-9c00-000000000002"
-$env:ESTUDIO_ID = "f1e1b6a1-0002-4a11-9c00-000000000003"
-$env:EVAL_EMAIL = "profesor@test.com"
-$env:EVAL_PASSWORD = "<SEED_PROFESOR_PASSWORD>"
-$env:ADMIN_EMAIL = "admin@test.com"
-$env:ADMIN_PASSWORD = "<SEED_ADMIN_PASSWORD>"
-mkdir $env:USERPROFILE\k6-resultados
-```
-
-Los IDs son los del seed demo. Los resultados se guardan fuera del repo.
-
----
-
-## 9. Pasada de capacidad, fase por fase
-
-**Terminal 2:** déjala abierta mientras corre cada fase y anota el pico de CPU y memoria de `db`, `backend` y `nginx`.
+## 4. Variables y comprobación rápida
 
 ```powershell
-docker stats --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}"
+$env:BASE_URL = 'http://localhost:8081'
+$env:PROYECTO_ID = 'f1e1b6a1-0001-4a11-9c00-000000000002'
+$env:ESTUDIO_ID = 'f1e1b6a1-0002-4a11-9c00-000000000003'
+$env:EVAL_EMAIL = 'profesor@test.com'
+$env:EVAL_PASSWORD = '<SEED_PROFESOR_PASSWORD>'
+$env:ADMIN_EMAIL = 'admin@test.com'
+$env:ADMIN_PASSWORD = '<SEED_ADMIN_PASSWORD>'
 ```
 
-**Terminal 1:** ejecuta las fases **en este orden**. Si una falla sus umbrales, **detente** y envíame los resultados antes de seguir.
+Las pausas entre acciones van de 3 a 8 segundos. Puedes ajustar `PAUSA_MIN` y
+`PAUSA_MAX` para representar el uso real; deben cumplir `0 <= mínimo <= máximo`.
+No reduzcas las pausas solo para obtener mejores números: cambia la carga generada.
 
-| # | Fase | Duración | Comando | Pasa si |
-|---|---|---|---|---|
-| 1 | Smoke | 1 min | `k6 run -e FASE=smoke --summary-export=$env:USERPROFILE\k6-resultados\smoke.json tests/load/mixto.k6.js` | 0 % errores |
-| 2 | Baseline | 3 min | `k6 run -e FASE=baseline --summary-export=$env:USERPROFILE\k6-resultados\baseline.json tests/load/mixto.k6.js` | p95 < 300 ms |
-| 3 | Load 25 VUs | 3 min | `k6 run -e FASE=load25 --summary-export=$env:USERPROFILE\k6-resultados\load25.json tests/load/mixto.k6.js` | p95 < 500 ms, errores < 1 % |
-| 4 | Load 50 VUs | 3 min | `k6 run -e FASE=load50 --summary-export=$env:USERPROFILE\k6-resultados\load50.json tests/load/mixto.k6.js` | p95 < 500 ms, errores < 1 % |
-| 5 | Load 100 VUs | 3 min | `k6 run -e FASE=load100 --summary-export=$env:USERPROFILE\k6-resultados\load100.json tests/load/mixto.k6.js` | p95 < 500 ms, errores < 1 % |
-| 6 | Load 150 VUs | 3 min | `k6 run -e FASE=load150 --summary-export=$env:USERPROFILE\k6-resultados\load150.json tests/load/mixto.k6.js` | p95 < 500 ms, errores < 1 % |
-| 7 | Load 200 VUs | 3 min | `k6 run -e FASE=load200 --summary-export=$env:USERPROFILE\k6-resultados\load200.json tests/load/mixto.k6.js` | p95 < 500 ms, errores < 1 % |
-| 8 | Stress | 11 min | `k6 run -e FASE=stress --summary-export=$env:USERPROFILE\k6-resultados\stress.json tests/load/mixto.k6.js` | Se busca el punto de quiebre |
-| 9 | Spike (200 participantes) | 3,5 min | `k6 run -e FASE=spike --summary-export=$env:USERPROFILE\k6-resultados\spike.json tests/load/participante.k6.js` | p95 < 800 ms, errores < 1 % |
-| 10 | Soak | 33 min | `k6 run -e FASE=soak --summary-export=$env:USERPROFILE\k6-resultados\soak.json tests/load/mixto.k6.js` | Sin degradación |
+Para comprobar el contrato de los scripts sin Docker ni BD, después de instalar
+las dependencias del repo:
 
-Notas:
+```powershell
+pnpm install --frozen-lockfile
+node tests/load/check.mjs
+```
 
-- Los peldaños de Load se corren **uno por uno**: entre cada uno revisa `docker stats` y sube solo si el anterior pasó. (`FASE=load` corre los cinco seguidos, 15,5 min; no lo uses para la primera vuelta.)
-- El Spike corre solo el flujo del participante, con los 200 VUs.
-- `soak` es la fase más exigente para el notebook. Si se calienta mucho, córtala con `Ctrl+C` y anótalo.
-- Código de salida 99 de k6 = se cruzó un umbral (no es un fallo del script).
+Este check ejecuta una iteración por rol con k6 real contra una API local de
+contrato y reutiliza el middleware CSRF del backend. Comprueba el segundo login,
+el consentimiento, el token, el envío de resultados y el bloqueo/desbloqueo.
+**No mide capacidad ni reemplaza una prueba contra el stack completo.**
 
----
+## 5. Ejecutar por fases y guardar RAM/resultados
 
-## 10. Pasada realista
+```powershell
+./tests/load/run.ps1 -Fase smoke
+./tests/load/run.ps1 -Fase baseline
+./tests/load/run.ps1 -Fase load25
+```
 
-Reinicia con una BD limpia y **sin** el override: throttle de Nest y `limit_req` de nginx activos.
+Cada ejecución guarda, en `tests/load/results/<fase>-<id>/`:
 
-> **Ojo:** `down -v` borra el volumen `postgres_production_data` de este stack. Es la BD de pruebas; no lo hagas si guardas algo ahí.
+- `summary.json`: métricas y umbrales de k6.
+- `resources.json`: pico observado de RAM del proceso k6, duración y código de salida.
+- `stdout.log` y `stderr.log`: salida y errores de la prueba.
+
+El runner observa la RAM cada 100 ms. No mide la RAM del backend, Docker o WSL;
+usa `docker stats` y el Administrador de tareas para esos consumos. Los resultados
+locales están ignorados por Git. El código de salida de k6 se conserva: `99`
+indica un umbral incumplido y otros códigos pueden indicar un error del script.
+
+Sube al siguiente peldaño solo si el anterior cumple sus umbrales y el equipo
+no está saturado:
+
+| Fase | Duración aproximada | Objetivo |
+|---|---|---|
+| `smoke` | 1 min | Validar el flujo con pocos VUs, sin errores HTTP |
+| `baseline` | 3 min | Referencia pequeña; p95 < 300 ms |
+| `load25`, `load50`, `load100`, `load150`, `load200` | 3 min cada una | Aumentar carga; p95 < 500 ms, errores HTTP < 1 % |
+| `load` | 15,5 min | Los cinco peldaños seguidos; después de validarlos individualmente |
+| `stress` | 11 min | Hasta 300 VUs; observar el punto de quiebre |
+| `spike` | 3,5 min | Entrada rápida de 200 participantes |
+| `soak` | 33 min | Observar degradación sostenida con 100 VUs |
+
+La carga mixta reparte aproximadamente 70 % evaluador, 25 % participante y 5 %
+admin. El redondeo y el mínimo de un VU por rol hacen que smoke tenga 3 VUs y
+baseline 11. En el peldaño de 200 se ejecutan 140 + 50 + 10 VUs.
+
+El spike de participantes se ejecuta así:
+
+```powershell
+./tests/load/run.ps1 -Fase spike -Script tests/load/participante.k6.js
+```
+
+Para medir solo evaluadores, usa `-Script tests/load/evaluador.k6.js`. Cada VU
+evaluador comparte una cuenta: esta prueba mide tráfico del rol, **no conflictos
+de edición entre personas distintas**. Los participantes se crean por iteración,
+así que la BD crece durante las fases largas. No ejecutes stress/soak como primera prueba.
+
+## 6. Pasada realista y limpieza
+
+Reinicia únicamente el proyecto de pruebas. `down -v` borra su BD:
 
 ```powershell
 dc down -v
-dcr up -d --build
-dcr ps
+dcr up -d --build --wait --wait-timeout 180
 dcr exec -e SEED_PASSWORD=<clave> -e SEED_PROFESOR_PASSWORD=<clave> -e SEED_ADMIN_PASSWORD=<clave> backend pnpm run seed
+./tests/load/run.ps1 -Fase spike -Script tests/load/participante.k6.js
 ```
 
-Spike de participantes desde una sola IP:
+Desde una sola IP se esperan 429 del backend y posiblemente 503 de nginx.
+El incumplimiento de umbrales en esa pasada registra el efecto de los límites;
+conserva el resultado y separa ese diagnóstico del de capacidad.
 
-```powershell
-k6 run -e FASE=spike --summary-export=$env:USERPROFILE\k6-resultados\realista-spike.json tests/load/participante.k6.js
-```
-
-**Se esperan** muchos 429 (throttle de Nest) y 503 (nginx). Eso es el hallazgo del NAT, no una falla de la prueba. Mira `http_req_failed` y qué checks fallan (`join`, `results`).
-
----
-
-## 11. Limpieza
+Al terminar, si ya no necesitas los datos de pruebas:
 
 ```powershell
 dcr down -v
 ```
 
-Opcional: borrar `%USERPROFILE%\.wslconfig` y ejecutar `wsl --shutdown`.
-
----
-
-## 12. Qué enviarme por cada fase
-
-1. El bloque final del resumen de k6 (`http_req_duration` p95, `http_req_failed`, `checks`, `flow_errors`, `iterations`).
-2. El pico de CPU y memoria de `db`, `backend` y `nginx` (de `docker stats`).
-3. Si hubo errores: `dc logs backend --tail 100`.
-
----
-
-## Si algo falla
-
-| Síntoma | Causa probable | Qué hacer |
-|---|---|---|
-| `Falta PROYECTO_ID` / `Falta EVAL_EMAIL` | Variables no definidas en esta terminal | Repite el paso 8 |
-| `Login falló ... HTTP 401` | Clave distinta de la del seed | Usa la de `SEED_PROFESOR_PASSWORD` / `SEED_ADMIN_PASSWORD` |
-| `Login falló ... HTTP 429` | `LOAD_TEST` no llegó al backend | Repite las verificaciones del paso 6 |
-| Muchos 429 en la pasada de capacidad | `LOAD_TEST` no aplicado, o tope por hora | `dc exec backend printenv LOAD_TEST` |
-| Muchos 503 en la pasada de capacidad | El `sed` de nginx no se aplicó | `dc exec nginx grep limit_req /etc/nginx/conf.d/default.conf` |
-| `connection refused` | Stack no está `healthy` | `dc ps` y `dc logs backend --tail 60` |
-| `dial: too many open files` / `cannot assign requested address` | Límites del sistema | Baja los VUs y avísame |
-| Error por `!override` al hacer `dc` | Compose antiguo | Actualiza Docker Desktop |
+Por cada fase conserva los percentiles, errores, iterations, RAM de k6 y picos
+de CPU/RAM de los contenedores. Describe el equipo, límites, dataset y pausas
+usados para que otra persona pueda repetir la medición.
