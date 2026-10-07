@@ -6,6 +6,15 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **k6:** aísla la BD de carga, corrige el segundo login con CSRF y descarta
+  cuerpos de respuesta innecesarios. Agrega una comprobación de contratos en CI
+  y un runner PowerShell con logs, resumen y pico de RAM de k6 por ejecución.
+
+* **database:** migra a Prisma 7.10.0 con cliente generado, adaptador PostgreSQL,
+  configuración de migraciones y seeds TypeScript; conserva schema, límites de
+  conexiones y timeout de DATABASE_URL en la API y los scripts de administración.
+  Comprueba PostgreSQL con una consulta al iniciar, antes de exponer la API.
+
 * **ux-ui:** protege cierres de borradores, distingue errores de proyectos y permite
   elegir el proyecto activo; mejora navegación, foco, etiquetas, contraste y diseño móvil.
 

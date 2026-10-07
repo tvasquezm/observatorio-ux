@@ -20,6 +20,7 @@ import { flowErrors } from './lib/metricas.js';
 const PROYECTO_ID = requerida('PROYECTO_ID');
 
 export const options = {
+  discardResponseBodies: true,
   scenarios: {
     evaluador: {
       executor: 'ramping-vus',
@@ -91,7 +92,7 @@ export function evaluador(datos) {
   if (!paso(http.get(`${BASE_URL}/api/projects`, { headers: h, tags: { name: 'projects_list' } }), 'projects_list')) return;
   pensar();
 
-  const lista = http.get(raiz, { headers: h, tags: { name: 'artifacts_list' } });
+  const lista = http.get(raiz, { headers: h, tags: { name: 'artifacts_list' }, responseType: 'text' });
   if (!paso(lista, 'artifacts_list')) return;
   const artefactos = ultimasVersiones(lista.json());
   if (artefactos.length === 0) {

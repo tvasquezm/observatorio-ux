@@ -22,6 +22,7 @@ requerida('ADMIN_EMAIL');
 requerida('ADMIN_PASSWORD');
 
 export const options = {
+  discardResponseBodies: true,
   scenarios: {
     evaluador: { executor: 'ramping-vus', exec: 'evaluador', startVUs: 0, stages: etapas(FASE, 0.7) },
     participante: { executor: 'ramping-vus', exec: 'participante', startVUs: 0, stages: etapas(FASE, 0.25) },

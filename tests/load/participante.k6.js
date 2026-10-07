@@ -2,7 +2,8 @@
 // real de un participante de Card Sorting — access -> consent -> join ->
 // results — contra el estudio ya sembrado que se pase por env var.
 //
-// No crea datos: PROYECTO_ID y ESTUDIO_ID deben existir de antemano (un
+// Crea participantes, consentimientos y sesiones: usar una BD de pruebas.
+// PROYECTO_ID y ESTUDIO_ID deben existir de antemano (un
 // proyecto con un estudio maestro de Card Sorting sin cerrar).
 //
 // Los VUs corren desde una sola máquina y comparten IP real ante nginx.
@@ -42,6 +43,7 @@ const joinDuration = new Trend('join_duration', true);
 const resultsDuration = new Trend('results_duration', true);
 
 export const options = {
+  discardResponseBodies: true,
   scenarios: {
     participante_flow: {
       executor: 'ramping-vus',
@@ -67,7 +69,7 @@ export function participante() {
   const accessRes = http.post(
     `${BASE_URL}/api/auth/participants/access`,
     JSON.stringify({ proyectoId: PROYECTO_ID }),
-    { headers: jsonHeaders, tags: { name: 'access' } },
+    { headers: jsonHeaders, tags: { name: 'access' }, responseType: 'text' },
   );
   if (!step(accessRes, 'access')) return;
   const { participant, resume_token: resumeToken } = accessRes.json();
@@ -94,7 +96,7 @@ export function participante() {
       proyectoId: PROYECTO_ID,
       resumeToken,
     }),
-    { headers: jsonHeaders, tags: { name: 'token' } },
+    { headers: jsonHeaders, tags: { name: 'token' }, responseType: 'text' },
   );
   if (!step(tokenRes, 'token')) return;
   const { access_token: bearer } = tokenRes.json();
@@ -104,7 +106,7 @@ export function participante() {
   const joinRes = http.post(
     `${BASE_URL}/api/card-sorting/sessions/${ESTUDIO_ID}/join`,
     null,
-    { headers: authHeaders, tags: { name: 'join' } },
+    { headers: authHeaders, tags: { name: 'join' }, responseType: 'text' },
   );
   joinDuration.add(joinRes.timings.duration);
   if (!step(joinRes, 'join')) return;

@@ -1,12 +1,14 @@
 # Override SOLO para pruebas de carga (tests/load). No usar en producción.
 #
 # Capacidad (throttle y limit_req apagados):
-#   docker compose --env-file .env.loadtest \
+#   docker compose -p observatorio-ux-loadtest --env-file .env.loadtest \
 #     -f docker-compose.production.yml -f docker-compose.loadtest.yml up -d --build
 # Realista (todo como en producción): omitir el segundo -f.
 # Requiere Docker Compose 2.24+ (por !override).
 # cpus/mem_limit: fijan el tope de cada servicio para ver cuál satura primero
 # (comparar con `docker stats`). Solo aplican en esta pasada.
+
+name: observatorio-ux-loadtest
 
 services:
   db:
