@@ -36,7 +36,10 @@ const server = http.createServer(async (req, res) => {
       if (req.url === '/api/auth/participants/token') return res.json({ access_token: 'participant-token' });
       if (req.url === '/api/card-sorting/sessions/study/join') {
         assert.equal(req.headers.authorization, 'Bearer participant-token');
-        return res.json({ id: 'session', cardsDefinidas: [{ id: 'card' }], categoriasDefinidas: [{ id: 'category' }] });
+        return res.json({
+          id: 'session', cardsDefinidas: [], categoriasDefinidas: [],
+          estudio: { cardsDefinidas: [{ id: 'card' }], categoriasDefinidas: [{ id: 'category' }] },
+        });
       }
       if (req.url === '/api/card-sorting/sessions/session/results') {
         assert.equal(req.headers.authorization, 'Bearer participant-token');

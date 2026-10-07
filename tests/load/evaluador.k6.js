@@ -36,7 +36,13 @@ function login(email, password) {
   const res = http.post(
     `${BASE_URL}/api/auth/login`,
     JSON.stringify({ email, password }),
-    { headers: { 'Content-Type': 'application/json' }, tags: { name: 'login' }, jar: new http.CookieJar() },
+    {
+      headers: { 'Content-Type': 'application/json' },
+      tags: { name: 'login' },
+      // Jar vacío: sin esto el jar de k6 reenvía el evaluadorToken del login
+      // anterior y el CSRF del backend responde 403 en el segundo login.
+      jar: new http.CookieJar(),
+    },
   );
   const token = res.cookies.evaluadorToken && res.cookies.evaluadorToken[0];
   const csrf = res.cookies.csrfToken && res.cookies.csrfToken[0];
