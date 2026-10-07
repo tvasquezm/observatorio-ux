@@ -14,7 +14,7 @@
 //
 // Uso (seed demo: PROYECTO_ID y ESTUDIO_ID de abajo):
 //   FASE=smoke|baseline|load|stress|spike|soak \
-//   BASE_URL=http://localhost:3000 \
+//   BASE_URL=http://localhost:8080 \
 //   PROYECTO_ID=f1e1b6a1-0001-4a11-9c00-000000000002 \
 //   ESTUDIO_ID=f1e1b6a1-0002-4a11-9c00-000000000003 \
 //   k6 run tests/load/participante.k6.js

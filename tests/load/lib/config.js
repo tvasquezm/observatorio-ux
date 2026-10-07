@@ -1,6 +1,6 @@
 import { sleep } from 'k6';
 
-export const BASE_URL = __ENV.BASE_URL || 'http://localhost:3000';
+export const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
 export const FASE = __ENV.FASE || 'smoke';
 
 const PAUSA_MIN = Number(__ENV.PAUSA_MIN || 3);

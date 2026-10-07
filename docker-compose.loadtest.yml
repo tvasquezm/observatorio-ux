@@ -1,0 +1,32 @@
+# Override SOLO para pruebas de carga (tests/load). No usar en producción.
+#
+# Capacidad (throttle y limit_req apagados):
+#   docker compose --env-file .env.loadtest \
+#     -f docker-compose.production.yml -f docker-compose.loadtest.yml up -d --build
+# Realista (todo como en producción): omitir el segundo -f.
+# Requiere Docker Compose 2.24+ (por !override).
+
+services:
+  db:
+    command:
+      - postgres
+      - -c
+      - shared_buffers=512MB
+      - -c
+      - random_page_cost=1.1
+
+  backend:
+    environment:
+      LOAD_TEST: "true"
+      PARTICIPANTS_ACCESS_LIMIT_PER_HOUR: "100000"
+
+  nginx:
+    volumes: !override
+      - ./deploy/nginx/default.conf:/etc/nginx/conf.d/default.conf.src:ro
+    command:
+      - sh
+      - -c
+      - >-
+        sed -e 's|rate=20r/s|rate=10000r/s|' -e 's|burst=60|burst=10000|'
+        /etc/nginx/conf.d/default.conf.src > /etc/nginx/conf.d/default.conf
+        && exec nginx -g 'daemon off;'

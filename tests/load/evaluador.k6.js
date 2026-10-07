@@ -6,7 +6,7 @@
 //
 // Uso:
 //   FASE=smoke|baseline|load|stress|spike|soak \
-//   BASE_URL=http://localhost:3000 \
+//   BASE_URL=http://localhost:8080 \
 //   PROYECTO_ID=f1e1b6a1-0001-4a11-9c00-000000000002 \
 //   EVAL_EMAIL=<email> EVAL_PASSWORD=<password> \
 //   k6 run tests/load/evaluador.k6.js

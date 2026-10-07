@@ -34,10 +34,9 @@ import { UsersModule } from './modules/users/users.module.js';
     ThrottlerModule.forRoot({
       throttlers: [{ name: 'default', ttl: 60_000, limit: 60 }],
       // Solo para pruebas de carga (tests/load): LOAD_TEST=true apaga el
-      // throttle, y nunca aplica con NODE_ENV=production.
-      skipIf: () =>
-        process.env.LOAD_TEST === 'true' &&
-        process.env.NODE_ENV !== 'production',
+      // throttle. docker-compose.production.yml pasa una lista fija de env
+      // vars, así que solo llega con docker-compose.loadtest.yml.
+      skipIf: () => process.env.LOAD_TEST === 'true',
     }),
     DatabaseModule,
     ProjectAccessModule,

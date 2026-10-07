@@ -3,7 +3,7 @@
 // cada escenario siguen la misma FASE, escalados por su fracción.
 //
 // Uso:
-//   FASE=load BASE_URL=http://localhost:3000 \
+//   FASE=load BASE_URL=http://localhost:8080 \
 //   PROYECTO_ID=f1e1b6a1-0001-4a11-9c00-000000000002 \
 //   ESTUDIO_ID=f1e1b6a1-0002-4a11-9c00-000000000003 \
 //   EVAL_EMAIL=<email> EVAL_PASSWORD=<password> \
