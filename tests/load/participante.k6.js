@@ -111,8 +111,11 @@ export function participante() {
   const session = joinRes.json();
   pensar(); // tiempo de ordenar las tarjetas
 
-  const cards = session.cardsDefinidas || [];
-  const categorias = session.categoriasDefinidas || [];
+  // El join devuelve la sesión del participante: las tarjetas y categorías
+  // del estudio vienen en session.estudio (las de session son las propias, vacías).
+  const estudio = session.estudio || session;
+  const cards = estudio.cardsDefinidas || [];
+  const categorias = estudio.categoriasDefinidas || [];
   if (cards.length === 0) {
     flowErrors.add(1);
     return;
