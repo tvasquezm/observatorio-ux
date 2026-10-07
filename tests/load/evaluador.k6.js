@@ -20,6 +20,7 @@ import { flowErrors } from './lib/metricas.js';
 const PROYECTO_ID = requerida('PROYECTO_ID');
 
 export const options = {
+  discardResponseBodies: true,
   scenarios: {
     evaluador: {
       executor: 'ramping-vus',
@@ -35,7 +36,7 @@ function login(email, password) {
   const res = http.post(
     `${BASE_URL}/api/auth/login`,
     JSON.stringify({ email, password }),
-    { headers: { 'Content-Type': 'application/json' }, tags: { name: 'login' } },
+    { headers: { 'Content-Type': 'application/json' }, tags: { name: 'login' }, jar: new http.CookieJar() },
   );
   const token = res.cookies.evaluadorToken && res.cookies.evaluadorToken[0];
   const csrf = res.cookies.csrfToken && res.cookies.csrfToken[0];
@@ -85,7 +86,7 @@ export function evaluador(datos) {
   if (!paso(http.get(`${BASE_URL}/api/projects`, { headers: h, tags: { name: 'projects_list' } }), 'projects_list')) return;
   pensar();
 
-  const lista = http.get(raiz, { headers: h, tags: { name: 'artifacts_list' } });
+  const lista = http.get(raiz, { headers: h, tags: { name: 'artifacts_list' }, responseType: 'text' });
   if (!paso(lista, 'artifacts_list')) return;
   const artefactos = ultimasVersiones(lista.json());
   if (artefactos.length === 0) {
