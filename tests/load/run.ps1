@@ -20,28 +20,40 @@ $timer = [System.Diagnostics.Stopwatch]::StartNew()
 $process = Start-Process -FilePath $executable -ArgumentList $arguments -WindowStyle Hidden -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
 $null = $process.Handle
 $peak = 0
-while (-not $process.HasExited) {
-  try {
-    $process.Refresh()
-    $peak = [math]::Max($peak, $process.PeakWorkingSet64)
-  } catch [System.InvalidOperationException] {
-    if (-not $process.HasExited) { throw }
+$exitCode = $null
+try {
+  while (-not $process.HasExited) {
+    try {
+      $process.Refresh()
+      $peak = [math]::Max($peak, $process.PeakWorkingSet64)
+    } catch [System.InvalidOperationException] {
+      if (-not $process.HasExited) { throw }
+    }
+    [void]$process.WaitForExit(100)
   }
-  [void]$process.WaitForExit(100)
+  $process.WaitForExit()
+  $exitCode = $process.ExitCode
+} finally {
+  $cancelled = -not $process.HasExited
+  if ($cancelled) {
+    Stop-Process -InputObject $process
+    $process.WaitForExit()
+    $exitCode = 130
+  }
+  $timer.Stop()
+  $resources = [pscustomobject]@{
+    fase = $Fase
+    script = $scriptPath
+    exitCode = $exitCode
+    cancelled = $cancelled
+    elapsedSeconds = [math]::Round($timer.Elapsed.TotalSeconds,2)
+    k6PeakRamMiB = [math]::Round($peak / 1MB,2)
+    sampleIntervalMs = 100
+  } | ConvertTo-Json
+  [IO.File]::WriteAllText((Join-Path $runDir 'resources.json'), $resources)
+  $process.Dispose()
 }
-$process.WaitForExit()
-$timer.Stop()
-$exitCode = $process.ExitCode
-[pscustomobject]@{
-  fase = $Fase
-  script = $scriptPath
-  exitCode = $exitCode
-  elapsedSeconds = [math]::Round($timer.Elapsed.TotalSeconds,2)
-  k6PeakRamMiB = [math]::Round($peak / 1MB,2)
-  sampleIntervalMs = 100
-} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $runDir 'resources.json') -Encoding utf8
 Get-Content -LiteralPath $stdout
 Get-Content -LiteralPath $stderr
 Write-Host ("Pico observado de RAM de k6: {0:N1} MiB; código: {1}" -f ($peak / 1MB), $exitCode)
-$process.Dispose()
 exit $exitCode

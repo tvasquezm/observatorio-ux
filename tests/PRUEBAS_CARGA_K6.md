@@ -167,6 +167,8 @@ El runner observa la RAM cada 100 ms. No mide la RAM del backend, Docker o WSL;
 usa `docker stats` y el Administrador de tareas para esos consumos. Los resultados
 locales están ignorados por Git. El código de salida de k6 se conserva: `99`
 indica un umbral incumplido y otros códigos pueden indicar un error del script.
+Al interrumpir el runner con Ctrl+C, su bloque de limpieza detiene su proceso k6
+y guarda los recursos observados con `cancelled: true`; el resumen puede quedar incompleto.
 
 Sube al siguiente peldaño solo si el anterior cumple sus umbrales y el equipo
 no está saturado:
