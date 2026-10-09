@@ -11,32 +11,13 @@ No necesitas Node.js ni pnpm instalados localmente — todo corre dentro de los 
 Desde la raíz del repositorio:
 
 ```bash
-cp env.example .env
+cp .env.example .env
 docker compose up --build
 ```
 
 Esto levanta la base de datos, recompila `packages/shared-types` en watch mode,
-y arranca el backend aplicando migraciones y generando el cliente de Prisma 7.
-El seed es opt-in: para cargar los datos demo, ejecutar
-`docker compose exec backend pnpm --filter backend run seed` o configurar
-`SEED_ON_START=true` en desarrollo. Reiniciar no restablece cuentas ni proyectos.
-
-## Prisma 7 y conexión
-
-El cliente se genera en `apps/backend/src/generated/prisma` y no se versiona.
-Fuera de Docker, ejecutar `pnpm --filter backend exec prisma generate` tras
-instalar dependencias y antes de compilar, probar o correr seeds.
-`prisma.config.ts` configura migraciones y `prisma db seed`.
-
-La API, los seeds y el bootstrap comparten `prisma/adapter.ts`: conserva
-`schema`, `connection_limit` y `pool_timeout` de `DATABASE_URL`, porque
-`@prisma/adapter-pg` no los interpreta automáticamente. El pool usa 10 conexiones
-y 10 segundos de espera por defecto; producción conserva los 20/20 de
-`env.production.example`. `pool_timeout=0` deshabilita la espera máxima de forma
-explícita. El driver `pg` usa el mismo timeout para adquirir una conexión y
-conectarse al servidor. Configuraciones inválidas abortan sin imprimir la URL.
-El backend ejecuta `SELECT 1` al iniciar para comprobar PostgreSQL: el pool de
-`pg` conecta de forma diferida y `$connect()` por sí solo no valida el servidor.
+y arranca el backend — aplicando migraciones de Prisma y el seed
+automáticamente en cada arranque, sin pasos manuales.
 
 La API queda disponible en `http://localhost:3000/api` y Swagger en
 `http://localhost:3000/api/docs`. El chequeo básico es `GET /api/health`.
@@ -139,33 +120,41 @@ respectivamente, cada uno con su propia estrategia Passport). Ambas env
 vars son obligatorias — el backend no arranca sin `JWT_PARTICIPANTE_SECRET`
 seteada (ver `docs/sprints/sprint4-auth-roles.md`).
 
-**Cache de identidad:** tras verificar la firma del token, `validateTokenPayload`
-confirma en la base que el usuario o participante existe. Ese resultado se guarda
-30 s en memoria (`TtlCache`, `src/core/cache/ttl-cache.ts`), por lo que un request
-repetido no vuelve a consultar. Para evaluadores se guarda `id`, `email` y `rol`;
-para participantes solo su existencia (el `proyectoId` sale siempre del token).
-`UsersService` llama a `AuthService.invalidateUser(id)` al cambiar el rol o
-eliminar a un docente, de modo que el cambio rige de inmediato en este proceso.
-Un borrado hecho por otra vía (por ejemplo la limpieza horaria de participantes
-huérfanos) se refleja como máximo 30 s después. Los usuarios inexistentes no se
-cachean.
-
 Para probar el flujo completo en Postman puedes importar
 `postman/backend-functional.postman_collection.json`.
 
 ## Evaluación heurística
 
-Las rutas son:
+Las rutas son (prefijo `/api/projects/:proyectoId/evaluacion-heuristica`):
 
 ```text
-POST  /api/projects/:proyectoId/evaluacion-heuristica/sesiones
-PATCH /api/projects/:proyectoId/evaluacion-heuristica/sesiones/:sesionId/hallazgos
-GET   /api/projects/:proyectoId/evaluacion-heuristica/sesiones/:sesionId
-POST  /api/projects/:proyectoId/evaluacion-heuristica/sesiones/:sesionId/finalizar
+GET    /sesiones                                       lista (informe)
+POST   /sesiones                                       abre sesión  { nombre? }
+GET    /sesiones/:sesionId                             sesión + hallazgos
+PATCH  /sesiones/:sesionId/hallazgos                   registra un hallazgo
+PATCH  /sesiones/:sesionId/hallazgos/:hallazgoId       edita (parcial; null quita URL/captura)
+DELETE /sesiones/:sesionId/hallazgos/:hallazgoId       elimina (y su captura)
+POST   /sesiones/:sesionId/evidencias                  sube captura (multipart, campo "archivo")
+GET    /sesiones/:sesionId/evidencias/:evidenciaId     descarga la captura
+POST   /sesiones/:sesionId/finalizar                   cierra y limpia capturas huérfanas
+GET    /analytics                                      por severidad, por heurística, sinClasificar
 ```
 
-Solo el evaluador dueño del proyecto puede modificar o finalizar sus sesiones,
-salvo un usuario con rol `ADMIN`.
+Solo el evaluador dueño de la sesión (o un `ADMIN`) puede leerla, modificarla o
+finalizarla. Editar/eliminar/subir exigen sesión `EN_PROGRESO` (409 si no).
+
+**Hallazgo** (guardado en `ResearchSession.resultado`, JSON): `heuristicaId`
+(`H1`–`H10`, catálogo en `@observatorio-ux/shared-types`), `severidad` (0–4 Nielsen),
+`titulo`, `pantalla`, `descripcion` (≥10), `evidencia` (texto), `evidenciaUrl`
+(opcional, solo `http(s)`), `evidenciaArchivoId` (opcional), `recomendacion`,
+y `responsable {id, nombre}` que **fija el servidor** desde el usuario autenticado.
+Los hallazgos anteriores al rediseño no tienen los campos nuevos; los lectores deben tolerarlo.
+
+**Capturas**: PNG/JPEG/WebP, máx. 2 MB y 50 por sesión, validadas por magic bytes
+(no por el mimetype del cliente; SVG rechazado). Se guardan en la tabla
+`evidencias_heuristica` (`BYTEA`) y se sirven solo con sesión válida y acceso a la sesión,
+con `nosniff` y CSP restrictiva. Las escrituras sobre `resultado` se serializan con
+`SELECT ... FOR UPDATE` dentro de una transacción.
 
 ## Artefactos UX
 

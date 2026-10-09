@@ -4,12 +4,12 @@
 // ============================================================
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 enum Rol {
@@ -275,6 +275,7 @@ model ResearchSession {
   agrupaciones        CardGrouping[] @relation("ParticipantGroupings")
   preguntas           CardSortingQuestion[] @relation("SessionQuestions")
   respuestasPreguntas CardSortingAnswer[]   @relation("ParticipantAnswers")
+  evidenciasHeuristica EvidenciaHeuristica[] @relation("EvidenciasDeSesion")
 
   createdAt    DateTime  @default(now())
   completadoAt DateTime?
@@ -282,6 +283,23 @@ model ResearchSession {
   @@index([proyectoId, tipo])
   @@index([estudioId])
   @@map("research_sessions")
+}
+
+// Capturas de pantalla subidas como evidencia de un hallazgo heurístico.
+// Los hallazgos viven en ResearchSession.resultado (JSON) y referencian
+// esta tabla por `evidenciaArchivoId`.
+model EvidenciaHeuristica {
+  id          String          @id @default(uuid())
+  sesion      ResearchSession @relation("EvidenciasDeSesion", fields: [sesionId], references: [id], onDelete: Cascade)
+  sesionId    String
+  subidoPorId String
+  mimeType    String
+  tamano      Int
+  datos       Bytes
+  createdAt   DateTime        @default(now())
+
+  @@index([sesionId])
+  @@map("evidencias_heuristica")
 }
 
 // ------------------------------------------------------------
