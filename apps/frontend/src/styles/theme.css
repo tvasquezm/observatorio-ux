@@ -2591,3 +2591,34 @@ input::placeholder, textarea::placeholder { color: color-mix(in srgb, var(--mute
   .tv-persona-head { align-items: flex-start; flex-wrap: wrap; }
   .tv-persona-badges { justify-items: start; }
 }
+
+/* ---------- Técnicas: Momentos Críticos (prefijo tv-) ---------- */
+.mc-page .tv-process { margin-top: 0; }
+.tv-heat--alta { background: color-mix(in srgb, var(--coral) 20%, var(--surface)) !important; }
+.tv-heat--media { background: color-mix(in srgb, var(--coral) 8%, var(--surface)) !important; }
+.tv-heat--baja { background: var(--surface-alt) !important; }
+.tv-matrix .mc-matrix-incident { padding: 6px 10px; border: 1px solid var(--line); border-left-width: 4px; border-radius: 10px; background: var(--surface); }
+.tv-matrix .mc-matrix-incident summary { display: grid; grid-template-columns: 26px minmax(0, 1fr); column-gap: 8px; align-items: start; }
+.tv-matrix .mc-matrix-incident summary > :not(.tv-bubble) { grid-column: 2; }
+.tv-bubble { grid-row: 1 / span 3; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 999px; color: #fff; font-size: 12px; font-weight: 800; }
+.tv-bubble--neg { background: var(--danger-text); }
+.tv-bubble--pos { background: var(--positive-text); }
+.tv-matrix-legend { margin: 8px 0 0; }
+
+.tv-meters { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 2px 0 8px; }
+.tv-meter { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 11px; font-weight: 700; }
+.tv-pips { display: inline-flex; gap: 3px; }
+.tv-pips i { width: 14px; height: 6px; border-radius: 999px; background: var(--line); }
+.mc-negative .tv-pips i.on { background: var(--danger-text); }
+.mc-positive .tv-pips i.on { background: var(--positive-text); }
+
+.tv-dist { margin-bottom: 16px; }
+.tv-dist-bar { display: flex; gap: 3px; height: 14px; margin: 10px 0 12px; }
+.tv-dist-seg { min-width: 8px; border-radius: 999px; }
+.tv-dist-seg--alta { background: var(--danger-text); }
+.tv-dist-seg--media { background: var(--coral); }
+.tv-dist-seg--baja { background: var(--lav); }
+.tv-dist-seg--pos { background: var(--mint); }
+.tv-dist-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 0; padding: 0; list-style: none; color: var(--ink); font-size: 12px; }
+.tv-dist-legend li { display: inline-flex; align-items: center; gap: 6px; }
+.tv-dist-legend i { width: 10px; height: 10px; border-radius: 999px; }
