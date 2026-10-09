@@ -33,6 +33,7 @@ export function AppLayout() {
     return savedTheme === 'dark' || (savedTheme === null && window.matchMedia('(prefers-color-scheme: dark)').matches);
   });
   const [exportOpen, setExportOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [highContrast, setHighContrast] = useState(() =>
     window.localStorage.getItem('observatorio-ux-contrast') === 'high',
   );
@@ -87,7 +88,7 @@ export function AppLayout() {
   }
 
   return (
-    <div className="app" data-perspective={activeRole?.toLowerCase()}>
+    <div className={`app${sidebarCollapsed ? ' side-collapsed' : ''}`} data-perspective={activeRole?.toLowerCase()}>
       <a className="skip-link" href="#main-content">Saltar al contenido</a>
       <aside className="side" aria-label="Navegación principal">
         <div className="brand">
@@ -98,17 +99,32 @@ export function AppLayout() {
           </div>
         </div>
 
+        <button
+          type="button"
+          className="sidebar-toggle"
+          aria-label={sidebarCollapsed ? 'Expandir barra lateral' : 'Minimizar barra lateral'}
+          title={sidebarCollapsed ? 'Expandir barra lateral' : 'Minimizar barra lateral'}
+          aria-expanded={!sidebarCollapsed}
+          aria-controls="sidebar-navigation"
+          onClick={() => setSidebarCollapsed((current) => !current)}
+        >
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+            <path d={sidebarCollapsed ? 'm9 5 7 7-7 7' : 'm15 5-7 7 7 7'} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
         <span className="side-label">Principal</span>
-        <nav className="side-nav" aria-label="Secciones principales">
+        <nav id="sidebar-navigation" className="side-nav" aria-label="Secciones principales">
           {visibleNavItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.end}
+              aria-label={item.label}
+              title={sidebarCollapsed ? item.label : undefined}
               className={({ isActive }) => `nav-btn${isActive ? ' active' : ''}`}
             >
               <span className="nav-icon" aria-hidden="true">{item.icon}</span>
-              {item.label}
+              <span className="nav-label">{item.label}</span>
             </NavLink>
           ))}
         </nav>

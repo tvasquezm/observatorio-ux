@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, cleanup } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { AppLayout } from './AppLayout';
 
@@ -67,5 +68,33 @@ describe('Selector "Viendo como"', () => {
     expect(screen.getByRole('dialog', { name: 'Preferencias' })).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Cerrar preferencias' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+});
+
+describe('Barra lateral', () => {
+  it('permite minimizar y expandir con teclado, conservando los accesos', async () => {
+    auth.role = 'ADMIN';
+    render(<MemoryRouter><AppLayout /></MemoryRouter>);
+    const toggle = screen.getByRole('button', { name: 'Minimizar barra lateral' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    toggle.focus();
+    await userEvent.keyboard('{Enter}');
+    expect(screen.getByRole('button', { name: 'Expandir barra lateral' })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('complementary', { name: 'Navegación principal' }).parentElement).toHaveClass('side-collapsed');
+    expect(screen.getByRole('link', { name: 'Salas' })).toHaveAttribute('href', '/salas');
+    expect(screen.getByRole('button', { name: 'Salir' })).toBeEnabled();
+    toggle.focus();
+    await userEvent.keyboard(' ');
+    expect(screen.getByRole('button', { name: 'Minimizar barra lateral' })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('complementary', { name: 'Navegación principal' }).parentElement).not.toHaveClass('side-collapsed');
+  });
+
+  it('conserva las restricciones de acceso al minimizar', () => {
+    auth.role = 'ESTUDIANTE';
+    render(<MemoryRouter><AppLayout /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Minimizar barra lateral' }));
+    expect(screen.queryByRole('link', { name: 'Administración' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Salas' })).toHaveAttribute('href', '/salas');
+    expect(screen.getByRole('link', { name: 'Proyectos' })).toHaveAttribute('href', '/proyectos');
   });
 });
