@@ -99,20 +99,22 @@ export function AppLayout() {
           </div>
         </div>
 
-        <button
-          type="button"
-          className="sidebar-toggle"
-          aria-label={sidebarCollapsed ? 'Expandir barra lateral' : 'Minimizar barra lateral'}
-          title={sidebarCollapsed ? 'Expandir barra lateral' : 'Minimizar barra lateral'}
-          aria-expanded={!sidebarCollapsed}
-          aria-controls="sidebar-navigation"
-          onClick={() => setSidebarCollapsed((current) => !current)}
-        >
-          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-            <path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-          </svg>
-        </button>
-        <span className="side-label">Principal</span>
+        <div className="sidebar-heading">
+          <span className="side-label">Principal</span>
+          <button
+            type="button"
+            className="sidebar-toggle"
+            aria-label={sidebarCollapsed ? 'Expandir barra lateral' : 'Minimizar barra lateral'}
+            title={sidebarCollapsed ? 'Expandir barra lateral' : 'Minimizar barra lateral'}
+            aria-expanded={!sidebarCollapsed}
+            aria-controls="sidebar-navigation"
+            onClick={() => setSidebarCollapsed((current) => !current)}
+          >
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+              <path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
         <nav id="sidebar-navigation" className="side-nav" aria-label="Secciones principales">
           {visibleNavItems.map((item) => (
             <NavLink
