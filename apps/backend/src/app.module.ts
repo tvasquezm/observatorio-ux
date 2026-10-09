@@ -7,6 +7,7 @@ import { ProjectAccessModule } from './core/access/project-access.module.js';
 import appConfig from './core/config/app.config.js';
 import databaseConfig from './core/config/database.config.js';
 import { envValidationSchema } from './core/config/env.validation.js';
+import googleConfig from './core/config/google.config.js';
 import jwtConfig from './core/config/jwt.config.js';
 import { RolesGuard } from './core/guards/roles.guard.js';
 import { AuthModule } from './modules/auth/auth.module.js';
@@ -24,7 +25,7 @@ import { UsersModule } from './modules/users/users.module.js';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, databaseConfig, jwtConfig],
+      load: [appConfig, databaseConfig, jwtConfig, googleConfig],
       validationSchema: envValidationSchema,
       cache: true,
     }),

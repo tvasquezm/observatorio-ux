@@ -31,4 +31,11 @@ export const envValidationSchema = Joi.object({
     .messages({ 'any.invalid': 'JWT_PARTICIPANTE_SECRET debe ser distinto de JWT_SECRET' }),
   JWT_PARTICIPANTE_EXPIRES_IN: Joi.string().default('4h'),
   CORS_ORIGIN: Joi.string().default('http://localhost:5173'),
+
+  // ==== Google OAuth (login de EVALUADOR) — opcional ====
+  // Si faltan, el botón "Continuar con Google" redirige al login con un
+  // aviso; no impide arrancar. Para habilitarlo deben estar las tres.
+  GOOGLE_CLIENT_ID: Joi.string().allow('').optional(),
+  GOOGLE_CLIENT_SECRET: Joi.string().allow('').optional(),
+  GOOGLE_CALLBACK_URL: Joi.string().uri().allow('').optional(),
 });

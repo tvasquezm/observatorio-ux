@@ -320,6 +320,23 @@ el submit. También se agregó `onError` a `useUpdateProject` (no lo tenía)
 para que un DOCENTE que intenta editar un proyecto creado por un
 ESTUDIANTE vea el motivo del 403 en vez de que falle en silencio.
 
+**Login con Google (`GET /api/auth/google` y `/api/auth/google/callback`):**
+opcional, solo para EVALUADOR. Se habilita únicamente si están las tres
+variables `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` y `GOOGLE_CALLBACK_URL`;
+sin ellas el botón del login vuelve a `/login?error=google_no_disponible`.
+Reglas (`AuthService.loginOrCreateFromGoogle`):
+
+- Solo se aceptan emails verificados por Google (`email_verified`).
+- Usuario existente: mismas reglas que el login por password (un ESTUDIANTE
+  necesita una Sala activa). Su `rol` nunca se modifica.
+- Email sin usuario: se crea como `ESTUDIANTE` (sin `passwordHash`) solo si
+  figura en una Sala activa (`SalaEstudiante`); si no, `403`.
+- Google nunca crea `DOCENTE` ni `ADMIN`.
+- Emite las mismas cookies `evaluadorToken`/`csrfToken` que `POST /auth/login`
+  y redirige a `CORS_ORIGIN`. Los rechazos redirigen a
+  `/login?error=google_sin_acceso|google_fallo`.
+- El callback tiene límite de 20 requests/minuto por IP.
+
 ## Comentarios
 
 ```text

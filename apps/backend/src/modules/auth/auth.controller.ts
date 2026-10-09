@@ -1,11 +1,21 @@
-import { Body, Controller, Get, Post, Res, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
 import { randomBytes } from 'crypto';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { CurrentUser } from './decorators/current-user.decorator.js';
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard.js';
 import { AuthService } from './auth.service.js';
+import { GoogleOauthGuard } from './google-oauth.guard.js';
 import {
   LoginDto,
   ParticipantAccessDto,
@@ -39,6 +49,23 @@ export class AuthController {
     private readonly config: ConfigService,
   ) {}
 
+  // Compartido por login() y el callback de Google — mismas cookies
+  // httpOnly (evaluadorToken/csrfToken), mismo mecanismo de sesión sin
+  // importar el método de autenticación.
+  private setSessionCookies(res: Response, accessToken: string) {
+    const nodeEnv = this.config.get<string>('app.nodeEnv', 'development');
+    const csrfToken = randomBytes(32).toString('hex');
+    res.cookie('evaluadorToken', accessToken, cookieOptions(nodeEnv, true));
+    res.cookie('csrfToken', csrfToken, cookieOptions(nodeEnv, false));
+  }
+
+  private frontendUrl(path = '/') {
+    const origin = this.config
+      .getOrThrow<string>('app.corsOrigin')
+      .replace(/\/+$/, '');
+    return `${origin}${path}`;
+  }
+
   // Límite estricto: es el blanco más obvio de fuerza bruta (probar
   // contraseñas contra un email conocido). 5 intentos / minuto por IP,
   // contra el default global de 60/min del resto de la API.
@@ -52,13 +79,43 @@ export class AuthController {
       dto.email,
       dto.password,
     );
-    const nodeEnv = this.config.get<string>('app.nodeEnv', 'development');
-    const csrfToken = randomBytes(32).toString('hex');
-
-    res.cookie('evaluadorToken', access_token, cookieOptions(nodeEnv, true));
-    res.cookie('csrfToken', csrfToken, cookieOptions(nodeEnv, false));
+    this.setSessionCookies(res, access_token);
 
     return { user };
+  }
+
+  // Login de EVALUADOR con Google (opcional, ver GOOGLE_* en env.example).
+  // Paso 1: redirige al consentimiento de Google. GoogleOauthGuard arma la
+  // URL; esta función nunca se ejecuta. Si Google no está configurado, el
+  // guard vuelve a /login?error=google_no_disponible.
+  @Get('google')
+  @UseGuards(GoogleOauthGuard)
+  googleAuth() {}
+
+  // Paso 2: Google vuelve acá con el código; el guard ya resolvió el
+  // intercambio y dejó {email, nombre} en req.user. Se emiten las mismas
+  // cookies que el login por password y se redirige al frontend. Cualquier
+  // rechazo de negocio vuelve a /login con un código, nunca JSON crudo.
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @Get('google/callback')
+  @UseGuards(GoogleOauthGuard)
+  async googleAuthCallback(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const profile = req.user as { email: string; nombre?: string };
+    try {
+      const { access_token } = await this.authService.loginOrCreateFromGoogle(
+        profile.email,
+        profile.nombre,
+      );
+      this.setSessionCookies(res, access_token);
+      res.redirect(this.frontendUrl('/'));
+    } catch (error) {
+      const codigo =
+        error instanceof ForbiddenException ? 'google_sin_acceso' : 'google_fallo';
+      res.redirect(this.frontendUrl(`/login?error=${codigo}`));
+    }
   }
 
   @Post('logout')

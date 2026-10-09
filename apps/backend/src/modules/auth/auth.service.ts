@@ -267,6 +267,72 @@ export class AuthService {
       data: { participanteId, proyectoId, aceptado, version },
     });
   }
+  /**
+   * Login de EVALUADOR vía Google OAuth. El email ya viene verificado por
+   * Google (GoogleStrategy).
+   *
+   * Reglas de negocio (no relajar sin aprobación explícita):
+   * 1. Usuario existente: mismas reglas que el login por password (un
+   *    ESTUDIANTE necesita una Sala activa). Nunca se modifica su `rol`.
+   * 2. Email sin Usuario: solo se auto-crea como ESTUDIANTE si el email
+   *    figura en una Sala activa (SalaEstudiante). Sin sala → 403.
+   * 3. Sin auto-promoción: Google nunca crea DOCENTE ni ADMIN, ni por
+   *    heurística de dominio de email.
+   * 4. Aislamiento por proyecto: el `create` no toca relaciones; el usuario
+   *    nuevo nace sin proyectos propios.
+   */
+  async loginOrCreateFromGoogle(emailCrudo: string, nombreCrudo?: string) {
+    const email = emailCrudo.trim().toLowerCase();
+
+    let user = await this.prisma.usuario.findUnique({ where: { email } });
+
+    if (user) {
+      if (user.rol === 'ESTUDIANTE') {
+        await this.assertEstudianteTieneSalaActiva(user.email);
+      }
+    } else {
+      const inscripcion = await this.findSalaActivaDeEstudiante(email);
+      if (!inscripcion) {
+        throw new ForbiddenException(
+          'No tienes acceso al sistema: no estás inscrito en ninguna sala activa.',
+        );
+      }
+      try {
+        user = await this.prisma.usuario.create({
+          data: {
+            email,
+            nombre: inscripcion.nombre?.trim() || nombreCrudo?.trim() || email,
+            rol: 'ESTUDIANTE',
+            // Sin passwordHash: esta cuenta solo puede entrar por Google.
+          },
+        });
+      } catch (error) {
+        // Dos callbacks simultáneos del mismo email: el segundo choca con
+        // la unicidad de `email` (P2002); se reutiliza el usuario ya creado.
+        if ((error as { code?: string }).code !== 'P2002') throw error;
+        user = await this.prisma.usuario.findUnique({ where: { email } });
+        if (!user) throw error;
+      }
+    }
+
+    const accessToken = await this.signEvaluatorToken({
+      id: user.id,
+      email: user.email,
+      rol: user.rol,
+      actor: 'EVALUADOR',
+    });
+
+    return {
+      access_token: accessToken,
+      user: {
+        id: user.id,
+        nombre: user.nombre,
+        email: user.email,
+        rol: user.rol,
+      },
+    };
+  }
+
   async login(email: string, password: string) {
     const user = await this.prisma.usuario.findUnique({
       where: { email: email.trim().toLowerCase() },
@@ -507,10 +573,20 @@ export class AuthService {
    * revalida en cada login, no solo una vez.
    */
   private async assertEstudianteTieneSalaActiva(email: string) {
+    const salaActiva = await this.findSalaActivaDeEstudiante(email);
+
+    if (!salaActiva) {
+      throw new ForbiddenException(
+        'No tienes acceso al sistema: no estás inscrito en ninguna sala activa.',
+      );
+    }
+  }
+
+  private findSalaActivaDeEstudiante(email: string) {
     const emailNormalizado = email.trim().toLowerCase();
     const ahora = new Date();
 
-    const salaActiva = await this.prisma.salaEstudiante.findFirst({
+    return this.prisma.salaEstudiante.findFirst({
       where: {
         email: emailNormalizado,
         sala: {
@@ -519,12 +595,6 @@ export class AuthService {
         },
       },
     });
-
-    if (!salaActiva) {
-      throw new ForbiddenException(
-        'No tienes acceso al sistema: no estás inscrito en ninguna sala activa.',
-      );
-    }
   }
 
   private signEvaluatorToken(user: AuthenticatedUser) {

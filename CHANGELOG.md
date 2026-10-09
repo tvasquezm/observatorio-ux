@@ -6,6 +6,12 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **auth:** login con Google OAuth para evaluadores (opcional, requiere
+  `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` y `GOOGLE_CALLBACK_URL`). Exige
+  email verificado por Google, respeta el requisito de Sala activa para
+  ESTUDIANTE y solo auto-crea cuentas ESTUDIANTE con email inscrito en una
+  sala activa; nunca crea ni promueve DOCENTE/ADMIN.
+
 * **navegacion:** menú de proyecto por grupos con iconos, sección actual y apertura
   animada que respeta movimiento reducido; conserva el menú al cancelar una
   navegación y devuelve el foco al elegir la sección actual.

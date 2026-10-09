@@ -6,6 +6,14 @@ que se usa cada uno. No reemplaza `BACKEND.md`, `comandos-backend.md` ni
 
 ---
 
+## Login con Google (opcional)
+
+Definir en el `.env` de la raíz `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` y
+`GOOGLE_CALLBACK_URL` (ver `env.example`). Crear el ID de cliente en Google
+Cloud Console: APIs y servicios > Credenciales > ID de cliente OAuth
+(Aplicación web), con `GOOGLE_CALLBACK_URL` como URI de redirección
+autorizada. Si quedan vacías, el login con Google queda deshabilitado.
+
 ## Docker (flujo principal)
 
 | Comando | Cuándo usarlo |
