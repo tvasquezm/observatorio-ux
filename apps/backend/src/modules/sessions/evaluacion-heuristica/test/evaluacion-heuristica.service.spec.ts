@@ -12,11 +12,11 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import { EstadoSesion, TipoSesion } from '@prisma/client';
-import { EvaluacionHeuristicaService } from '../evaluacion-heuristica.service';
-import { PrismaService } from '../../../../core/database/prisma.service';
-import { ProjectAccessService } from '../../../../core/access/project-access.service';
-import { AuthenticatedUser } from '../../../auth/types/authenticated-user.interface';
+import { EstadoSesion, TipoSesion } from '../../../../generated/prisma/client.js';
+import { EvaluacionHeuristicaService } from '../evaluacion-heuristica.service.js';
+import { PrismaService } from '../../../../core/database/prisma.service.js';
+import { ProjectAccessService } from '../../../../core/access/project-access.service.js';
+import { AuthenticatedUser } from '../../../auth/types/authenticated-user.interface.js';
 
 describe('EvaluacionHeuristicaService', () => {
   let service: EvaluacionHeuristicaService;

@@ -5,13 +5,13 @@ import {
   NotFoundException,
   UnsupportedMediaTypeException,
 } from '@nestjs/common';
-import { EstadoSesion } from '@prisma/client';
+import { EstadoSesion } from '../../../../generated/prisma/client.js';
 import { EVIDENCIA_MAX_BYTES, EVIDENCIA_MAX_POR_SESION } from '@observatorio-ux/shared-types';
-import { PrismaService } from '../../../../core/database/prisma.service';
-import { AuthenticatedUser } from '../../../auth/types/authenticated-user.interface';
-import { EvaluacionHeuristicaService } from '../evaluacion-heuristica.service';
-import { HeuristicaEvidenciaService } from '../heuristica-evidencia.service';
-import { detectarMimeImagen } from '../evidencia.util';
+import { PrismaService } from '../../../../core/database/prisma.service.js';
+import { AuthenticatedUser } from '../../../auth/types/authenticated-user.interface.js';
+import { EvaluacionHeuristicaService } from '../evaluacion-heuristica.service.js';
+import { HeuristicaEvidenciaService } from '../heuristica-evidencia.service.js';
+import { detectarMimeImagen } from '../evidencia.util.js';
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
 const JPG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0]);

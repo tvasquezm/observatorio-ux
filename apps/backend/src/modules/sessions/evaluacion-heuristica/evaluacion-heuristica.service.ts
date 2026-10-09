@@ -5,17 +5,17 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { EstadoSesion, Prisma, ResearchSession, TipoSesion } from '@prisma/client';
+import { EstadoSesion, Prisma, ResearchSession, TipoSesion } from '../../../generated/prisma/client.js';
 import { HEURISTICA_IDS } from '@observatorio-ux/shared-types';
 import { randomUUID } from 'crypto';
-import { PrismaService } from '../../../core/database/prisma.service';
-import { ProjectAccessService } from '../../../core/access/project-access.service';
-import { AuthenticatedUser } from '../../auth/types/authenticated-user.interface';
+import { PrismaService } from '../../../core/database/prisma.service.js';
+import { ProjectAccessService } from '../../../core/access/project-access.service.js';
+import { AuthenticatedUser } from '../../auth/types/authenticated-user.interface.js';
 import {
   ActualizarHallazgoDto,
   CrearSesionHeuristicaDto,
   HeuristicaDto,
-} from './dto/heuristica.dto';
+} from './dto/heuristica.dto.js';
 
 export interface HeuristicFinding {
   id: string;

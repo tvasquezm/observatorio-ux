@@ -5,15 +5,15 @@ import {
   NotFoundException,
   UnsupportedMediaTypeException,
 } from '@nestjs/common';
-import { EstadoSesion } from '@prisma/client';
+import { EstadoSesion } from '../../../generated/prisma/client.js';
 import {
   EVIDENCIA_MAX_BYTES,
   EVIDENCIA_MAX_POR_SESION,
 } from '@observatorio-ux/shared-types';
-import { PrismaService } from '../../../core/database/prisma.service';
-import { AuthenticatedUser } from '../../auth/types/authenticated-user.interface';
-import { EvaluacionHeuristicaService } from './evaluacion-heuristica.service';
-import { detectarMimeImagen } from './evidencia.util';
+import { PrismaService } from '../../../core/database/prisma.service.js';
+import { AuthenticatedUser } from '../../auth/types/authenticated-user.interface.js';
+import { EvaluacionHeuristicaService } from './evaluacion-heuristica.service.js';
+import { detectarMimeImagen } from './evidencia.util.js';
 
 export interface ArchivoSubido {
   buffer: Buffer;

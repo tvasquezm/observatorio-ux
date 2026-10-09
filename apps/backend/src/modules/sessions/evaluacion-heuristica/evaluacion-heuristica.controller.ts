@@ -16,18 +16,18 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { EVIDENCIA_MAX_BYTES } from '@observatorio-ux/shared-types';
 import type { Response } from 'express';
-import { CurrentUser } from '../../../core/decorators/current-user.decorator';
-import { Roles } from '../../../core/decorators/roles.decorator';
-import { JwtAuthGuard } from '../../../core/guards/jwt-auth.guard';
-import { RolesGuard } from '../../../core/guards/roles.guard';
-import { AuthenticatedUser } from '../../auth/types/authenticated-user.interface';
+import { CurrentUser } from '../../../core/decorators/current-user.decorator.js';
+import { Roles } from '../../../core/decorators/roles.decorator.js';
+import { JwtAuthGuard } from '../../../core/guards/jwt-auth.guard.js';
+import { RolesGuard } from '../../../core/guards/roles.guard.js';
+import { AuthenticatedUser } from '../../auth/types/authenticated-user.interface.js';
 import {
   ActualizarHallazgoDto,
   CrearSesionHeuristicaDto,
   HeuristicaDto,
-} from './dto/heuristica.dto';
-import { EvaluacionHeuristicaService } from './evaluacion-heuristica.service';
-import { ArchivoSubido, HeuristicaEvidenciaService } from './heuristica-evidencia.service';
+} from './dto/heuristica.dto.js';
+import { EvaluacionHeuristicaService } from './evaluacion-heuristica.service.js';
+import { ArchivoSubido, HeuristicaEvidenciaService } from './heuristica-evidencia.service.js';
 
 @ApiTags('evaluacion-heuristica')
 @ApiBearerAuth()
