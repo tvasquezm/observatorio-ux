@@ -28,11 +28,13 @@ export function ProjectMenu({ groups, current, currentLabel, compact }: ProjectM
 }
 
 function MobileMenu({ groups, currentLabel }: Pick<ProjectMenuProps, 'groups' | 'currentLabel'>) {
-  const { pathname } = useLocation();
+  const { key } = useLocation();
   const menuRef = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
-    if (menuRef.current) menuRef.current.open = false;
-  }, [pathname]);
+    if (!menuRef.current) return;
+    if (menuRef.current.contains(document.activeElement)) menuRef.current.querySelector('summary')?.focus();
+    menuRef.current.open = false;
+  }, [key]);
   return (
     <details ref={menuRef} className="project-menu" onKeyDown={(event) => {
       if (event.key !== 'Escape') return;
@@ -50,7 +52,6 @@ function MobileMenu({ groups, currentLabel }: Pick<ProjectMenuProps, 'groups' | 
                 to={item.to}
                 end={item.end}
                 className={({ isActive }) => `project-menu-link${isActive ? ' active' : ''}`}
-                onClick={() => { if (menuRef.current) menuRef.current.open = false; }}
               >
                 <Icon name={item.icon} size={18} />
                 <span>{item.label}</span>
@@ -64,13 +65,18 @@ function MobileMenu({ groups, currentLabel }: Pick<ProjectMenuProps, 'groups' | 
 }
 
 function DesktopMenu({ groups, current, currentLabel }: Omit<ProjectMenuProps, 'compact'>) {
-  const { pathname } = useLocation();
+  const { key } = useLocation();
   const uid = useId();
   const rootRef = useRef<HTMLElement>(null);
   const triggers = useRef<Record<string, HTMLButtonElement | null>>({});
   const [openGroup, setOpenGroup] = useState<string | null>(null);
 
-  useEffect(() => { setOpenGroup(null); }, [pathname]);
+  useEffect(() => {
+    if (rootRef.current?.contains(document.activeElement)) {
+      rootRef.current.querySelector<HTMLButtonElement>('[aria-expanded="true"]')?.focus();
+    }
+    setOpenGroup(null);
+  }, [key]);
   useEffect(() => {
     if (openGroup === null) return;
     const closeIfOutside = (event: Event) => {
@@ -134,7 +140,6 @@ function DesktopMenu({ groups, current, currentLabel }: Omit<ProjectMenuProps, '
                       to={item.to}
                       end={item.end}
                       className={({ isActive }) => `pm-item${isActive ? ' active' : ''}`}
-                      onClick={() => setOpenGroup(null)}
                     >
                       {({ isActive }) => (
                         <>

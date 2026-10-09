@@ -11,13 +11,32 @@ No necesitas Node.js ni pnpm instalados localmente — todo corre dentro de los 
 Desde la raíz del repositorio:
 
 ```bash
-cp .env.example .env
+cp env.example .env
 docker compose up --build
 ```
 
 Esto levanta la base de datos, recompila `packages/shared-types` en watch mode,
-y arranca el backend — aplicando migraciones de Prisma y el seed
-automáticamente en cada arranque, sin pasos manuales.
+y arranca el backend aplicando migraciones y generando el cliente de Prisma 7.
+El seed es opt-in: para cargar los datos demo, ejecutar
+`docker compose exec backend pnpm --filter backend run seed` o configurar
+`SEED_ON_START=true` en desarrollo. Reiniciar no restablece cuentas ni proyectos.
+
+## Prisma 7 y conexión
+
+El cliente se genera en `apps/backend/src/generated/prisma` y no se versiona.
+Fuera de Docker, ejecutar `pnpm --filter backend exec prisma generate` tras
+instalar dependencias y antes de compilar, probar o correr seeds.
+`prisma.config.ts` configura migraciones y `prisma db seed`.
+
+La API, los seeds y el bootstrap comparten `prisma/adapter.ts`: conserva
+`schema`, `connection_limit` y `pool_timeout` de `DATABASE_URL`, porque
+`@prisma/adapter-pg` no los interpreta automáticamente. El pool usa 10 conexiones
+y 10 segundos de espera por defecto; producción conserva los 20/20 de
+`env.production.example`. `pool_timeout=0` deshabilita la espera máxima de forma
+explícita. El driver `pg` usa el mismo timeout para adquirir una conexión y
+conectarse al servidor. Configuraciones inválidas abortan sin imprimir la URL.
+El backend ejecuta `SELECT 1` al iniciar para comprobar PostgreSQL: el pool de
+`pg` conecta de forma diferida y `$connect()` por sí solo no valida el servidor.
 
 La API queda disponible en `http://localhost:3000/api` y Swagger en
 `http://localhost:3000/api/docs`. El chequeo básico es `GET /api/health`.
@@ -119,6 +138,17 @@ firman con secretos distintos (`JWT_SECRET` y `JWT_PARTICIPANTE_SECRET`
 respectivamente, cada uno con su propia estrategia Passport). Ambas env
 vars son obligatorias — el backend no arranca sin `JWT_PARTICIPANTE_SECRET`
 seteada (ver `docs/sprints/sprint4-auth-roles.md`).
+
+**Cache de identidad:** tras verificar la firma del token, `validateTokenPayload`
+confirma en la base que el usuario o participante existe. Ese resultado se guarda
+30 s en memoria (`TtlCache`, `src/core/cache/ttl-cache.ts`), por lo que un request
+repetido no vuelve a consultar. Para evaluadores se guarda `id`, `email` y `rol`;
+para participantes solo su existencia (el `proyectoId` sale siempre del token).
+`UsersService` llama a `AuthService.invalidateUser(id)` al cambiar el rol o
+eliminar a un docente, de modo que el cambio rige de inmediato en este proceso.
+Un borrado hecho por otra vía (por ejemplo la limpieza horaria de participantes
+huérfanos) se refleja como máximo 30 s después. Los usuarios inexistentes no se
+cachean.
 
 Para probar el flujo completo en Postman puedes importar
 `postman/backend-functional.postman_collection.json`.

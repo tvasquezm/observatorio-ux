@@ -27,12 +27,12 @@
 				"method": "POST",
 				"header": [],
 				"url": {
-					"raw": "{{baseUrl}}/proyectos/{{proyectoId}}/evaluacion-heuristica/sesiones",
+					"raw": "{{baseUrl}}/projects/{{proyectoId}}/evaluacion-heuristica/sesiones",
 					"host": [
 						"{{baseUrl}}"
 					],
 					"path": [
-						"proyectos",
+						"projects",
 						"{{proyectoId}}",
 						"evaluacion-heuristica",
 						"sesiones"
@@ -54,15 +54,15 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n  \"heuristicaId\": \"H4\",\n  \"severidad\": 3,\n  \"descripcion\": \"El usuario no encuentra el botón de retroceso en el flujo de pago, lo que rompe el estándar de control y libertad.\",\n  \"evidencia\": \"https://link-a-tu-captura.com/error-pago.png\",\n  \"recomendacion\": \"Agregar un botón secundario visible en la esquina superior izquierda.\"\n}"
+					"raw": "{\n  \"heuristicaId\": \"H4\",\n  \"severidad\": 3,\n  \"descripcion\": \"El usuario no encuentra el botón de retroceso en el flujo de pago, lo que rompe el estándar de control y libertad.\",\n  \"evidencia\": \"https://link-a-tu-captura.com/error-pago.png\",\n  \"recomendacion\": \"Agregar un botón secundario visible en la esquina superior izquierda.\",\n  \"titulo\": \"Botón de retroceso ausente\",\n  \"pantalla\": \"Flujo de pago\"\n}"
 				},
 				"url": {
-					"raw": "{{baseUrl}}/proyectos/{{proyectoId}}/evaluacion-heuristica/sesiones/{{sesionId}}/hallazgos",
+					"raw": "{{baseUrl}}/projects/{{proyectoId}}/evaluacion-heuristica/sesiones/{{sesionId}}/hallazgos",
 					"host": [
 						"{{baseUrl}}"
 					],
 					"path": [
-						"proyectos",
+						"projects",
 						"{{proyectoId}}",
 						"evaluacion-heuristica",
 						"sesiones",
@@ -88,12 +88,12 @@
 					"raw": "{\n  \"severidad\": 5,\n  \"descripcion\": \"\"\n}"
 				},
 				"url": {
-					"raw": "{{baseUrl}}/proyectos/{{proyectoId}}/evaluacion-heuristica/sesiones/{{sesionId}}/hallazgos",
+					"raw": "{{baseUrl}}/projects/{{proyectoId}}/evaluacion-heuristica/sesiones/{{sesionId}}/hallazgos",
 					"host": [
 						"{{baseUrl}}"
 					],
 					"path": [
-						"proyectos",
+						"projects",
 						"{{proyectoId}}",
 						"evaluacion-heuristica",
 						"sesiones",
@@ -111,12 +111,12 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "{{baseUrl}}/proyectos/{{proyectoId}}/evaluacion-heuristica/sesiones/{{sesionId}}",
+					"raw": "{{baseUrl}}/projects/{{proyectoId}}/evaluacion-heuristica/sesiones/{{sesionId}}",
 					"host": [
 						"{{baseUrl}}"
 					],
 					"path": [
-						"proyectos",
+						"projects",
 						"{{proyectoId}}",
 						"evaluacion-heuristica",
 						"sesiones",
@@ -132,12 +132,12 @@
 				"method": "POST",
 				"header": [],
 				"url": {
-					"raw": "{{baseUrl}}/proyectos/{{proyectoId}}/evaluacion-heuristica/sesiones/{{sesionId}}/finalizar",
+					"raw": "{{baseUrl}}/projects/{{proyectoId}}/evaluacion-heuristica/sesiones/{{sesionId}}/finalizar",
 					"host": [
 						"{{baseUrl}}"
 					],
 					"path": [
-						"proyectos",
+						"projects",
 						"{{proyectoId}}",
 						"evaluacion-heuristica",
 						"sesiones",

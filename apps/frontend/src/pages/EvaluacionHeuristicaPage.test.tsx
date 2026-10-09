@@ -13,6 +13,8 @@ const api = vi.hoisted(() => ({
   actualizarHallazgo: vi.fn(),
   eliminarHallazgo: vi.fn(),
   finalizarSesionHeuristica: vi.fn(),
+  subirEvidencia: vi.fn(),
+  obtenerEvidenciaBlob: vi.fn(),
 }));
 const confirmar = vi.hoisted(() => vi.fn());
 const exportarPdf = vi.hoisted(() => vi.fn());
@@ -68,14 +70,65 @@ async function abrirPrimeraSesion() {
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
   confirmar.mockResolvedValue(true);
   exportarPdf.mockResolvedValue({ sinCaptura: 0 });
   api.listarSesionesHeuristicas.mockResolvedValue([sesion()]);
   api.obtenerSesionHeuristica.mockResolvedValue(sesion());
+  api.obtenerEvidenciaBlob.mockRejectedValue(new Error('Sin miniatura en esta prueba'));
 });
 
 describe('EvaluacionHeuristicaPage', () => {
+  it('conserva el texto escrito mientras se sube una captura', async () => {
+    let finish!: (value: { id: string }) => void;
+    api.subirEvidencia.mockReturnValue(new Promise<{ id: string }>(resolve => { finish = resolve; }));
+    renderPage();
+    await abrirPrimeraSesion();
+    const title = screen.getByLabelText(/título del hallazgo/i);
+    await userEvent.type(title, 'Título inicial');
+    await userEvent.upload(screen.getByLabelText(/captura de pantalla/i), new File(['png'], 'captura.png', { type: 'image/png' }));
+    await userEvent.clear(title);
+    await userEvent.type(title, 'Título escrito durante la subida');
+    finish({ id: 'captura' });
+    await screen.findByRole('button', { name: 'Quitar' });
+    expect(title).toHaveValue('Título escrito durante la subida');
+  });
+
+  it('confirma antes de abandonar un borrador y permite conservarlo o descartarlo', async () => {
+    renderPage();
+    await abrirPrimeraSesion();
+    await userEvent.type(screen.getByLabelText(/título del hallazgo/i), 'Borrador pendiente');
+    confirmar.mockResolvedValueOnce(false);
+    await userEvent.click(screen.getByRole('button', { name: '← Evaluaciones' }));
+    expect(confirmar).toHaveBeenCalled();
+    expect(screen.getByLabelText(/título del hallazgo/i)).toHaveValue('Borrador pendiente');
+    await userEvent.click(screen.getByRole('button', { name: '← Evaluaciones' }));
+    await abrirPrimeraSesion();
+    expect(screen.getByLabelText(/título del hallazgo/i)).toHaveValue('');
+  });
+
+  it('conserva una edición al cancelar el descarte', async () => {
+    api.obtenerSesionHeuristica.mockResolvedValue(sesion({ resultado: [hallazgo({ id: 'a', titulo: 'Grave' })] }));
+    renderPage();
+    await abrirPrimeraSesion();
+    await userEvent.click(screen.getByRole('button', { name: /editar hallazgo: grave/i }));
+    const form = screen.getByRole('form', { name: 'Editar hallazgo' });
+    await userEvent.type(within(form).getByLabelText(/título del hallazgo/i), ' modificado');
+    confirmar.mockResolvedValueOnce(false);
+    await userEvent.click(within(form).getByRole('button', { name: 'Cancelar' }));
+    expect(within(screen.getByRole('form', { name: 'Editar hallazgo' })).getByLabelText(/título del hallazgo/i)).toHaveValue('Grave modificado');
+  });
+
+  it('no finaliza la sesión cuando se decide conservar el borrador', async () => {
+    renderPage();
+    await abrirPrimeraSesion();
+    await userEvent.type(screen.getByLabelText(/título del hallazgo/i), 'Borrador pendiente');
+    confirmar.mockResolvedValueOnce(false);
+    await userEvent.click(screen.getByRole('button', { name: /finalizar evaluación/i }));
+    expect(confirmar).toHaveBeenCalledWith(expect.stringContaining('sin guardar'), expect.any(Object));
+    expect(api.finalizarSesionHeuristica).not.toHaveBeenCalled();
+  });
+
   it('lista las evaluaciones previas y permite continuar una en progreso', async () => {
     renderPage();
     expect(await screen.findByText('Portal de matrículas')).toBeInTheDocument();

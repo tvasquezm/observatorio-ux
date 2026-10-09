@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { HEURISTICAS_NIELSEN, SEVERIDADES, type SeveridadValor } from '@observatorio-ux/shared-types';
 import { EvaluacionHeuristicaApiError } from '../api/evaluacion-heuristica.api';
 import { useSubirEvidencia } from '../hooks/useEvaluacionHeuristicaQueries';
@@ -19,7 +19,7 @@ interface Props {
   proyectoId: string;
   sesionId: string;
   valores: HallazgoFormValues;
-  onChange: (valores: HallazgoFormValues) => void;
+  onChange: Dispatch<SetStateAction<HallazgoFormValues>>;
   onSubmit: (payload: HallazgoHeuristicaInput) => void;
   onCancel?: () => void;
   guardando: boolean;
@@ -41,7 +41,7 @@ export function HallazgoForm({
   const sev = severidadInfo(valores.severidad);
 
   function set<K extends keyof HallazgoFormValues>(campo: K, valor: HallazgoFormValues[K]) {
-    onChange({ ...valores, [campo]: valor });
+    onChange((actuales) => ({ ...actuales, [campo]: valor }));
     if (errores[campo]) setErrores({ ...errores, [campo]: undefined });
   }
 

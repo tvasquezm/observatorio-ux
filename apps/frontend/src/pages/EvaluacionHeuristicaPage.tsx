@@ -83,7 +83,7 @@ export function EvaluacionHeuristicaPage() {
   const edicionModificada =
     !!editando && JSON.stringify(edicion) !== JSON.stringify(formDesdeHallazgo(editando));
 
-  useUnsavedChanges(abierta, { nuevo, edicion: edicionModificada ? edicion : null }, guardando || actualizando);
+  const { confirmDiscard } = useUnsavedChanges(abierta, { nuevo, edicion: edicionModificada ? edicion : null }, guardando || actualizando);
 
   const visibles = useMemo(() => filtrarYOrdenar(hallazgos, filtros), [hallazgos, filtros]);
   const conteo = useMemo(() => conteoPorSeveridad(hallazgos), [hallazgos]);
@@ -107,7 +107,8 @@ export function EvaluacionHeuristicaPage() {
     });
   }
 
-  function volver() {
+  async function volver() {
+    if (!(await confirmDiscard())) return;
     setSesionId(null);
     setEditandoId(null);
   }
@@ -178,6 +179,7 @@ export function EvaluacionHeuristicaPage() {
 
   async function handleFinalizar() {
     if (!sesionId) return;
+    if (!(await confirmDiscard())) return;
     if (!(await confirm('Al finalizar no podrás agregar, editar ni eliminar hallazgos de esta evaluación. ¿Continuar?'))) return;
     finalizar(sesionId, {
       onSuccess: () => notify.success('Evaluación finalizada.'),
@@ -363,7 +365,7 @@ export function EvaluacionHeuristicaPage() {
                 valores={edicion}
                 onChange={setEdicion}
                 onSubmit={handleActualizar}
-                onCancel={() => { setEditandoId(null); setErroresServidor({}); }}
+                onCancel={async () => { if (edicionModificada && !(await confirmDiscard())) return; setEditandoId(null); setErroresServidor({}); }}
                 guardando={actualizando}
                 modo="editar"
                 erroresServidor={erroresServidor}
@@ -376,7 +378,7 @@ export function EvaluacionHeuristicaPage() {
               sesionId={sesion.id}
               hallazgo={h}
               editable={abierta}
-              onEditar={() => { setEdicion(formDesdeHallazgo(h)); setErroresServidor({}); setEditandoId(h.id); }}
+              onEditar={async () => { if (edicionModificada && !(await confirmDiscard())) return; setEdicion(formDesdeHallazgo(h)); setErroresServidor({}); setEditandoId(h.id); }}
               onEliminar={() => void handleEliminar(h)}
             />
           ),
