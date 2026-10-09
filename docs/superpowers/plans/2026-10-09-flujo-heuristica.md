@@ -29,29 +29,29 @@
 ### Task 1: contratos, catálogo y métricas
 
 Files: `packages/shared-types/src/domains/heuristica-flujo.ts`, `heuristica-metodologias.ts`, exports; tests puros frontend.
-- [ ] Verificar fuentes primarias de los seis conjuntos iniciales y cuatro complementos.
-- [ ] Implementar catálogo versionado, copia/combinación preservando origen, métricas compatibles y diferencias/comparación puras.
-- [ ] Probar independencia de copias, no aplica/pendientes, ponderación explícita, ordinal sin media y alcance incompatible.
+- [x] Verificar fuentes primarias de los seis conjuntos iniciales y cuatro complementos.
+- [x] Implementar catálogo versionado, copia/combinación preservando origen, métricas compatibles y diferencias/comparación puras.
+- [x] Probar independencia de copias, no aplica/pendientes, ponderación explícita, ordinal sin media y alcance incompatible.
 
 ### Task 2: persistencia y API
 
 Files: Prisma schema + migración aditiva, nueva carpeta backend `heuristica-flujo`, SessionsModule, pruebas de servicio.
-- [ ] Crear pruebas negativas de permisos, transiciones, validación y concurrencia antes del servicio.
-- [ ] Implementar rutas del contrato y almacenamiento JSON validado bajo bloqueo de fila y revision.
-- [ ] Probar consenso explícito completo, aprobaciones revocadas, informe y revisiones, capturas aisladas y comparación justificada.
-- [ ] Generar Prisma y compilar/testear usando base aislada.
+- [x] Crear pruebas negativas de permisos, transiciones, validación y concurrencia antes del servicio.
+- [x] Implementar rutas del contrato y almacenamiento JSON validado bajo bloqueo de fila y revision.
+- [x] Probar consenso explícito completo, aprobaciones revocadas, informe y revisiones, capturas aisladas y comparación justificada.
+- [x] Generar Prisma y compilar/testear usando base aislada.
 
 ### Task 3: pantalla del recorrido
 
 Files: nueva carpeta frontend `features/heuristica-flujo`, página de entrada existente y tests.
-- [ ] Implementar listado, configuración y biblioteca/editor, escalas, equipo, evaluación individual con guardado y entrega.
-- [ ] Implementar discrepancias, consenso manual y aprobación/consolidación/cierre, historial y comparación.
-- [ ] Probar cargas/errores, guardado fallido, no aplica justificado, cierre bloqueado y conservar acceso a sesiones anteriores.
+- [x] Implementar listado, configuración y biblioteca/editor, escalas, equipo, evaluación individual con guardado y entrega.
+- [x] Implementar discrepancias, consenso manual y aprobación/consolidación/cierre, historial y comparación.
+- [x] Probar cargas/errores, guardado fallido, no aplica justificado, cierre bloqueado y conservar acceso a sesiones anteriores.
 
 ### Task 4: evidencias, PDF e integración
 
 Files: componentes nuevos de evidencia/anotación, exportador PDF y tests; docs funcionales.
-- [ ] Implementar editor SVG con formulario equivalente para teclado, deshacer/editar y original persistente.
-- [ ] Exportar informe versionado con contexto, métricas y capturas anotadas; probar que usa solo consolidado.
-- [ ] Ejecutar pruebas/builds y prueba de integración real con uno/cinco usuarios en base aislada.
-- [ ] Revisar requisitos PPT y seguridad, corregir hallazgos, actualizar descripción y publicar PR para revisión sin integrar.
+- [x] Implementar editor SVG con formulario equivalente para teclado, deshacer/editar y original persistente.
+- [x] Exportar informe versionado con contexto, métricas y capturas anotadas; probar que usa solo consolidado.
+- [x] Ejecutar pruebas/builds y prueba de integración real con uno/cinco usuarios en base aislada.
+- [x] Revisar requisitos PPT y seguridad, corregir hallazgos, actualizar descripción y publicar PR para revisión sin integrar.
