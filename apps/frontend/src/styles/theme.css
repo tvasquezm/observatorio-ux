@@ -2500,3 +2500,70 @@ input::placeholder, textarea::placeholder { color: color-mix(in srgb, var(--mute
 .cs-create-disclosure > summary, .cs-more-analysis > summary { cursor: pointer; min-height: 44px; padding: 12px 0; font-weight: 700; }
 .cs-create-disclosure[open] > summary { margin-bottom: 12px; }
 .cs-results .cs-kpi-help { display: flex; align-items: center; gap: 6px; }
+
+/* ---------- Técnicas: visualización (prefijo tv-) ---------- */
+.tv-process { margin: 0 0 16px; padding: 16px 18px 18px; border-radius: 14px; background: linear-gradient(135deg, var(--navy), var(--navy-2)); color: #fff; box-shadow: var(--shadow); }
+.tv-process-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.tv-process .kicker { color: var(--mint); }
+.tv-process-count { color: #fff; font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.tv-process-steps { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(138px, 1fr); gap: 0; margin: 0; padding: 0 0 2px; overflow-x: auto; list-style: none; }
+.tv-step { position: relative; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 9px; align-items: start; padding-right: 14px; }
+.tv-step:not(:last-child)::after { content: ''; position: absolute; top: 13px; left: 36px; right: 6px; height: 2px; background: rgba(255, 255, 255, .22); }
+.tv-step--done:not(:last-child)::after { background: var(--mint); }
+.tv-step-mark { position: relative; z-index: 1; display: grid; place-items: center; width: 28px; height: 28px; border: 2px solid rgba(255, 255, 255, .45); border-radius: 999px; background: var(--navy-2); color: rgba(255, 255, 255, .85); font-size: 12px; font-weight: 800; }
+.tv-step--done .tv-step-mark { border-color: var(--mint); background: var(--mint); color: var(--navy); }
+.tv-step--current .tv-step-mark { border-color: #fff; background: #fff; color: var(--navy); box-shadow: 0 0 0 4px rgba(255, 255, 255, .2); }
+.tv-step-text { display: grid; gap: 2px; min-width: 0; }
+.tv-step-text strong { color: #fff; font-size: 12px; line-height: 1.3; }
+.tv-step-text small { color: rgba(255, 255, 255, .78); font-size: 11px; line-height: 1.35; }
+.tv-step--todo .tv-step-text strong { color: rgba(255, 255, 255, .8); }
+
+.tv-journey { display: grid; gap: 16px; }
+.tv-journey-head { display: flex; align-items: center; gap: 14px; }
+.tv-avatar { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 12px; background: var(--navy); color: var(--mint); font: 700 17px/1 Georgia, serif; }
+.tv-title { margin: 0; color: var(--navy); font: 700 20px/1.15 Georgia, serif; letter-spacing: -.03em; }
+.tv-subtitle { margin: 3px 0 0; color: var(--muted); font-size: 13px; }
+.tv-journey-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+.tv-callout { padding: 12px 14px; border: 1px solid var(--line); border-left: 4px solid var(--teal); border-radius: 10px; background: var(--surface-alt); }
+.tv-callout--mint { border-left-color: var(--mint); }
+.tv-callout h4, .tv-evidence h4 { margin: 0 0 5px; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.tv-callout p { margin: 0; color: var(--ink); font-size: 13px; line-height: 1.5; }
+
+.tv-board { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.tv-board:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.tv-row { display: grid; grid-template-columns: var(--tv-cols); border-top: 1px solid var(--line); }
+.tv-row:first-child { border-top: 0; }
+.tv-rowhead { position: sticky; left: 0; z-index: 2; display: grid; align-content: start; gap: 3px; padding: 12px; border-right: 1px solid var(--line); background: var(--surface-alt); color: var(--navy); font-size: 11px; font-weight: 800; line-height: 1.3; }
+.tv-rowhead small { color: var(--muted); font-size: 10px; font-weight: 500; }
+.tv-rowhead--lane { border-left: 4px solid var(--tv-tone, var(--line)); }
+.tv-cell { min-width: 0; padding: 10px 12px; border-left: 1px solid var(--line); }
+.tv-cell:first-of-type { border-left: 0; }
+.tv-row--phases .tv-cell { display: flex; align-items: center; gap: 8px; background: var(--surface-alt); }
+.tv-phase-n { display: grid; flex: 0 0 auto; place-items: center; width: 22px; height: 22px; border-radius: 999px; background: var(--navy); color: #fff; font-size: 11px; font-weight: 800; }
+.tv-phase-title { color: var(--navy); font: 700 14px/1.2 Georgia, serif; }
+
+.tv-curve { position: relative; grid-column: 2 / -1; height: 112px; }
+.tv-curve svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.tv-guide { stroke: var(--line); stroke-width: 1; stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; }
+.tv-line { fill: none; stroke: var(--navy); stroke-width: 3; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.tv-dot { position: absolute; width: 18px; height: 18px; border: 3px solid var(--surface); border-radius: 999px; background: currentColor; box-shadow: 0 0 0 2px currentColor; transform: translate(-50%, -50%); }
+.tv-emo--positiva { color: var(--mint); }
+.tv-emo--neutral { color: var(--teal); }
+.tv-emo--negativa { color: var(--coral); }
+.tv-pill { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 800; }
+.tv-pill.tv-emo--positiva { background: var(--room-badge-surface); color: var(--room-badge-ink); }
+.tv-pill.tv-emo--neutral { background: color-mix(in srgb, var(--teal) 10%, var(--surface)); color: var(--teal); }
+.tv-pill.tv-emo--negativa { background: var(--critical-surface); color: var(--critical-ink); }
+
+.tv-chips { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.tv-chip { padding: 6px 9px; border: 1px solid color-mix(in srgb, var(--tv-tone, var(--teal)) 35%, var(--line)); border-radius: 8px; background: color-mix(in srgb, var(--tv-tone, var(--teal)) 9%, var(--surface)); color: var(--ink); font-size: 12px; line-height: 1.4; }
+.tv-empty { color: var(--muted); font-size: 12px; }
+.tv-evidence .tv-chips { display: flex; flex-wrap: wrap; }
+
+.tv-strip { display: flex; gap: 5px; margin: 8px 0 0; padding: 0; list-style: none; }
+.tv-strip li { width: 12px; height: 12px; border-radius: 999px; background: currentColor; }
+
+@media (max-width: 640px) {
+  .tv-process { padding: 14px; }
+  .tv-title { font-size: 18px; }
+}

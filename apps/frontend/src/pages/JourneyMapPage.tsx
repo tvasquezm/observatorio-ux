@@ -16,6 +16,10 @@ import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { useProject } from '../features/projects/hooks/useProjectsQueries';
 import { TechniquePageHeader } from '../shared/components/TechniquePageHeader';
 import { useUnsavedChanges } from '../shared/hooks/useUnsavedChanges';
+import {
+  JourneyEmotionStrip,
+  JourneyVisual,
+} from '../features/journey-map/components/JourneyVisual';
 
 const CAMPOS_LISTA: (keyof Phase)[] = [
   'actividades',
@@ -505,104 +509,13 @@ export function JourneyMapPage() {
                 <p>{journey.contenido.objetivo}</p>
               )}
 
+              <JourneyEmotionStrip fases={journey.contenido.fases} />
+
               {journeyConsultado?.id === journey.id && (
                 <div className="panel mt-16">
                   <h3>Detalle del Journey Map</h3>
 
-                  {journey.contenido.eventoInicio && (
-                    <div>
-                      <strong>Evento de inicio</strong>
-                      <p>{journey.contenido.eventoInicio}</p>
-                    </div>
-                  )}
-
-                  {journey.contenido.objetivo && (
-                    <div>
-                      <strong>Objetivo del recorrido</strong>
-                      <p>{journey.contenido.objetivo}</p>
-                    </div>
-                  )}
-
-                  <h4>Recorrido</h4>
-
-                  <div className="form-grid">
-                    {journey.contenido.fases.map((fase, index) => (
-                      <div key={index} className="entity-card">
-                        <div className="row-between">
-                          <h4>
-                            Fase {index + 1}: {fase.nombre}
-                          </h4>
-
-                          <span className="status-pill">
-                            {fase.emocion}
-                          </span>
-                        </div>
-
-                        <div>
-                          <strong>Actividades</strong>
-                          <p>
-                            {fase.actividades.length > 0
-                              ? fase.actividades.join(', ')
-                              : 'Sin información registrada.'}
-                          </p>
-                        </div>
-
-                        <div>
-                          <strong>Puntos de contacto</strong>
-                          <p>
-                            {fase.touchpoints.length > 0
-                              ? fase.touchpoints.join(', ')
-                              : 'Sin información registrada.'}
-                          </p>
-                        </div>
-
-                        <div>
-                          <strong>Pensamientos</strong>
-                          <p>
-                            {fase.pensamientos.length > 0
-                              ? fase.pensamientos.join(', ')
-                              : 'Sin información registrada.'}
-                          </p>
-                        </div>
-
-                        <div>
-                          <strong>Dificultades / puntos de dolor</strong>
-                          <p>
-                            {fase.dificultades.length > 0
-                              ? fase.dificultades.join(', ')
-                              : 'Sin información registrada.'}
-                          </p>
-                        </div>
-
-                        <div>
-                          <strong>Ganancias / aspectos positivos</strong>
-                          <p>
-                            {fase.ganancias.length > 0
-                              ? fase.ganancias.join(', ')
-                              : 'Sin información registrada.'}
-                          </p>
-                        </div>
-
-                        <div>
-                          <strong>Oportunidades de mejora</strong>
-                          <p>
-                            {fase.oportunidades.length > 0
-                              ? fase.oportunidades.join(', ')
-                              : 'Sin información registrada.'}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="mt-16">
-                    <strong>Evidencia</strong>
-                    <p>
-                      {journey.contenido.evidencia.length > 0
-                        ? journey.contenido.evidencia.join(', ')
-                        : 'Sin evidencia registrada.'}
-                    </p>
-                  </div>
+                  <JourneyVisual contenido={journey.contenido} />
 
                   <small className="text-muted">
                     Registro de consulta. Este Journey Map no puede
