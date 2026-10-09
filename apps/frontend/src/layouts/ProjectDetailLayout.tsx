@@ -5,23 +5,12 @@
 // cada página individual).
 
 import { useEffect, useRef, useState } from 'react';
-import { Link, NavLink, Outlet, useLocation, useParams } from 'react-router-dom';
+import { Link, Outlet, useLocation, useParams } from 'react-router-dom';
 import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { useProject } from '../features/projects/hooks/useProjectsQueries';
 import { canViewAnalytics, resolvePerspective } from '../shared/auth/perspectivas';
-
-const SUB_NAV = [
-  { to: '', label: 'Resumen', end: true, group: 'Proyecto' },
-  { to: 'personas', label: 'Personas', group: 'Técnicas' },
-  { to: 'journey-map', label: 'Journey Map', group: 'Técnicas' },
-  { to: 'momentos-criticos', label: 'Momentos críticos', group: 'Técnicas' },
-  { to: 'card-sorting', label: 'Card Sorting', group: 'Técnicas' },
-  { to: 'evaluacion-heuristica', label: 'Evaluación heurística', group: 'Técnicas' },
-  { to: 'comentarios', label: 'Comentarios', group: 'Proyecto' },
-  { to: 'analitica', label: 'Analítica', group: 'Proyecto' },
-  { to: 'miembros', label: 'Miembros', group: 'Proyecto' },
-  { to: 'participantes', label: 'Participantes', group: 'Proyecto' },
-];
+import { ProjectMenu } from './ProjectMenu';
+import { agruparSecciones, SECCIONES_PROYECTO } from './project-sections';
 
 export interface ProjectOutletContext {
   proyectoId: string;
@@ -30,7 +19,6 @@ export interface ProjectOutletContext {
 export function ProjectDetailLayout() {
   const { proyectoId } = useParams<{ proyectoId: string }>();
   const { pathname } = useLocation();
-  const menuRef = useRef<HTMLDetailsElement>(null);
   const sectionRef = useRef<HTMLDivElement>(null);
   const [compact, setCompact] = useState(() => window.matchMedia?.('(max-width: 768px)').matches ?? true);
   const { data: proyecto } = useProject(proyectoId ?? null);
@@ -38,12 +26,14 @@ export function ProjectDetailLayout() {
   const activeRole = user ? resolvePerspective(user.rol, perspectiveRole) : null;
   const canManageParticipants =
     !!user && (activeRole === 'ADMIN' || user.id === proyecto?.creadoPorId);
-  const visibleItems = SUB_NAV.filter((item) => {
-    if (item.to === 'analitica') return !!activeRole && canViewAnalytics(activeRole);
-    if (item.to === 'participantes') return canManageParticipants;
+  const visibleItems = SECCIONES_PROYECTO.filter((item) => {
+    if (item.requires === 'analitica') return !!activeRole && canViewAnalytics(activeRole);
+    if (item.requires === 'participantes') return canManageParticipants;
     return true;
   });
-  const currentSection = visibleItems.find((item) => item.to === (pathname.split('/')[3] ?? ''))?.label ?? 'Resumen';
+  const groups = agruparSecciones(visibleItems);
+  const currentItem = visibleItems.find((item) => item.to === (pathname.split('/')[3] ?? ''));
+  const currentSection = currentItem?.label ?? 'Resumen';
   useEffect(() => {
     const media = window.matchMedia?.('(max-width: 768px)');
     if (!media) return;
@@ -51,9 +41,6 @@ export function ProjectDetailLayout() {
     media.addEventListener('change', update);
     return () => media.removeEventListener('change', update);
   }, []);
-  useEffect(() => {
-    if (menuRef.current) menuRef.current.open = !compact;
-  }, [pathname, compact]);
   useEffect(() => {
     document.title = `${pathname.endsWith('/resultados') ? 'Resultados · ' : ''}${currentSection} · ${proyecto?.nombre ?? 'Proyecto'} · Observatorio UX`;
     if (proyecto && user) sessionStorage.setItem(`observatorio-ux-project:${user.id}`, proyectoId ?? '');
@@ -82,31 +69,7 @@ export function ProjectDetailLayout() {
         </div>
       </div>
 
-      <details ref={menuRef} open={!compact || undefined} className={`project-menu${compact ? '' : ' project-menu-desktop'}`} onKeyDown={(event) => {
-        if (event.key !== 'Escape' || !compact) return;
-        event.currentTarget.open = false;
-        event.currentTarget.querySelector('summary')?.focus();
-      }}>
-        <summary><span>Secciones del proyecto</span><strong>{currentSection}</strong></summary>
-        <nav aria-label="Secciones del proyecto">
-          {['Proyecto', 'Técnicas'].map((group) => (
-            <section key={group} aria-label={group}>
-              <h2>{group}</h2>
-              {visibleItems.filter((item) => item.group === group).map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.end}
-                  className={({ isActive }) => `project-menu-link${isActive ? ' active' : ''}`}
-                  onClick={() => { if (menuRef.current && compact) menuRef.current.open = false; }}
-                >
-                  {item.label}
-                </NavLink>
-              ))}
-            </section>
-          ))}
-        </nav>
-      </details>
+      <ProjectMenu groups={groups} current={currentItem} currentLabel={currentSection} compact={compact} />
 
       <div ref={sectionRef} className="project-section"><Outlet context={{ proyectoId } satisfies ProjectOutletContext} /></div>
     </div>

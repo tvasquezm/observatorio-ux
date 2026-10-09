@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { EvaluatorRole, EvaluatorUser } from '../../../features/auth/api/auth.api';
 import {
+  canSwitchPerspective,
   canUsePerspective,
   isEvaluatorRole,
   readStoredPerspective,
@@ -56,5 +57,13 @@ describe('política de perspectivas', () => {
     expect(isEvaluatorRole('ADMIN')).toBe(true);
     expect(isEvaluatorRole('SUPERADMIN')).toBe(false);
     expect(canUsePerspective('SUPERADMIN' as EvaluatorRole, 'ADMIN')).toBe(false);
+  });
+});
+
+describe('selector de perspectiva', () => {
+  it('solo se ofrece a cuentas con más de una perspectiva', () => {
+    expect(canSwitchPerspective('ESTUDIANTE')).toBe(false);
+    expect(canSwitchPerspective('DOCENTE')).toBe(true);
+    expect(canSwitchPerspective('ADMIN')).toBe(true);
   });
 });

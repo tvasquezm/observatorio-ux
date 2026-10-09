@@ -96,6 +96,7 @@ export function CardSortingWorkspace({
   const [confirmando, setConfirmando] = useState(false);
   const submitButtonRef = useRef<HTMLButtonElement>(null);
   const reviewButtonRef = useRef<HTMLButtonElement>(null);
+  const restoreFocusFrame = useRef<number | null>(null);
   const sendButtonRef = useRef<HTMLButtonElement>(null);
   const coarsePointer = useCoarsePointer();
 
@@ -245,7 +246,7 @@ export function CardSortingWorkspace({
 
   function closeConfirm() {
     setConfirmando(false);
-    window.requestAnimationFrame(() => submitButtonRef.current?.focus());
+    restoreFocusFrame.current = window.requestAnimationFrame(() => submitButtonRef.current?.focus());
   }
 
   function confirmSend() {
@@ -255,7 +256,9 @@ export function CardSortingWorkspace({
   }
 
   useEffect(() => {
-    if (confirmando) reviewButtonRef.current?.focus();
+    if (!confirmando) return;
+    if (restoreFocusFrame.current !== null) window.cancelAnimationFrame(restoreFocusFrame.current);
+    reviewButtonRef.current?.focus();
   }, [confirmando]);
 
   const total = study.cardsDefinidas.length;

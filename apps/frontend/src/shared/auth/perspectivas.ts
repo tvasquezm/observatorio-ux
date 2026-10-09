@@ -25,6 +25,10 @@ export function canUsePerspective(accountRole: EvaluatorRole, perspectiveRole: E
   return ALLOWED_PERSPECTIVES[accountRole]?.includes(perspectiveRole) ?? false;
 }
 
+export function canSwitchPerspective(accountRole: EvaluatorRole) {
+  return (ALLOWED_PERSPECTIVES[accountRole]?.length ?? 0) > 1;
+}
+
 export function isEvaluatorRole(value: unknown): value is EvaluatorRole {
   return typeof value === 'string' && PERSPECTIVE_ROLES.includes(value as EvaluatorRole);
 }

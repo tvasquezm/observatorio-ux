@@ -7,10 +7,11 @@ import {
   EvaluacionHeuristicaAnalyticsController,
 } from './evaluacion-heuristica/evaluacion-heuristica.controller.js';
 import { EvaluacionHeuristicaService } from './evaluacion-heuristica/evaluacion-heuristica.service.js';
+import { HeuristicaEvidenciaService } from './evaluacion-heuristica/heuristica-evidencia.service.js';
 import { CardSortingModule } from './card-sorting/card-sorting.module.js';
 @Module({
   imports: [CardSortingModule],
   controllers: [EvaluacionHeuristicaController, EvaluacionHeuristicaAnalyticsController],
-  providers: [EvaluacionHeuristicaService, RolesGuard],
+  providers: [EvaluacionHeuristicaService, HeuristicaEvidenciaService, RolesGuard],
 })
 export class SessionsModule {}

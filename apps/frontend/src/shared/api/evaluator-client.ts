@@ -38,13 +38,16 @@ export async function evaluatorRequest<T>(
   init: RequestInit = {},
   createError: ApiErrorFactory = (status, message) => Object.assign(new Error(message), { status }),
 ): Promise<T> {
+  // Con FormData el navegador fija solo el Content-Type multipart (con boundary);
+  // forzar application/json rompería la subida.
+  const esFormData = typeof FormData !== 'undefined' && init.body instanceof FormData;
   let response: Response;
   try {
     response = await fetch(`${API_BASE}${path}`, {
       ...init,
       credentials: 'include',
       headers: {
-        'Content-Type': 'application/json',
+        ...(esFormData ? {} : { 'Content-Type': 'application/json' }),
         ...csrfHeaders(init.method),
         ...init.headers,
       },
@@ -71,4 +74,24 @@ export async function evaluatorRequest<T>(
 
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
+}
+
+/** GET autenticado (cookie) de un recurso binario, p. ej. una captura de evidencia. */
+export async function evaluatorBlob(
+  path: string,
+  createError: ApiErrorFactory = (status, message) => Object.assign(new Error(message), { status }),
+): Promise<Blob> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, { credentials: 'include' });
+  } catch {
+    throw createError(0, 'No se pudo conectar con el servidor.');
+  }
+  if (response.status === 401) {
+    useAuthStore.getState().logout();
+    notify.error('Tu sesión expiró. Vuelve a iniciar sesión.');
+    throw createError(401, 'Sesión expirada.');
+  }
+  if (!response.ok) throw createError(response.status, `Error HTTP ${response.status}`);
+  return response.blob();
 }

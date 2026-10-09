@@ -6,6 +6,20 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **navegacion:** menú de proyecto por grupos con iconos, sección actual y apertura
+  animada que respeta movimiento reducido; conserva el menú al cancelar una
+  navegación y devuelve el foco al elegir la sección actual.
+* **tecnicas:** vistas de Personas, Journey Map y Momentos críticos con visuales
+  propios; evaluación heurística con edición, capturas y analítica por heurística.
+* **borradores:** conserva los cambios escritos durante la subida de capturas y
+  confirma antes de abandonar, cancelar, reemplazar una edición o finalizar la evaluación.
+* **evaluacion-heuristica:** evita el desbordamiento horizontal causado por el
+  campo oculto de adjuntos; conserva su etiqueta accesible y el botón para subir capturas.
+
+* **evaluacion-heuristica:** descarga un PDF de la evaluación (resumen, hallazgos por severidad,
+  responsable y capturas incrustadas, hasta 30) y amplía el resumen con críticos,
+  severidad promedio, hallazgos sin evidencia y desglose por heurística.
+
 * **database:** migra a Prisma 7.10.0 con cliente generado, adaptador PostgreSQL,
   configuración de migraciones y seeds TypeScript; conserva schema, límites de
   conexiones y timeout de DATABASE_URL en la API y los scripts de administración.

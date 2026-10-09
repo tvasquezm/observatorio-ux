@@ -1,32 +1,82 @@
 // src/modules/sessions/evaluacion-heuristica/dto/heuristica.dto.ts
 
-import { IsString, IsNotEmpty, IsInt, Min, Max, IsOptional } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import { HEURISTICA_IDS } from '@observatorio-ux/shared-types';
+import {
+  IsIn,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+  IsUrl,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
+
+export class CrearSesionHeuristicaDto {
+  @ApiPropertyOptional({ description: 'Nombre de la evaluación (sitio o producto evaluado)', example: 'Portal de matrículas' })
+  @IsString()
+  @IsOptional()
+  @MaxLength(120)
+  nombre?: string;
+}
 
 export class HeuristicaDto {
-  @ApiProperty({ description: 'ID o código de la heurística', example: 'H4' })
-  @IsString()
-  @IsNotEmpty()
-  heuristicaId!: string; // <-- El signo "!" le dice a TypeScript que NestJS lo inicializará
+  @ApiProperty({ description: 'Heurística de Nielsen vulnerada', enum: HEURISTICA_IDS, example: 'H4' })
+  @IsIn(HEURISTICA_IDS as unknown as string[])
+  heuristicaId!: string;
 
-  @ApiProperty({ description: 'Severidad del 0 al 4', minimum: 0, maximum: 4, example: 3 })
+  @ApiProperty({ description: 'Severidad de Nielsen del 0 al 4', minimum: 0, maximum: 4, example: 3 })
   @IsInt()
   @Min(0)
   @Max(4)
-  severidad!: number; // <-- Agregado el "!"
+  severidad!: number;
 
-  @ApiProperty({ description: 'Descripción del problema', example: 'Falta botón.' })
+  @ApiProperty({ description: 'Título corto del hallazgo', example: 'Botón principal sin etiqueta' })
+  @IsString()
+  @MinLength(3)
+  @MaxLength(120)
+  titulo!: string;
+
+  @ApiProperty({ description: 'Pantalla o elemento evaluado', example: 'Formulario de inscripción' })
   @IsString()
   @IsNotEmpty()
-  descripcion!: string; // <-- Agregado el "!"
+  @MaxLength(200)
+  pantalla!: string;
 
-  @ApiPropertyOptional({ description: 'Evidencia opcional' })
+  @ApiProperty({ description: 'Descripción del problema', example: 'El botón de envío no tiene texto visible.' })
   @IsString()
-  @IsOptional()
-  evidencia?: string; // Los opcionales usan "?" en lugar de "!"
+  @MinLength(10)
+  @MaxLength(2000)
+  descripcion!: string;
 
-  @ApiPropertyOptional({ description: 'Recomendación opcional' })
+  @ApiProperty({ description: 'Evidencia observada (texto)' })
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(1000)
+  evidencia!: string;
+
+  @ApiPropertyOptional({ description: 'Enlace a la evidencia (solo http/https)', nullable: true })
   @IsOptional()
-  recomendacion?: string;
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true }, { message: 'evidenciaUrl debe ser una URL http(s) válida' })
+  @MaxLength(500)
+  evidenciaUrl?: string | null;
+
+  @ApiPropertyOptional({ description: 'ID de una captura subida a esta misma sesión', nullable: true })
+  @IsOptional()
+  @IsUUID()
+  evidenciaArchivoId?: string | null;
+
+  @ApiProperty({ description: 'Acción concreta recomendada' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(1000)
+  recomendacion!: string;
 }
+
+// Edición parcial: cada campo conserva sus validaciones. `null` en
+// evidenciaUrl / evidenciaArchivoId los elimina.
+export class ActualizarHallazgoDto extends PartialType(HeuristicaDto) {}

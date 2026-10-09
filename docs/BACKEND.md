@@ -155,17 +155,36 @@ Para probar el flujo completo en Postman puedes importar
 
 ## Evaluación heurística
 
-Las rutas son:
+Las rutas son (prefijo `/api/projects/:proyectoId/evaluacion-heuristica`):
 
 ```text
-POST  /api/projects/:proyectoId/evaluacion-heuristica/sesiones
-PATCH /api/projects/:proyectoId/evaluacion-heuristica/sesiones/:sesionId/hallazgos
-GET   /api/projects/:proyectoId/evaluacion-heuristica/sesiones/:sesionId
-POST  /api/projects/:proyectoId/evaluacion-heuristica/sesiones/:sesionId/finalizar
+GET    /sesiones                                       lista (informe)
+POST   /sesiones                                       abre sesión  { nombre? }
+GET    /sesiones/:sesionId                             sesión + hallazgos
+PATCH  /sesiones/:sesionId/hallazgos                   registra un hallazgo
+PATCH  /sesiones/:sesionId/hallazgos/:hallazgoId       edita (parcial; null quita URL/captura)
+DELETE /sesiones/:sesionId/hallazgos/:hallazgoId       elimina (y su captura)
+POST   /sesiones/:sesionId/evidencias                  sube captura (multipart, campo "archivo")
+GET    /sesiones/:sesionId/evidencias/:evidenciaId     descarga la captura
+POST   /sesiones/:sesionId/finalizar                   cierra y limpia capturas huérfanas
+GET    /analytics                                      por severidad, por heurística, sinClasificar
 ```
 
-Solo el evaluador dueño del proyecto puede modificar o finalizar sus sesiones,
-salvo un usuario con rol `ADMIN`.
+Solo el evaluador dueño de la sesión (o un `ADMIN`) puede leerla, modificarla o
+finalizarla. Editar/eliminar/subir exigen sesión `EN_PROGRESO` (409 si no).
+
+**Hallazgo** (guardado en `ResearchSession.resultado`, JSON): `heuristicaId`
+(`H1`–`H10`, catálogo en `@observatorio-ux/shared-types`), `severidad` (0–4 Nielsen),
+`titulo`, `pantalla`, `descripcion` (≥10), `evidencia` (texto), `evidenciaUrl`
+(opcional, solo `http(s)`), `evidenciaArchivoId` (opcional), `recomendacion`,
+y `responsable {id, nombre}` que **fija el servidor** desde el usuario autenticado.
+Los hallazgos anteriores al rediseño no tienen los campos nuevos; los lectores deben tolerarlo.
+
+**Capturas**: PNG/JPEG/WebP, máx. 2 MB y 50 por sesión, validadas por magic bytes
+(no por el mimetype del cliente; SVG rechazado). Se guardan en la tabla
+`evidencias_heuristica` (`BYTEA`) y se sirven solo con sesión válida y acceso a la sesión,
+con `nosniff` y CSP restrictiva. Las escrituras sobre `resultado` se serializan con
+`SELECT ... FOR UPDATE` dentro de una transacción.
 
 ## Artefactos UX
 

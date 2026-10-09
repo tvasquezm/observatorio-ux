@@ -26,6 +26,13 @@ import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { useProject } from '../features/projects/hooks/useProjectsQueries';
 import { useArtifactEditLock } from '../shared/hooks/useArtifactEditLock';
 import { useUnsavedChanges } from '../shared/hooks/useUnsavedChanges';
+import { TechniqueProcess } from '../shared/components/TechniqueProcess';
+import {
+  IncidentMeters,
+  MomentosDistribucion,
+  MomentosMatrix,
+} from '../features/momentos-criticos/components/MomentosVisual';
+import { prioridad, procesoMomentos } from '../features/momentos-criticos/momentos-visual';
 
 const incidenteVacio = (): IncidenteCritico => ({
   nombre: '',
@@ -40,15 +47,6 @@ const contenidoVacio = (): MomentosCriticosContenido => ({
   perfilUsuario: { id: crypto.randomUUID(), nombre: '', rol: '' },
   incidentes: [incidenteVacio()],
 });
-const prioridad = (inc: IncidenteCritico) =>
-  inc.tipo === 'Positivo'
-    ? 'Oportunidad de refuerzo'
-    : prioridadNumerica(inc) >= 6
-      ? 'Prioridad alta'
-      : prioridadNumerica(inc) >= 3
-        ? 'Prioridad media'
-        : 'Prioridad baja';
-
 export function MomentosCriticosPage() {
   const { proyectoId } = useOutletContext<ProjectOutletContext>();
   const {
@@ -190,6 +188,9 @@ export function MomentosCriticosPage() {
         title="Momentos críticos"
         description="Documenta lo que ocurre, comprende sus causas y decide qué mejorar o reforzar."
       />
+      {!isLoading && !isListError && (
+        <TechniqueProcess title="Proceso de momentos críticos" steps={procesoMomentos(momentos.length, todos)} />
+      )}
       <details className="panel mc-guide">
         <summary>Cómo registrar y priorizar un momento crítico</summary>
         <p>
@@ -225,6 +226,7 @@ export function MomentosCriticosPage() {
           </article>
         </section>
       )}
+      {!isLoading && !isListError && <MomentosDistribucion incidentes={todos} />}
       <section className="panel">
         <div className="panel-head">
           <h2>Incidentes y acciones</h2>
@@ -449,64 +451,7 @@ export function MomentosCriticosPage() {
           <p>No hay incidentes que coincidan con estos filtros.</p>
         )}
         {!isLoading && !isListError && vistaMatriz && todos.length > 0 && (
-          <div className="matrix-wrap">
-            <table className="mc-matrix">
-              <caption>Impacto y frecuencia de los incidentes filtrados</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Frecuencia / Impacto</th>
-                  {['Alto', 'Medio', 'Bajo'].map((imp) => (
-                    <th scope="col" key={imp}>
-                      Impacto {imp}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {(['Alta', 'Media', 'Baja'] as const).map((frec) => (
-                  <tr key={frec}>
-                    <th scope="row">Frecuencia {frec}</th>
-                    {(['Alto', 'Medio', 'Bajo'] as const).map((imp) => {
-                      const incidentes = filtrados.filter(
-                        (inc) => inc.impacto === imp && inc.frecuencia === frec,
-                      );
-                      return (
-                        <td key={imp} data-testid={`celda-${imp}-${frec}`}>
-                          {incidentes.length === 0 ? (
-                            <span className="text-muted">Sin incidentes</span>
-                          ) : (
-                            incidentes.map((inc) => (
-                              <details
-                                key={inc.key}
-                                className={`mc-matrix-incident ${inc.tipo === 'Negativo' ? 'mc-negative' : 'mc-positive'}`}
-                              >
-                                <summary>
-                                  <strong>{inc.nombre}</strong>
-                                  <span>
-                                    {inc.perfilNombre} · {inc.tipo}
-                                  </span>
-                                  <span>{prioridad(inc)}</span>
-                                </summary>
-                                <p>{inc.descripcion}</p>
-                                <p>
-                                  <b>Causa:</b> {inc.causa}
-                                </p>
-                                <ul>
-                                  {inc.accionesSugeridas.map((a, i) => (
-                                    <li key={i}>{a}</li>
-                                  ))}
-                                </ul>
-                              </details>
-                            ))
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <MomentosMatrix incidentes={filtrados} />
         )}
         {!isLoading && !isListError && !vistaMatriz && (
           <div className="list-stack">
@@ -566,6 +511,7 @@ export function MomentosCriticosPage() {
                         {inc.tipo} · Impacto {inc.impacto.toLowerCase()} · Frecuencia{' '}
                         {inc.frecuencia.toLowerCase()}
                       </p>
+                      <IncidentMeters inc={inc} />
                       <p>{inc.descripcion}</p>
                       <details>
                         <summary>Ver causa y acciones</summary>
