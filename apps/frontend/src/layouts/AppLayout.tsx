@@ -109,7 +109,7 @@ export function AppLayout() {
           onClick={() => setSidebarCollapsed((current) => !current)}
         >
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-            <path d={sidebarCollapsed ? 'm9 5 7 7-7 7' : 'm15 5-7 7 7 7'} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
           </svg>
         </button>
         <span className="side-label">Principal</span>

@@ -60,10 +60,14 @@ test('recorre login, proyecto y las cinco técnicas UX', async ({ page }, testIn
 
   const mobile = testInfo.project.name === 'mobile-chromium';
   const projectMenu = page.locator(mobile ? '.project-menu' : '.pm');
-  for (const [linkName, headingName] of techniques) {
-    if (mobile) await projectMenu.locator('summary').click();
-    else await projectMenu.getByRole('button', { name: /^Técnicas/ }).click();
-    await projectMenu.getByRole('link', { name: linkName, exact: true }).click();
+  for (const [index, [linkName, headingName]] of techniques.entries()) {
+    if (index === 0) {
+      await page.locator('.tech-grid').getByRole('link', { name: new RegExp(linkName) }).click();
+    } else {
+      if (mobile) await projectMenu.locator('summary').click();
+      else await projectMenu.getByRole('button', { name: /^Técnicas/ }).click();
+      await projectMenu.getByRole('link', { name: linkName, exact: true }).click();
+    }
     if (mobile) await expect(projectMenu).not.toHaveAttribute('open', '');
     else await expect(projectMenu.getByRole('group', { name: 'Técnicas' })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: headingName, exact: true }).first()).toBeVisible();
