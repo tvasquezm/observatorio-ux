@@ -24,4 +24,9 @@ describe('TechniqueProcess', () => {
     expect(screen.getByTestId('tv-process-count')).toHaveTextContent('3 de 3');
     expect(document.querySelector('[aria-current="step"]')).toBeNull();
   });
+
+  it('aplica la variante compacta', () => {
+    render(<TechniqueProcess steps={steps} compact />);
+    expect(screen.getByRole('region')).toHaveClass('tv-process--compact');
+  });
 });

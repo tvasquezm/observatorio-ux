@@ -1,3 +1,4 @@
+import { TechniqueChips } from '../../../shared/components/TechniqueChips';
 import { TechniqueProcess } from '../../../shared/components/TechniqueProcess';
 import type { Emocion, JourneyMapContenido, Phase } from '../api/journey-map.api';
 import {
@@ -29,22 +30,6 @@ function claseEmocion(emocion: Emocion) {
 
 function iniciales(nombre: string) {
   return nombre.trim().split(/\s+/).slice(0, 2).map((parte) => parte[0]).join('').toUpperCase();
-}
-
-function Chips({ items, tono }: { items: string[]; tono: string }) {
-  if (items.length === 0) {
-    return (
-      <>
-        <span className="tv-empty" aria-hidden="true">—</span>
-        <span className="sr-only">Sin información registrada.</span>
-      </>
-    );
-  }
-  return (
-    <ul className="tv-chips" style={{ ['--tv-tone' as string]: tono }}>
-      {items.map((item, index) => <li key={index} className="tv-chip">{item}</li>)}
-    </ul>
-  );
 }
 
 export function JourneyEmotionStrip({ fases }: { fases: Phase[] }) {
@@ -151,7 +136,7 @@ export function JourneyVisual({ contenido }: { contenido: JourneyMapContenido })
               <div className="tv-rowhead tv-rowhead--lane" role="rowheader">{carril.etiqueta}</div>
               {fases.map((fase, index) => (
                 <div key={index} className="tv-cell" role="cell">
-                  <Chips items={fase[carril.campo]} tono={carril.tono} />
+                  <TechniqueChips items={fase[carril.campo]} tono={carril.tono} />
                 </div>
               ))}
             </div>
@@ -161,7 +146,7 @@ export function JourneyVisual({ contenido }: { contenido: JourneyMapContenido })
 
       <div className="tv-evidence">
         <h4>Evidencia</h4>
-        <Chips items={evidencia} tono="var(--teal)" />
+        <TechniqueChips items={evidencia} tono="var(--teal)" />
       </div>
     </div>
   );

@@ -10,14 +10,15 @@ export interface ProcessStep {
 interface Props {
   steps: ProcessStep[];
   title?: string;
+  compact?: boolean;
 }
 
-export function TechniqueProcess({ steps, title = 'Proceso de la técnica' }: Props) {
+export function TechniqueProcess({ steps, title = 'Proceso de la técnica', compact = false }: Props) {
   const done = steps.filter((step) => step.done).length;
   const currentIndex = steps.findIndex((step) => !step.done);
 
   return (
-    <section className="tv-process" aria-label={title}>
+    <section className={`tv-process${compact ? ' tv-process--compact' : ''}`} aria-label={title}>
       <div className="tv-process-head">
         <span className="kicker">{title}</span>
         <span className="tv-process-count" data-testid="tv-process-count">

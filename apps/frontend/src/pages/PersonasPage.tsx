@@ -18,6 +18,8 @@ import { useProject } from '../features/projects/hooks/useProjectsQueries';
 import { TechniquePageHeader } from '../shared/components/TechniquePageHeader';
 import { useArtifactEditLock } from '../shared/hooks/useArtifactEditLock';
 import { useUnsavedChanges } from '../shared/hooks/useUnsavedChanges';
+import { PersonaCard } from '../features/persona/components/PersonaCard';
+import { ETIQUETAS_CAMPOS } from '../features/persona/persona-visual';
 
 const CAMPOS_LISTA: (keyof PersonaContenido)[] = [
   'hobbies',
@@ -31,30 +33,6 @@ const CAMPOS_LISTA: (keyof PersonaContenido)[] = [
   'caracteristicasDistintivas',
   'evidencia',
 ];
-
-const ETIQUETAS_CAMPOS: Record<string, string> = {
-  hobbies: 'Hobbies',
-  habilidades: 'Habilidades',
-  objetivos: 'Objetivos',
-  necesidades: 'Necesidades',
-  motivaciones: 'Motivaciones',
-  frustraciones: 'Frustraciones / barreras',
-  comportamientos: 'Comportamientos',
-  expectativas: 'Expectativas',
-  caracteristicasDistintivas: 'Características distintivas',
-  evidencia: 'Evidencia que sustenta el perfil',
-  familia: 'Familia o contexto familiar',
-  fotografiaUrl: 'URL de fotografía',
-  contextoDeUso: 'Contexto de uso',
-  rolEnServicio: 'Rol en el servicio',
-  relacionConServicio: 'Relación con el servicio',
-  observacionesValidacion: 'Observaciones de validación',
-};
-
-const CAMPOS_CONTEXTO = [
-  'familia', 'fotografiaUrl', 'contextoDeUso', 'rolEnServicio',
-  'relacionConServicio', 'observacionesValidacion',
-] as const;
 
 function vacio(): PersonaContenido {
   return {
@@ -341,45 +319,10 @@ export function PersonasPage() {
       )}
       <div className="persona-profile-grid">
         {personas?.map((p: PersonaArtifact) => (
-          <article key={p.id} className="panel persona-profile" aria-labelledby={`persona-name-${p.id}`}>
-            <div className="persona-profile-head">
-              <span className="person-avatar persona-profile-avatar" aria-hidden="true">
-                {p.contenido.nombreCompleto.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase()}
-              </span>
-              <div className="persona-profile-identity">
-                <h3 id={`persona-name-${p.id}`}>{p.contenido.nombreCompleto}</h3>
-                <p>{[p.contenido.ocupacion, p.contenido.edad !== undefined ? `${p.contenido.edad} años` : null].filter(Boolean).join(' · ') || 'Sin datos demográficos registrados'}</p>
-              </div>
-            </div>
-            <div className="persona-profile-meta">
-              <span className={p.contenido.estadoValidacion === 'VALIDADA' ? 'count' : 'short-id'}>
-                {p.contenido.estadoValidacion === 'VALIDADA' ? 'Validada' : 'Validación pendiente'}
-              </span>
-              <span className="text-muted-xs">Versión {p.version}</span>
-            </div>
-            {p.contenido.acercaDe && <p className="persona-profile-about">{p.contenido.acercaDe}</p>}
-            <div className="persona-profile-highlights">
-              <div><h4>Objetivos</h4><p>{p.contenido.objetivos?.[0] || 'Sin objetivos registrados'}</p></div>
-              <div><h4>Necesidades</h4><p>{p.contenido.necesidades?.[0] || 'Sin necesidades registradas'}</p></div>
-            </div>
-            <details className="persona-profile-details">
-              <summary>Ver perfil completo</summary>
-              <dl className="persona-detail-grid">
-                {CAMPOS_CONTEXTO.map((campo) => p.contenido[campo] && (
-                  <div key={campo}><dt>{ETIQUETAS_CAMPOS[campo]}</dt><dd>{p.contenido[campo]}</dd></div>
-                ))}
-                {CAMPOS_LISTA.map((campo) => {
-                  const valores = p.contenido[campo];
-                  return Array.isArray(valores) && valores.length > 0 ? (
-                    <div key={campo}>
-                      <dt>{ETIQUETAS_CAMPOS[campo]}</dt>
-                      <dd><ul>{valores.map((valor, index) => <li key={index}>{valor}</li>)}</ul></dd>
-                    </div>
-                  ) : null;
-                })}
-              </dl>
-            </details>
-            {puedeEditar && (
+          <PersonaCard
+            key={p.id}
+            persona={p}
+            acciones={puedeEditar && (
               <div className="persona-profile-actions">
                 <button type="button" className="secondary" onClick={() => handleIniciarEditar(p)}>Editar</button>
                 <button type="button" className="text-button text-button--danger" onClick={async () => {
@@ -387,7 +330,7 @@ export function PersonasPage() {
                 }}>Eliminar</button>
               </div>
             )}
-          </article>
+          />
         ))}
       </div>
       {personas && personas.length === 0 && !isLoading && !mostrarForm && (
