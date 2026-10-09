@@ -1,6 +1,5 @@
 // Resumen de una evaluación (sin React). Lo usan el panel de la página y el PDF.
 
-import { HEURISTICA_IDS } from '@observatorio-ux/shared-types';
 import type { HallazgoHeuristica } from './api/evaluacion-heuristica.api';
 
 export const SIN_RESPONSABLE = 'Sin responsable';
@@ -18,9 +17,10 @@ export interface ResumenSesion {
   porResponsable: Array<{ nombre: string; count: number }>;
 }
 
+/** Posición en el catálogo (H1..H10); un id legado va al final. Sin depender de valores del paquete compartido. */
 function ordenCatalogo(id: string): number {
-  const i = (HEURISTICA_IDS as readonly string[]).indexOf(id);
-  return i === -1 ? HEURISTICA_IDS.length : i;
+  const m = /^H(\d+)$/.exec(id);
+  return m ? Number(m[1]) : Number.MAX_SAFE_INTEGER;
 }
 
 export function tieneEvidencia(h: HallazgoHeuristica): boolean {

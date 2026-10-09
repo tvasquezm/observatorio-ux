@@ -27,6 +27,12 @@ export function IncidentMeters({ inc }: { inc: IncidenteCritico }) {
   );
 }
 
+const HEAT_ESCALA = [
+  { clase: 'alta', etiqueta: 'Prioridad alta' },
+  { clase: 'media', etiqueta: 'Prioridad media' },
+  { clase: 'baja', etiqueta: 'Prioridad baja' },
+] as const;
+
 const SEGMENTOS = [
   { campo: 'alta', etiqueta: 'Alta', clase: 'alta' },
   { campo: 'media', etiqueta: 'Media', clase: 'media' },
@@ -57,9 +63,32 @@ export function MomentosDistribucion({ incidentes }: { incidentes: IncidenteCrit
   );
 }
 
+export function MatrizLeyenda() {
+  return (
+    <div className="tv-scale" role="group" aria-label="Escala de color de la matriz">
+      <ul className="tv-scale-list">
+        <li className="tv-scale-title">Fondo de la celda</li>
+        {HEAT_ESCALA.map((h) => (
+          <li key={h.clase}>
+            <i className={`tv-swatch tv-heat--${h.clase}`} aria-hidden="true" />
+            {h.etiqueta}
+          </li>
+        ))}
+        <li className="tv-scale-title">Burbuja</li>
+        <li><i className="tv-bubble tv-bubble--neg tv-bubble--key" aria-hidden="true" /> Problema</li>
+        <li><i className="tv-bubble tv-bubble--pos tv-bubble--key" aria-hidden="true" /> Aspecto positivo</li>
+      </ul>
+      <p className="text-muted-sm tv-matrix-legend">
+        El color de fondo indica la prioridad orientativa de la celda; el número de cada burbuja sigue el orden de los incidentes filtrados.
+      </p>
+    </div>
+  );
+}
+
 export function MomentosMatrix({ incidentes }: { incidentes: IncidenteConPerfil[] }) {
   return (
     <div className="matrix-wrap">
+      <MatrizLeyenda />
       <table className="mc-matrix tv-matrix">
         <caption>Impacto y frecuencia de los incidentes filtrados</caption>
         <thead>
@@ -105,9 +134,6 @@ export function MomentosMatrix({ incidentes }: { incidentes: IncidenteConPerfil[
           ))}
         </tbody>
       </table>
-      <p className="text-muted-sm tv-matrix-legend">
-        El color de fondo indica la prioridad orientativa de la celda; el número de cada burbuja sigue el orden de los incidentes filtrados.
-      </p>
     </div>
   );
 }

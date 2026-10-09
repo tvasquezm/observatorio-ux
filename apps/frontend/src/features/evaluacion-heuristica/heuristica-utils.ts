@@ -6,7 +6,6 @@ import {
   EVIDENCIA_MAX_BYTES,
   EVIDENCIA_MIME_PERMITIDOS,
   HEURISTICAS_NIELSEN,
-  HEURISTICA_IDS,
   SEVERIDADES,
   type HeuristicaId,
   type SeveridadHeuristica,
@@ -67,7 +66,7 @@ export function formVacio(): HallazgoFormValues {
 
 export function formDesdeHallazgo(h: HallazgoHeuristica): HallazgoFormValues {
   return {
-    heuristicaId: (HEURISTICA_IDS as readonly string[]).includes(h.heuristicaId)
+    heuristicaId: /^H([1-9]|10)$/.test(h.heuristicaId)
       ? (h.heuristicaId as HeuristicaId)
       : '',
     severidad: h.severidad,
