@@ -60,6 +60,7 @@ model Proyecto {
   createdAt   DateTime @default(now())
 
   sesiones            ResearchSession[]
+  evaluacionesHeuristicas EvaluacionHeuristicaCompleta[]
   artefactos          UxArtifact[]
   whitelist           ParticipanteWhitelist[]
   miembros            ProyectoMiembro[]
@@ -104,6 +105,7 @@ model Usuario {
   equiposCreados    Equipo[]                @relation("EquiposCreados")
   equiposMiembro    EquipoMiembro[]         @relation("EquiposComoMiembro")
   salas             Sala[]
+  metodologiasHeuristicas MetodologiaHeuristica[]
 
   @@map("usuarios")
 }
@@ -300,6 +302,59 @@ model EvidenciaHeuristica {
 
   @@index([sesionId])
   @@map("evidencias_heuristica")
+}
+
+// Flujo completo separado de las sesiones históricas.
+model EvaluacionHeuristicaCompleta {
+  id String @id @default(uuid())
+  proyectoId String
+  proyecto Proyecto @relation(fields: [proyectoId], references: [id])
+  coordinadorId String
+  revision Int @default(0)
+  version Int @default(1)
+  anteriorId String?
+  fase String @default("BORRADOR")
+  configuracion Json
+  trabajos Json
+  consenso Json
+  informe Json?
+  comparacion Json?
+  iniciadoEn DateTime?
+  consolidadoEn DateTime?
+  finalizadoEn DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  evidencias EvidenciaHeuristicaCompleta[]
+
+  @@index([proyectoId])
+  @@map("evaluaciones_heuristicas_completas")
+}
+
+model MetodologiaHeuristica {
+  id String @id @default(uuid())
+  autorId String
+  autor Usuario @relation(fields: [autorId], references: [id])
+  contenido Json
+  createdAt DateTime @default(now())
+
+  @@index([autorId])
+  @@map("metodologias_heuristicas")
+}
+
+model EvidenciaHeuristicaCompleta {
+  id String @id @default(uuid())
+  revision Int @default(0)
+  evaluacionId String
+  evaluacion EvaluacionHeuristicaCompleta @relation(fields: [evaluacionId], references: [id], onDelete: Cascade)
+  autorId String
+  mimeType String
+  tamano Int
+  datos Bytes
+  anotaciones Json
+  createdAt DateTime @default(now())
+
+  @@index([evaluacionId, autorId])
+  @@map("evidencias_heuristicas_completas")
 }
 
 // ------------------------------------------------------------

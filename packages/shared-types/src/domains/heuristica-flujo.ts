@@ -32,7 +32,7 @@ export interface TrabajoFlujo {
   entregadoEn: string | null; guardadoEn: string | null;
 }
 export interface DecisionCriterio extends RespuestaCriterio { justificacion: string }
-export interface DecisionHallazgo extends HallazgoFlujo { origenIds: string[]; decision: 'ACEPTADO' | 'DESCARTADO'; justificacion: string }
+export interface DecisionHallazgo extends HallazgoFlujo { origenIds: string[]; decision: 'PENDIENTE' | 'ACEPTADO' | 'DESCARTADO'; justificacion: string }
 export interface ConsensoFlujo { criterios: DecisionCriterio[]; hallazgos: DecisionHallazgo[]; aprobadoPor: string[] }
 export type EstadoComparacion = 'SOLUCIONADO' | 'PERMANECE' | 'MEJORO' | 'EMPEORO' | 'NUEVO' | 'NO_VERIFICADO' | 'NO_COMPARABLE';
 export interface VinculoComparacion { anteriorId: string | null; actualId: string | null; estado: EstadoComparacion; justificacion: string }
@@ -45,6 +45,7 @@ export interface EvaluacionFlujo {
   id: string; proyectoId: string; coordinadorId: string; revision: number; version: number; anteriorId: string | null;
   fase: FaseHeuristica; configuracion: ConfiguracionFlujo; trabajos: TrabajoFlujo[]; consenso: ConsensoFlujo;
   informe: InformeFlujo | null; comparacion: ComparacionFlujo | null;
+  avanceEquipo?: Array<{ evaluadorId: string; nombre: string; entregadoEn: string | null; guardadoEn: string | null; evaluados: number; total: number }>;
   createdAt: string; updatedAt: string; iniciadoEn: string | null; consolidadoEn: string | null; finalizadoEn: string | null;
 }
 export interface MiembroEquipoFlujo { id: string; nombre: string; rol: string }
@@ -52,4 +53,4 @@ export interface AnotacionEvidencia {
   id: string; tipo: 'rectangulo' | 'circulo' | 'flecha' | 'destacado' | 'texto';
   x: number; y: number; x2: number; y2: number; color: string; texto: string;
 }
-export interface EvidenciaFlujo { id: string; evaluacionId: string; autorId: string; mimeType: string; tamano: number; anotaciones: AnotacionEvidencia[]; createdAt: string }
+export interface EvidenciaFlujo { id: string; revision: number; evaluacionId: string; autorId: string; mimeType: string; tamano: number; anotaciones: AnotacionEvidencia[]; createdAt: string }
