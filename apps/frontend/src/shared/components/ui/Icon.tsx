@@ -15,6 +15,11 @@ export type IconName =
   | 'journey'
   | 'momentos'
   | 'card-sorting'
+  | 'resumen'
+  | 'comentarios'
+  | 'analitica'
+  | 'miembros'
+  | 'participantes'
   | 'heuristica'
   | 'search'
   | 'info'
@@ -109,6 +114,37 @@ const PATHS: Record<IconName, ReactElement> = {
     <>
       <path d="M6 6l12 12" />
       <path d="M18 6 6 18" />
+    </>
+  ),
+  resumen: (
+    <>
+      <rect x="5" y="3.5" width="14" height="17" rx="2" />
+      <path d="M8.5 8.5h7" />
+      <path d="M8.5 12h7" />
+      <path d="M8.5 15.5h4" />
+    </>
+  ),
+  comentarios: <path d="M5 5.5h14a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5h-7l-4.5 3.5V16.5H5A1.5 1.5 0 0 1 3.5 15V7A1.5 1.5 0 0 1 5 5.5z" />,
+  analitica: (
+    <>
+      <path d="M5 19.5V11" />
+      <path d="M12 19.5V5" />
+      <path d="M19 19.5v-6" />
+    </>
+  ),
+  miembros: (
+    <>
+      <circle cx="9" cy="8.5" r="3" />
+      <path d="M3.5 19c.4-3.3 2.4-5 5.5-5s5.1 1.7 5.5 5" />
+      <path d="M16 6a3 3 0 0 1 0 5.8" />
+      <path d="M17.5 14.2c1.7.5 2.8 2 3 4.8" />
+    </>
+  ),
+  participantes: (
+    <>
+      <circle cx="12" cy="8.5" r="3.25" />
+      <path d="M5.5 19.5c.45-3.75 2.6-5.75 6.5-5.75s6.05 2 6.5 5.75" />
+      <path d="m15.5 4.5 1.2 1.2 2.3-2.4" />
     </>
   ),
   refresh: (

@@ -45,6 +45,16 @@ describe('Menú de secciones del proyecto', () => {
     }
   });
 
+  it('agrupa los enlaces por bloque con título propio', async () => {
+    mount();
+    await userEvent.click(screen.getByText('Secciones del proyecto').closest('summary')!);
+    const proyecto = screen.getByRole('region', { name: 'Proyecto' });
+    const tecnicas = screen.getByRole('region', { name: 'Técnicas' });
+    expect(within(proyecto).getByRole('link', { name: 'Miembros' })).toBeVisible();
+    expect(within(tecnicas).getByRole('link', { name: 'Momentos críticos' })).toBeVisible();
+    expect(within(tecnicas).queryByRole('link', { name: 'Miembros' })).not.toBeInTheDocument();
+  });
+
   it('navega desde una ruta de resultados y cierra el menú al elegir una sección', async () => {
     const router = mount();
     const summary = screen.getByText('Secciones del proyecto').closest('summary')!;

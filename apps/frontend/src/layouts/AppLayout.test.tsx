@@ -3,10 +3,17 @@ import { fireEvent, render, screen, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AppLayout } from './AppLayout';
 
+const auth = vi.hoisted(() => ({ role: null as string | null }));
 vi.mock('../features/auth/store/useAuthStore', () => ({
-  useAuthStore: () => ({ user: null, perspectiveRole: null, setPerspective: vi.fn(), logout: vi.fn() }),
+  useAuthStore: () => ({
+    user: auth.role ? { id: 'u1', nombre: 'Ana Pérez', rol: auth.role } : null,
+    perspectiveRole: auth.role,
+    setPerspective: vi.fn(),
+    logout: vi.fn(),
+  }),
 }));
 beforeEach(() => {
+  auth.role = null;
   localStorage.clear();
   delete document.documentElement.dataset.contrast;
   vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false })));
@@ -38,5 +45,15 @@ describe('Preferencia de contraste', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Activar modo oscuro' }));
     expect(document.documentElement.dataset.theme).toBe('dark');
     expect(document.documentElement.dataset.contrast).toBe('high');
+  });
+});
+
+describe('Selector "Viendo como"', () => {
+  it.each([['DOCENTE', true], ['ADMIN', true], ['ESTUDIANTE', false]])('rol %s: visible=%s', (role, visible) => {
+    auth.role = role;
+    render(<MemoryRouter><AppLayout /></MemoryRouter>);
+    const status = screen.queryByText(/Viendo como/);
+    expect(!!status).toBe(visible);
+    expect(!!screen.queryByRole('group', { name: 'Cambiar perspectiva' })).toBe(visible);
   });
 });

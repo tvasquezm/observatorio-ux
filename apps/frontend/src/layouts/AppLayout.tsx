@@ -3,7 +3,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../features/auth/store/useAuthStore';
-import { canViewAnalytics, canViewSalas, resolvePerspective } from '../shared/auth/perspectivas';
+import { canSwitchPerspective, canViewAnalytics, canViewSalas, resolvePerspective } from '../shared/auth/perspectivas';
 import { ProfilePerspectiveSwitcher } from '../shared/components/ProfilePerspectiveSwitcher';
 import { PerspectivePreviewNotice } from '../shared/components/PerspectivePreviewNotice';
 const ExportReportDialog = lazy(() => import('../features/reports/ExportReportDialog').then((module) => ({ default: module.ExportReportDialog })));
@@ -132,7 +132,7 @@ export function AppLayout() {
             <details className="app-preferences" open={preferencesOpen} onToggle={event => setPreferencesOpen(event.currentTarget.open)} onKeyDown={event => { if (event.key === 'Escape') { event.currentTarget.open = false; event.currentTarget.querySelector('summary')?.focus(); } }}>
               <summary>Preferencias{activeRole ? ` · ${activeRole === 'DOCENTE' ? 'Docente' : activeRole === 'ADMIN' ? 'Administrador' : 'Estudiante'}` : ''}</summary>
               <div className="preferences-panel">
-            {user && activeRole && (
+            {user && activeRole && canSwitchPerspective(user.rol) && (
               <ProfilePerspectiveSwitcher
                 accountRole={user.rol}
                 activeRole={activeRole}
