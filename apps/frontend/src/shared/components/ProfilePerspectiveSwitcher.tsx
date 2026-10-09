@@ -49,9 +49,9 @@ export function ProfilePerspectiveSwitcher({
             >
               <span className="perspective-avatar">
                 <PersonIcon />
-                {active ? <span className="perspective-check" aria-hidden="true">✓</span> : null}
               </span>
               <span>{label}</span>
+              {active ? <span className="perspective-check" aria-hidden="true">✓</span> : null}
             </button>
           );
         })}

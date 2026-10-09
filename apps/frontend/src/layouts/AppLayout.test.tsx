@@ -27,11 +27,13 @@ describe('Preferencia de contraste', () => {
   it('activa alto contraste, lo conserva al volver y permite restaurar contraste normal', () => {
     const mount = () => render(<MemoryRouter><AppLayout /></MemoryRouter>);
     mount();
+    fireEvent.click(screen.getByRole('button', { name: 'Preferencias' }));
     fireEvent.click(screen.getByRole('button', { name: 'Alto contraste' }));
     expect(document.documentElement.dataset.contrast).toBe('high');
     expect(localStorage.getItem('observatorio-ux-contrast')).toBe('high');
     cleanup();
     mount();
+    fireEvent.click(screen.getByRole('button', { name: 'Preferencias' }));
     const toggle = screen.getByRole('button', { name: 'Alto contraste' });
     expect(toggle).toHaveAttribute('aria-pressed', 'true');
     fireEvent.click(toggle);
@@ -42,6 +44,7 @@ describe('Preferencia de contraste', () => {
   it('conserva el contraste elegido al cambiar entre modo claro y oscuro', () => {
     localStorage.setItem('observatorio-ux-contrast', 'high');
     render(<MemoryRouter><AppLayout /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Preferencias' }));
     fireEvent.click(screen.getByRole('button', { name: 'Activar modo oscuro' }));
     expect(document.documentElement.dataset.theme).toBe('dark');
     expect(document.documentElement.dataset.contrast).toBe('high');
@@ -52,8 +55,17 @@ describe('Selector "Viendo como"', () => {
   it.each([['DOCENTE', true], ['ADMIN', true], ['ESTUDIANTE', false]])('rol %s: visible=%s', (role, visible) => {
     auth.role = role;
     render(<MemoryRouter><AppLayout /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Preferencias' }));
     const status = screen.queryByText(/Viendo como/);
     expect(!!status).toBe(visible);
     expect(!!screen.queryByRole('group', { name: 'Cambiar perspectiva' })).toBe(visible);
+  });
+  it('abre preferencias en un diálogo y permite cerrarlo', () => {
+    render(<MemoryRouter><AppLayout /></MemoryRouter>);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Preferencias' }));
+    expect(screen.getByRole('dialog', { name: 'Preferencias' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar preferencias' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });

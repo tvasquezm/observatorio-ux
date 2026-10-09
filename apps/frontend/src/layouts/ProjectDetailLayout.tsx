@@ -31,8 +31,8 @@ export function ProjectDetailLayout() {
     if (item.requires === 'participantes') return canManageParticipants;
     return true;
   });
-  const groups = agruparSecciones(visibleItems);
   const currentItem = visibleItems.find((item) => item.to === (pathname.split('/')[3] ?? ''));
+  const groups = agruparSecciones(visibleItems.filter((item) => currentItem?.to !== '' || item.group !== 'Técnicas'));
   const currentSection = currentItem?.label ?? 'Resumen';
   useEffect(() => {
     const media = window.matchMedia?.('(max-width: 768px)');
@@ -48,7 +48,7 @@ export function ProjectDetailLayout() {
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
       const heading = sectionRef.current?.querySelector<HTMLElement>('h1, h2') ?? document.getElementById('project-title');
-      if (heading) { heading.tabIndex = -1; heading.focus(); }
+      if (heading) { heading.tabIndex = -1; heading.focus({ preventScroll: true }); }
     });
     return () => cancelAnimationFrame(frame);
   }, [pathname]);

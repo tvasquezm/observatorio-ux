@@ -1,6 +1,6 @@
 // apps/frontend/src/layouts/AppLayout.tsx
 
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { canSwitchPerspective, canViewAnalytics, canViewSalas, resolvePerspective } from '../shared/auth/perspectivas';
@@ -37,7 +37,7 @@ export function AppLayout() {
     window.localStorage.getItem('observatorio-ux-contrast') === 'high',
   );
   const crumb = CRUMB_LABELS[location.pathname] ?? (location.pathname.startsWith('/salas/') ? 'Detalle de sala' : 'Proyectos');
-  const [preferencesOpen, setPreferencesOpen] = useState(false);
+  const preferencesRef = useRef<HTMLDialogElement>(null);
   const activeRole = user ? resolvePerspective(user.rol, perspectiveRole) : null;
   const visibleNavItems = NAV_ITEMS.filter((item) => {
     if (item.to === '/salas') return !!activeRole && canViewSalas(activeRole);
@@ -61,7 +61,7 @@ export function AppLayout() {
     document.title = `${crumb} · Observatorio UX`;
     const frame = requestAnimationFrame(() => {
       const heading = document.querySelector<HTMLElement>('#main-content h1') ?? document.getElementById('main-content');
-      if (heading) { heading.tabIndex = -1; heading.focus(); }
+      if (heading) { heading.tabIndex = -1; heading.focus({ preventScroll: true }); }
     });
     return () => cancelAnimationFrame(frame);
   }, [location.pathname, crumb]);
@@ -129,8 +129,14 @@ export function AppLayout() {
         <div className="top">
           <nav className="crumb" aria-label="Ubicación general"><Link to="/">Inicio</Link>{location.pathname !== '/' && <><span aria-hidden="true">›</span><strong>{crumb}</strong></>}</nav>
           <div className="top-actions">
-            <details className="app-preferences" open={preferencesOpen} onToggle={event => setPreferencesOpen(event.currentTarget.open)} onKeyDown={event => { if (event.key === 'Escape') { event.currentTarget.open = false; event.currentTarget.querySelector('summary')?.focus(); } }}>
-              <summary>Preferencias{activeRole ? ` · ${activeRole === 'DOCENTE' ? 'Docente' : activeRole === 'ADMIN' ? 'Administrador' : 'Estudiante'}` : ''}</summary>
+            <button type="button" className="secondary" aria-haspopup="dialog" onClick={() => preferencesRef.current?.showModal()}>
+              Preferencias
+            </button>
+            <dialog ref={preferencesRef} className="report-dialog preferences-dialog" aria-labelledby="preferences-title">
+              <div className="preferences-heading">
+                <h2 id="preferences-title">Preferencias</h2>
+                <button type="button" className="secondary" aria-label="Cerrar preferencias" onClick={() => preferencesRef.current?.close()}>✕</button>
+              </div>
               <div className="preferences-panel">
             {user && activeRole && canSwitchPerspective(user.rol) && (
               <ProfilePerspectiveSwitcher
@@ -139,6 +145,8 @@ export function AppLayout() {
                 onChange={changePerspective}
               />
             )}
+            <div className="preferences-appearance">
+            <h3>Apariencia</h3>
             <button
               type="button"
               className="theme-toggle"
@@ -156,8 +164,9 @@ export function AppLayout() {
             >
               Alto contraste
             </button>
+            </div>
               </div>
-            </details>
+            </dialog>
             <button
               type="button"
               className="secondary"
