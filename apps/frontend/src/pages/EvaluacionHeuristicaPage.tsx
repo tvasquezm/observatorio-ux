@@ -29,12 +29,14 @@ import {
   conteoPorSeveridad,
   filtrarYOrdenar,
   formDesdeHallazgo,
+  etiquetaHeuristica,
   formVacio,
   nombreSesion,
   type ErroresForm,
   type FiltrosHallazgos,
   type HallazgoFormValues,
 } from '../features/evaluacion-heuristica/heuristica-utils';
+import { resumirSesion } from '../features/evaluacion-heuristica/heuristica-resumen';
 import { HallazgoCard } from '../features/evaluacion-heuristica/components/HallazgoCard';
 import { HallazgoForm } from '../features/evaluacion-heuristica/components/HallazgoForm';
 import { SesionesHeuristicas } from '../features/evaluacion-heuristica/components/SesionesHeuristicas';
@@ -65,6 +67,7 @@ export function EvaluacionHeuristicaPage() {
   const [edicion, setEdicion] = useState<HallazgoFormValues>(formVacio());
   const [erroresServidor, setErroresServidor] = useState<ErroresForm>({});
   const [filtros, setFiltros] = useState<FiltrosHallazgos>(FILTROS_INICIALES);
+  const [exportando, setExportando] = useState(false);
 
   const { data: sesiones = [], isLoading: cargandoSesiones } = useSesionesHeuristicas(proyectoId);
   const { data: sesion, isLoading: cargandoSesion } = useSesionHeuristica(proyectoId, sesionId);
@@ -84,6 +87,7 @@ export function EvaluacionHeuristicaPage() {
 
   const visibles = useMemo(() => filtrarYOrdenar(hallazgos, filtros), [hallazgos, filtros]);
   const conteo = useMemo(() => conteoPorSeveridad(hallazgos), [hallazgos]);
+  const resumen = useMemo(() => resumirSesion(hallazgos), [hallazgos]);
 
   function abrirSesion(id: string) {
     setSesionId(id);
@@ -154,6 +158,22 @@ export function EvaluacionHeuristicaPage() {
         onError: (err) => notify.error(mensajeDe(err, 'No se pudo eliminar el hallazgo.')),
       },
     );
+  }
+
+  async function handleDescargarPdf() {
+    if (!sesion || exportando) return;
+    setExportando(true);
+    try {
+      // Carga diferida: pdfmake y sus fuentes pesan ~1,8 MB y no se necesitan hasta aquí.
+      const { exportarSesionHeuristicaPdf } = await import('../features/evaluacion-heuristica/heuristica-pdf');
+      const { sinCaptura } = await exportarSesionHeuristicaPdf(proyectoId, sesion);
+      if (sinCaptura > 0) notify.info(`PDF generado. ${sinCaptura} captura(s) no se incluyeron: quedan disponibles en la aplicación.`);
+      else notify.success('PDF generado.');
+    } catch (err) {
+      notify.error(mensajeDe(err, 'No se pudo generar el PDF. Inténtalo nuevamente.'));
+    } finally {
+      setExportando(false);
+    }
   }
 
   async function handleFinalizar() {
@@ -239,6 +259,9 @@ export function EvaluacionHeuristicaPage() {
         <div className="panel-head">
           <h2>Resumen</h2>
           <span className="count">{hallazgos.length} hallazgos</span>
+          <button type="button" className="text-button" onClick={() => void handleDescargarPdf()} disabled={exportando} aria-busy={exportando}>
+            {exportando ? 'Generando PDF…' : 'Descargar PDF'}
+          </button>
         </div>
         <ul className="hx-summary">
           {SEVERIDADES.slice().reverse().map((s) => (
@@ -248,6 +271,24 @@ export function EvaluacionHeuristicaPage() {
             </li>
           ))}
         </ul>
+        {resumen.total > 0 && (
+          <>
+            <dl className="hx-stats">
+              <div><dt>Mayores o catastróficos</dt><dd>{resumen.criticos}</dd></div>
+              <div><dt>Severidad promedio</dt><dd>{String(resumen.promedio).replace('.', ',')}</dd></div>
+              <div><dt>Sin evidencia</dt><dd>{resumen.sinEvidencia}</dd></div>
+            </dl>
+            <ul className="hx-bars" aria-label="Hallazgos por heurística">
+              {resumen.porHeuristica.map((p) => (
+                <li key={p.heuristicaId}>
+                  <span>{etiquetaHeuristica(p.heuristicaId)}</span>
+                  <span className="hx-bar" aria-hidden="true"><i style={{ width: `${(p.count / resumen.porHeuristica[0].count) * 100}%` }} /></span>
+                  <strong>{p.count}</strong>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
       </div>
 
       {abierta && (

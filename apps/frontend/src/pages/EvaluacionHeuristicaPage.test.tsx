@@ -15,11 +15,13 @@ const api = vi.hoisted(() => ({
   finalizarSesionHeuristica: vi.fn(),
 }));
 const confirmar = vi.hoisted(() => vi.fn());
+const exportarPdf = vi.hoisted(() => vi.fn());
 
 vi.mock('../features/evaluacion-heuristica/api/evaluacion-heuristica.api', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   ...api,
 }));
+vi.mock('../features/evaluacion-heuristica/heuristica-pdf', () => ({ exportarSesionHeuristicaPdf: exportarPdf }));
 vi.mock('../shared/api/confirm', () => ({ useConfirm: () => confirmar, askConfirm: confirmar }));
 
 const hallazgo = (over: Record<string, unknown>) => ({
@@ -68,6 +70,7 @@ async function abrirPrimeraSesion() {
 beforeEach(() => {
   vi.clearAllMocks();
   confirmar.mockResolvedValue(true);
+  exportarPdf.mockResolvedValue({ sinCaptura: 0 });
   api.listarSesionesHeuristicas.mockResolvedValue([sesion()]);
   api.obtenerSesionHeuristica.mockResolvedValue(sesion());
 });
@@ -176,5 +179,63 @@ describe('EvaluacionHeuristicaPage', () => {
     expect(screen.queryByRole('form', { name: 'Nuevo hallazgo' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /editar hallazgo/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /finalizar evaluación/i })).not.toBeInTheDocument();
+  });
+});
+
+describe('EvaluacionHeuristicaPage · resumen y PDF', () => {
+  const conHallazgos = () => sesion({
+    resultado: [
+      hallazgo({ id: 'a', severidad: 4, heuristicaId: 'H4' }),
+      hallazgo({ id: 'b', severidad: 3, heuristicaId: 'H4', evidencia: null }),
+      hallazgo({ id: 'c', severidad: 1, heuristicaId: 'H1' }),
+    ],
+  });
+
+  it('muestra críticos, promedio, sin evidencia y el desglose por heurística', async () => {
+    api.obtenerSesionHeuristica.mockResolvedValue(conHallazgos());
+    renderPage();
+    await abrirPrimeraSesion();
+    const stats = screen.getByText('Mayores o catastróficos').closest('div') as HTMLElement;
+    expect(within(stats).getByText('2')).toBeInTheDocument();
+    const prom = screen.getByText('Severidad promedio').closest('div') as HTMLElement;
+    expect(within(prom).getByText('2,7')).toBeInTheDocument();
+    const barras = screen.getByRole('list', { name: 'Hallazgos por heurística' });
+    const filas = within(barras).getAllByRole('listitem').map((li) => li.textContent);
+    expect(filas[0]).toContain('H4 · Consistencia y estándares');
+    expect(filas[0]).toContain('2');
+    expect(filas[1]).toContain('H1 · Visibilidad del estado del sistema');
+  });
+
+  it('sin hallazgos no muestra el desglose', async () => {
+    renderPage();
+    await abrirPrimeraSesion();
+    expect(screen.queryByRole('list', { name: 'Hallazgos por heurística' })).not.toBeInTheDocument();
+  });
+
+  it('descarga el PDF de la sesión abierta y bloquea el botón mientras se genera', async () => {
+    api.obtenerSesionHeuristica.mockResolvedValue(conHallazgos());
+    let terminar!: (v: { sinCaptura: number }) => void;
+    exportarPdf.mockReturnValue(new Promise((resolve) => { terminar = resolve; }));
+    renderPage();
+    await abrirPrimeraSesion();
+    await userEvent.click(screen.getByRole('button', { name: 'Descargar PDF' }));
+    expect(exportarPdf).toHaveBeenCalledWith('p1', expect.objectContaining({ id: 's1' }));
+    expect(await screen.findByRole('button', { name: 'Generando PDF…' })).toBeDisabled();
+    terminar({ sinCaptura: 0 });
+    expect(await screen.findByRole('button', { name: 'Descargar PDF' })).toBeEnabled();
+  });
+
+  it('avisa si el PDF falla y deja reintentar', async () => {
+    api.obtenerSesionHeuristica.mockResolvedValue(conHallazgos());
+    exportarPdf.mockRejectedValueOnce(new Error('Sin memoria'));
+    const avisos: string[] = [];
+    const escuchar = (e: Event) => avisos.push((e as CustomEvent<{ message: string }>).detail.message);
+    window.addEventListener('app:toast', escuchar);
+    renderPage();
+    await abrirPrimeraSesion();
+    await userEvent.click(screen.getByRole('button', { name: 'Descargar PDF' }));
+    await waitFor(() => expect(avisos).toContain('Sin memoria'));
+    expect(screen.getByRole('button', { name: 'Descargar PDF' })).toBeEnabled();
+    window.removeEventListener('app:toast', escuchar);
   });
 });

@@ -6,6 +6,10 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **evaluacion-heuristica:** descarga un PDF de la evaluación (resumen, hallazgos por severidad,
+  responsable y capturas incrustadas, hasta 30) y amplía el resumen con críticos,
+  severidad promedio, hallazgos sin evidencia y desglose por heurística.
+
 * **database:** migra a Prisma 7.10.0 con cliente generado, adaptador PostgreSQL,
   configuración de migraciones y seeds TypeScript; conserva schema, límites de
   conexiones y timeout de DATABASE_URL en la API y los scripts de administración.
