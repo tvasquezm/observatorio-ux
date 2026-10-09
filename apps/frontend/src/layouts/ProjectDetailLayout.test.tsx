@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { ProjectDetailLayout } from './ProjectDetailLayout';
@@ -34,10 +34,12 @@ describe('Menú de secciones del proyecto', () => {
   });
   it('permite abrir con teclado y cerrar con Escape devolviendo el foco', async () => {
     mount();
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Proyecto UX' })).toHaveFocus());
     const summary = screen.getByText('Secciones del proyecto').closest('summary')!;
     await userEvent.click(summary);
     expect(summary.closest('details')).toHaveAttribute('open');
     await userEvent.tab();
+    expect(screen.getByRole('link', { name: 'Resumen' })).toHaveFocus();
     await userEvent.keyboard('{Escape}');
     expect(summary.closest('details')).not.toHaveAttribute('open');
     expect(summary).toHaveFocus();
