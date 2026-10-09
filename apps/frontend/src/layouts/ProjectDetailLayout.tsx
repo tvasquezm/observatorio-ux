@@ -5,11 +5,11 @@
 // cada página individual).
 
 import { useEffect, useRef, useState } from 'react';
-import { Link, NavLink, Outlet, useLocation, useParams } from 'react-router-dom';
+import { Link, Outlet, useLocation, useParams } from 'react-router-dom';
 import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { useProject } from '../features/projects/hooks/useProjectsQueries';
 import { canViewAnalytics, resolvePerspective } from '../shared/auth/perspectivas';
-import { Icon } from '../shared/components/ui/Icon';
+import { ProjectMenu } from './ProjectMenu';
 import { agruparSecciones, SECCIONES_PROYECTO } from './project-sections';
 
 export interface ProjectOutletContext {
@@ -19,7 +19,6 @@ export interface ProjectOutletContext {
 export function ProjectDetailLayout() {
   const { proyectoId } = useParams<{ proyectoId: string }>();
   const { pathname } = useLocation();
-  const menuRef = useRef<HTMLDetailsElement>(null);
   const sectionRef = useRef<HTMLDivElement>(null);
   const [compact, setCompact] = useState(() => window.matchMedia?.('(max-width: 768px)').matches ?? true);
   const { data: proyecto } = useProject(proyectoId ?? null);
@@ -33,7 +32,8 @@ export function ProjectDetailLayout() {
     return true;
   });
   const groups = agruparSecciones(visibleItems);
-  const currentSection = visibleItems.find((item) => item.to === (pathname.split('/')[3] ?? ''))?.label ?? 'Resumen';
+  const currentItem = visibleItems.find((item) => item.to === (pathname.split('/')[3] ?? ''));
+  const currentSection = currentItem?.label ?? 'Resumen';
   useEffect(() => {
     const media = window.matchMedia?.('(max-width: 768px)');
     if (!media) return;
@@ -41,9 +41,6 @@ export function ProjectDetailLayout() {
     media.addEventListener('change', update);
     return () => media.removeEventListener('change', update);
   }, []);
-  useEffect(() => {
-    if (menuRef.current) menuRef.current.open = !compact;
-  }, [pathname, compact]);
   useEffect(() => {
     document.title = `${pathname.endsWith('/resultados') ? 'Resultados · ' : ''}${currentSection} · ${proyecto?.nombre ?? 'Proyecto'} · Observatorio UX`;
     if (proyecto && user) sessionStorage.setItem(`observatorio-ux-project:${user.id}`, proyectoId ?? '');
@@ -72,32 +69,7 @@ export function ProjectDetailLayout() {
         </div>
       </div>
 
-      <details ref={menuRef} open={!compact || undefined} className={`project-menu${compact ? '' : ' project-menu-desktop'}`} onKeyDown={(event) => {
-        if (event.key !== 'Escape' || !compact) return;
-        event.currentTarget.open = false;
-        event.currentTarget.querySelector('summary')?.focus();
-      }}>
-        <summary><span>Secciones del proyecto</span><strong>{currentSection}</strong></summary>
-        <nav aria-label="Secciones del proyecto">
-          {groups.map((group) => (
-            <section key={group.title} aria-label={group.title}>
-              <h2>{group.title}</h2>
-              {group.items.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.end}
-                  className={({ isActive }) => `project-menu-link${isActive ? ' active' : ''}`}
-                  onClick={() => { if (menuRef.current && compact) menuRef.current.open = false; }}
-                >
-                  <Icon name={item.icon} size={18} />
-                  <span>{item.label}</span>
-                </NavLink>
-              ))}
-            </section>
-          ))}
-        </nav>
-      </details>
+      <ProjectMenu groups={groups} current={currentItem} currentLabel={currentSection} compact={compact} />
 
       <div ref={sectionRef} className="project-section"><Outlet context={{ proyectoId } satisfies ProjectOutletContext} /></div>
     </div>
