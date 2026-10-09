@@ -1,0 +1,32 @@
+# Blueprint de Render para el backend (NestJS + Prisma).
+# Base de datos: Neon (externa). Frontend: Vercel (reescribe /api hacia este servicio).
+services:
+  - type: web
+    name: observatorio-ux-api
+    runtime: docker
+    plan: free
+    region: oregon
+    branch: UX/Testing
+    autoDeployTrigger: commit
+    dockerfilePath: ./apps/backend/Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_EXPIRES_IN
+        value: 1h
+      - key: JWT_PARTICIPANTE_EXPIRES_IN
+        value: 4h
+      # Secretos distintos entre sí, generados por Render (>= 32 caracteres).
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_PARTICIPANTE_SECRET
+        generateValue: true
+      # Los siguientes los pegas tú en el panel al crear el Blueprint.
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
