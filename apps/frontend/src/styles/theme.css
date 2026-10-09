@@ -366,8 +366,8 @@ button { cursor: pointer; }
 .perspective-avatar svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
 .perspective-option.active { color: var(--ink); border-color: var(--teal); background: var(--teal-soft); }
 .perspective-estudiante.active .perspective-avatar { background: var(--mint); border-color: var(--mint); color: var(--navy-2); }
-.perspective-docente.active .perspective-avatar { background: var(--teal); border-color: var(--teal); }
-.perspective-admin.active .perspective-avatar { background: var(--navy); border-color: var(--navy); }
+.perspective-docente.active .perspective-avatar { background: var(--teal); border-color: var(--teal); color: #fff; }
+.perspective-admin.active .perspective-avatar { background: var(--navy); border-color: var(--navy); color: #fff; }
 .perspective-check {
   margin-left: auto; color: var(--teal); font-size: 18px; font-weight: 700;
 }
@@ -769,10 +769,7 @@ button { cursor: pointer; }
   .side-user b, .side-user small { max-width: 90px; }
   .top { height: auto; min-height: 64px; padding: 8px 14px; gap: 8px; flex-wrap: wrap; }
   .top-actions { width: 100%; margin-left: 0; flex-wrap: wrap; }
-  .app-preferences { position: static; }
   .top-actions > .secondary { min-height: 44px; font-size: 12px; }
-  .app-preferences > summary { padding: 8px; font-size: 12px; }
-  .preferences-panel .perspective-switcher { flex: 1 0 100%; }
   .dashboard-page .welcome { gap: 8px; margin-bottom: 16px; }
   .dashboard-page .welcome-visual { display: none; }
   .dashboard-page .welcome-actions { display: none; }
@@ -783,10 +780,6 @@ button { cursor: pointer; }
   .tech-grid { grid-template-columns: 1fr; }
   .tech-grid .tech-card { min-height: 120px; }
   .project-form-fields { grid-template-columns: 1fr; }
-  .preferences-panel { position: absolute; }
-  .perspective-switcher { flex: 1 1 100%; justify-content: space-between; }
-  .top-actions .perspective-switcher { flex: 1 0 100%; }
-  .perspective-option { min-width: 64px; }
   .perspective-preview { padding: 8px 14px; flex-wrap: wrap; }
   .perspective-preview-copy { flex: 1 1 calc(100% - 28px); flex-wrap: wrap; gap: 2px 8px; }
   .perspective-preview button { margin-left: 18px; }
@@ -2586,7 +2579,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .app :is(button, a, input, textarea, select, summary):focus-visible { outline: 3px solid var(--teal); outline-offset: 3px; }
 .app .side :is(a, button):focus-visible { outline-color: #fff; }
 :root[data-contrast='high'] .app :is(.metric p, .tech-card p, .tech-card small, .project-row small) { color: var(--ink); }
-@media (max-width: 1100px) {
+@media (min-width: 481px) and (max-width: 1100px) {
   .tech-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .cs-guide-box > summary::-webkit-details-marker { display: none; }
