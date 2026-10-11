@@ -14,6 +14,15 @@ describe('envValidationSchema (A4 fix smoke test)', () => {
     expect(error!.message).toMatch(/NODE_ENV/);
   });
 
+  it('TRUST_PROXY_HOPS: default 1 y rechaza valores fuera de rango', () => {
+    const ok = envValidationSchema.validate({ ...base, NODE_ENV: 'production' });
+    expect(ok.value.TRUST_PROXY_HOPS).toBe(1);
+    const alto = envValidationSchema.validate({ ...base, NODE_ENV: 'production', TRUST_PROXY_HOPS: 99 });
+    expect(alto.error).toBeDefined();
+    const cero = envValidationSchema.validate({ ...base, NODE_ENV: 'production', TRUST_PROXY_HOPS: 0 });
+    expect(cero.error).toBeDefined();
+  });
+
   it('permite arrancar si NODE_ENV=production está seteado explícitamente', () => {
     const { error } = envValidationSchema.validate({ ...base, NODE_ENV: 'production' });
     expect(error).toBeUndefined();
