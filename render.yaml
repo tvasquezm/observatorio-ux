@@ -6,7 +6,7 @@ services:
     runtime: docker
     plan: free
     region: oregon
-    branch: UX/Testing
+    branch: main
     autoDeployTrigger: commit
     dockerfilePath: ./apps/backend/Dockerfile
     dockerContext: .
