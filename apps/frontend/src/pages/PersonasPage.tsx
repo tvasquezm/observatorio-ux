@@ -60,13 +60,13 @@ export function PersonasPage() {
   const { data: personas, isLoading, isError: isListError, error: listError } = usePersonas(proyectoId);
   const { mutate: crear, isPending: isCreating, error: createError } = useCreatePersona(proyectoId);
   const { mutate: actualizar, isPending: isUpdating, error: updateError } = useUpdatePersona(proyectoId);
-  const { mutate: eliminar, error: deleteError } = useDeletePersona(proyectoId);
+  const { mutate: eliminar, error: deleteError, isPending: isDeleting, variables: deletingId, reset: resetDelete } = useDeletePersona(proyectoId);
   const editLock = useArtifactEditLock(proyectoId);
   const confirm = useConfirm();
   const user = useAuthStore((state) => state.user);
   const { data: proyecto } = useProject(proyectoId);
   const puedeEditar = puedeEditarArtefactos(useActivePerspective(), user?.id, proyecto?.creadoPorId);
-  const error = listError ?? createError ?? updateError ?? deleteError;
+  const error = listError ?? createError ?? updateError;
 
   const [form, setForm] = useState<PersonaContenido>(vacio());
   const [listInputs, setListInputs] = useState<Record<string, string>>(vacioListInputs());
@@ -162,7 +162,7 @@ export function PersonasPage() {
         instructions={['Crea una persona e identifica su contexto y rol.', 'Completa objetivos, necesidades y frustraciones con evidencia de tu investigación.', 'Guarda el perfil y revísalo con tu equipo antes de marcarlo como validado.']}
         action={puedeEditar ? (
           <button type="button" className={mostrarForm ? 'secondary' : 'primary'}
-            disabled={isCreating || isUpdating}
+            disabled={isCreating || isUpdating || isDeleting}
             onClick={async () => { if (mostrarForm) { if (await confirmDiscard()) resetForm(); } else setMostrarForm(true); }}>
             {mostrarForm ? 'Cancelar' : '+ Nueva persona'}
           </button>
@@ -187,7 +187,7 @@ export function PersonasPage() {
               Esta persona está bloqueada por otro usuario. No puedes editarla en este momento.
             </p>
           )}
-          <fieldset disabled={readOnly || editLock.lockLost} className="readonly-fieldset">
+          <fieldset disabled={readOnly || editLock.lockLost || isPending || isDeleting} className="readonly-fieldset">
             <section className="persona-form-section" aria-labelledby="persona-identidad">
               <div className="persona-section-intro">
                 <span className="persona-step" aria-hidden="true">01</span>
@@ -325,10 +325,16 @@ export function PersonasPage() {
             persona={p}
             acciones={puedeEditar && (
               <div className="persona-profile-actions">
-                <button type="button" className="secondary" onClick={() => handleIniciarEditar(p)}>Editar</button>
-                <button type="button" className="text-button text-button--danger" onClick={async () => {
-                  if (await confirm('¿Estás seguro de eliminar esta versión?')) eliminar(p.id);
-                }}>Eliminar</button>
+                {deletingId === p.id && deleteError && <p role="alert" className="error-text">{deleteError.message}</p>}
+                <button type="button" className="secondary" disabled={isDeleting || isPending} onClick={() => handleIniciarEditar(p)}>Editar</button>
+                <button type="button" className="danger" disabled={isDeleting || isPending} onClick={async () => {
+                  if (!(await confirm(`¿Eliminar la persona «${p.contenido.nombreCompleto}» y todas sus versiones? Dejará de aparecer en el proyecto; se conserva el historial de evidencia.`, { confirmLabel: 'Eliminar' }))) return;
+                  resetDelete();
+                  eliminar(p.id, { onSuccess: () => {
+                    if (editandoId === p.id) resetForm();
+                    notify.success(`Persona «${p.contenido.nombreCompleto}» eliminada.`);
+                  } });
+                }}>{isDeleting && deletingId === p.id ? 'Eliminando…' : 'Eliminar'}</button>
               </div>
             )}
           />
