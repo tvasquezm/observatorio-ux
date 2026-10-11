@@ -53,6 +53,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   }
 
   private resolve(exception: unknown): { statusCode: number; message: string | { campo: string; mensaje: string }[]; errorCode: string } {
+    if (exception instanceof Error && (exception as Error & { type?: string }).type === 'entity.too.large') {
+      return { statusCode: HttpStatus.PAYLOAD_TOO_LARGE, message: 'El contenido supera el tamaño permitido.', errorCode: 'PAYLOAD_TOO_LARGE' };
+    }
     if (exception instanceof HttpException) {
       const status = exception.getStatus();
       const res = exception.getResponse();

@@ -1,0 +1,18 @@
+.hf .panel { margin-bottom: 16px; }
+.hf .hf-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,260px),1fr)); gap: 12px; }
+.hf .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.hf input:not([type=checkbox]), .hf select, .hf textarea { width: 100%; }
+.hf textarea { min-height: 76px; resize: vertical; }
+.hf fieldset { border: 1px solid var(--border, #dedede); border-radius: 8px; padding: 16px; margin: 12px 0; min-width: 0; }
+.hf legend { padding: 0 6px; font-weight: 600; }
+.hf .hf-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
+.hf .hf-check { display: inline-flex; gap: 8px; align-items: center; margin: 6px 12px 6px 0; }
+.hf .hf-error { color: var(--danger, #a01818); white-space: pre-line; }
+.hf table { width: 100%; border-collapse: collapse; }
+.hf th, .hf td { padding: 10px; text-align: left; border-bottom: 1px solid var(--border, #ddd); overflow-wrap: anywhere; }
+.hf .hf-table { overflow-x: auto; }
+.hf details { margin-bottom: 12px; }
+.hf summary { cursor: pointer; padding: 8px 0; }
+.hf .hf-origin { font-size: 12px; overflow-wrap: anywhere; }
+.hf .hf-status { font-size: 13px; }
+.hf pre { max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; }

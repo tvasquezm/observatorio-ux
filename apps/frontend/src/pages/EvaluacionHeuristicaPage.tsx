@@ -5,7 +5,8 @@
 // y responsable (lo fija el servidor). Priorizados por severidad.
 
 import { useMemo, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useSearchParams } from 'react-router-dom';
+import { FlujoHeuristicaPage } from '../features/heuristica-flujo/FlujoHeuristicaPage';
 import { HEURISTICAS_NIELSEN, SEVERIDADES } from '@observatorio-ux/shared-types';
 import type { ProjectOutletContext } from '../layouts/ProjectDetailLayout';
 import { useConfirm } from '../shared/api/confirm';
@@ -57,6 +58,13 @@ function erroresDeServidor(err: unknown): ErroresForm {
 }
 
 export function EvaluacionHeuristicaPage() {
+  const [search, setSearch] = useSearchParams();
+  return search.get('anteriores') === '1'
+    ? <><button type="button" className="text-button" onClick={() => setSearch({})}>← Nuevo flujo de evaluación</button><EvaluacionHeuristicaLegacyPage /></>
+    : <FlujoHeuristicaPage />;
+}
+
+export function EvaluacionHeuristicaLegacyPage() {
   const { proyectoId } = useOutletContext<ProjectOutletContext>();
   const confirm = useConfirm();
 
