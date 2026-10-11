@@ -79,10 +79,12 @@ async function bootstrap() {
   app.useBodyParser('json', { limit: LIMITE_JSON_FLUJO });
 
   if (config.get<string>('app.nodeEnv') === 'production') {
-    // El compose coloca exactamente un Nginx delante del backend. Limitar
-    // la confianza a un salto mantiene req.ip útil para throttling sin
-    // aceptar una cadena X-Forwarded-For arbitraria enviada por el cliente.
-    app.set('trust proxy', 1);
+    // Por defecto 1: el compose coloca exactamente un Nginx delante del
+    // backend. Limitar la confianza a N saltos mantiene req.ip útil para
+    // throttling sin aceptar una cadena X-Forwarded-For arbitraria enviada
+    // por el cliente. Con más proxies delante (ej. Vercel -> Render) subir
+    // TRUST_PROXY_HOPS; si es menor al real, todos comparten la misma IP.
+    app.set('trust proxy', config.getOrThrow<number>('app.trustProxyHops'));
   }
 
   app.useGlobalFilters(new GlobalExceptionFilter());

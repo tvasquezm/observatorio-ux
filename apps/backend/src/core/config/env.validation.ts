@@ -31,4 +31,8 @@ export const envValidationSchema = Joi.object({
     .messages({ 'any.invalid': 'JWT_PARTICIPANTE_SECRET debe ser distinto de JWT_SECRET' }),
   JWT_PARTICIPANTE_EXPIRES_IN: Joi.string().default('4h'),
   CORS_ORIGIN: Joi.string().default('http://localhost:5173'),
+  // Saltos de proxy de confianza (req.ip para throttling). 1 = un solo proxy.
+  TRUST_PROXY_HOPS: Joi.number().integer().min(1).max(5).default(1),
+  // Solo para migraciones (prisma.config.ts): conexión directa, sin pooler.
+  DIRECT_URL: Joi.string().allow('').optional(),
 });

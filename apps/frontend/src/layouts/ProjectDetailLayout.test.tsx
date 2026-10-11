@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { ProjectDetailLayout } from './ProjectDetailLayout';
@@ -19,15 +19,27 @@ function mount(section = 'card-sorting/study/resultados') {
   render(<RouterProvider router={router} />);
   return router;
 }
-beforeEach(() => { state.role = 'ADMIN'; state.owner = 'reviewer'; });
+beforeEach(() => { vi.unstubAllGlobals(); state.role = 'ADMIN'; state.owner = 'reviewer'; });
 
 describe('Menú de secciones del proyecto', () => {
+  it.each([true, false])('en el resumen evita duplicar las tarjetas de técnicas (compacto=%s)', async (compact) => {
+    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: compact, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+    mount('');
+    await userEvent.click(compact
+      ? screen.getByText('Secciones del proyecto').closest('summary')!
+      : screen.getByRole('button', { name: /^Proyecto/ }));
+    expect(screen.getByRole('link', { name: 'Miembros' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: /^Técnicas/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Card Sorting' })).not.toBeInTheDocument();
+  });
   it('permite abrir con teclado y cerrar con Escape devolviendo el foco', async () => {
     mount();
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Proyecto UX' })).toHaveFocus());
     const summary = screen.getByText('Secciones del proyecto').closest('summary')!;
     await userEvent.click(summary);
     expect(summary.closest('details')).toHaveAttribute('open');
     await userEvent.tab();
+    expect(screen.getByRole('link', { name: 'Resumen' })).toHaveFocus();
     await userEvent.keyboard('{Escape}');
     expect(summary.closest('details')).not.toHaveAttribute('open');
     expect(summary).toHaveFocus();
@@ -75,7 +87,7 @@ describe('Menú de secciones del proyecto', () => {
 
   it('mantiene las restricciones de analítica y participantes para un estudiante que no es dueño', async () => {
     state.role = 'ESTUDIANTE'; state.owner = 'another-user';
-    mount('');
+    mount('card-sorting');
     await userEvent.click(screen.getByText('Secciones del proyecto').closest('summary')!);
     expect(screen.queryByRole('link', { name: 'Analítica' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Participantes' })).not.toBeInTheDocument();
