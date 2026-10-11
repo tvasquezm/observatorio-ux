@@ -183,7 +183,9 @@ export class SalasService {
       if (inscripcion) return sala;
     }
 
-    throw new ForbiddenException('No tienes acceso a esta sala.');
+    throw new ForbiddenException(user.rol === 'ESTUDIANTE'
+      ? 'No estás asignado a esta sala. Pide a tu docente que registre el correo de tu cuenta en la lista de estudiantes. Luego vuelve a intentarlo.'
+      : 'No tienes acceso a esta sala.');
   }
 
   // ---------------------------------------------------------------

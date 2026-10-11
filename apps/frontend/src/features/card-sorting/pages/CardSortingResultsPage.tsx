@@ -32,15 +32,16 @@ const ANSWERS_TAB: { id: ResultsTab; label: string } = { id: 'answers', label: '
 
 // Título corto y ayuda de cada vista. Dendrograma, participantes y respuestas llevan el suyo.
 const VIEW_HELP: Partial<Record<ResultsTab, { title: string; help: string }>> = {
-  cards: { title: 'Distribución de cada tarjeta', help: 'Cada barra muestra en qué categorías ubicaron la tarjeta los participantes. Hay consenso cuando más del umbral del curso la puso en la misma categoría (ver "Agrupaciones dominantes"). Toca una categoría para verla en detalle.' },
+  cards: { title: 'Distribución de cada tarjeta', help: 'Cada barra muestra en qué categorías ubicaron la tarjeta los participantes. Hay consenso cuando más del umbral elegido la puso en la misma categoría (ver "Agrupaciones dominantes"). Toca una categoría para verla en detalle.' },
   categories: { title: 'Tarjetas por categoría', help: 'Para cada categoría, las tarjetas que contiene y el porcentaje de participantes que la ubicó ahí. Las más atenuadas tienen bajo acuerdo. Toca una tarjeta para ver toda su distribución.' },
   results: { title: 'Cantidad de ubicaciones', help: 'Cuántas veces cada tarjeta se ubicó en cada categoría.' },
   popular: { title: 'Porcentaje de participantes', help: 'Qué porcentaje de los participantes ubicó cada tarjeta en cada categoría. Más oscuro, más acuerdo.' },
   similarity: { title: 'Similitud entre tarjetas', help: 'Qué tan seguido los participantes agruparon cada par de tarjetas en la misma categoría (100% = siempre juntas).' },
 };
 
-const UMBRAL_MIN = 50;
-const UMBRAL_MAX = 95;
+const UMBRAL_MIN = 0;
+const UMBRAL_MAX = 100;
+const UMBRAL_DEFAULT = 50;
 
 const SAMPLE_LABELS: Record<'baja' | 'aceptable' | 'estable', string> = {
   baja: 'Muestra baja',
@@ -59,12 +60,15 @@ export function CardSortingResultsPage() {
   const analyticsQuery = useCardSortingAnalytics(estudioId ?? null);
   const [searchParams, setSearchParams] = useSearchParams();
   const servidor = analyticsQuery.data;
-  const umbralCurso = servidor?.umbrales.consenso;
-  const umbralParam = Number(searchParams.get('umbral'));
+  const umbralRaw = searchParams.get('umbral');
+  const umbralParam = umbralRaw?.trim() ? Number(umbralRaw) : NaN;
   const umbral =
-    umbralCurso !== undefined && Number.isInteger(umbralParam) && umbralParam >= UMBRAL_MIN && umbralParam <= UMBRAL_MAX
+    Number.isInteger(umbralParam) && umbralParam >= UMBRAL_MIN && umbralParam <= UMBRAL_MAX
       ? umbralParam
-      : umbralCurso;
+      : UMBRAL_DEFAULT;
+  const [umbralInput, setUmbralInput] = useState(String(umbral));
+  useEffect(() => { setUmbralInput(String(umbral)); }, [umbral]);
+  const umbralInvalido = umbralInput === '' || !Number.isInteger(Number(umbralInput)) || Number(umbralInput) < UMBRAL_MIN || Number(umbralInput) > UMBRAL_MAX;
   // Con otro umbral se recalculan consenso, filtros, CSV y PDF en el navegador; no se guarda.
   const data = useMemo(
     () => (servidor && umbral !== undefined
@@ -72,10 +76,10 @@ export function CardSortingResultsPage() {
       : servidor),
     [servidor, umbral],
   );
-  const umbralEditado = Boolean(servidor && data && data.umbrales.consenso !== servidor.umbrales.consenso);
+  const umbralEditado = umbral !== UMBRAL_DEFAULT;
   const cambiarUmbral = (valor: number) => {
     const next = new URLSearchParams(searchParams);
-    if (valor === umbralCurso) next.delete('umbral');
+    if (valor === UMBRAL_DEFAULT) next.delete('umbral');
     else next.set('umbral', String(valor));
     setSearchParams(next, { replace: true });
   };
@@ -197,21 +201,29 @@ export function CardSortingResultsPage() {
           <label htmlFor="cs-umbral">Umbral de consenso</label>
           <input
             id="cs-umbral"
-            type="range"
+            type="number"
             min={UMBRAL_MIN}
             max={UMBRAL_MAX}
-            step={5}
-            value={data.umbrales.consenso}
-            aria-valuetext={`más del ${data.umbrales.consenso}%`}
-            onChange={(event) => cambiarUmbral(Number(event.target.value))}
+            step={1}
+            value={umbralInput}
+            aria-invalid={umbralInvalido}
+            aria-describedby={umbralInvalido ? 'cs-umbral-error' : undefined}
+            onChange={(event) => {
+              const raw = event.target.value;
+              setUmbralInput(raw);
+              const valor = Number(raw);
+              if (raw !== '' && Number.isInteger(valor) && valor >= UMBRAL_MIN && valor <= UMBRAL_MAX) cambiarUmbral(valor);
+            }}
+            onBlur={() => setUmbralInput(String(umbral))}
           />
+          {umbralInvalido && <span id="cs-umbral-error" role="alert">Ingresa un porcentaje entero entre 0 y 100.</span>}
           <strong>&gt; {data.umbrales.consenso}%</strong>
           <InfoTip label="Ayuda: umbral de consenso" align="start">
-            Porcentaje de participantes que deben ubicar la tarjeta en la misma categoría para que cuente como consenso. El valor del curso es {servidor!.umbrales.consenso}%. Al cambiarlo se recalculan las vistas, el CSV y el PDF en tu navegador; no se guarda en el estudio.
+            Porcentaje de participantes que deben ubicar la tarjeta en la misma categoría para que cuente como consenso. El valor por defecto es 50%. Al cambiarlo se recalculan las vistas, el CSV y el PDF; se conserva en el enlace de resultados.
           </InfoTip>
           {umbralEditado && (
-            <button type="button" className="ghost" onClick={() => cambiarUmbral(servidor!.umbrales.consenso)}>
-              Restablecer ({servidor!.umbrales.consenso}%)
+            <button type="button" className="ghost" onClick={() => cambiarUmbral(UMBRAL_DEFAULT)}>
+              Restablecer (50%)
             </button>
           )}
         </div>
@@ -363,7 +375,7 @@ export function CardSortingResultsPage() {
                 <div className="cs-view-head">
                   <h2>Agrupaciones dominantes</h2>
                   <InfoTip label="Ayuda: agrupaciones dominantes" align="start">
-                    Una tarjeta tiene consenso cuando más del {data.umbrales.consenso}% de los participantes la ubicó en la misma categoría (criterio del curso).
+                    Una tarjeta tiene consenso cuando más del {data.umbrales.consenso}% de los participantes la ubicó en la misma categoría (umbral elegido).
                   </InfoTip>
                 </div>
               </div>

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { login } from '../auth.api';
+import { changePassword, login } from '../auth.api';
 
 describe('login', () => {
   afterEach(() => {
@@ -26,5 +26,17 @@ describe('login', () => {
 
     const [, init] = fetchMock.mock.calls[0];
     expect(new Headers(init?.headers).get('x-csrf-token')).toBe('token-de-otra-pestana');
+  });
+
+  it('cambia solo la contraseña propia enviando cookie y token CSRF', async () => {
+    document.cookie = 'csrfToken=token-cambio; path=/';
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue({ ok: true, json: async () => ({ ok: true }) } as Response);
+    vi.stubGlobal('fetch', fetchMock);
+    await changePassword('actual-1234', 'nueva-1234');
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('/api/auth/password');
+    expect(init?.credentials).toBe('include');
+    expect(new Headers(init?.headers).get('x-csrf-token')).toBe('token-cambio');
+    expect(JSON.parse(init!.body as string)).toEqual({ currentPassword: 'actual-1234', newPassword: 'nueva-1234' });
   });
 });

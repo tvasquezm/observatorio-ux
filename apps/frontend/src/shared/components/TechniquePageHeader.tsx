@@ -6,6 +6,7 @@ interface TechniquePageHeaderProps {
   description: string;
   labelVariant?: 'eyebrow' | 'kicker';
   action?: ReactNode;
+  instructions?: string[];
 }
 
 export function TechniquePageHeader({
@@ -14,9 +15,10 @@ export function TechniquePageHeader({
   description,
   labelVariant = 'eyebrow',
   action,
+  instructions,
 }: TechniquePageHeaderProps) {
   return (
-    <div className="page-head">
+    <><div className="page-head">
       <div>
         <span className={labelVariant}>{label}</span>
         <h2>{title}</h2>
@@ -24,5 +26,9 @@ export function TechniquePageHeader({
       </div>
       {action}
     </div>
+    {instructions && <details className="panel technique-instructions" open>
+      <summary>Cómo trabajar con {title}</summary>
+      <ol>{instructions.map(step => <li key={step}>{step}</li>)}</ol>
+    </details>}</>
   );
 }

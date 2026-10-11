@@ -271,7 +271,7 @@ export const ProfesorSalasPage: React.FC = () => {
                         </button>
                       )}
                       <Link className="primary sala-enter-link" to={`/salas/${sala.id}`}>
-                        {puedeGestionar ? 'Administrar sala' : 'Unirse a la sala'} <span aria-hidden="true">→</span>
+                        {puedeGestionar ? 'Administrar sala' : 'Entrar a la sala'} <span aria-hidden="true">→</span>
                       </Link>
                     </div>
                   </div>

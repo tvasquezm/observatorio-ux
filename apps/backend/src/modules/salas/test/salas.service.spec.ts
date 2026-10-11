@@ -163,6 +163,7 @@ describe('SalasService', () => {
     await expect(service.findOne('sala-ajena', estudiante)).rejects.toBeInstanceOf(
       ForbiddenException,
     );
+    await expect(service.findOne('sala-ajena', estudiante)).rejects.toThrow('Pide a tu docente que registre el correo');
   });
 
   it('permite al docente dueño actualizar las fechas y datos de su sala', async () => {
