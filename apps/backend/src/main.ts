@@ -8,6 +8,7 @@ import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
 import { AppModule } from './app.module.js';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter.js';
+import { LIMITE_JSON_FLUJO } from './modules/sessions/heuristica-flujo/heuristica-flujo.parser.js';
 
 // CSRF (double-submit cookie): solo aplica a requests que ya traen la
 // cookie httpOnly `evaluadorToken` (o sea, sesión de EVALUADOR autenticada
@@ -75,6 +76,7 @@ function formatValidationErrors(
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const config = app.get(ConfigService);
+  app.useBodyParser('json', { limit: LIMITE_JSON_FLUJO });
 
   if (config.get<string>('app.nodeEnv') === 'production') {
     // Por defecto 1: el compose coloca exactamente un Nginx delante del

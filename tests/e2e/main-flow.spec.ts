@@ -55,28 +55,31 @@ test('recorre login, proyecto y las cinco técnicas UX', async ({ page }, testIn
     ['Journey Map', 'Journey Maps'],
     ['Momentos críticos', 'Momentos críticos'],
     ['Card Sorting', 'Card Sorting'],
-    ['Evaluación heurística', 'Hallazgos heurísticos'],
+    ['Evaluación heurística', 'Evaluación heurística'],
   ] as const;
 
-  const mobile = testInfo.project.name === 'mobile-chromium';
-  const projectMenu = page.locator(mobile ? '.project-menu' : '.pm');
-  for (const [index, [linkName, headingName]] of techniques.entries()) {
-    if (index === 0) {
-      await page.locator('.tech-grid').getByRole('link', { name: new RegExp(linkName) }).click();
-    } else {
-      if (mobile) await projectMenu.locator('summary').click();
-      else await projectMenu.getByRole('button', { name: /^Técnicas/ }).click();
-      await projectMenu.getByRole('link', { name: linkName, exact: true }).click();
-    }
-    if (mobile) await expect(projectMenu).not.toHaveAttribute('open', '');
+  // Resumen ofrece tarjetas; el grupo Técnicas aparece al entrar en una técnica.
+  await page.locator('.tech-card').filter({ has: page.getByRole('heading', { name: 'Personas', exact: true }) }).click();
+  await expect(page.getByRole('heading', { name: 'Personas', exact: true })).toBeVisible();
+  await expectNoPageOverflow(page);
+
+  const projectMenu = page.locator('.project-menu, .pm');
+  const compactMenu = await projectMenu.locator('summary').count() > 0;
+  for (const [linkName, headingName] of techniques.slice(1)) {
+    if (compactMenu) await projectMenu.locator('summary').click();
+    else await projectMenu.getByRole('button', { name: /^Técnicas/ }).click();
+    await projectMenu.getByRole('link', { name: linkName, exact: true }).click();
+    if (compactMenu) await expect(projectMenu).not.toHaveAttribute('open', '');
     else await expect(projectMenu.getByRole('group', { name: 'Técnicas' })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: headingName, exact: true }).first()).toBeVisible();
     await expectNoPageOverflow(page);
   }
 
-  if (mobile) await projectMenu.locator('summary').click();
+  if (compactMenu) await projectMenu.locator('summary').click();
   else await projectMenu.getByRole('button', { name: /^Proyecto/ }).click();
   await projectMenu.getByRole('link', { name: 'Analítica', exact: true }).click();
+  if (compactMenu) await expect(projectMenu).not.toHaveAttribute('open', '');
+  else await expect(projectMenu.getByRole('group', { name: 'Proyecto' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Analítica general' })).toBeVisible();
   await expectNoPageOverflow(page);
 

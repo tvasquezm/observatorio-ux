@@ -4,6 +4,9 @@ export * from './common/auth.schema';
 
 export * from './domains/card-sorting';
 export * from './domains/evaluacion-heuristica';
+export * from './domains/heuristica-flujo';
+export * from './domains/heuristica-metodologias';
+export * from './domains/heuristica-resultados';
 export * from './domains/persona';
 export * from './domains/journey-map';
 export * from './domains/momentos-criticos';
