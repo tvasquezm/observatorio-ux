@@ -160,6 +160,7 @@ export function PersonasPage() {
         title="Personas"
         description="Construye perfiles claros para diseñar con las necesidades reales en mente."
         instructions={['Crea una persona e identifica su contexto y rol.', 'Completa objetivos, necesidades y frustraciones con evidencia de tu investigación.', 'Guarda el perfil y revísalo con tu equipo antes de marcarlo como validado.']}
+        instructionsInitiallyOpen={false}
         action={puedeEditar ? (
           <button type="button" className={mostrarForm ? 'secondary' : 'primary'}
             disabled={isCreating || isUpdating || isDeleting}

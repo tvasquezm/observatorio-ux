@@ -61,7 +61,7 @@ export function ProjectDetailLayout() {
         <Link to="/proyectos">Proyectos</Link><span aria-hidden="true">›</span>
         {currentSection === 'Resumen' ? <span aria-current="page">{proyecto?.nombre ?? 'Proyecto'}</span> : <><Link to={`/proyectos/${proyectoId}`}>{proyecto?.nombre ?? 'Proyecto'}</Link><span aria-hidden="true">›</span><span aria-current="page">{currentSection}</span></>}
       </nav>
-      <div className="page-head">
+      <div className="page-head project-heading">
         <div>
           <span className="kicker">PROYECTO DE INVESTIGACIÓN</span>
           <h1 id="project-title" tabIndex={-1}>{proyecto?.nombre ?? 'Proyecto'}</h1>

@@ -2446,6 +2446,20 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .crumb a { color: var(--muted); text-decoration: none; }
 .project-breadcrumb { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 16px; color: var(--muted); font-size: 14px; }
 .project-breadcrumb a { color: var(--teal); text-underline-offset: 3px; }
+.page-head.project-heading { margin-bottom: 18px; gap: 16px; }
+.project-heading h1 { font-size: clamp(24px, 2.4vw, 30px); line-height: 1.2; margin: 4px 0; }
+.personas-page > .page-head { margin-bottom: 16px; gap: 16px; }
+.personas-page > .page-head h2 { font-size: 28px; line-height: 1.2; margin: 4px 0 6px; }
+.personas-page > .technique-instructions { padding: 10px 16px; margin-bottom: 16px; border-left: 1px solid var(--line); border-radius: 10px; box-shadow: none; }
+.personas-page > .technique-instructions > summary { padding: 8px 0; font-size: 14px; }
+.personas-page > .technique-instructions > ol { margin: 6px 0 10px; font-size: 14px; line-height: 1.6; }
+.persona-profile-identity p, .persona-profile-about, .persona-detail-grid :is(dt, dd), .persona-profile .text-muted-xs { font-size: 14px; }
+.persona-profile-details .tv-process { border: 1px solid var(--line); border-radius: 8px; background: var(--surface-alt); color: var(--ink); box-shadow: none; }
+.persona-profile-details .tv-process :is(.kicker, .tv-process-count, .tv-step-text strong) { color: var(--ink); font-size: 13px; }
+.persona-profile-details .tv-step-text small { color: var(--muted); font-size: 13px; line-height: 1.5; }
+.persona-profile-details .tv-step-mark { border-color: var(--line); background: var(--surface); color: var(--muted); }
+.persona-profile-details .tv-step--done .tv-step-mark { border-color: var(--teal); background: var(--teal-soft); color: var(--teal); }
+.persona-profile-details .tv-step--current .tv-step-mark { border-color: var(--teal); color: var(--ink); box-shadow: none; }
 .project-breadcrumb :is(a, span) { overflow-wrap: anywhere; }
 .project-section :is(h1, h2), #project-title { scroll-margin-top: 20px; }
 .project-section :is(h1, h2):focus-visible, #project-title:focus-visible,

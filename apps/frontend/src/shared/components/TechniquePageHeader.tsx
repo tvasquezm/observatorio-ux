@@ -7,6 +7,7 @@ interface TechniquePageHeaderProps {
   labelVariant?: 'eyebrow' | 'kicker';
   action?: ReactNode;
   instructions?: string[];
+  instructionsInitiallyOpen?: boolean;
 }
 
 export function TechniquePageHeader({
@@ -16,6 +17,7 @@ export function TechniquePageHeader({
   labelVariant = 'eyebrow',
   action,
   instructions,
+  instructionsInitiallyOpen = true,
 }: TechniquePageHeaderProps) {
   return (
     <><div className="page-head">
@@ -26,7 +28,7 @@ export function TechniquePageHeader({
       </div>
       {action}
     </div>
-    {instructions && <details className="panel technique-instructions" open>
+    {instructions && <details className="panel technique-instructions" open={instructionsInitiallyOpen}>
       <summary>Cómo trabajar con {title}</summary>
       <ol>{instructions.map(step => <li key={step}>{step}</li>)}</ol>
     </details>}</>
