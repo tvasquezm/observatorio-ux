@@ -3,18 +3,20 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router-dom';
 import { PersonaSchema } from '@observatorio-ux/shared-types';
 import { PersonasPage } from '../PersonasPage';
+import { ConfirmDialog } from '../../shared/components/ui/ConfirmDialog';
 
 const state = vi.hoisted(() => ({
   role: 'ESTUDIANTE' as 'ESTUDIANTE' | 'DOCENTE',
   create: vi.fn(), update: vi.fn(), acquire: vi.fn(), release: vi.fn(),
   list: vi.fn(),
+  remove: vi.fn(), resetDelete: vi.fn(), deleteError: null as Error | null, deletingId: undefined as string | undefined, deleting: false,
 }));
 
 vi.mock('../../features/persona/hooks/usePersonaQueries', () => ({
   usePersonas: () => ({ data: state.list(), isLoading: false, isError: false, error: null }),
   useCreatePersona: () => ({ mutate: state.create, isPending: false, error: null }),
   useUpdatePersona: () => ({ mutate: state.update, isPending: false, error: null }),
-  useDeletePersona: () => ({ mutate: vi.fn(), error: null }),
+  useDeletePersona: () => ({ mutate: state.remove, reset: state.resetDelete, error: state.deleteError, variables: state.deletingId, isPending: state.deleting }),
 }));
 vi.mock('../../features/auth/store/useAuthStore', () => ({
   useAuthStore: (selector: (value: unknown) => unknown) => selector({ user: { id: 'reader', rol: state.role } }),
@@ -35,10 +37,10 @@ const persona = {
 };
 
 function renderPage() {
-  return render(<RouterProvider router={createMemoryRouter([{
+  return render(<><ConfirmDialog /><RouterProvider router={createMemoryRouter([{
     path: '/', element: <Outlet context={{ proyectoId: 'p1' }} />,
     children: [{ index: true, element: <PersonasPage /> }],
-  }])} />);
+  }])} /></>);
 }
 
 beforeEach(() => {
@@ -46,9 +48,33 @@ beforeEach(() => {
   state.role = 'ESTUDIANTE';
   state.list.mockReturnValue([persona]);
   state.acquire.mockResolvedValue(true);
+  state.deleteError = null; state.deletingId = undefined; state.deleting = false;
 });
 
 describe('Personas — presentación y edición', () => {
+  it('confirma la eliminación del perfil completo y comunica el resultado', async () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(/Ana Pérez/)).toBeVisible();
+    expect(state.remove).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Eliminar' }));
+    await vi.waitFor(() => expect(state.remove).toHaveBeenCalledWith('a1', expect.any(Object)));
+  });
+
+  it('presenta el error junto al perfil que no se pudo eliminar', () => {
+    state.deletingId = 'a1'; state.deleteError = new Error('Otro usuario está editando esta persona.');
+    renderPage();
+    const card = screen.getByRole('article', { name: 'Ana Pérez' });
+    expect(within(card).getByRole('alert')).toHaveTextContent('Otro usuario está editando esta persona.');
+  });
+
+  it('impide repetir la eliminación mientras se guarda', () => {
+    state.deletingId = 'a1'; state.deleting = true;
+    renderPage();
+    expect(screen.getByRole('button', { name: 'Eliminando…' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Editar' })).toBeDisabled();
+  });
   it('agrupa los campos con etiquetas persistentes y conserva el contenido al guardar', async () => {
     renderPage();
     fireEvent.click(screen.getByRole('button', { name: 'Editar' }));

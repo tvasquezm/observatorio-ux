@@ -6,6 +6,7 @@ import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { canSwitchPerspective, canViewAnalytics, canViewSalas, resolvePerspective } from '../shared/auth/perspectivas';
 import { ProfilePerspectiveSwitcher } from '../shared/components/ProfilePerspectiveSwitcher';
 import { PerspectivePreviewNotice } from '../shared/components/PerspectivePreviewNotice';
+import { ChangePasswordForm } from '../features/auth/components/ChangePasswordForm';
 const ExportReportDialog = lazy(() => import('../features/reports/ExportReportDialog').then((module) => ({ default: module.ExportReportDialog })));
 
 const NAV_ITEMS = [
@@ -33,12 +34,23 @@ export function AppLayout() {
     return savedTheme === 'dark' || (savedTheme === null && window.matchMedia('(prefers-color-scheme: dark)').matches);
   });
   const [exportOpen, setExportOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [highContrast, setHighContrast] = useState(() =>
     window.localStorage.getItem('observatorio-ux-contrast') === 'high',
   );
   const crumb = CRUMB_LABELS[location.pathname] ?? (location.pathname.startsWith('/salas/') ? 'Detalle de sala' : 'Proyectos');
   const preferencesRef = useRef<HTMLDialogElement>(null);
+  const sidebarRef = useRef<HTMLElement>(null);
+
+  useEffect(() => { setSidebarCollapsed(true); }, [location.key]);
+  useEffect(() => {
+    if (sidebarCollapsed) return;
+    const closeOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !sidebarRef.current?.contains(event.target)) setSidebarCollapsed(true);
+    };
+    document.addEventListener('pointerdown', closeOutside);
+    return () => document.removeEventListener('pointerdown', closeOutside);
+  }, [sidebarCollapsed]);
   const activeRole = user ? resolvePerspective(user.rol, perspectiveRole) : null;
   const visibleNavItems = NAV_ITEMS.filter((item) => {
     if (item.to === '/salas') return !!activeRole && canViewSalas(activeRole);
@@ -90,7 +102,9 @@ export function AppLayout() {
   return (
     <div className={`app${sidebarCollapsed ? ' side-collapsed' : ''}`} data-perspective={activeRole?.toLowerCase()}>
       <a className="skip-link" href="#main-content">Saltar al contenido</a>
-      <aside className="side" aria-label="Navegación principal">
+      <aside ref={sidebarRef} className="side" aria-label="Navegación principal" onKeyDown={event => {
+        if (event.key === 'Escape') { setSidebarCollapsed(true); sidebarRef.current?.querySelector<HTMLButtonElement>('.sidebar-toggle')?.focus(); }
+      }}>
         <div className="brand">
           <img className="brand-isotipo" src="/brand/uxlab-isotipo-white.webp" width="144" height="92" alt="UXLab" />
           <div>
@@ -111,7 +125,7 @@ export function AppLayout() {
             onClick={() => setSidebarCollapsed((current) => !current)}
           >
             <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-              <path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              <path d={sidebarCollapsed ? 'M4 6h16M4 12h16M4 18h16' : 'M15 5l-7 7 7 7'} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
             </svg>
           </button>
         </div>
@@ -123,6 +137,7 @@ export function AppLayout() {
               end={item.end}
               aria-label={item.label}
               title={sidebarCollapsed ? item.label : undefined}
+              onClick={() => setSidebarCollapsed(true)}
               className={({ isActive }) => `nav-btn${isActive ? ' active' : ''}`}
             >
               <span className="nav-icon" aria-hidden="true">{item.icon}</span>
@@ -183,6 +198,7 @@ export function AppLayout() {
               Alto contraste
             </button>
             </div>
+            {user && <ChangePasswordForm />}
               </div>
             </dialog>
             <button

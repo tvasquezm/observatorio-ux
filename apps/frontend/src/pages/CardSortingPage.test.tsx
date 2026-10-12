@@ -38,6 +38,7 @@ describe('CardSortingPage · guía', () => {
   it('muestra la guía de 8 pasos junto al formulario', () => {
     renderPage();
     expect(screen.getByRole('heading', { name: 'Cómo hacer un card sorting' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Cómo hacer un card sorting' })).toBeVisible();
     expect(screen.getByText('Extraer conclusiones')).toBeInTheDocument();
   });
 

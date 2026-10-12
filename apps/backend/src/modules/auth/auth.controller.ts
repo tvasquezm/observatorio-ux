@@ -8,6 +8,7 @@ import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard.js';
 import { AuthService } from './auth.service.js';
 import {
   LoginDto,
+  ChangePasswordDto,
   ParticipantAccessDto,
   ParticipantTokenDto,
   RegisterParticipantDto,
@@ -59,6 +60,13 @@ export class AuthController {
     res.cookie('csrfToken', csrfToken, cookieOptions(nodeEnv, false));
 
     return { user };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: LOGIN_RATE_LIMIT, ttl: 60_000 } })
+  @Post('password')
+  changePassword(@CurrentUser() user: AuthenticatedUser, @Body() dto: ChangePasswordDto) {
+    return this.authService.changePassword(user.id, dto.currentPassword, dto.newPassword);
   }
 
   @Post('logout')

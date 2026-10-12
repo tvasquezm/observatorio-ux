@@ -14,13 +14,15 @@ const persona = {
 } as Parameters<typeof PersonaCard>[0]['persona'];
 
 describe('PersonaCard', () => {
-  it('muestra identidad, estado, versión y el proceso', () => {
+  it('muestra identidad, estado y versión, con el proceso en el detalle', () => {
     render(<PersonaCard persona={persona} />);
     const card = screen.getByRole('article', { name: 'Camila Rojas' });
     expect(within(card).getByText('Estudiante · 21 años')).toBeInTheDocument();
     expect(within(card).getByText('Validada')).toBeInTheDocument();
     expect(within(card).getByText('Versión 3')).toBeInTheDocument();
-    expect(within(card).getByRole('region', { name: 'Proceso de la persona' })).toBeInTheDocument();
+    expect(within(card).getByRole('region', { name: 'Proceso de la persona' })).not.toBeVisible();
+    fireEvent.click(within(card).getByText('Ver perfil completo'));
+    expect(within(card).getByRole('region', { name: 'Proceso de la persona' })).toBeVisible();
   });
 
   it('agrupa los datos en columnas y deja la evidencia en el perfil completo', () => {
@@ -35,5 +37,15 @@ describe('PersonaCard', () => {
   it('renderiza las acciones recibidas', () => {
     render(<PersonaCard persona={persona} acciones={<button type="button">Editar</button>} />);
     expect(screen.getByRole('button', { name: 'Editar' })).toBeInTheDocument();
+  });
+
+  it('abre un detalle útil aunque el perfil no tenga campos adicionales', () => {
+    const minimal = { ...persona, contenido: PersonaSchema.parse({ nombreCompleto: 'Perfil nuevo' }) };
+    render(<PersonaCard persona={minimal} />);
+    fireEvent.click(screen.getByText('Ver perfil completo'));
+    const detail = screen.getByText('Ver perfil completo').closest('details')!;
+    expect(detail).toHaveAttribute('open');
+    expect(within(detail).getByText('Contexto de uso')).toBeVisible();
+    expect(within(detail).getAllByText('Sin registrar.').length).toBeGreaterThan(0);
   });
 });

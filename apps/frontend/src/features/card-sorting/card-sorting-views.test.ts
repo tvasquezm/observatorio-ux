@@ -40,7 +40,8 @@ describe('card-sorting-views', () => {
     expect(filasTarjetas(resultado).map((f) => f.estado)).toEqual(['sin-consenso', 'sin-consenso', 'sin-datos']);
     expect(aplicarUmbralConsenso(data, 60).clusters).toEqual([{ nombre: 'Servicios', tarjetas: ['Becas'], acuerdo: 75 }]);
     expect(data.umbrales.consenso).toBe(50);
-    for (const invalido of [0, 49, 96, 70.5, NaN]) expect(aplicarUmbralConsenso(data, invalido)).toBe(data);
+    for (const invalido of [-1, 101, 70.5, NaN]) expect(aplicarUmbralConsenso(data, invalido)).toBe(data);
+    expect(aplicarUmbralConsenso(data, 37).umbrales.consenso).toBe(37);
   });
   it('pct redondea y tolera total 0', () => {
     expect(pct(2, 3)).toBe(67);

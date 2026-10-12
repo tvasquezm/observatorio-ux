@@ -255,6 +255,7 @@ export function JourneyMapPage() {
         label="TÉCNICA DE INVESTIGACIÓN"
         title="Journey Maps"
         description="Representa el recorrido de una persona usuaria para identificar actividades, emociones, dificultades y oportunidades de mejora."
+        instructions={['Define la persona usuaria, su objetivo y el evento que inicia el recorrido.', 'Describe cada fase con actividades, puntos de contacto, pensamientos y emociones.', 'Identifica dificultades y oportunidades a partir de evidencia. Guarda el mapa para revisarlo con tu equipo.']}
         action={<span className="status-pill">Artefactos versionados</span>}
       />
 

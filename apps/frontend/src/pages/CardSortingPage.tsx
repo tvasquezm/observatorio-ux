@@ -328,14 +328,14 @@ export function CardSortingPage() {
 
         <div className="cs-side">
           <CardSortingProgress steps={steps} problem={problem} />
-          <details className="panel sort-analysis cs-guide-box">
-            <summary>
-              <h2>Cómo hacer un card sorting</h2>
-            </summary>
-            <CardSortingGuide />
-          </details>
         </div>
       </section>
+      </details>
+
+      <details className="panel cs-guide-box technique-instructions" open>
+        <summary><h2>Cómo hacer un card sorting</h2></summary>
+        <p>Prepara las tarjetas, invita a los participantes y revisa los resultados. Abre cada paso para ver sus instrucciones.</p>
+        <CardSortingGuide />
       </details>
 
       <section className="panel mt-16">

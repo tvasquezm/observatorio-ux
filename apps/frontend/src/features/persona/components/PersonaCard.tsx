@@ -1,15 +1,14 @@
 import type { ReactNode } from 'react';
-import { TechniqueChips } from '../../../shared/components/TechniqueChips';
 import { TechniqueProcess } from '../../../shared/components/TechniqueProcess';
 import type { PersonaArtifact, PersonaContenido } from '../api/persona.api';
 import { ETIQUETAS_CAMPOS, iniciales, procesoPersona } from '../persona-visual';
 
 type CampoLista = 'objetivos' | 'necesidades' | 'motivaciones' | 'frustraciones' | 'comportamientos' | 'expectativas';
 
-const COLUMNAS: { titulo: string; tono: string; campos: CampoLista[] }[] = [
-  { titulo: 'Quiere lograr', tono: 'var(--teal)', campos: ['objetivos', 'necesidades', 'motivaciones'] },
-  { titulo: 'Le frustra', tono: 'var(--coral)', campos: ['frustraciones'] },
-  { titulo: 'Cómo actúa', tono: 'var(--lav)', campos: ['comportamientos', 'expectativas'] },
+const COLUMNAS: { titulo: string; campos: CampoLista[] }[] = [
+  { titulo: 'Quiere lograr', campos: ['objetivos', 'necesidades', 'motivaciones'] },
+  { titulo: 'Le frustra', campos: ['frustraciones'] },
+  { titulo: 'Cómo actúa', campos: ['comportamientos', 'expectativas'] },
 ];
 
 const DETALLE_TEXTO = [
@@ -41,18 +40,18 @@ export function PersonaCard({ persona, acciones }: Props) {
         </div>
       </header>
 
-      {c.acercaDe && <blockquote className="tv-quote">{c.acercaDe}</blockquote>}
-
-      <TechniqueProcess compact title="Proceso de la persona" steps={procesoPersona(c)} />
+      {c.acercaDe && <p className="persona-profile-about">{c.acercaDe}</p>}
 
       <div className="tv-persona-cols">
         {COLUMNAS.map((columna) => (
-          <section key={columna.titulo} className="tv-persona-col" style={{ ['--tv-tone' as string]: columna.tono }}>
+          <section key={columna.titulo} className="tv-persona-col">
             <h4>{columna.titulo}</h4>
             {columna.campos.map((campo) => (
               <div key={campo} className="tv-persona-group">
                 <h5>{ETIQUETAS_CAMPOS[campo]}</h5>
-                <TechniqueChips items={c[campo] ?? []} tono={columna.tono} vacio="Sin registrar." />
+                {(c[campo]?.length ?? 0) > 0
+                  ? <ul>{c[campo]!.map((valor, index) => <li key={index}>{valor}</li>)}</ul>
+                  : <p className="text-muted-xs">Sin registrar.</p>}
               </div>
             ))}
           </section>
@@ -61,18 +60,21 @@ export function PersonaCard({ persona, acciones }: Props) {
 
       <details className="persona-profile-details">
         <summary>Ver perfil completo</summary>
+        <TechniqueProcess compact title="Proceso de la persona" steps={procesoPersona(c)} />
         <dl className="persona-detail-grid">
-          {DETALLE_TEXTO.map((campo) => c[campo] && (
-            <div key={campo}><dt>{ETIQUETAS_CAMPOS[campo]}</dt><dd>{c[campo]}</dd></div>
+          {DETALLE_TEXTO.map((campo) => (
+            <div key={campo}><dt>{ETIQUETAS_CAMPOS[campo]}</dt><dd>{c[campo]?.trim() || 'Sin registrar.'}</dd></div>
           ))}
           {DETALLE_LISTA.map((campo) => {
             const valores = c[campo];
-            return Array.isArray(valores) && valores.length > 0 ? (
+            return (
               <div key={campo}>
                 <dt>{ETIQUETAS_CAMPOS[campo]}</dt>
-                <dd><ul>{valores.map((valor, index) => <li key={index}>{valor}</li>)}</ul></dd>
+                <dd>{Array.isArray(valores) && valores.length > 0
+                  ? <ul>{valores.map((valor, index) => <li key={index}>{valor}</li>)}</ul>
+                  : 'Sin registrar.'}</dd>
               </div>
-            ) : null;
+            );
           })}
         </dl>
       </details>
