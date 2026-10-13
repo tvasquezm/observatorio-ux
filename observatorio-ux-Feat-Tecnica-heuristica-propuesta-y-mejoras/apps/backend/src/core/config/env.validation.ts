@@ -1,0 +1,38 @@
+import Joi from 'joi';
+
+export const envValidationSchema = Joi.object({
+  // Antes tenía `.default('development')`. Eso significa que si en
+  // producción alguien se olvida de setear NODE_ENV, la app arranca
+  // igual pero en modo "development" — y con eso, endpoints gateados por
+  // `nodeEnv !== 'production'` (como /auth/test-token y
+  // /auth/test-participant-token) quedan expuestos sin que nadie se dé
+  // cuenta. Se cambia a `.required()`: si falta, la app NO arranca, en vez
+  // de arrancar silenciosamente en el modo equivocado. Ver A4 / hallazgo de
+  // auditoría (docs/ARCHITECTURE.md).
+  NODE_ENV: Joi.string().valid('development', 'test', 'production').required(),
+  PORT: Joi.number().port().default(3000),
+  DATABASE_URL: Joi.string().required(),
+  JWT_SECRET: Joi.string().when('NODE_ENV', {
+    is: 'production',
+    then: Joi.string().min(32),
+    otherwise: Joi.string().min(16),
+  }).required(),
+  JWT_EXPIRES_IN: Joi.string().default('1h'),
+  // Distinto de JWT_SECRET a propósito: evaluadorToken y participanteToken
+  // deben poder validarse por separado (Regla de negocio: Segregación de Auth).
+  JWT_PARTICIPANTE_SECRET: Joi.string()
+    .when('NODE_ENV', {
+      is: 'production',
+      then: Joi.string().min(32),
+      otherwise: Joi.string().min(16),
+    })
+    .invalid(Joi.ref('JWT_SECRET'))
+    .required()
+    .messages({ 'any.invalid': 'JWT_PARTICIPANTE_SECRET debe ser distinto de JWT_SECRET' }),
+  JWT_PARTICIPANTE_EXPIRES_IN: Joi.string().default('4h'),
+  CORS_ORIGIN: Joi.string().default('http://localhost:5173'),
+  // Saltos de proxy de confianza (req.ip para throttling). 1 = un solo proxy.
+  TRUST_PROXY_HOPS: Joi.number().integer().min(1).max(5).default(1),
+  // Solo para migraciones (prisma.config.ts): conexión directa, sin pooler.
+  DIRECT_URL: Joi.string().allow('').optional(),
+});

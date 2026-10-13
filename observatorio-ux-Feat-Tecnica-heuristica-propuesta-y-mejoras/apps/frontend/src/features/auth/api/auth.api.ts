@@ -1,0 +1,86 @@
+// apps/frontend/src/features/auth/api/auth.api.ts
+//
+// Cliente de login para EVALUADOR (ESTUDIANTE/DOCENTE/ADMIN).
+// Distinto del flujo de PARTICIPANTE (shared/api/api-client.ts), que usa
+// otro token ('participanteToken') y otro endpoint de reanudación.
+
+import { csrfHeaders } from '../../../shared/api/csrf';
+import type {
+  EvaluatorRole,
+  EvaluatorUser,
+  LoginResponse,
+} from '@observatorio-ux/shared-types';
+
+export type { EvaluatorRole, EvaluatorUser, LoginResponse };
+
+const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
+
+export class AuthApiError extends Error {
+  constructor(public readonly status: number, message: string) {
+    super(message);
+    this.name = 'AuthApiError';
+  }
+}
+
+export async function login(email: string, password: string): Promise<LoginResponse> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      credentials: 'include', // necesario para que el navegador guarde las cookies httpOnly `evaluadorToken`/`csrfToken` que emite el backend (cross-origin en dev: 5173 → 3000).
+      // Si existe otra pestaña autenticada, el navegador también envía su
+      // cookie de sesión en este login. En ese caso el middleware CSRF exige
+      // el token correspondiente aunque esta pestaña muestre /login.
+      headers: { 'Content-Type': 'application/json', ...csrfHeaders('POST') },
+      body: JSON.stringify({ email, password }),
+    });
+  } catch {
+    throw new AuthApiError(0, 'No se pudo conectar con el servidor.');
+  }
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    const mensaje = Array.isArray(body?.message)
+      ? body.message.map((m: any) => m.mensaje ?? m).join(' ')
+      : (body?.message ?? 'Correo o contraseña incorrectos.');
+    throw new AuthApiError(res.status, mensaje);
+  }
+
+  // El body ya NO trae access_token (Fase 3: el token va en cookie
+  // httpOnly, seteada por el propio Set-Cookie de esta respuesta).
+  return (await res.json()) as LoginResponse;
+}
+
+/**
+ * Verifica la sesión real contra el backend (cookie httpOnly), no contra
+ * nada cacheado en el cliente. Es la única fuente de verdad de
+ * `isAuthenticated` en useAuthStore.checkSession() — el `user` en
+ * localStorage es solo una caché optimista para no mostrar la UI vacía
+ * mientras esta llamada resuelve, nunca un reemplazo de esta validación.
+ */
+export async function me(): Promise<LoginResponse> {
+  const res = await fetch(`${API_BASE}/auth/me`, {
+    credentials: 'include',
+  });
+  if (!res.ok) {
+    throw new AuthApiError(res.status, 'Sesión no válida.');
+  }
+  return (await res.json()) as LoginResponse;
+}
+
+/**
+ * Limpia las cookies de sesión (`evaluadorToken`/`csrfToken`) en el
+ * backend. Sin body de request — no es una mutación de dominio, así que
+ * el middleware CSRF la deja pasar igual que cualquier otra, pero por
+ * prolijidad se manda el header de todas formas si hay cookie disponible.
+ */
+export async function logout(): Promise<void> {
+  await fetch(`${API_BASE}/auth/logout`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', ...csrfHeaders('POST') },
+  }).catch(() => {
+    // Best-effort — ver useAuthStore.logout(): el estado local ya se
+    // limpió sin importar si esta llamada de red tuvo éxito.
+  });
+}

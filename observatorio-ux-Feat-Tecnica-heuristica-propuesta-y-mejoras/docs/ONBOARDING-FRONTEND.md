@@ -1,0 +1,191 @@
+# Onboarding — Frontend de Observatorio UX
+
+Guía de arranque para quien se sume a trabajar en `apps/frontend`. No reemplaza
+`ARCHITECTURE.md`, `BACKEND.md` ni `CAMBIOS.md` — los resume y apunta a ellos
+cuando hace falta más detalle.
+
+---
+
+## 1. Stack y arranque
+
+- Monorepo **pnpm** (`apps/backend`, `apps/frontend`, `packages/shared-types`).
+- Frontend: **Vite + React + React Router + TanStack Query**.
+- Levantar todo con Docker (recomendado, cero instalación local):
+  ```bash
+  cp .env.example .env
+  docker compose up --build
+  ```
+  Frontend en `http://localhost:5173`, API en `http://localhost:3000/api`,
+  Swagger en `http://localhost:3000/api/docs`.
+- Alternativa sin Docker (`pnpm --filter backend start:dev`, etc.) →
+  ver `docs/comandos-backend.md`.
+- Usuarios semilla (3 cuentas de estudiante, mismo proyecto):
+  `estudiante1@ux.utem.cl` / `estudiante2@ux.utem.cl` / `estudiante3@ux.utem.cl`,
+  todas con `Demo1234!`.
+- Usuario DOCENTE de prueba (login simple para QA manual, con un proyecto
+  ya cargado con las 5 técnicas): `profesor@test.com` / `profesor123`.
+- Cuenta administradora (permite probar las tres perspectivas):
+  `admin@test.com` / `admin1234`.
+  Ver `docs/BACKEND.md`.
+
+## 2. Autenticación en el frontend
+
+- **Cookie `httpOnly`, no `localStorage`.** El evaluador se autentica con
+  la cookie `evaluadorToken` que el backend setea en `POST /auth/login`
+  (`res.cookie(...)`, ver `auth.controller.ts`) — el frontend nunca la ve
+  ni la guarda, es `httpOnly` a propósito. Si alguna vez ves código nuevo
+  leyendo `localStorage.getItem('evaluadorToken')`, es un regreso al bug
+  viejo (ver `docs/AUDIT_LOG.md`) — bórralo.
+- **`credentials: 'include'` en todo fetch del evaluador.** Sin eso, un
+  fetch cross-origin (dev: `5173` → `3000`) ni guarda la cookie que llega
+  en el login ni la reenvía después — todo termina en 401. Los 4 clientes
+  HTTP del evaluador ya lo tienen: `features/auth/api/auth.api.ts`,
+  `features/projects/api/projects.api.ts`, `shared/api/artifacts.api.ts`,
+  `features/evaluacion-heuristica/api/evaluacion-heuristica.api.ts`
+  (+ la mutación de evaluador en `features/card-sorting/api/card-sorting.api.ts`).
+- **CSRF (double-submit cookie).** El backend también setea una cookie
+  `csrfToken` (NO `httpOnly`, para que el JS la pueda leer) y exige que
+  todo método mutante (`POST`/`PUT`/`PATCH`/`DELETE`) con sesión de
+  evaluador mande el mismo valor en el header `X-CSRF-Token` — si no
+  calzan, `403`. `shared/api/csrf.ts` expone `csrfHeaders(method)` para
+  esto; los mismos 4-5 clientes de arriba ya lo usan. Si agregás un
+  cliente HTTP nuevo para el evaluador, tiene que sumarlo también.
+- **`useAuthStore` valida contra `/auth/me`, no contra caché.** El
+  `user` sí se cachea en `localStorage` (solo para pintar la UI rápido en
+  cada recarga), pero la fuente de verdad de `isAuthenticated` es
+  `checkSession()` (`GET /auth/me`), disparado por `ProtectedRoute` al
+  montar. Si la cookie expiró o fue revocada, `checkSession()` corrige el
+  estado aunque la caché diga lo contrario.
+- El flujo de **PARTICIPANTE** (`shared/api/api-client.ts`) es aparte y
+  usa Bearer token en `sessionStorage` (`participanteToken`). Así se puede
+  reanudar dentro de la misma pestaña sin conservar una credencial sensible
+  después de cerrar la sesión del navegador. No mezclar los dos patrones.
+
+## 3. Estructura de carpetas (patrón a seguir)
+
+```
+apps/frontend/src/
+  features/<dominio>/
+    api/<dominio>.api.ts       ← fetch + tipos, SIN estado ni hooks
+    hooks/use<Dominio>Queries.ts ← TanStack Query sobre la api de arriba
+  pages/                        ← una página por ruta, consume hooks de features/
+  layouts/                      ← AppLayout (shell), ProjectDetailLayout (sub-nav)
+  shared/api/                   ← clientes genéricos compartidos
+  shared/components/            ← ToastContainer, etc.
+  styles/theme.css              ← paleta y clases del mockup, importado 1 vez en main.tsx
+```
+
+Cada `api.ts` es independiente de `packages/shared-types` a propósito — los
+tipos de UI se duplican ahí en vez de importar el build compartido (mismo
+criterio en `card-sorting`, `persona`, `journey-map`, `momentos-criticos`).
+
+## 4. El patrón más importante: `UxArtifact`
+
+Persona, Journey Map y Momentos Críticos **no son 3 módulos de backend
+separados** — son 1 solo modelo genérico (`UxArtifact`) con un campo
+`tipo: PERSONA | JOURNEY_MAP | MOMENTOS_CRITICOS`. En el frontend esto se
+refleja como:
+
+- `shared/api/artifacts.api.ts` — cliente genérico único: `listArtifacts`,
+  `getArtifact`, `createArtifact`, `createArtifactVersion`, `acquireLock`,
+  `releaseLock`, `deleteArtifact`.
+- `features/persona/api/persona.api.ts`, `features/journey-map/api/journey-map.api.ts`,
+  `features/momentos-criticos/api/momentos-criticos.api.ts` — wrappers
+  delgados que llaman a lo de arriba con el `tipo` fijo y tipan el
+  `contenido` específico de cada uno.
+
+**Cosas de este modelo que cualquiera que edite estas 3 features necesita saber:**
+
+- **Versionado append-only.** Editar NO hace `PATCH` sobre el mismo registro
+  — crea una fila nueva (`createArtifactVersion` → `POST .../versions`) con
+  `version + 1`. Todas las versiones comparten `artefactoLogicoId`.
+- **`listArtifacts` devuelve TODAS las versiones**, no solo la última. Por
+  eso existe `dedupeLatestVersions()` — hay que llamarlo siempre antes de
+  mostrar una lista, si no vas a ver artefactos duplicados en pantalla.
+- **Bloqueo pesimista con TTL.** Antes de editar hay que
+  `POST .../artifacts/:id/lock` (default 5 min, tope 30 min vía
+  `ttlSegundos`) y `DELETE .../lock` al terminar. Si otro usuario tiene el
+  lock vigente, el backend responde `409 Conflict`. Los hooks
+  (`useLockPersona`/`useUnlockPersona` y sus equivalentes) **ya están
+  conectados** en las 3 páginas (`PersonasPage`, `JourneyMapPage`,
+  `MomentosCriticosPage`, Sprint 4): `lock` al abrir el formulario de
+  edición, `unlock` al cancelar o tras guardar con éxito, y si el `lock`
+  devuelve `409` el formulario queda en solo lectura con un
+  `notify.error(...)` avisando quién lo tiene tomado. No hay `unlock` al
+  desmontar el componente sin pasar por cancelar/guardar (navegar fuera a
+  mitad de edición) — ahí el TTL del backend es la red de seguridad.
+- **Soft delete.** `deleteArtifact` no borra la fila — marca `deletedAt`.
+  El objeto devuelto sigue "existiendo", solo desaparece de
+  `listArtifacts`.
+- Las "etapas" del Journey Map y los "incidentes" de Momentos Críticos
+  **no son entidades propias** — son arrays dentro de `contenido`. Se editan
+  mutando el array en memoria (`addPhase`/`replacePhase`/`removePhase`,
+  `addIncidente`/`replaceIncidente`/`removeIncidente`) y persistiendo con
+  `updateJourney`/`updateCriticalMoment` (o sea, una nueva versión completa).
+
+## 5. Manejo de errores — forma `{campo, mensaje}`
+
+El backend devuelve los 400 de validación como `message: [{campo, mensaje}]`
+(incluye anidados, ej. `contenido.hobbies.0`). Todos los clientes HTTP del
+frontend ya parsean esto:
+
+```ts
+catch (err) {
+  if (err instanceof ArtifactsApiError && err.detalles) {
+    const campoConError = err.detalles.find(d => d.campo === 'nombreCompleto');
+  }
+}
+```
+
+**Excepción conocida:** si algún endpoint del backend lanza
+`throw new BadRequestException('mensaje suelto')` a mano (sin pasar por el
+`ValidationPipe`), el `campo` llega vacío (`''`) — no hay forma de resaltar
+un input específico para ese caso. No es un bug del frontend, es una
+limitación de origen.
+
+## 6. Rutas — idioma único de la API
+
+- ✅ `/api/projects/*` y `/api/projects/:proyectoId/artifacts/*` — **inglés**,
+  consolidado (el alias en español se eliminó).
+- ✅ `/api/projects/:proyectoId/evaluacion-heuristica/sesiones/*` — **inglés**,
+  unificado con el resto de la API.
+
+## 7. Estilo — `theme.css`
+
+Extraído del mockup de referencia (`UX-Observatory-Presentacion.html`).
+Variables clave: `--navy`, `--teal`, `--mint`, `--ink`, `--muted`, `--bg`,
+`--line`, `--coral`. Clases reutilizables ya definidas: `.panel`,
+`.panel-head`, `.metric`, `.primary`/`.secondary`, `.project-row`,
+`.nav-btn`, `.field`. Antes de escribir CSS nuevo, revisar si ya existe una
+clase para eso — el objetivo es que toda página nueva se vea consistente
+con el mockup sin reinventar estilos sueltos por página.
+
+## 8. Pendientes conocidos para quien siga
+
+1. ~~Falta la vista de edición en Personas/Journey Map/Momentos Críticos.~~
+   **Resuelto (Sprint 4):** las 3 páginas ya llaman `lock`/`update`/`unlock`
+   end-to-end, con manejo de `409` (solo lectura + toast).
+   **Resuelto (Sprint 4):** `useArtifactEditLock` libera el lock al cancelar,
+   cambiar de artefacto o desmontar la ruta, incluida la carrera donde el
+   `POST /lock` responde después de abandonar la pantalla. El TTL de 5 min
+   queda únicamente como red de seguridad ante una pérdida de conexión.
+2. ~~No hay authStore de evaluador.~~ **Resuelto (Sprint 4):** existe
+   `useAuthStore`; la sesión se valida con `GET /auth/me` y cookie `httpOnly`.
+3. **`EvaluacionHeuristicaController` sigue en español**, sin alias en
+   inglés — pendiente de decisión de equipo, no tocar sin avisar.
+4. Deuda técnica específica de Evaluación Heurística (backend) en
+   `docs/deuda-tecnica-heuristica.md`: tipado débil en auth (`usuario: any`),
+   `/auth/test-token` no distingue tipo de usuario, posible `console.log`
+   suelto en `EvaluacionHeuristicaController.crear`.
+
+## 9. Dónde mirar si algo no calza
+
+| Duda | Archivo |
+|---|---|
+| ¿Por qué persona/journey/momentos comparten un módulo? | `docs/ARCHITECTURE.md` §Sprint 2.1 |
+| ¿Cómo funciona el versionado? | `docs/ARCHITECTURE.md` §Sprint 2.2 |
+| ¿Cómo funciona el lock? | `docs/ARCHITECTURE.md` §Sprint 2.3 |
+| ¿Qué rutas existen y cuáles se borraron? | `docs/ARCHITECTURE.md` §Sprint 2.5 |
+| ¿Cómo levanto el backend? | `docs/BACKEND.md`, `docs/comandos-backend.md` |
+| ¿Qué se cambió recién y por qué? | `docs/CAMBIOS.md` |
+| ¿Qué le falta al módulo de heurística? | `docs/deuda-tecnica-heuristica.md` |

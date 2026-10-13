@@ -1,0 +1,501 @@
+// ============================================================
+// OBSERVATORIO UX — schema.prisma (Kit de Arranque + 3FN Card Sorting)
+// Refleja el ADR Master: modelo dual, bloqueo pesimista, consentimiento.
+// ============================================================
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Rol {
+  ESTUDIANTE
+  DOCENTE
+  ADMIN
+}
+
+enum TipoSesion {
+  CARD_SORTING
+  EVALUACION_HEURISTICA
+}
+
+enum EstadoSesion {
+  INVITADO
+  EN_PROGRESO
+  COMPLETADO
+  ABANDONADO
+}
+
+enum ActorSesion {
+  PARTICIPANTE
+  EVALUADOR
+}
+
+enum TipoArtefacto {
+  PERSONA
+  JOURNEY_MAP
+  MOMENTOS_CRITICOS
+}
+
+enum TipoCardSorting {
+  ABIERTO
+  CERRADO
+  HIBRIDO
+}
+
+// ------------------------------------------------------------
+// NÚCLEO
+// ------------------------------------------------------------
+
+model Proyecto {
+  id          String   @id @default(uuid())
+  nombre      String
+  descripcion String?
+  creadoPor   Usuario  @relation("ProyectosCreados", fields: [creadoPorId], references: [id])
+  creadoPorId String
+  createdAt   DateTime @default(now())
+
+  sesiones            ResearchSession[]
+  evaluacionesHeuristicas EvaluacionHeuristicaCompleta[]
+  artefactos          UxArtifact[]
+  whitelist           ParticipanteWhitelist[]
+  miembros            ProyectoMiembro[]
+  comentarios         Comentario[]
+  participantesAcceso Participante[]
+  salaId              String?
+  sala                Sala?                   @relation(fields: [salaId], references: [id])
+
+  // Soft delete: se activa en cascada cuando su Sala se elimina (ver
+  // Sala.deletedAt). Los listados (findAll) lo excluyen por defecto.
+  deletedAt DateTime?
+
+  @@map("proyectos")
+}
+
+model ProyectoMiembro {
+  id         String   @id @default(uuid())
+  proyecto   Proyecto @relation(fields: [proyectoId], references: [id])
+  proyectoId String
+  usuario    Usuario  @relation(fields: [usuarioId], references: [id])
+  usuarioId  String
+  createdAt  DateTime @default(now())
+
+  @@unique([proyectoId, usuarioId])
+  @@map("proyecto_miembros")
+}
+
+model Usuario {
+  id           String   @id @default(uuid())
+  nombre       String
+  email        String   @unique
+  passwordHash String?
+  rol          Rol
+  createdAt    DateTime @default(now())
+
+  proyectosCreados  Proyecto[]              @relation("ProyectosCreados")
+  sesionesEvaluador ResearchSession[]       @relation("SesionesComoEvaluador")
+  artefactosAutor   UxArtifact[]            @relation("ArtefactosComoAutor")
+  whitelistCreada   ParticipanteWhitelist[]
+  proyectosMiembro  ProyectoMiembro[]
+  comentariosAutor  Comentario[]            @relation("ComentariosComoAutor")
+  equiposCreados    Equipo[]                @relation("EquiposCreados")
+  equiposMiembro    EquipoMiembro[]         @relation("EquiposComoMiembro")
+  salas             Sala[]
+  metodologiasHeuristicas MetodologiaHeuristica[]
+
+  @@map("usuarios")
+}
+
+model Participante {
+  id              String   @id @default(uuid())
+  metadata        Json? // datos demográficos opcionales, anonimizables sin perder sesiones
+  resumeTokenHash String? // credencial opaca para renovar una sesión anónima sin crear otro participante
+  createdAt       DateTime @default(now())
+
+  // H5 (Fase 7, plan de remediación): nullable para no romper filas
+  // existentes (todas creadas antes de esta columna quedan sin proyecto).
+  // Permite el límite de accesos/hora por proyecto en accessParticipant.
+  proyecto   Proyecto? @relation(fields: [proyectoId], references: [id])
+  proyectoId String?
+
+  consentimientos   Consentimiento[]
+  sesiones          ResearchSession[]       @relation("SesionesComoParticipante")
+  categoriasCreadas Category[]
+  whitelistEntries  ParticipanteWhitelist[]
+
+  @@index([proyectoId, createdAt])
+  @@map("participantes")
+}
+
+model ParticipanteWhitelist {
+  id                   String   @id @default(uuid())
+  proyecto             Proyecto @relation(fields: [proyectoId], references: [id])
+  proyectoId           String
+  email                String
+  nombre               String?
+  usado                Boolean  @default(false)
+  codigoInvitacionHash String?
+
+  participante   Participante? @relation(fields: [participanteId], references: [id])
+  participanteId String?
+
+  creadoPor   Usuario  @relation(fields: [creadoPorId], references: [id])
+  creadoPorId String
+  createdAt   DateTime @default(now())
+
+  @@unique([proyectoId, email])
+  @@index([proyectoId, participanteId])
+  @@map("participantes_whitelist")
+}
+
+// Consentimiento informado
+model Consentimiento {
+  id             String       @id @default(uuid())
+  participante   Participante @relation(fields: [participanteId], references: [id])
+  participanteId String
+  proyectoId     String
+  aceptado       Boolean
+  version        String
+  ipRegistro     String?
+  createdAt      DateTime     @default(now())
+
+  @@map("consentimientos")
+}
+
+model Sala {
+  id            String           @id @default(uuid())
+  nombre        String
+  periodo       String
+  instrucciones String?
+  fechaInicio   DateTime?
+  fechaFin      DateTime?
+  profesorId    String
+  profesor      Usuario          @relation(fields: [profesorId], references: [id])
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  proyectos     Proyecto[]
+  estudiantes   SalaEstudiante[]
+  equipos       Equipo[]
+
+  // Fase 4: toggle de creación de equipos por ESTUDIANTE (DOCENTE dueño
+  // siempre puede crear equipos, use o no este toggle). limiteIntegrantesEquipo
+  // nulo = sin límite; solo lo configura el DOCENTE dueño o ADMIN.
+  permiteCreacionEquipos  Boolean @default(false)
+  limiteIntegrantesEquipo Int?
+
+  // Fase 5: toggle de creación de proyectos por ESTUDIANTE (mismo patrón que
+  // permiteCreacionEquipos). DOCENTE dueño/ADMIN no dependen de este flag.
+  permiteCreacionProyectos Boolean @default(false)
+
+  // Soft delete con ventana de recuperación de 20 días (ver SalasService).
+  // Al eliminarse, cascada lógica a los Proyecto de la sala.
+  deletedAt DateTime?
+}
+
+// Registro liviano de estudiante inscrito en una sala. No es un Usuario
+// (sin login/password) — solo los datos que el profesor carga para hacer
+// seguimiento dentro de la sala.
+model SalaEstudiante {
+  id        String   @id @default(uuid())
+  sala      Sala     @relation(fields: [salaId], references: [id])
+  salaId    String
+  nombre    String?
+  email     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([salaId, email])
+  @@map("sala_estudiantes")
+}
+
+// Fase 4: equipo de estudiantes dentro de una Sala. Hard delete real (no es
+// evidencia de investigación como UxArtifact, no necesita ventana de
+// recuperación).
+model Equipo {
+  id          String   @id @default(uuid())
+  sala        Sala     @relation(fields: [salaId], references: [id])
+  salaId      String
+  nombre      String
+  creadoPor   Usuario  @relation("EquiposCreados", fields: [creadoPorId], references: [id])
+  creadoPorId String
+  createdAt   DateTime @default(now())
+
+  miembros EquipoMiembro[]
+
+  @@map("equipos")
+}
+
+model EquipoMiembro {
+  id        String   @id @default(uuid())
+  equipo    Equipo   @relation(fields: [equipoId], references: [id])
+  equipoId  String
+  usuario   Usuario  @relation("EquiposComoMiembro", fields: [usuarioId], references: [id])
+  usuarioId String
+  createdAt DateTime @default(now())
+
+  @@unique([equipoId, usuarioId])
+  @@map("equipo_miembros")
+}
+
+// ------------------------------------------------------------
+// GRUPO A — ResearchSession (transaccional)
+// ------------------------------------------------------------
+
+model ResearchSession {
+  id         String       @id @default(uuid())
+  proyecto   Proyecto     @relation(fields: [proyectoId], references: [id])
+  proyectoId String
+  nombre     String       @default("Card Sorting")
+  tipo       TipoSesion
+  estado     EstadoSesion @default(INVITADO)
+
+  actor          ActorSesion
+  participante   Participante? @relation("SesionesComoParticipante", fields: [participanteId], references: [id])
+  participanteId String?
+  evaluador      Usuario?      @relation("SesionesComoEvaluador", fields: [evaluadorId], references: [id])
+  evaluadorId    String?
+
+  resultado Json?
+
+  // --- NUEVO: 3FN CARD SORTING ---
+  tipoCardSorting TipoCardSorting?
+  // Solo relevante en el estudio maestro (actor EVALUADOR): bloquea
+  // nuevos join/submit de participantes sin borrar nada.
+  cerrado         Boolean          @default(false)
+
+  // Auto-relación Evaluador -> Participante
+  estudio                    ResearchSession?  @relation("EstudioParticipantes", fields: [estudioId], references: [id])
+  estudioId                  String?
+  participantesDeEsteEstudio ResearchSession[] @relation("EstudioParticipantes")
+
+  cardsDefinidas      Card[]         @relation("SessionCards")
+  categoriasDefinidas Category[]     @relation("SessionCategories")
+  agrupaciones        CardGrouping[] @relation("ParticipantGroupings")
+  preguntas           CardSortingQuestion[] @relation("SessionQuestions")
+  respuestasPreguntas CardSortingAnswer[]   @relation("ParticipantAnswers")
+  evidenciasHeuristica EvidenciaHeuristica[] @relation("EvidenciasDeSesion")
+
+  createdAt    DateTime  @default(now())
+  completadoAt DateTime?
+
+  @@index([proyectoId, tipo])
+  @@index([estudioId])
+  @@map("research_sessions")
+}
+
+// Capturas de pantalla subidas como evidencia de un hallazgo heurístico.
+// Los hallazgos viven en ResearchSession.resultado (JSON) y referencian
+// esta tabla por `evidenciaArchivoId`.
+model EvidenciaHeuristica {
+  id          String          @id @default(uuid())
+  sesion      ResearchSession @relation("EvidenciasDeSesion", fields: [sesionId], references: [id], onDelete: Cascade)
+  sesionId    String
+  subidoPorId String
+  mimeType    String
+  tamano      Int
+  datos       Bytes
+  createdAt   DateTime        @default(now())
+
+  @@index([sesionId])
+  @@map("evidencias_heuristica")
+}
+
+// Flujo completo separado de las sesiones históricas.
+model EvaluacionHeuristicaCompleta {
+  id String @id @default(uuid())
+  proyectoId String
+  proyecto Proyecto @relation(fields: [proyectoId], references: [id])
+  coordinadorId String
+  revision Int @default(0)
+  version Int @default(1)
+  anteriorId String?
+  fase String @default("BORRADOR")
+  configuracion Json
+  trabajos Json
+  consenso Json
+  informe Json?
+  comparacion Json?
+  iniciadoEn DateTime?
+  consolidadoEn DateTime?
+  finalizadoEn DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  evidencias EvidenciaHeuristicaCompleta[]
+
+  @@index([proyectoId])
+  @@map("evaluaciones_heuristicas_completas")
+}
+
+model MetodologiaHeuristica {
+  id String @id @default(uuid())
+  autorId String
+  autor Usuario @relation(fields: [autorId], references: [id])
+  contenido Json
+  createdAt DateTime @default(now())
+
+  @@index([autorId])
+  @@map("metodologias_heuristicas")
+}
+
+model EvidenciaHeuristicaCompleta {
+  id String @id @default(uuid())
+  revision Int @default(0)
+  evaluacionId String
+  evaluacion EvaluacionHeuristicaCompleta @relation(fields: [evaluacionId], references: [id], onDelete: Cascade)
+  autorId String
+  mimeType String
+  tamano Int
+  datos Bytes
+  anotaciones Json
+  createdAt DateTime @default(now())
+
+  @@index([evaluacionId, autorId])
+  @@map("evidencias_heuristicas_completas")
+}
+
+// ------------------------------------------------------------
+// MODELOS CARD SORTING (3FN)
+// ------------------------------------------------------------
+
+model Card {
+  id        String          @id @default(uuid())
+  session   ResearchSession @relation("SessionCards", fields: [sessionId], references: [id])
+  sessionId String
+  etiqueta  String
+  createdAt DateTime        @default(now())
+
+  agrupaciones CardGrouping[]
+
+  @@index([sessionId])
+  @@map("cards")
+}
+
+model Category {
+  id        String          @id @default(uuid())
+  session   ResearchSession @relation("SessionCategories", fields: [sessionId], references: [id])
+  sessionId String
+  nombre    String
+
+  esPredefinida Boolean @default(true)
+
+  creadaPorParticipante   Participante? @relation(fields: [creadaPorParticipanteId], references: [id])
+  creadaPorParticipanteId String?
+
+  createdAt DateTime @default(now())
+
+  // Jerarquía de 2 niveles: NULL = categoría de nivel 1.
+  parent        Category?  @relation("SubCategorias", fields: [parentId], references: [id], onDelete: NoAction)
+  parentId      String?
+  subCategorias Category[] @relation("SubCategorias")
+
+  agrupaciones CardGrouping[]
+
+  @@index([sessionId])
+  @@index([parentId])
+  @@map("categories")
+}
+
+model CardGrouping {
+  id                   String          @id @default(uuid())
+  participanteSesion   ResearchSession @relation("ParticipantGroupings", fields: [participanteSesionId], references: [id])
+  participanteSesionId String
+
+  card   Card   @relation(fields: [cardId], references: [id])
+  cardId String
+
+  category   Category @relation(fields: [categoryId], references: [id])
+  categoryId String
+
+  createdAt DateTime @default(now())
+
+  @@unique([participanteSesionId, cardId])
+  @@index([categoryId, participanteSesionId])
+  @@map("card_groupings")
+}
+
+// Preguntas del evaluador (paso 6 del curso). Definidas en el estudio maestro;
+// las respuestas cuelgan de la sesión del participante (anónimo).
+model CardSortingQuestion {
+  id        String          @id @default(uuid())
+  session   ResearchSession @relation("SessionQuestions", fields: [sessionId], references: [id])
+  sessionId String
+  texto     String
+  orden     Int
+  createdAt DateTime        @default(now())
+
+  respuestas CardSortingAnswer[]
+
+  @@unique([sessionId, orden])
+  @@map("card_sorting_questions")
+}
+
+model CardSortingAnswer {
+  id                   String              @id @default(uuid())
+  participanteSesion   ResearchSession     @relation("ParticipantAnswers", fields: [participanteSesionId], references: [id])
+  participanteSesionId String
+  question             CardSortingQuestion @relation(fields: [questionId], references: [id])
+  questionId           String
+  respuesta            String
+  createdAt            DateTime            @default(now())
+
+  @@unique([participanteSesionId, questionId])
+  @@index([questionId])
+  @@map("card_sorting_answers")
+}
+
+// ------------------------------------------------------------
+// GRUPO B — UxArtifact (versionado append-only + bloqueo pesimista)
+// ------------------------------------------------------------
+
+model UxArtifact {
+  id                String        @id @default(uuid())
+  proyecto          Proyecto      @relation(fields: [proyectoId], references: [id])
+  proyectoId        String
+  tipo              TipoArtefacto
+  artefactoLogicoId String
+  version           Int           @default(1)
+  contenido         Json
+
+  autor   Usuario @relation("ArtefactosComoAutor", fields: [autorId], references: [id])
+  autorId String
+
+  createdAt DateTime @default(now())
+
+  lockedById  String?
+  lockedUntil DateTime?
+
+  // Soft delete: proteger la cadena de evidencia del Observatorio.
+  // Un artefacto "eliminado" nunca se borra de la fila; solo se marca.
+  // El listado (findAll) lo excluye por defecto (deletedAt: null).
+  deletedAt DateTime?
+
+  @@unique([artefactoLogicoId, version])
+  @@map("ux_artifacts")
+}
+
+model Comentario {
+  id         String   @id @default(uuid())
+  proyecto   Proyecto @relation(fields: [proyectoId], references: [id])
+  proyectoId String
+
+  // Referencia al artefacto lógico (no a una fila de versión puntual), para
+  // que el comentario siga siendo válido aunque el artefacto se versione.
+  artefactoLogicoId String?
+
+  autor   Usuario @relation("ComentariosComoAutor", fields: [autorId], references: [id])
+  autorId String
+
+  texto String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Soft delete: mismo patrón que Sala/Proyecto/UxArtifact.
+  deletedAt DateTime?
+
+  @@map("comentarios")
+}

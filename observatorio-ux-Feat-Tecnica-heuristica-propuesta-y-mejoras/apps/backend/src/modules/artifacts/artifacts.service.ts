@@ -1,0 +1,407 @@
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { Prisma, TipoArtefacto } from '../../generated/prisma/client.js';
+import { randomUUID } from 'crypto';
+import { ZodError } from 'zod';
+import {
+  JourneyMapSchema,
+  MomentosCriticosSchema,
+  PersonaSchema,
+} from '@observatorio-ux/shared-types';
+import { PrismaService } from '../../core/database/prisma.service.js';
+import { ProjectAccessService } from '../../core/access/project-access.service.js';
+import { AuthenticatedUser } from '../auth/types/authenticated-user.interface.js';
+import {
+  AcquireLockDto,
+  CreateArtifactDto,
+  CreateArtifactVersionDto,
+} from './artifacts.dto.js';
+
+/** TTL por defecto del bloqueo pesimista si el cliente no envía uno propio. */
+const DEFAULT_LOCK_TTL_MS = 5 * 60 * 1000; // 5 minutos
+/** Tope máximo, para que un cliente no pueda pedir un lock "eterno". */
+const MAX_LOCK_TTL_MS = 30 * 60 * 1000; // 30 minutos
+
+@Injectable()
+export class ArtifactsService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly projectAccess: ProjectAccessService,
+  ) {}
+
+  async create(
+    proyectoId: string,
+    dto: CreateArtifactDto,
+    user: AuthenticatedUser,
+  ) {
+    await this.projectAccess.assertAccess(proyectoId, user);
+    await this.assertPuedeEditar(user, proyectoId);
+    this.validateContenidoByTipo(dto.tipo, dto.contenido);
+
+    return this.prisma.uxArtifact.create({
+      data: {
+        proyectoId,
+        tipo: dto.tipo,
+        artefactoLogicoId: dto.artefactoLogicoId?.trim() || randomUUID(),
+        version: 1,
+        contenido: dto.contenido as Prisma.InputJsonValue,
+        autorId: user.id,
+      },
+    });
+  }
+
+  async findAll(
+    proyectoId: string,
+    tipo: TipoArtefacto | undefined,
+    user: AuthenticatedUser,
+  ) {
+    await this.projectAccess.assertAccess(proyectoId, user);
+
+    return this.prisma.uxArtifact.findMany({
+      // deletedAt: null excluye por defecto los artefactos eliminados
+      // (soft delete). No hay parámetro para incluirlos vía esta ruta a
+      // propósito — el listado normal nunca debe mostrar evidencia borrada.
+      where: { proyectoId, deletedAt: null, ...(tipo ? { tipo } : {}) },
+      orderBy: [{ artefactoLogicoId: 'asc' }, { version: 'desc' }],
+    });
+  }
+
+  async findOne(artefactoId: string, user: AuthenticatedUser) {
+    const artifact = await this.prisma.uxArtifact.findUnique({
+      where: { id: artefactoId, deletedAt: null },
+    });
+
+    if (!artifact) throw new NotFoundException('El artefacto no existe.');
+    await this.projectAccess.assertAccess(artifact.proyectoId, user);
+    return artifact;
+  }
+
+  /**
+   * Soft delete: marca deletedAt en TODAS las versiones del artefacto
+   * lógico (no solo la última), para que ninguna quede visible en
+   * findAll sin importar cuál sea la versión "más reciente" en ese
+   * momento. La fila nunca se borra de la base de datos — se conserva la
+   * cadena de evidencia del Observatorio.
+   *
+   * Idempotente: eliminar un artefacto ya eliminado no falla, solo
+   * refresca deletedAt.
+   */
+  async softDelete(artefactoId: string, user: AuthenticatedUser) {
+    const artifact = await this.findOneIncludingDeleted(artefactoId, user);
+    if (artifact.deletedAt) return artifact;
+
+    if (artifact.tipo === TipoArtefacto.JOURNEY_MAP) {
+      throw new ForbiddenException(
+        'Los Journey Maps son registros de evidencia y no pueden eliminarse.',
+      );
+    }
+
+    await this.assertPuedeEditar(user, artifact.proyectoId);
+    const latest = await this.getLatestVersion(artifact.artefactoLogicoId, artifact);
+
+    this.assertNotLockedByOther(latest, user);
+
+    const deletedAt = new Date();
+    await this.prisma.uxArtifact.updateMany({
+      where: { artefactoLogicoId: artifact.artefactoLogicoId },
+      data: { deletedAt, lockedById: null, lockedUntil: null },
+    });
+
+    return { ...artifact, deletedAt, lockedById: null, lockedUntil: null };
+  }
+
+  async createVersion(
+    artefactoId: string,
+    dto: CreateArtifactVersionDto,
+    user: AuthenticatedUser,
+  ) {
+    const artifact = await this.findOne(artefactoId, user);
+
+    if (artifact.tipo === TipoArtefacto.JOURNEY_MAP) {
+      throw new ForbiddenException(
+        'Los Journey Maps son registros de evidencia y no pueden modificarse.',
+      );
+    }
+
+    await this.assertPuedeEditar(user, artifact.proyectoId);
+    const latest = await this.getLatestVersion(artifact.artefactoLogicoId, artifact);
+
+    // El chequeo de lock se hace siempre contra la ÚLTIMA versión del
+    // artefacto lógico, no contra la fila que llegó en la URL: si el
+    // cliente pasó un id de una versión vieja, igual respetamos el lock
+    // vigente sobre el estado actual del artefacto.
+    this.assertNotLockedByOther(latest, user);
+
+    if (dto.expectedVersion !== undefined && latest.version !== dto.expectedVersion) {
+      throw new ConflictException(
+        `El artefacto cambió desde que lo abriste (versión actual: ${latest.version}). Recarga antes de guardar.`,
+      );
+    }
+
+    // El tipo se hereda del artefacto lógico existente, no del DTO.
+    this.validateContenidoByTipo(artifact.tipo, dto.contenido);
+
+    // La nueva fila nace sin lock (lockedById/lockedUntil quedan null por
+    // default del schema): guardar una versión cierra, de hecho, la sesión
+    // de edición que originó el lock sobre la versión anterior.
+    try {
+      return await this.prisma.uxArtifact.create({
+        data: {
+          proyectoId: artifact.proyectoId,
+          tipo: artifact.tipo,
+          artefactoLogicoId: artifact.artefactoLogicoId,
+          version: latest.version + 1,
+          contenido: dto.contenido as Prisma.InputJsonValue,
+          autorId: user.id,
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException(
+          'Otro usuario guardó una versión antes que tú. Recarga y vuelve a aplicar tus cambios.',
+        );
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Adquiere (o renueva) el bloqueo pesimista sobre la ÚLTIMA versión de un
+   * artefacto lógico. Cierra B4/B9/B14: antes de este método, `lockedById`/
+   * `lockedUntil` se leían en `createVersion` pero nada los escribía nunca,
+   * así que el lock jamás se activaba.
+   *
+   * Si el propio usuario ya tiene el lock, lo renueva (extiende el TTL) en
+   * vez de fallar, para soportar "heartbeats" desde el frontend mientras el
+   * usuario sigue editando.
+   */
+  async acquireLock(
+    artefactoId: string,
+    user: AuthenticatedUser,
+    ttlSegundos?: number,
+  ) {
+    const artifact = await this.findOne(artefactoId, user);
+    await this.assertPuedeEditar(user, artifact.proyectoId);
+    const latest = await this.getLatestVersion(artifact.artefactoLogicoId, artifact);
+
+    this.assertNotLockedByOther(latest, user);
+
+    const ttlMs = this.resolveTtlMs(ttlSegundos);
+    const lockedUntil = new Date(Date.now() + ttlMs);
+    const now = new Date();
+
+    // updateMany condicional atómico: la condición de "lock libre" se
+    // evalúa y escribe en la misma sentencia SQL, así no queda ventana
+    // entre el chequeo (assertNotLockedByOther) y el update donde otro
+    // request pueda colarse y tomar el lock primero.
+    const result = await this.prisma.uxArtifact.updateMany({
+      where: {
+        id: latest.id,
+        OR: [
+          { lockedUntil: { lt: now } },
+          { lockedById: user.id },
+          { lockedById: null },
+        ],
+      },
+      data: { lockedById: user.id, lockedUntil },
+    });
+
+    if (result.count === 0) {
+      throw new ConflictException('El artefacto está bloqueado por otro usuario.');
+    }
+
+    return this.prisma.uxArtifact.findUniqueOrThrow({ where: { id: latest.id } });
+  }
+
+  /**
+   * Libera el lock sobre la última versión de un artefacto lógico. Solo
+   * quien lo tiene puede liberarlo explícitamente; si ya expiró o nunca
+   * existió, no falla — liberar es idempotente. El bypass de ADMIN se quitó:
+   * la regla de negocio (Flujos de Usuario, Sprint 4) es "ESTUDIANTE o el
+   * DOCENTE dueño del proyecto editan, nadie más" (ver assertPuedeEditar).
+   */
+  async releaseLock(artefactoId: string, user: AuthenticatedUser) {
+    const artifact = await this.findOne(artefactoId, user);
+    await this.assertPuedeEditar(user, artifact.proyectoId);
+    const latest = await this.getLatestVersion(artifact.artefactoLogicoId, artifact);
+
+    const lockActive = !!latest.lockedById && this.isLockActive(latest.lockedUntil);
+
+    if (lockActive && latest.lockedById !== user.id) {
+      throw new ForbiddenException(
+        'No puedes liberar un bloqueo que pertenece a otro usuario.',
+      );
+    }
+
+    return this.prisma.uxArtifact.update({
+      where: { id: latest.id },
+      data: { lockedById: null, lockedUntil: null },
+    });
+  }
+
+  /**
+   * Busca la versión más reciente de un artefacto lógico. `fallback` es la
+   * fila que ya tenemos en mano (típicamente la que trajo `findOne`): si por
+   * la razón que sea `findFirst` no devuelve nada —no debería pasar en la
+   * práctica, ya que la propia fila de `fallback` matchea el where—, seguimos
+   * operando sobre esa fila en vez de fallar.
+   */
+  private async getLatestVersion<
+    T extends {
+      id: string;
+      version: number;
+      lockedById: string | null;
+      lockedUntil: Date | null;
+    },
+  >(artefactoLogicoId: string, fallback: T): Promise<T> {
+    const latest = await this.prisma.uxArtifact.findFirst({
+      where: { artefactoLogicoId, deletedAt: null },
+      orderBy: { version: 'desc' },
+    });
+
+    return (latest as T | null) ?? fallback;
+  }
+
+  /**
+   * Regla de oro (Flujos de Usuario, Sprint 4): "la visibilidad no implica
+   * permiso para modificar". Edita quien es ESTUDIANTE, o el DOCENTE/ADMIN
+   * que además es el creador del proyecto (creadoPorId === user.id) — el
+   * matiz acordado es que el dueño-docente conserva acceso de demostración
+   * sobre SU propio proyecto. Cualquier otro DOCENTE/ADMIN (sin ser dueño)
+   * queda en solo-observación, aunque `assertAccess` ya le haya permitido
+   * VER el proyecto (ADMIN siempre tiene acceso de lectura a todos).
+   */
+  private async assertPuedeEditar(
+    user: AuthenticatedUser,
+    proyectoId: string,
+  ): Promise<void> {
+    if (user.rol === 'ESTUDIANTE') return;
+
+    const project = await this.prisma.proyecto.findUnique({
+      where: { id: proyectoId, deletedAt: null },
+      select: { creadoPorId: true },
+    });
+
+    if (project?.creadoPorId === user.id) return;
+
+    throw new ForbiddenException(
+      'Solo un estudiante, o el dueño del proyecto, puede editar sus artefactos.',
+    );
+  }
+
+  private async findOneIncludingDeleted(
+    artefactoId: string,
+    user: AuthenticatedUser,
+  ) {
+    const artifact = await this.prisma.uxArtifact.findUnique({
+      where: { id: artefactoId },
+    });
+    if (!artifact) throw new NotFoundException('El artefacto no existe.');
+    await this.projectAccess.assertAccess(artifact.proyectoId, user);
+    return artifact;
+  }
+
+  private isLockActive(lockedUntil: Date | null): boolean {
+    return !!lockedUntil && lockedUntil > new Date();
+  }
+
+  private assertNotLockedByOther(
+    artifact: { lockedById: string | null; lockedUntil: Date | null },
+    user: AuthenticatedUser,
+  ): void {
+    const lockedByOther = artifact.lockedById && artifact.lockedById !== user.id;
+    if (lockedByOther && this.isLockActive(artifact.lockedUntil)) {
+      throw new ConflictException('El artefacto está bloqueado por otro usuario.');
+    }
+  }
+
+  private resolveTtlMs(ttlSegundos?: number): number {
+    if (!ttlSegundos) return DEFAULT_LOCK_TTL_MS;
+    const requestedMs = ttlSegundos * 1000;
+    return Math.min(Math.max(requestedMs, 1000), MAX_LOCK_TTL_MS);
+  }
+
+  /**
+   * Valida el campo `contenido` de un UxArtifact según su `tipo` polimórfico
+   * (enum TipoArtefacto de Prisma). Lanza BadRequestException con el detalle
+   * de los campos inválidos si la validación de Zod falla.
+   */
+  private validateContenidoByTipo(tipo: TipoArtefacto, contenido: unknown): void {
+    switch (tipo) {
+      case TipoArtefacto.JOURNEY_MAP: {
+        try {
+          JourneyMapSchema.parse(contenido);
+        } catch (error) {
+          if (error instanceof ZodError) {
+            const errores = error.issues.map((issue) => ({
+              campo: issue.path.join('.') || '(raíz)',
+              mensaje: issue.message,
+            }));
+
+            throw new BadRequestException({
+              message:
+                'El contenido del Journey Map no cumple con la estructura requerida.',
+              errores,
+            });
+          }
+          throw error;
+        }
+        break;
+      }
+
+      case TipoArtefacto.MOMENTOS_CRITICOS: {
+        try {
+          MomentosCriticosSchema.parse(contenido);
+        } catch (error) {
+          if (error instanceof ZodError) {
+            const errores = error.issues.map((issue) => ({
+              campo: issue.path.join('.') || '(raíz)',
+              mensaje: issue.message,
+            }));
+
+            throw new BadRequestException({
+              message:
+                'El contenido de Momentos Críticos no cumple con la estructura requerida.',
+              errores,
+            });
+          }
+          throw error;
+        }
+        break;
+      }
+
+      case TipoArtefacto.PERSONA: {
+        try {
+          PersonaSchema.parse(contenido);
+        } catch (error) {
+          if (error instanceof ZodError) {
+            const errores = error.issues.map((issue) => ({
+              campo: issue.path.join('.') || '(raíz)',
+              mensaje: issue.message,
+            }));
+
+            throw new BadRequestException({
+              message:
+                'El contenido de Persona no cumple con la estructura requerida.',
+              errores,
+            });
+          }
+          throw error;
+        }
+        break;
+      }
+
+      // Agregar más ramas a medida que se agreguen esquemas Zod para
+      // otros valores de TipoArtefacto.
+
+      default:
+        // Tipos aún sin esquema estricto: no se valida (comportamiento actual).
+        break;
+    }
+  }
+}

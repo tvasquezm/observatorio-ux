@@ -1,0 +1,138 @@
+// apps/frontend/src/features/momentos-criticos/api/momentos-criticos.api.ts
+
+import type {
+  FrecuenciaIncidente,
+  ImpactoIncidente,
+  IncidenteCritico,
+  MomentosCriticos as MomentosCriticosContenido,
+  TipoIncidente,
+  UserProfile,
+} from '@observatorio-ux/shared-types';
+import {
+  acquireLock,
+  createArtifact,
+  createArtifactVersion,
+  dedupeLatestVersions,
+  deleteArtifact,
+  getArtifact,
+  listArtifacts,
+  releaseLock,
+  type UxArtifact,
+} from '../../../shared/api/artifacts.api';
+
+export type {
+  FrecuenciaIncidente,
+  ImpactoIncidente,
+  IncidenteCritico,
+  MomentosCriticosContenido,
+  TipoIncidente,
+  UserProfile,
+};
+
+export type MomentosCriticosArtifact = UxArtifact<MomentosCriticosContenido>;
+
+export async function listCriticalMoments(
+  proyectoId: string,
+): Promise<MomentosCriticosArtifact[]> {
+  const items = await listArtifacts<MomentosCriticosContenido>(
+    proyectoId,
+    'MOMENTOS_CRITICOS',
+  );
+  return dedupeLatestVersions(items);
+}
+
+export function getCriticalMoment(
+  proyectoId: string,
+  artefactoId: string,
+): Promise<MomentosCriticosArtifact> {
+  return getArtifact<MomentosCriticosContenido>(proyectoId, artefactoId);
+}
+
+export function createCriticalMoment(
+  proyectoId: string,
+  contenido: MomentosCriticosContenido,
+): Promise<MomentosCriticosArtifact> {
+  return createArtifact<MomentosCriticosContenido>(
+    proyectoId,
+    'MOMENTOS_CRITICOS',
+    contenido,
+  );
+}
+
+export function updateCriticalMoment(
+  proyectoId: string,
+  artefactoId: string,
+  contenido: MomentosCriticosContenido,
+  expectedVersion?: number,
+): Promise<MomentosCriticosArtifact> {
+  return createArtifactVersion<MomentosCriticosContenido>(
+    proyectoId,
+    artefactoId,
+    contenido,
+    expectedVersion,
+  );
+}
+
+export function lockCriticalMoment(
+  proyectoId: string,
+  artefactoId: string,
+  ttlSegundos?: number,
+): Promise<MomentosCriticosArtifact> {
+  return acquireLock<MomentosCriticosContenido>(proyectoId, artefactoId, ttlSegundos);
+}
+
+export function unlockCriticalMoment(
+  proyectoId: string,
+  artefactoId: string,
+): Promise<MomentosCriticosArtifact> {
+  return releaseLock<MomentosCriticosContenido>(proyectoId, artefactoId);
+}
+
+/** Soft delete — ver nota en persona.api.ts. */
+export function deleteCriticalMoment(
+  proyectoId: string,
+  artefactoId: string,
+): Promise<void> {
+  // 👈 Cambiado a Promise<void> para alinearlo con el contrato de la API
+  return deleteArtifact(proyectoId, artefactoId);
+}
+
+// --- Helpers de "incidente" (sub-elemento de incidentes[], no entidad ---
+// --- propia — mismo patrón que las fases del journey map). ---
+
+// Escala numérica solo para ordenar/graficar en la matriz de UI — el
+// backend NUNCA recibe estos números, solo los enums Alto/Medio/Bajo etc.
+const IMPACTO_PESO: Record<ImpactoIncidente, number> = { Bajo: 1, Medio: 2, Alto: 3 };
+const FRECUENCIA_PESO: Record<FrecuenciaIncidente, number> = { Baja: 1, Media: 2, Alta: 3 };
+
+export function prioridadNumerica(incidente: IncidenteCritico): number {
+  return IMPACTO_PESO[incidente.impacto] * FRECUENCIA_PESO[incidente.frecuencia];
+}
+
+export function replaceIncidente(
+  contenido: MomentosCriticosContenido,
+  index: number,
+  incidente: IncidenteCritico,
+): MomentosCriticosContenido {
+  const incidentes = [...contenido.incidentes];
+  incidentes[index] = incidente;
+  return { ...contenido, incidentes };
+}
+
+export function addIncidente(
+  contenido: MomentosCriticosContenido,
+  incidente: IncidenteCritico,
+): MomentosCriticosContenido {
+  return { ...contenido, incidentes: [...contenido.incidentes, incidente] };
+}
+
+export function removeIncidente(
+  contenido: MomentosCriticosContenido,
+  index: number,
+): MomentosCriticosContenido {
+  // MomentosCriticosSchema exige mínimo 1 incidente — validar en cliente.
+  return {
+    ...contenido,
+    incidentes: contenido.incidentes.filter((_, i) => i !== index),
+  };
+}

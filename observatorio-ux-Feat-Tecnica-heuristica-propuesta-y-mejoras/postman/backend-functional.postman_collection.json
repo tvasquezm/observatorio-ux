@@ -1,0 +1,81 @@
+{
+  "info": {
+    "name": "Observatorio UX - Backend funcional",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "0. Token evaluador",
+      "event": [{
+        "listen": "test",
+        "script": {"type": "text/javascript", "exec": ["pm.collectionVariables.set('evaluatorToken', pm.response.json().access_token);"]}
+      }],
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/auth/test-token"
+      }
+    },
+    {
+      "name": "1. Token participante",
+      "event": [{
+        "listen": "test",
+        "script": {"type": "text/javascript", "exec": ["pm.collectionVariables.set('participantToken', pm.response.json().access_token);"]}
+      }],
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/auth/test-participant-token"
+      }
+    },
+    {
+      "name": "2. Crear estudio Card Sorting",
+      "event": [{
+        "listen": "test",
+        "script": {"type": "text/javascript", "exec": [
+          "const data = pm.response.json();",
+          "pm.collectionVariables.set('estudioId', data.id);",
+          "pm.collectionVariables.set('cardId1', data.cardsDefinidas[0].id);",
+          "pm.collectionVariables.set('cardId2', data.cardsDefinidas[1].id);"
+        ]}
+      }],
+      "request": {
+        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{evaluatorToken}}", "type": "string"}]},
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {"mode": "raw", "raw": "{\n  \"proyectoId\": \"{{proyectoId}}\",\n  \"tipo\": \"ABIERTO\",\n  \"tarjetas\": [\n    {\"etiqueta\": \"Historial de compras\"},\n    {\"etiqueta\": \"Métodos de pago\"}\n  ]\n}"},
+        "url": "{{baseUrl}}/api/card-sorting/sessions"
+      }
+    },
+    {
+      "name": "3. Unir participante",
+      "event": [{
+        "listen": "test",
+        "script": {"type": "text/javascript", "exec": ["pm.collectionVariables.set('participantSessionId', pm.response.json().id);"]}
+      }],
+      "request": {
+        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{participantToken}}", "type": "string"}]},
+        "method": "POST",
+        "url": "{{baseUrl}}/api/card-sorting/sessions/{{estudioId}}/join"
+      }
+    },
+    {
+      "name": "4. Enviar resultado",
+      "request": {
+        "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{participantToken}}", "type": "string"}]},
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {"mode": "raw", "raw": "{\n  \"grupos\": [{\n    \"categoriaNombre\": \"Cuenta\",\n    \"cardIds\": [\"{{cardId1}}\", \"{{cardId2}}\"]\n  }]\n}"},
+        "url": "{{baseUrl}}/api/card-sorting/sessions/{{participantSessionId}}/results"
+      }
+    }
+  ],
+  "variable": [
+    {"key": "baseUrl", "value": "http://localhost:3000"},
+    {"key": "proyectoId", "value": "2220b224-865d-4230-a484-19338c66b9e6"},
+    {"key": "evaluatorToken", "value": ""},
+    {"key": "participantToken", "value": ""},
+    {"key": "estudioId", "value": ""},
+    {"key": "participantSessionId", "value": ""},
+    {"key": "cardId1", "value": ""},
+    {"key": "cardId2", "value": ""}
+  ]
+}

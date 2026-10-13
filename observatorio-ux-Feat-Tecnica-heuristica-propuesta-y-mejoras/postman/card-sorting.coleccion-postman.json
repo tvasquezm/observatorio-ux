@@ -1,0 +1,138 @@
+{
+  "info": {
+    "name": "Observatorio UX - Card Sorting Automatizado",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "0. Generar Token de Prueba",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var jsonData = pm.response.json();",
+              "pm.collectionVariables.set(\"jwtToken\", jsonData.access_token);",
+              "console.log(\"¡Token guardado exitosamente!\");"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/test-token",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "test-token"]
+        }
+      }
+    },
+    {
+      "name": "1. Crear Sesión (Estudio)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var jsonData = pm.response.json();",
+              "pm.collectionVariables.set(\"estudioId\", jsonData.id);",
+              "",
+              "var arrayTarjetas = jsonData.cardsDefinidas || jsonData.tarjetas || jsonData.cards || [];",
+              "",
+              "if (arrayTarjetas.length >= 2) {",
+              "    pm.collectionVariables.set(\"cardId1\", arrayTarjetas[0].id);",
+              "    pm.collectionVariables.set(\"cardId2\", arrayTarjetas[1].id);",
+              "    console.log(\"✅ IDs de tarjetas capturados correctamente.\");",
+              "} else {",
+              "    console.log(\"⚠️ ALERTA: No se encontraron tarjetas en la respuesta.\");",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"proyectoId\": \"{{proyectoId}}\",\n    \"tarjetas\": [\n        {\"etiqueta\": \"Historial de compras\"},\n        {\"etiqueta\": \"Métodos de pago\"},\n        {\"etiqueta\": \"Cambiar contraseña\"}\n    ]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/card-sorting/sessions",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "card-sorting", "sessions"]
+        }
+      }
+    },
+    {
+      "name": "2. Unirse a la Sesión",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var jsonData = pm.response.json();",
+              "pm.collectionVariables.set(\"participanteSessionId\", jsonData.id);",
+              "console.log(\"¡ID del participante capturado!\");"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            { "key": "token", "value": "{{jwtToken}}", "type": "string" }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/card-sorting/sessions/{{estudioId}}/join",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "card-sorting", "sessions", "{{estudioId}}", "join"]
+        }
+      }
+    },
+    {
+      "name": "3. Enviar Resultados",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            { "key": "token", "value": "{{jwtToken}}", "type": "string" }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"grupos\": [\n        {\n            \"categoriaNombre\": \"Configuración de Cuenta\",\n            \"cardIds\": [\n                \"{{cardId1}}\", \n                \"{{cardId2}}\"\n            ]\n        }\n    ]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/card-sorting/sessions/{{participanteSessionId}}/results",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "card-sorting", "sessions", "{{participanteSessionId}}", "results"]
+        }
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "proyectoId", "value": "2220b224-865d-4230-a484-19338c66b9e6" },
+    { "key": "participanteId", "value": "62848df5-2560-4a28-a303-43b0af2b65a2" },
+    { "key": "jwtToken", "value": "" },
+    { "key": "estudioId", "value": "" },
+    { "key": "participanteSessionId", "value": "" },
+    { "key": "cardId1", "value": "" },
+    { "key": "cardId2", "value": "" }
+  ]
+}
