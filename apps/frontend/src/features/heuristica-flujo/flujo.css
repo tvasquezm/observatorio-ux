@@ -16,3 +16,5 @@
 .hf .hf-origin { font-size: 12px; overflow-wrap: anywhere; }
 .hf .hf-status { font-size: 13px; }
 .hf pre { max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; }
+.hf .hf-paso { display: block; }
+.hf .hf-ayuda { font-size: 14px; margin: 4px 0 12px; }

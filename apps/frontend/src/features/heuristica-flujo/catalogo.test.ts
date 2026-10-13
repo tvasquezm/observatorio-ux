@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   METODOLOGIAS_HEURISTICAS, copiarMetodologia, combinarMetodologias, resumirEvaluacion,
   comprobarCompatibilidad, detectarDiscrepancias, escalaDe,
+  claveEscalaPredefinida, escalaPredefinida, metodologiaVacia, parsearListaCriterios, problemasMetodologia,
 } from '@observatorio-ux/shared-types';
 import { pendientesTrabajo } from './flujo-utils';
 import type { ConfiguracionFlujo, ConsensoFlujo, DecisionCriterio, DecisionHallazgo, TrabajoFlujo } from '@observatorio-ux/shared-types';
@@ -186,5 +187,68 @@ describe('comparación y discrepancias', () => {
     expect(trabajos[0].respuestas[0].valor).toBe('cumple');
     trabajos[1].respuestas[0] = respuesta(config.metodologia.criterios[0].id, null, true);
     expect(detectarDiscrepancias(config, trabajos).criterios[0].motivos).toContain('Aplicabilidad distinta.');
+  });
+});
+
+describe('constructor de métodos', () => {
+  const origen = { metodologiaId: 'propia', autor: 'Ana', fuente: 'Definición propia de Ana', version: '1', tipo: 'personalizado' };
+  const ids = () => { let n = 0; return () => `c${++n}`; };
+
+  it('ofrece escalas predefinidas válidas y como copias independientes', () => {
+    const si = escalaPredefinida('si_no'), likert = escalaPredefinida('likert_1_5'), nielsen = escalaPredefinida('nielsen_0_4');
+    expect(si.niveles.map(n => n.id)).toEqual(['si', 'no']);
+    expect(likert.niveles.map(n => n.valor)).toEqual([1, 2, 3, 4, 5]);
+    expect(likert).toMatchObject({ tipo: 'numerica', sentido: 'mayor_mejor', formula: 'media_ponderada' });
+    expect(nielsen.niveles.map(n => n.valor)).toEqual([0, 1, 2, 3, 4]);
+    expect(nielsen.sentido).toBe('menor_mejor');
+    si.niveles[0].etiqueta = 'Cambiado';
+    expect(escalaPredefinida('si_no').niveles[0].etiqueta).toBe('Sí');
+    for (const e of [si, likert, nielsen]) expect(problemasMetodologia({ ...metodologiaVacia('Ana', 'm'), criterios: [], escala: e }).filter(p => p.includes('escala'))).toEqual([]);
+  });
+  it('reconoce una escala predefinida y distingue una editada', () => {
+    expect(claveEscalaPredefinida(escalaPredefinida('likert_1_5'))).toBe('likert_1_5');
+    const editada = escalaPredefinida('si_no'); editada.niveles[0].etiqueta = 'Correcto';
+    expect(claveEscalaPredefinida(editada)).toBeNull();
+    expect(claveEscalaPredefinida(METODOLOGIAS_HEURISTICAS[0].escala)).toBeNull();
+  });
+  it('una línea es un criterio, con categoría opcional y sin viñetas', () => {
+    const { criterios, avisos } = parsearListaCriterios('Navegación: Menús claros\n\n- Botones visibles\n2) Ayuda: contextual: en cada paso\r\n', origen, ids());
+    expect(avisos).toEqual([]);
+    expect(criterios.map(c => [c.id, c.categoria, c.nombre, c.peso])).toEqual([
+      ['c1', 'Navegación', 'Menús claros', 1], ['c2', 'Personalizado', 'Botones visibles', 1], ['c3', 'Ayuda', 'contextual: en cada paso', 1],
+    ]);
+    expect(criterios[0].origen).toEqual(origen);
+    expect(criterios[0].escala).toBeUndefined();
+  });
+  it('avisa y omite duplicados, líneas largas y respeta los criterios existentes', () => {
+    const { criterios, avisos } = parsearListaCriterios(`A: uno\na: UNO\nExistente\n${'x'.repeat(301)}`, origen, ids(), [{ nombre: 'Existente', categoria: 'Personalizado' }]);
+    expect(criterios.map(c => c.nombre)).toEqual(['uno']);
+    expect(avisos).toHaveLength(3);
+    expect(avisos.join(' ')).toMatch(/repite/);
+    expect(avisos.join(' ')).toMatch(/demasiado larga/);
+  });
+  it('no pasa del máximo de criterios', () => {
+    const { criterios, avisos } = parsearListaCriterios(Array.from({ length: 502 }, (_, i) => `ítem ${i}`).join('\n'), origen, ids());
+    expect(criterios).toHaveLength(500);
+    expect(avisos[0]).toMatch(/máximo de 500/);
+  });
+  it('explica en lenguaje simple lo que falta para guardar', () => {
+    const vacia = metodologiaVacia('Ana', 'm');
+    expect(problemasMetodologia(vacia)).toEqual(['Agrega al menos un criterio.']);
+    const { criterios } = parsearListaCriterios('Uno', origen, ids());
+    expect(problemasMetodologia({ ...vacia, criterios })).toEqual([]);
+    const mala = { ...vacia, nombre: ' ', criterios: [{ ...criterios[0], nombre: '', peso: 0 }], escala: { ...escalaPredefinida('likert_1_5'), niveles: [{ id: 'a', etiqueta: '', significado: 'x' }] } };
+    expect(problemasMetodologia(mala)).toEqual([
+      'Ponle un nombre a la metodología.', 'El criterio 1 no tiene nombre.', 'El peso del criterio 1 debe ser mayor que cero.',
+      'El nivel 1 de la escala necesita etiqueta y significado.', 'El nivel 1 de la escala necesita un valor numérico.',
+    ]);
+  });
+  it('un criterio con escala predefinida propia valida su valor y deja intacta una evaluación antigua', () => {
+    const c = configuracion();
+    const [primero, ...resto] = c.metodologia.criterios;
+    c.metodologia.criterios = [{ ...primero, escala: escalaPredefinida('si_no') }, ...resto];
+    expect(pendientesTrabajo(c, [{ criterioId: primero.id, valor: 'si', noAplica: false, motivo: '', notas: '' }], []).some(p => p.includes(primero.nombre))).toBe(false);
+    expect(pendientesTrabajo(c, [{ criterioId: primero.id, valor: 'cumple', noAplica: false, motivo: '', notas: '' }], []).some(p => p.includes(primero.nombre))).toBe(true);
+    expect(escalaDe(c.metodologia, resto[0])).toBe(c.metodologia.escala);
   });
 });

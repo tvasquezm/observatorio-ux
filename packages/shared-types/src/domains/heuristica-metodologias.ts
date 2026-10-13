@@ -1,4 +1,4 @@
-import type { CriterioFlujo, EscalaFlujo, MetodologiaFlujo } from './heuristica-flujo';
+import type { CriterioFlujo, EscalaFlujo, MetodologiaFlujo, OrigenCriterio } from './heuristica-flujo';
 
 export const ESCALA_OPERATIVA_HEURISTICA: EscalaFlujo = {
   tipo: 'categorica', sentido: 'sin_orden', fuente: 'Escala operativa de la plataforma',
@@ -201,4 +201,93 @@ export function combinarMetodologias(originales: MetodologiaFlujo[], id = 'combi
     ambito: originales.map(m => `${m.nombre}: ${m.ambito}`).join('\n') + (mismaEscala ? '' : '\nEscalas distintas: cada criterio conserva la escala de su metodología de origen.'),
     escala: base,
   };
+}
+
+export type ClaveEscalaPredefinida = 'si_no' | 'likert_1_5' | 'nielsen_0_4';
+const nivelEscala = (id: string, etiqueta: string, significado: string, valor?: number) => ({ id, etiqueta, significado, ...(valor === undefined ? {} : { valor }) });
+const ESCALAS_PREDEFINIDAS: Record<ClaveEscalaPredefinida, () => EscalaFlujo> = {
+  si_no: () => ({
+    tipo: 'categorica', sentido: 'sin_orden', fuente: 'Escala Sí/No de la plataforma',
+    niveles: [nivelEscala('si', 'Sí', 'El producto cumple lo que pide este ítem.'), nivelEscala('no', 'No', 'El producto no cumple lo que pide este ítem.')],
+  }),
+  likert_1_5: () => ({
+    tipo: 'numerica', sentido: 'mayor_mejor', formula: 'media_ponderada', fuente: 'Escala de cumplimiento 1 a 5 de la plataforma',
+    niveles: [
+      nivelEscala('v1', '1 · No cumple', 'El criterio no se cumple en absoluto.', 1), nivelEscala('v2', '2 · Cumple poco', 'Se cumple en una parte menor del alcance revisado.', 2),
+      nivelEscala('v3', '3 · Cumple a medias', 'Se cumple en parte; hay carencias claras.', 3), nivelEscala('v4', '4 · Cumple casi todo', 'Se cumple, con carencias menores.', 4),
+      nivelEscala('v5', '5 · Cumple totalmente', 'Se cumple en todo el alcance revisado.', 5),
+    ],
+  }),
+  nielsen_0_4: () => ({
+    tipo: 'numerica', sentido: 'menor_mejor', fuente: 'Escala de severidad 0 a 4 de Nielsen; redacción propia de la plataforma',
+    niveles: [
+      nivelEscala('n0', '0 · Sin problema', 'No se observa ningún problema de usabilidad en este criterio.', 0), nivelEscala('n1', '1 · Cosmético', 'Problema de apariencia; corregir solo si sobra tiempo.', 1),
+      nivelEscala('n2', '2 · Menor', 'Molesta, pero la persona logra completar su tarea.', 2), nivelEscala('n3', '3 · Mayor', 'Dificulta la tarea; conviene corregirlo con prioridad.', 3),
+      nivelEscala('n4', '4 · Catastrófico', 'Impide completar la tarea o causa pérdidas; corregir antes de publicar.', 4),
+    ],
+  }),
+};
+/** Escala lista para usar; cada llamada devuelve una copia nueva y editable. */
+export function escalaPredefinida(clave: ClaveEscalaPredefinida): EscalaFlujo { return ESCALAS_PREDEFINIDAS[clave](); }
+export function claveEscalaPredefinida(escala: EscalaFlujo): ClaveEscalaPredefinida | null {
+  const texto = JSON.stringify(escala);
+  return (Object.keys(ESCALAS_PREDEFINIDAS) as ClaveEscalaPredefinida[]).find(k => JSON.stringify(ESCALAS_PREDEFINIDAS[k]()) === texto) ?? null;
+}
+
+/** Metodología propia sin criterios; usa la escala operativa hasta que se elija otra. */
+export function metodologiaVacia(autor: string, id: string, nombre = 'Mi metodología'): MetodologiaFlujo {
+  return { id, nombre, autor, fuente: `Definición propia de ${autor}`, version: '1', tipo: 'personalizado', ambito: '', criterios: [], escala: JSON.parse(JSON.stringify(ESCALA_OPERATIVA_HEURISTICA)) as EscalaFlujo, protegida: false };
+}
+
+export const MAX_CRITERIOS_METODOLOGIA = 500;
+const MAX_NOMBRE_CRITERIO = 300;
+const MAX_CATEGORIA = 60;
+/**
+ * Una línea = un criterio. Formato opcional `Categoría: criterio`. Ignora viñetas y numeración al inicio.
+ * `existentes` evita duplicados y respeta el tope de criterios de la metodología.
+ */
+export function parsearListaCriterios(texto: string, origen: OrigenCriterio, nuevoId: () => string, existentes: Pick<CriterioFlujo, 'nombre' | 'categoria'>[] = []): { criterios: CriterioFlujo[]; avisos: string[] } {
+  const criterios: CriterioFlujo[] = [];
+  const avisos: string[] = [];
+  const clave = (categoria: string, nombre: string) => `${categoria.trim().toLocaleLowerCase()}|${nombre.trim().toLocaleLowerCase()}`;
+  const vistos = new Set(existentes.map(c => clave(c.categoria, c.nombre)));
+  const lineas = texto.split(/\r?\n/);
+  for (let i = 0; i < lineas.length; i++) {
+    const linea = lineas[i].trim().replace(/^(?:[-*•]\s+|\d+[.)]\s+)/, '').trim();
+    if (!linea) continue;
+    if (existentes.length + criterios.length >= MAX_CRITERIOS_METODOLOGIA) { avisos.push(`Se llegó al máximo de ${MAX_CRITERIOS_METODOLOGIA} criterios; las líneas desde la ${i + 1} no se agregaron.`); break; }
+    const corte = linea.indexOf(':');
+    const conCategoria = corte > 0 && corte <= MAX_CATEGORIA && !!linea.slice(corte + 1).trim();
+    const categoria = conCategoria ? linea.slice(0, corte).trim() : 'Personalizado';
+    const nombre = conCategoria ? linea.slice(corte + 1).trim() : linea;
+    if (nombre.length > MAX_NOMBRE_CRITERIO) { avisos.push(`La línea ${i + 1} es demasiado larga (máximo ${MAX_NOMBRE_CRITERIO} caracteres) y no se agregó.`); continue; }
+    if (vistos.has(clave(categoria, nombre))) { avisos.push(`La línea ${i + 1} repite un criterio y no se agregó: ${nombre}`); continue; }
+    vistos.add(clave(categoria, nombre));
+    criterios.push({ id: nuevoId(), nombre, descripcion: '', categoria, peso: 1, origen: { ...origen } });
+  }
+  return { criterios, avisos };
+}
+
+/** Problemas que impedirían guardar la metodología, en lenguaje simple. Vacío = lista para usar. */
+export function problemasMetodologia(m: MetodologiaFlujo): string[] {
+  const problemas: string[] = [];
+  const escala = (e: EscalaFlujo, nombre: string) => {
+    if (!e.niveles.length) problemas.push(`Agrega al menos un nivel a ${nombre}.`);
+    if (!e.fuente.trim()) problemas.push(`Indica la fuente o definición de ${nombre}.`);
+    e.niveles.forEach((n, i) => {
+      if (!n.etiqueta.trim() || !n.significado.trim()) problemas.push(`El nivel ${i + 1} de ${nombre} necesita etiqueta y significado.`);
+      if (e.tipo === 'numerica' && (n.valor === undefined || !Number.isFinite(n.valor))) problemas.push(`El nivel ${i + 1} de ${nombre} necesita un valor numérico.`);
+    });
+    if (e.formula && e.sentido === 'sin_orden') problemas.push(`Para calcular la media, ${nombre} necesita un sentido favorable (mayor o menor es mejor).`);
+  };
+  if (!m.nombre.trim()) problemas.push('Ponle un nombre a la metodología.');
+  if (!m.criterios.length) problemas.push('Agrega al menos un criterio.');
+  m.criterios.forEach((c, i) => {
+    if (!c.nombre.trim()) problemas.push(`El criterio ${i + 1} no tiene nombre.`);
+    if (!c.categoria.trim()) problemas.push(`El criterio ${i + 1} no tiene categoría.`);
+    if (!(c.peso > 0)) problemas.push(`El peso del criterio ${i + 1} debe ser mayor que cero.`);
+    if (c.escala) escala(c.escala, `la escala del criterio ${i + 1}`);
+  });
+  escala(m.escala, 'la escala');
+  return problemas;
 }

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { escalaDe } from '@observatorio-ux/shared-types';
 import type { ConfiguracionFlujo, EvaluacionFlujo, HallazgoFlujo, RespuestaCriterio } from '@observatorio-ux/shared-types';
-import { Field } from './ConfiguracionEditor';
+import { Field } from './campos';
 import { EvidenciaEditor } from './EvidenciaEditor';
 import { useFlujoDraft } from './useFlujoDraft';
 import { flujoRequest } from './flujo.api';
