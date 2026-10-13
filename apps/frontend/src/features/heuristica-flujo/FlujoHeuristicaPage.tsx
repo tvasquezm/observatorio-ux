@@ -41,11 +41,13 @@ function NuevaEvaluacion({ proyectoId, biblioteca, equipo, onSaved, onCancel, on
     return () => window.removeEventListener('beforeunload', listener);
   }, [dirty, busy]);
   useEffect(() => { try { if (dirty) sessionStorage.setItem(key, JSON.stringify(value)); else sessionStorage.removeItem(key); setLocalError(''); } catch { setLocalError('No se pudo conservar el borrador local. Guarda antes de cerrar.'); } }, [key, value, dirty]);
+  const sinCriterios = value.metodologia.criterios.length === 0;
   const clearDraft = () => { try { sessionStorage.removeItem(key); } catch { /* El navegador también bloqueó el guardado local. */ } };
   return <><button type="button" className="text-button" disabled={busy} onClick={async () => { if (dirty && !(await confirm('¿Cancelar y descartar el borrador nuevo?'))) return; clearDraft(); onCancel(); }}>← Cancelar nueva evaluación</button>
     <p role="status">{localError || (dirty ? 'Borrador local conservado en esta pestaña; se recupera al retomar Nueva evaluación.' : 'Completa la configuración para guardar el borrador.')}</p>
     <h2>Nueva evaluación heurística</h2><ConfiguracionEditor value={value} onChange={setValue} biblioteca={biblioteca} equipo={equipo} onSaveMethod={onSaveMethod} onUpdateMethod={onUpdateMethod} onDeleteMethod={onDeleteMethod} />
-    <button type="button" className="primary" disabled={busy} onClick={async () => { setBusy(true); setError(''); try { const result = await flujoRequest<EvaluacionFlujo>(proyectoId, '/evaluaciones', 'POST', value); clearDraft(); onSaved(result); } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo crear'); } finally { setBusy(false); } }}>Guardar borrador de evaluación</button>{error && <p role="alert" className="hf-error">{error}</p>}
+    {sinCriterios && <p className="hf-ayuda">Agrega al menos un criterio para guardar.</p>}
+    <button type="button" className="primary" disabled={busy || sinCriterios} onClick={async () => { setBusy(true); setError(''); try { const result = await flujoRequest<EvaluacionFlujo>(proyectoId, '/evaluaciones', 'POST', value); clearDraft(); onSaved(result); } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo crear'); } finally { setBusy(false); } }}>Guardar borrador de evaluación</button>{error && <p role="alert" className="hf-error">{error}</p>}
   </>;
 }
 function ConfiguracionSesion({ evaluacion, usuarioId, biblioteca, equipo, onSaved, onBack, onSaveMethod, onUpdateMethod, onDeleteMethod }: { evaluacion: EvaluacionFlujo; usuarioId: string; biblioteca: MetodologiaFlujo[]; equipo: MiembroEquipoFlujo[]; onSaved: (e: EvaluacionFlujo) => void; onBack: () => void; onSaveMethod: (m: MetodologiaFlujo) => Promise<void>; onUpdateMethod: (m: MetodologiaFlujo) => Promise<void>; onDeleteMethod: (id: string) => Promise<void> }) {

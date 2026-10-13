@@ -173,6 +173,18 @@ describe('historial e informe', () => {
     expect(await screen.findByRole('heading', { name: 'Evaluación heurística' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Evaluaciones anteriores (sesiones)' })).toBeInTheDocument();
   });
+  it('no permite guardar una evaluación sin criterios y lo dice en texto', async () => {
+    api.mockImplementation(async (_p, path) => path === '/metodologias' ? [config().metodologia] : path === '/equipo' ? [{ id: 'u1', nombre: 'Ana', rol: 'ESTUDIANTE' }] : []);
+    renderFlow(<FlujoHeuristicaPage />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Nueva evaluación completa' })).toBeEnabled());
+    await userEvent.click(screen.getByRole('button', { name: 'Nueva evaluación completa' }));
+    expect(screen.getByRole('button', { name: 'Guardar borrador de evaluación' })).toBeEnabled();
+    expect(screen.queryByText('Agrega al menos un criterio para guardar.')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Quitar criterio 1' }));
+    expect(screen.getByRole('button', { name: 'Guardar borrador de evaluación' })).toBeDisabled();
+    expect(screen.getByText('Agrega al menos un criterio para guardar.')).toBeInTheDocument();
+    expect(api).not.toHaveBeenCalledWith('p1', '/evaluaciones', 'POST', expect.anything());
+  });
   it('recupera creación local tras fallo y limpia borrador al crear', async () => {
     let fail = true;
     let created = evaluation({ fase: 'BORRADOR' });
