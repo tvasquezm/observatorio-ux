@@ -10,17 +10,17 @@ export const ESCALA_OPERATIVA_HEURISTICA: EscalaFlujo = {
 };
 
 type Definicion = [nombre: string, descripcion: string, categoria?: string];
-function metodologia(id: string, nombre: string, autor: string, fuente: string, version: string, ambito: string, definiciones: Definicion[], tipo = 'Heurísticas; paráfrasis operativa de la plataforma'): MetodologiaFlujo {
+function metodologia(id: string, nombre: string, autor: string, fuente: string, version: string, ambito: string, definiciones: Definicion[], tipo = 'Heurísticas; paráfrasis operativa de la plataforma', escala?: EscalaFlujo): MetodologiaFlujo {
   return { id, nombre, autor, fuente, version, tipo, ambito, protegida: true,
     criterios: definiciones.map(([nombreCriterio, descripcion, categoria], i) => ({
       id: `${id}:${i + 1}`, nombre: nombreCriterio, descripcion, categoria: categoria ?? nombreCriterio, peso: 1,
       origen: { metodologiaId: id, autor, fuente, version, tipo },
-    })), escala: JSON.parse(JSON.stringify(ESCALA_OPERATIVA_HEURISTICA)) as EscalaFlujo,
+    })), escala: escala ?? JSON.parse(JSON.stringify(ESCALA_OPERATIVA_HEURISTICA)) as EscalaFlujo,
   };
 }
 
 /** Definiciones redactadas para esta plataforma. La valoración del criterio es independiente de la severidad del hallazgo. */
-export const METODOLOGIAS_HEURISTICAS: MetodologiaFlujo[] = [
+const CATALOGO_BASE: MetodologiaFlujo[] = [
   metodologia('nielsen10', 'Nielsen: 10 heurísticas', 'Jakob Nielsen', 'https://www.nngroup.com/articles/ten-usability-heuristics/', '1994; revisión 2024-01-30; paráfrasis v1', 'Interfaces generales; diez principios, con definiciones resumidas.', [
     ['Estado visible', 'Comprobar que cada acción informa su progreso y resultado.'],
     ['Lenguaje del usuario', 'Usar conceptos cotidianos y un orden comprensible.'],
@@ -170,7 +170,6 @@ function congelar(valor: object): void {
   Object.freeze(valor);
 }
 congelar(ESCALA_OPERATIVA_HEURISTICA);
-congelar(METODOLOGIAS_HEURISTICAS);
 
 export function copiarMetodologia(original: MetodologiaFlujo, id = `${original.id}-copia`, nombre = `${original.nombre} (copia)`): MetodologiaFlujo {
   const copia = JSON.parse(JSON.stringify(original)) as MetodologiaFlujo;
@@ -229,6 +228,114 @@ const ESCALAS_PREDEFINIDAS: Record<ClaveEscalaPredefinida, () => EscalaFlujo> = 
 };
 /** Escala lista para usar; cada llamada devuelve una copia nueva y editable. */
 export function escalaPredefinida(clave: ClaveEscalaPredefinida): EscalaFlujo { return ESCALAS_PREDEFINIDAS[clave](); }
+
+/** Checklist Sí/No: ítems redactados por la plataforma sobre las once dimensiones del artículo; no reproduce el texto original. */
+const ITEMS_CHECKLIST_HASSAN: Array<[categoria: string, items: string[]]> = [
+  ['Generales', [
+    'El propósito del sitio se entiende desde la página de inicio.',
+    'Se distingue con claridad a quién está dirigido el sitio.',
+    'El contenido responde a lo que la audiencia viene a buscar.',
+    'La estructura general refleja cómo la audiencia agrupa la información.',
+    'El diseño visual es coherente en todo el sitio.',
+    'Las páginas cargan en un tiempo razonable con una conexión habitual.',
+    'El sitio se ve y funciona de forma similar en los navegadores y dispositivos previstos.',
+  ]],
+  ['Identidad e información', [
+    'Se identifica quién edita el sitio (nombre, logotipo o marca) en todas las páginas.',
+    'El logotipo lleva a la página de inicio.',
+    'Hay una forma visible de contactar a los responsables.',
+    'Se explica qué es el sitio y qué ofrece sin necesidad de salir de él.',
+    'Cada página indica con claridad su título o tema.',
+    'Los contenidos indican cuándo se publicaron o actualizaron, cuando eso importa.',
+    'Se informan las condiciones de uso y de privacidad cuando se piden datos personales.',
+  ]],
+  ['Lenguaje y redacción', [
+    'El texto usa el vocabulario de la audiencia, sin jerga innecesaria.',
+    'Las frases son breves y directas.',
+    'Cada párrafo desarrolla una sola idea.',
+    'La información más importante aparece al comienzo del texto.',
+    'Los textos largos se dividen con títulos, listas o párrafos cortos.',
+    'El tono es coherente en todas las secciones.',
+    'No hay errores ortográficos ni gramaticales evidentes.',
+  ]],
+  ['Rotulado', [
+    'Los títulos de página describen su contenido real.',
+    'Las etiquetas del menú permiten anticipar a dónde llevan.',
+    'Los enlaces se entienden fuera de su contexto, sin depender de textos como "aquí" o "más".',
+    'Los botones nombran la acción que ejecutan.',
+    'Un mismo concepto se llama igual en todo el sitio.',
+  ]],
+  ['Estructura y navegación', [
+    'El menú principal es visible y está en el mismo lugar en todas las páginas.',
+    'Desde cualquier página se puede volver a la página de inicio.',
+    'La persona puede saber en qué parte del sitio está.',
+    'Se distinguen los enlaces ya visitados.',
+    'Los enlaces se reconocen como tales.',
+    'Los niveles del menú son pocos y no obligan a navegar más de lo necesario.',
+    'Las tareas frecuentes se completan en pocos pasos.',
+    'No hay enlaces rotos ni páginas sin salida.',
+    'Los sitios con varios niveles ofrecen una ruta de migas u otra pista de ubicación.',
+    'Los enlaces externos se distinguen de los internos o avisan que abren otro sitio.',
+  ]],
+  ['Distribución de la información', [
+    'La jerarquía visual destaca lo más importante de cada página.',
+    'Los elementos relacionados se ven agrupados.',
+    'Hay espacio en blanco suficiente para separar los bloques.',
+    'La página no obliga a desplazarse en horizontal.',
+    'El contenido principal se ve sin desplazarse demasiado.',
+    'Las ventanas emergentes y los anuncios no tapan ni distraen del contenido.',
+    'La longitud de línea del texto permite leer con comodidad.',
+    'El diseño se adapta al tamaño de pantalla en que se usa.',
+  ]],
+  ['Búsqueda', [
+    'Hay un buscador accesible cuando el sitio tiene mucho contenido.',
+    'El campo de búsqueda se reconoce y es lo bastante amplio.',
+    'Los resultados se presentan ordenados y con contexto suficiente.',
+    'La búsqueda tolera errores de escritura u ofrece alternativas.',
+    'Si no hay resultados, se explica y se sugieren otras opciones.',
+  ]],
+  ['Multimedia', [
+    'Las imágenes aportan información o apoyan el contenido.',
+    'El tamaño de las imágenes equilibra calidad y tiempo de carga.',
+    'Los videos y audios se pueden pausar, detener y ajustar en volumen.',
+    'No se reproduce sonido ni video automáticamente sin aviso.',
+    'Los medios cuentan con alternativa de texto, subtítulos o transcripción.',
+  ]],
+  ['Ayuda', [
+    'Hay ayuda o instrucciones localizables desde donde se necesitan.',
+    'La ayuda está redactada en torno a las tareas de la persona.',
+    'Hay preguntas frecuentes o algo equivalente para las dudas habituales.',
+    'Se indica cómo recibir ayuda personal cuando la ayuda escrita no basta.',
+  ]],
+  ['Accesibilidad', [
+    'El texto tiene contraste suficiente con el fondo.',
+    'El texto se puede ampliar sin romper la página.',
+    'La información no depende solo del color.',
+    'Las imágenes informativas tienen texto alternativo.',
+    'Todo se puede usar con teclado y el foco se ve.',
+    'Cada campo de formulario está asociado a su etiqueta.',
+    'La estructura de títulos permite navegar con lector de pantalla.',
+  ]],
+  ['Control y retroalimentación', [
+    'Cada acción recibe una respuesta visible.',
+    'Los procesos largos informan su progreso.',
+    'Se puede cancelar o volver atrás sin perder lo hecho.',
+    'Los errores se explican con lenguaje claro y dicen cómo corregirlos.',
+    'Se pide confirmación antes de las acciones irreversibles.',
+    'La persona decide cuándo se abren ventanas nuevas o cambia el contenido.',
+  ]],
+];
+const HASSAN_CHECKLIST: MetodologiaFlujo = metodologia(
+  'hassan-checklist-2003', 'Hassan y Martín: checklist web (adaptación)', 'Yusef Hassan Montero y Francisco J. Martín Fernández',
+  'https://www.nosolousabilidad.com/articulos/heuristica.htm', 'No Solo Usabilidad nº2, 2003-03-30; adaptación propia v1',
+  'Lista de comprobación Sí/No para sitios web. Ítems redactados por la plataforma sobre las once dimensiones del artículo; no reproducen el texto original.',
+  ITEMS_CHECKLIST_HASSAN.flatMap(([categoria, items]) => items.map((item): Definicion => [item, '', categoria])),
+  'Checklist web; adaptación propia de la plataforma', escalaPredefinida('si_no'),
+);
+
+/** Catálogo protegido y congelado. El checklist va junto a la síntesis de Hassan y Martín. */
+export const METODOLOGIAS_HEURISTICAS: MetodologiaFlujo[] = CATALOGO_BASE.flatMap(m => m.id === 'hassan-montero-martin-fernandez' ? [m, HASSAN_CHECKLIST] : [m]);
+congelar(METODOLOGIAS_HEURISTICAS);
 export function claveEscalaPredefinida(escala: EscalaFlujo): ClaveEscalaPredefinida | null {
   const texto = JSON.stringify(escala);
   return (Object.keys(ESCALAS_PREDEFINIDAS) as ClaveEscalaPredefinida[]).find(k => JSON.stringify(ESCALAS_PREDEFINIDAS[k]()) === texto) ?? null;

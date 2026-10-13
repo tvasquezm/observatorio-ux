@@ -67,6 +67,9 @@ All notable changes to this project will be documented in this file. See [commit
   1 a 5, Nielsen 0 a 4) o distinta por criterio, y vista previa del formulario del evaluador.
 * **heuristica-flujo:** editar y borrar los métodos propios desde la biblioteca; solo el autor
   puede hacerlo y las evaluaciones ya creadas no cambian.
+* **heuristica-flujo:** checklist web de Hassan y Martín (71 ítems Sí/No, 11 categorías,
+  redacción propia) y vista de lista de comprobación para el evaluador: ítems agrupados por
+  categoría con "n de N respondidos"; se usa cuando todos los criterios tienen dos niveles.
 
 ### Fixes
 

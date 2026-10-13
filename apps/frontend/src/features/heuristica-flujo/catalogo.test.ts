@@ -4,7 +4,7 @@ import {
   comprobarCompatibilidad, detectarDiscrepancias, escalaDe,
   claveEscalaPredefinida, escalaPredefinida, metodologiaVacia, parsearListaCriterios, problemasMetodologia,
 } from '@observatorio-ux/shared-types';
-import { pendientesTrabajo } from './flujo-utils';
+import { avancePorCategoria, criterioRespondido, esChecklist, pendientesTrabajo } from './flujo-utils';
 import type { ConfiguracionFlujo, ConsensoFlujo, DecisionCriterio, DecisionHallazgo, TrabajoFlujo } from '@observatorio-ux/shared-types';
 
 function configuracion(): ConfiguracionFlujo {
@@ -22,17 +22,17 @@ const hallazgo = (id: string, decision: DecisionHallazgo['decision'] = 'ACEPTADO
 });
 
 describe('catálogo y snapshots', () => {
-  it('conserva las diez familias y fuentes versionadas protegidas', () => {
+  it('conserva las once familias y fuentes versionadas protegidas', () => {
     expect(METODOLOGIAS_HEURISTICAS.map(m => [m.id, m.criterios.length])).toEqual([
       ['nielsen10', 10], ['shneiderman8', 8], ['tognazzini', 19], ['bastien-scapin', 18], ['gerhardt-powals', 10],
-      ['hassan-montero-martin-fernandez', 11], ['bertini2006', 8], ['wcag22', 12], ['coga2021', 8], ['amershi2019', 18],
+      ['hassan-montero-martin-fernandez', 11], ['hassan-checklist-2003', 71], ['bertini2006', 8], ['wcag22', 12], ['coga2021', 8], ['amershi2019', 18],
     ]);
     const ids = METODOLOGIAS_HEURISTICAS.flatMap(m => m.criterios.map(c => c.id));
     expect(new Set(ids).size).toBe(ids.length);
     for (const m of METODOLOGIAS_HEURISTICAS) {
       expect(m.protegida && Object.isFrozen(m.criterios[0].origen)).toBe(true);
       expect(m.fuente).toMatch(/^https:\/\//);
-      expect(m.escala.fuente).toBe('Escala operativa de la plataforma');
+      expect(m.escala.fuente).toBe(m.id === 'hassan-checklist-2003' ? 'Escala Sí/No de la plataforma' : 'Escala operativa de la plataforma');
       expect(m.criterios.every(c => c.origen.version === m.version && c.origen.autor === m.autor)).toBe(true);
     }
   });
@@ -250,5 +250,41 @@ describe('constructor de métodos', () => {
     expect(pendientesTrabajo(c, [{ criterioId: primero.id, valor: 'si', noAplica: false, motivo: '', notas: '' }], []).some(p => p.includes(primero.nombre))).toBe(false);
     expect(pendientesTrabajo(c, [{ criterioId: primero.id, valor: 'cumple', noAplica: false, motivo: '', notas: '' }], []).some(p => p.includes(primero.nombre))).toBe(true);
     expect(escalaDe(c.metodologia, resto[0])).toBe(c.metodologia.escala);
+  });
+});
+
+describe('checklist Hassan y Martín (D22)', () => {
+  const checklist = () => METODOLOGIAS_HEURISTICAS.find(m => m.id === 'hassan-checklist-2003')!;
+  const configChecklist = (): ConfiguracionFlujo => ({ ...configuracion(), metodologia: copiarMetodologia(checklist()) });
+  it('tiene 11 categorías, escala Sí/No y deja intacta la síntesis previa', () => {
+    const m = checklist();
+    expect(new Set(m.criterios.map(c => c.categoria)).size).toBe(11);
+    expect(m.criterios.every(c => c.nombre.trim() && c.peso === 1 && !c.escala)).toBe(true);
+    expect(m.escala.niveles.map(n => n.id)).toEqual(['si', 'no']);
+    expect(claveEscalaPredefinida(m.escala)).toBe('si_no');
+    expect(problemasMetodologia(m)).toEqual([]);
+    expect(METODOLOGIAS_HEURISTICAS.find(x => x.id === 'hassan-montero-martin-fernandez')!.criterios).toHaveLength(11);
+  });
+  it('esChecklist solo con todos los criterios de dos niveles', () => {
+    const c = configChecklist();
+    expect(esChecklist(c)).toBe(true);
+    expect(esChecklist(configuracion())).toBe(false);
+    c.metodologia.criterios[0] = { ...c.metodologia.criterios[0], escala: escalaPredefinida('likert_1_5') };
+    expect(esChecklist(c)).toBe(false);
+    c.metodologia.criterios = [];
+    expect(esChecklist(c)).toBe(false);
+  });
+  it('cuenta respondidos por categoría; no aplica solo cuenta con motivo', () => {
+    const c = configChecklist();
+    const [a, b] = c.metodologia.criterios.filter(x => x.categoria === 'Generales');
+    const base = (criterioId: string) => ({ criterioId, valor: null, noAplica: false, motivo: '', notas: '' });
+    const resp = [{ ...base(a.id), valor: 'si' }, { ...base(b.id), noAplica: true }];
+    const generales = () => avancePorCategoria(c, resp).find(g => g.categoria === 'Generales')!;
+    expect(generales()).toMatchObject({ respondidos: 1 });
+    expect(generales().criterios).toHaveLength(7);
+    resp[1].motivo = 'Fuera del alcance';
+    expect(generales().respondidos).toBe(2);
+    expect(criterioRespondido(c, a, { ...base(a.id), valor: 'cumple' })).toBe(false);
+    expect(avancePorCategoria(c, []).map(g => g.categoria)[0]).toBe('Generales');
   });
 });

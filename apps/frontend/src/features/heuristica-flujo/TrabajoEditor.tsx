@@ -5,7 +5,8 @@ import { Field } from './campos';
 import { EvidenciaEditor } from './EvidenciaEditor';
 import { useFlujoDraft } from './useFlujoDraft';
 import { flujoRequest } from './flujo.api';
-import { hallazgoVacio, pendientesTrabajo, respuestaVacia } from './flujo-utils';
+import { ChecklistView } from './ChecklistView';
+import { esChecklist, hallazgoVacio, pendientesTrabajo, respuestaVacia } from './flujo-utils';
 
 export function ValoracionEditor({ config, respuesta, onChange }: { config: ConfiguracionFlujo; respuesta: RespuestaCriterio; onChange: (r: RespuestaCriterio) => void }) {
   const criterio = config.metodologia.criterios.find(c => c.id === respuesta.criterioId);
@@ -42,7 +43,7 @@ export function TrabajoEditor({ evaluacion, usuarioId, onSaved, onBack }: { eval
     {!trabajo && <p role="status">No estás asignado como experto. El consolidado estará disponible cuando termine el consenso.</p>}
     {trabajo && <>
       {editable && <SaveStatus {...state} />}
-      <fieldset disabled={!editable || busy}><legend>Valoraciones individuales</legend>{evaluacion.configuracion.metodologia.criterios.map(c => {
+      <fieldset disabled={!editable || busy}><legend>Valoraciones individuales</legend>{esChecklist(evaluacion.configuracion) ? <ChecklistView config={evaluacion.configuracion} respuestas={state.draft.respuestas} hallazgos={state.draft.hallazgos} editable={editable} onChange={r => state.setDraft({ ...state.draft, respuestas: [...state.draft.respuestas.filter(x => x.criterioId !== r.criterioId), r] })} onAddHallazgo={id => state.setDraft({ ...state.draft, hallazgos: [...state.draft.hallazgos, hallazgoVacio(id)] })} /> : evaluacion.configuracion.metodologia.criterios.map(c => {
         const r = state.draft.respuestas.find(r => r.criterioId === c.id) ?? respuestaVacia(c.id);
         return <fieldset key={c.id}><legend>{c.nombre}</legend><p>{c.descripcion}</p><p className="hf-origin">{c.origen.autor} · {c.origen.version}</p>
           <ValoracionEditor config={evaluacion.configuracion} respuesta={r} onChange={r => state.setDraft({ ...state.draft, respuestas: [...state.draft.respuestas.filter(x => x.criterioId !== c.id), r] })} />

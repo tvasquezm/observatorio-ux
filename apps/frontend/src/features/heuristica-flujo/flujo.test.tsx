@@ -318,3 +318,54 @@ describe('métodos propios: editar y borrar', () => {
   });
 });
 
+describe('vista checklist', () => {
+  function checklistEval(mixta = false): EvaluacionFlujo {
+    const base = evaluation();
+    const m = copiarMetodologia(METODOLOGIAS_HEURISTICAS.find(x => x.id === 'hassan-checklist-2003')!);
+    m.criterios = [...m.criterios.filter(c => c.categoria === 'Generales').slice(0, 2), ...m.criterios.filter(c => c.categoria === 'Identidad e información').slice(0, 1)];
+    if (mixta) m.criterios[2] = { ...m.criterios[2], escala: copiarMetodologia(METODOLOGIAS_HEURISTICAS[0]).escala };
+    return { ...base, configuracion: { ...base.configuracion, metodologia: m } };
+  }
+  const grupo = (nombre: string) => screen.getByRole('radiogroup', { name: nombre });
+  it('agrupa por categoría y muestra "n de N respondidos" en texto', async () => {
+    const e = checklistEval(); const [a, b] = e.configuracion.metodologia.criterios;
+    renderFlow(<Harness initial={e} />);
+    expect(screen.getByText('0 de 2 respondidos')).toBeInTheDocument();
+    expect(screen.getByText('0 de 1 respondidos')).toBeInTheDocument();
+    await userEvent.click(within(grupo(a.nombre)).getByLabelText('Sí'));
+    expect(screen.getByText('1 de 2 respondidos')).toBeInTheDocument();
+    await userEvent.click(within(grupo(b.nombre)).getByLabelText('No'));
+    expect(screen.getByText('2 de 2 respondidos · ✓ Categoría completa')).toBeInTheDocument();
+    expect(screen.getAllByText('✓ Respondido')).toHaveLength(2);
+    expect(screen.getAllByText('Sin responder')).toHaveLength(1);
+  });
+  it('no aplica sin motivo no cuenta y bloquea la entrega', async () => {
+    const e = checklistEval(); const [a, b, c] = e.configuracion.metodologia.criterios;
+    renderFlow(<Harness initial={e} />);
+    await userEvent.click(within(grupo(a.nombre)).getByLabelText('Sí'));
+    await userEvent.click(within(grupo(c.nombre)).getByLabelText('No'));
+    await userEvent.click(within(grupo(b.nombre)).getByLabelText('N.A.'));
+    expect(screen.getByText('1 de 2 respondidos')).toBeInTheDocument();
+    expect(screen.getByText('Falta el motivo de "no aplica".')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Entregar mi evaluación' }));
+    expect(screen.getByRole('alert')).toHaveTextContent(`Valora o justifica no aplica: ${b.nombre}`);
+    expect(api).not.toHaveBeenCalled();
+    await userEvent.type(screen.getByLabelText('Motivo de no aplica'), 'Fuera del recorrido');
+    expect(screen.getByText('2 de 2 respondidos · ✓ Categoría completa')).toBeInTheDocument();
+  });
+  it('permite agregar un hallazgo desde un ítem', async () => {
+    const e = checklistEval(); renderFlow(<Harness initial={e} />);
+    await userEvent.click(screen.getByRole('button', { name: `Agregar hallazgo para ${e.configuracion.metodologia.criterios[0].nombre}` }));
+    expect(screen.getAllByLabelText('Título del problema')).toHaveLength(1);
+    expect(screen.getByText(/^1 hallazgos propios en este ítem/)).toBeInTheDocument();
+  });
+  it('evaluación antigua (3 niveles) o con escalas mixtas conserva la vista actual', () => {
+    const { unmount } = renderFlow(<Harness initial={evaluation()} />);
+    expect(screen.queryByRole('radiogroup')).toBeNull();
+    expect(screen.getByLabelText('Valoración')).toBeInTheDocument();
+    unmount();
+    renderFlow(<Harness initial={checklistEval(true)} />);
+    expect(screen.queryByRole('radiogroup')).toBeNull();
+    expect(screen.getAllByLabelText('Valoración')).toHaveLength(3);
+  });
+});
