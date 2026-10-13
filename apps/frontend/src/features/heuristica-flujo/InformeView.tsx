@@ -82,4 +82,3 @@ export function InformeView({ evaluacion, historial, usuarioId, onSaved, onBack 
     {error && <p role="alert" className="hf-error">{error}</p>}
   </>;
 }
-

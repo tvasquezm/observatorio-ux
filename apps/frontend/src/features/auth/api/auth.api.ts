@@ -5,6 +5,7 @@
 // otro token ('participanteToken') y otro endpoint de reanudación.
 
 import { csrfHeaders } from '../../../shared/api/csrf';
+import { evaluatorRequest } from '../../../shared/api/evaluator-client';
 import type {
   EvaluatorRole,
   EvaluatorUser,
@@ -12,6 +13,13 @@ import type {
 } from '@observatorio-ux/shared-types';
 
 export type { EvaluatorRole, EvaluatorUser, LoginResponse };
+
+export function changePassword(currentPassword: string, newPassword: string): Promise<{ ok: true }> {
+  return evaluatorRequest('/auth/password', {
+    method: 'POST',
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+}
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
 

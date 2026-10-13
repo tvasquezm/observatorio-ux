@@ -44,7 +44,7 @@ const STEPS: GuideStep[] = [
   },
   {
     title: 'Extraer conclusiones',
-    text: 'Una regla es considerar las tarjetas que aparecieron en una misma categoría más del 50% de las veces.',
+    text: 'Una regla es considerar las tarjetas que aparecieron en una misma categoría más del 50% de las veces. Es el umbral por defecto: puedes escribir otro porcentaje en "Umbral de consenso" al revisar los resultados.',
     where: 'Resultados → "Agrupaciones dominantes" y "Sin consenso".',
   },
 ];
@@ -54,7 +54,7 @@ export function CardSortingGuide() {
     <ol className="cs-guide-list" aria-label="Pasos para realizar un card sorting">
       {STEPS.map((step, index) => (
         <li key={step.title}>
-          <details>
+          <details open={index === 0}>
             <summary>
               <span className="cs-guide-n" aria-hidden="true">{index + 1}</span>
               <span className="cs-guide-title">{step.title}</span>

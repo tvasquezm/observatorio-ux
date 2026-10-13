@@ -76,7 +76,7 @@ export function resumenTarjetas(filas: FilaTarjeta[]) {
 
 // El umbral de exploración debe afectar también los grupos y las exportaciones.
 export function aplicarUmbralConsenso(original: CardSortingAnalytics, consenso: number): CardSortingAnalytics {
-  if (!Number.isInteger(consenso) || consenso < 50 || consenso > 95 || consenso === original.umbrales.consenso) return original;
+  if (!Number.isInteger(consenso) || consenso < 0 || consenso > 100 || consenso === original.umbrales.consenso) return original;
   const data = { ...original, umbrales: { ...original.umbrales, consenso } };
   const filas = filasTarjetas(data);
   const grupos = new Map<string, { tarjetas: string[]; votos: number; total: number }>();

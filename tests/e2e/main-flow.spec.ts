@@ -45,7 +45,12 @@ test('clasifica y consulta resultados sin confundir evaluador y participante', a
 
 test('recorre login, proyecto y las cinco técnicas UX', async ({ page }, testInfo) => {
   await loginAsProfessor(page);
-  await page.getByRole('link', { name: /Proyectos/ }).first().click();
+  const sidebar = page.getByRole('complementary', { name: 'Navegación principal' });
+  const expandSidebar = sidebar.getByRole('button', { name: 'Expandir barra lateral' });
+  await expect(expandSidebar).toHaveAttribute('aria-expanded', 'false');
+  await expandSidebar.click();
+  await sidebar.getByRole('link', { name: 'Proyectos', exact: true }).click();
+  await expect(expandSidebar).toHaveAttribute('aria-expanded', 'false');
   await page.getByRole('link', { name: /Proyecto Demo Profesor/ }).first().click();
   await expect(page).toHaveURL(`/proyectos/${PROJECT_ID}`);
   await expect(page.getByRole('heading', { name: 'Proyecto Demo Profesor' })).toBeVisible();
@@ -83,12 +88,14 @@ test('recorre login, proyecto y las cinco técnicas UX', async ({ page }, testIn
   await expect(page.getByRole('heading', { name: 'Analítica general' })).toBeVisible();
   await expectNoPageOverflow(page);
 
-  await page.getByRole('link', { name: /Salas/ }).first().click();
+  await expandSidebar.click();
+  await sidebar.getByRole('link', { name: 'Salas', exact: true }).click();
+  await expect(expandSidebar).toHaveAttribute('aria-expanded', 'false');
   await expect(page.getByRole('heading', { name: 'Salas de Proyecto UX' })).toBeVisible();
   await expectNoPageOverflow(page);
 
   if (testInfo.project.name === 'mobile-chromium') {
-    const sidebar = page.getByRole('complementary', { name: 'Navegación principal' });
+    await expandSidebar.click();
     await expectInsideViewport(page, sidebar.getByRole('img', { name: 'UXLab' }));
     await expectInsideViewport(page, sidebar.getByRole('button', { name: 'Salir' }));
 

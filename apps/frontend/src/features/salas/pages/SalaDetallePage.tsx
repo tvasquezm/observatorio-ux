@@ -30,7 +30,7 @@ import {
   useRemoveMiembroEquipo,
 } from '../../equipos/hooks/useEquiposQueries';
 import type { Equipo } from '../../equipos/api/equipos.api';
-import type { Sala } from '../api/salas.api';
+import { SalasApiError, type Sala } from '../api/salas.api';
 import { useConfirm } from '../../../shared/api/confirm';
 import { useDiscardChanges } from '../../../shared/hooks/useDiscardChanges';
 import { useAuthStore } from '../../auth/store/useAuthStore';
@@ -65,13 +65,16 @@ export function SalaDetallePage() {
 
       {isLoading && <p className="text-muted">Cargando sala…</p>}
       {isError && (
-        <div className="sala-form-error" role="alert">
+        <div className="panel sala-access-error" role="alert">
+          <h1>{error instanceof SalasApiError && error.status === 403 ? 'No tienes acceso a esta sala' : 'No se pudo abrir la sala'}</h1>
           <p>{(error as Error).message}</p>
+          {esEstudiante && error instanceof SalasApiError && error.status === 403 && <p>Solicita la asignación con el correo <strong>{user?.email}</strong>. Puedes volver a tus salas mientras tu docente revisa el acceso.</p>}
+          <Link to="/salas" className="secondary button-like">Ver mis salas</Link>{' '}
           <button type="button" className="secondary" onClick={() => refetch()}>Reintentar</button>
         </div>
       )}
 
-      {sala && (
+      {sala && !isError && (
         <>
           <header className="sala-detail-hero">
             <div>

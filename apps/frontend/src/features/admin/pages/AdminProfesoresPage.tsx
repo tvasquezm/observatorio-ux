@@ -9,11 +9,14 @@ import { useConfirm } from '../../../shared/api/confirm';
 import { UserAccountsPanel } from '../components/UserAccountsPanel';
 import { AdminProjectsPanel } from '../components/AdminProjectsPanel';
 
-function CrearDocenteForm() {
+export function CrearDocenteForm() {
   const { mutate: crear, isPending } = useCreateDocente();
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [credentials, setCredentials] = useState<{ email: string; password: string } | null>(null);
+  const [copyMessage, setCopyMessage] = useState('');
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -21,7 +24,10 @@ function CrearDocenteForm() {
     crear(
       { nombre: nombre.trim(), email: email.trim(), password },
       {
-        onSuccess: () => {
+        onSuccess: (docente) => {
+          setCredentials({ email: docente.email, password });
+          setCopyMessage('');
+          setShowPassword(false);
           setNombre('');
           setEmail('');
           setPassword('');
@@ -34,20 +40,38 @@ function CrearDocenteForm() {
     <form onSubmit={handleSubmit} className="admin-create-form">
       <label className="field" htmlFor="docente-nombre">
         Nombre completo
-        <input id="docente-nombre" type="text" placeholder="Ej. Camila Rojas" value={nombre} onChange={(event) => setNombre(event.target.value)} required />
+        <input id="docente-nombre" type="text" placeholder="Ej. Camila Rojas" value={nombre} onChange={(event) => setNombre(event.target.value)} required disabled={isPending} />
       </label>
       <label className="field" htmlFor="docente-email">
         Correo institucional
-        <input id="docente-email" type="email" placeholder="camila.rojas@utem.cl" value={email} onChange={(event) => setEmail(event.target.value)} required />
+        <input id="docente-email" type="email" placeholder="camila.rojas@utem.cl" value={email} onChange={(event) => setEmail(event.target.value)} required disabled={isPending} />
       </label>
-      <label className="field" htmlFor="docente-password">
-        Contraseña temporal
-        <input id="docente-password" type="password" placeholder="Mínimo 8 caracteres" value={password} onChange={(event) => setPassword(event.target.value)} required minLength={8} />
-      </label>
-      <p className="form-help">El docente podrá ingresar y administrar sus propias salas y proyectos.</p>
+      <div className="field">
+        <label htmlFor="docente-password">Contraseña temporal</label>
+        <div className="password-field">
+          <input id="docente-password" type={showPassword ? 'text' : 'password'} autoComplete="new-password" placeholder="Mínimo 8 caracteres" value={password} onChange={(event) => setPassword(event.target.value)} required minLength={8} maxLength={72} disabled={isPending} />
+          <button type="button" className="secondary" aria-pressed={showPassword} aria-controls="docente-password" onClick={() => setShowPassword(!showPassword)}>{showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}</button>
+        </div>
+      </div>
+      <p className="form-help">El docente podrá ingresar y cambiar su contraseña desde Preferencias.</p>
       <button type="submit" className="primary admin-submit" disabled={isPending}>
         {isPending ? 'Creando docente…' : 'Crear docente'}
       </button>
+      {credentials && <section className="inline-state credentials-result" aria-labelledby="credentials-title">
+        <h3 id="credentials-title">Docente creado: comparte su acceso</h3>
+        <label className="field" htmlFor="created-email">Correo creado<input id="created-email" readOnly value={credentials.email} /></label>
+        <label className="field" htmlFor="created-password">Contraseña creada<input id="created-password" type={showPassword ? 'text' : 'password'} readOnly value={credentials.password} autoComplete="off" /></label>
+        <p className="form-help">Este acceso se muestra solo ahora. Pide al docente cambiar la contraseña al ingresar.</p>
+        <div className="password-actions">
+          <button type="button" className="secondary" onClick={async () => {
+            setCopyMessage('');
+            try { await navigator.clipboard.writeText(`Correo: ${credentials.email}\nContraseña temporal: ${credentials.password}`); setCopyMessage('Credenciales copiadas.'); }
+            catch { setCopyMessage('No se pudieron copiar. Selecciona los campos y cópialos manualmente.'); }
+          }}>Copiar correo y contraseña</button>
+          <button type="button" className="secondary" onClick={() => { setCredentials(null); setCopyMessage(''); setShowPassword(false); }}>Cerrar credenciales</button>
+        </div>
+        {copyMessage && <p role="status">{copyMessage}</p>}
+      </section>}
     </form>
   );
 }

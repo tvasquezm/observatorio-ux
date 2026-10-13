@@ -240,8 +240,8 @@ describe('CardSortingResultsPage · respuestas del participante', () => {
   it('umbral de consenso editable: recalcula la vista y se puede restablecer', () => {
     setup();
     expect(screen.getByText(/con consenso ·/)).toHaveTextContent('1 con consenso · 0 sin consenso');
-    const control = screen.getByRole('slider', { name: 'Umbral de consenso' });
-    expect(control).toHaveValue('50');
+    const control = screen.getByRole('spinbutton', { name: 'Umbral de consenso' });
+    expect(control).toHaveValue(50);
     expect(screen.queryByRole('button', { name: /Restablecer/ })).toBeNull();
 
     fireEvent.change(control, { target: { value: '70' } });
@@ -252,12 +252,26 @@ describe('CardSortingResultsPage · respuestas del participante', () => {
 
   it('?umbral= se respeta y uno fuera de rango se ignora', () => {
     setup('/r/e1?umbral=80');
-    expect(screen.getByRole('slider', { name: 'Umbral de consenso' })).toHaveValue('80');
+    expect(screen.getByRole('spinbutton', { name: 'Umbral de consenso' })).toHaveValue(80);
   });
 
-  it('?umbral=10 (fuera de rango) usa el del curso', () => {
-    setup('/r/e1?umbral=10');
-    expect(screen.getByRole('slider', { name: 'Umbral de consenso' })).toHaveValue('50');
+  it('?umbral=101 (fuera de rango) usa 50 por defecto', () => {
+    setup('/r/e1?umbral=101');
+    expect(screen.getByRole('spinbutton', { name: 'Umbral de consenso' })).toHaveValue(50);
+  });
+
+  it('permite escribir un porcentaje bajo 50 y rechaza entradas inválidas', () => {
+    setup();
+    const control = screen.getByRole('spinbutton', { name: 'Umbral de consenso' });
+    fireEvent.change(control, { target: { value: '37' } });
+    expect(control).toHaveValue(37);
+    fireEvent.change(control, { target: { value: '101' } });
+    expect(screen.getByText(/con consenso ·/)).toHaveTextContent('1 con consenso');
+    expect(screen.getByRole('alert')).toHaveTextContent('0 y 100');
+    fireEvent.change(control, { target: { value: '' } });
+    expect(control).toHaveValue(null);
+    fireEvent.blur(control);
+    expect(control).toHaveValue(37);
   });
 
   it('similitud: marca con borde los pares sobre el umbral', () => {

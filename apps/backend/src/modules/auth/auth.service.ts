@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   HttpException,
@@ -267,6 +268,26 @@ export class AuthService {
       data: { participanteId, proyectoId, aceptado, version },
     });
   }
+  async changePassword(id: string, currentPassword: string, newPassword: string) {
+    if (Buffer.byteLength(newPassword, 'utf8') > 72) {
+      throw new BadRequestException('La nueva contraseña no puede superar 72 bytes (los caracteres acentuados ocupan más de uno).');
+    }
+    const user = await this.prisma.usuario.findUnique({ where: { id } });
+    if (!user?.passwordHash || !(await bcrypt.compare(currentPassword, user.passwordHash))) {
+      throw new ForbiddenException('La contraseña actual es incorrecta.');
+    }
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    const result = await this.prisma.usuario.updateMany({
+      where: { id, passwordHash: user.passwordHash },
+      data: { passwordHash },
+    });
+    if (result.count !== 1) {
+      throw new ConflictException('La contraseña cambió durante la solicitud. Vuelve a intentarlo con la contraseña actual.');
+    }
+    // shortcut: los JWT emitidos siguen vigentes hasta expirar; añadir revocación si se requiere cerrar otros dispositivos.
+    return { ok: true };
+  }
+
   async login(email: string, password: string) {
     const user = await this.prisma.usuario.findUnique({
       where: { email: email.trim().toLowerCase() },

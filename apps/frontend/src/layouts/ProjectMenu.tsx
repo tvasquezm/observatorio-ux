@@ -141,13 +141,8 @@ function DesktopMenu({ groups, current, currentLabel }: Omit<ProjectMenuProps, '
                       end={item.end}
                       className={({ isActive }) => `pm-item${isActive ? ' active' : ''}`}
                     >
-                      {({ isActive }) => (
-                        <>
-                          <span className="pm-item-icon"><Icon name={item.icon} size={18} /></span>
-                          <span className="pm-item-label">{item.label}</span>
-                          {isActive && <span className="pm-item-flag" aria-hidden="true">Actual</span>}
-                        </>
-                      )}
+                      <span className="pm-item-icon"><Icon name={item.icon} size={18} /></span>
+                      <span className="pm-item-label">{item.label}</span>
                     </NavLink>
                   ))}
                 </div>

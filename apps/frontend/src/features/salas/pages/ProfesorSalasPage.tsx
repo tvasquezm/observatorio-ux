@@ -25,6 +25,7 @@ export const ProfesorSalasPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState('');
+  const [saveNotice, setSaveNotice] = useState('');
   const modalRef = useRef<HTMLDialogElement>(null);
   const confirm = useConfirm();
 
@@ -72,11 +73,13 @@ export const ProfesorSalasPage: React.FC = () => {
   };
 
   const abrirCrearSala = () => {
+    setSaveNotice('');
     limpiarFormulario();
     setIsModalOpen(true);
   };
 
   const abrirEditarSala = (sala: Sala) => {
+    setSaveNotice('');
     setSalaEditando(sala);
     setNombre(sala.nombre);
     setPeriodo(sala.periodo);
@@ -116,6 +119,7 @@ export const ProfesorSalasPage: React.FC = () => {
         await createSala(payload);
       }
 
+      setSaveNotice(`Sala «${payload.nombre}» ${salaEditando ? 'actualizada' : 'creada'}.`);
       cerrarModal();
       await cargarSalas();
     } catch (err: any) {
@@ -194,6 +198,7 @@ export const ProfesorSalasPage: React.FC = () => {
         )}
       </div>
 
+      {saveNotice && <p role="status" className="inline-state">{saveNotice}</p>}
       <div className="salas-toolbar">
         <div className="salas-search">
         <label className="sr-only" htmlFor="buscar-sala">Buscar sala</label>
@@ -271,7 +276,7 @@ export const ProfesorSalasPage: React.FC = () => {
                         </button>
                       )}
                       <Link className="primary sala-enter-link" to={`/salas/${sala.id}`}>
-                        {puedeGestionar ? 'Administrar sala' : 'Unirse a la sala'} <span aria-hidden="true">→</span>
+                        {puedeGestionar ? 'Administrar sala' : 'Entrar a la sala'} <span aria-hidden="true">→</span>
                       </Link>
                     </div>
                   </div>
@@ -325,7 +330,7 @@ export const ProfesorSalasPage: React.FC = () => {
       {isModalOpen && (
         <dialog
           ref={modalRef}
-          className="card sala-modal"
+          className="sala-modal"
           aria-labelledby="sala-modal-title"
           onCancel={event => { event.preventDefault(); void cancelarModal(); }}
         >
@@ -339,11 +344,12 @@ export const ProfesorSalasPage: React.FC = () => {
             </div>
           )}
 
-          <form onSubmit={handleGuardarSala} className="sala-form">
+          <form onSubmit={handleGuardarSala} className="sala-form" aria-busy={saving}>
             <div className="sala-field">
               <label htmlFor="sala-nombre">Nombre de la sala</label>
               <input
                 id="sala-nombre"
+                disabled={saving}
                 name="nombre"
                 autoFocus
                 type="text"
@@ -358,6 +364,7 @@ export const ProfesorSalasPage: React.FC = () => {
               <label htmlFor="sala-periodo">Período académico</label>
               <input
                 id="sala-periodo"
+                disabled={saving}
                 name="periodo"
                 type="text"
                 required
@@ -372,6 +379,7 @@ export const ProfesorSalasPage: React.FC = () => {
                 <label htmlFor="sala-inicio">Inicio</label>
                 <input
                   id="sala-inicio"
+                  disabled={saving}
                   name="fechaInicio"
                   type="datetime-local"
                   required
@@ -383,6 +391,7 @@ export const ProfesorSalasPage: React.FC = () => {
                 <label htmlFor="sala-fin">Término</label>
                 <input
                   id="sala-fin"
+                  disabled={saving}
                   name="fechaFin"
                   type="datetime-local"
                   required
@@ -396,6 +405,7 @@ export const ProfesorSalasPage: React.FC = () => {
               <label htmlFor="sala-instrucciones">Instrucciones o descripción</label>
               <textarea
                 id="sala-instrucciones"
+                disabled={saving}
                 name="instrucciones"
                 value={instrucciones}
                 onChange={(e) => setInstrucciones(e.target.value)}

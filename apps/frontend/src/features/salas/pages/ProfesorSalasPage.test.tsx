@@ -76,7 +76,7 @@ describe('ProfesorSalasPage — edición de sala', () => {
       'href',
       '/salas/sala-1',
     );
-    expect(screen.queryByRole('link', { name: /unirse a la sala/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /entrar a la sala/i })).not.toBeInTheDocument();
 
     expect(screen.getByRole('heading', { name: 'Editar sala' })).toBeInTheDocument();
     expect(screen.getByLabelText('Nombre de la sala')).toHaveValue('Sala 4');
@@ -99,6 +99,33 @@ describe('ProfesorSalasPage — edición de sala', () => {
       });
     });
     expect(api.createSala).not.toHaveBeenCalled();
+    expect(await screen.findByRole('status')).toHaveTextContent('Sala «Sala 4» actualizada.');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('conserva la edición y muestra el error cuando el servidor rechaza los cambios', async () => {
+    api.updateSala.mockRejectedValueOnce(new Error('No se pudo guardar la sala.'));
+    render(<MemoryRouter><ProfesorSalasPage /></MemoryRouter>);
+    await userEvent.click(await screen.findByRole('button', { name: 'Editar sala Sala 4' }));
+    fireEvent.change(screen.getByLabelText('Nombre de la sala'), { target: { value: 'Sala corregida' } });
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo guardar la sala.');
+    expect(screen.getByLabelText('Nombre de la sala')).toHaveValue('Sala corregida');
+    expect(screen.getByRole('dialog')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Guardar cambios' })).toBeEnabled();
+  });
+
+  it('bloquea los campos mientras guarda para no perder cambios ingresados durante la petición', async () => {
+    let finish!: () => void;
+    api.updateSala.mockReturnValueOnce(new Promise(resolve => { finish = () => resolve({ id: 'sala-1' }); }));
+    render(<MemoryRouter><ProfesorSalasPage /></MemoryRouter>);
+    await userEvent.click(await screen.findByRole('button', { name: 'Editar sala Sala 4' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+    expect(screen.getByLabelText('Nombre de la sala')).toBeDisabled();
+    expect(screen.getByLabelText('Instrucciones o descripción')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Guardando…' })).toBeDisabled();
+    finish();
+    expect(await screen.findByRole('status')).toHaveTextContent('actualizada');
   });
 
   it('ofrece al estudiante unirse solo a sus salas invitadas sin mostrar controles de gestión', async () => {
@@ -121,7 +148,7 @@ describe('ProfesorSalasPage — edición de sala', () => {
     expect(await screen.findByRole('heading', { name: 'Mis salas' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /crear sala/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /editar sala/i })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /unirse a la sala/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /entrar a la sala/i })).toHaveAttribute(
       'href',
       '/salas/sala-1',
     );

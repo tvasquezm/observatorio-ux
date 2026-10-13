@@ -191,7 +191,7 @@ export function MomentosCriticosPage() {
       {!isLoading && !isListError && (
         <TechniqueProcess title="Proceso de momentos críticos" steps={procesoMomentos(momentos.length, todos)} />
       )}
-      <details className="panel mc-guide">
+      <details className="panel mc-guide technique-instructions" open>
         <summary>Cómo registrar y priorizar un momento crítico</summary>
         <p>
           Describe una situación concreta observada o relatada por un usuario. Identifica su perfil, qué
