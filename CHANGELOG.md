@@ -18,7 +18,8 @@ All notable changes to this project will be documented in this file. See [commit
   cuando tienen contenido, y las evaluaciones anteriores se ven igual.
 * **evaluacion-heuristica:** el consenso admite una lista de mejoras antes/después con capturas; el
   coordinador y los expertos pueden adjuntar capturas durante el consenso y los lectores ven las del informe
-  consolidado (contrato de backend; la interfaz llega en una fase posterior).
+  consolidado. El editor de consenso tiene la sección "Mejoras antes/después" (capturas sin anotar, hasta 10
+  por lado); el informe y el PDF la muestran solo si hay mejoras.
 * **evaluacion-heuristica:** evita el desbordamiento horizontal causado por el
   campo oculto de adjuntos; conserva su etiqueta accesible y el botón para subir capturas.
 

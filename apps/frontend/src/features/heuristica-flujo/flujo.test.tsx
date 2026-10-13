@@ -467,3 +467,37 @@ describe('aspectos positivos y conclusión', () => {
     expect(screen.getByText('Corregir el formulario.')).toBeInTheDocument();
   });
 });
+
+describe('mejoras antes/después', () => {
+  it('agrega, edita y quita una mejora en el consenso', async () => {
+    renderFlow(<ConsensoEditor evaluacion={evaluation({ fase: 'PENDIENTE_CONSENSO' })} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.queryByLabelText('Título de la mejora 1')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Agregar mejora' }));
+    await userEvent.type(screen.getByLabelText('Título de la mejora 1'), 'Botón visible');
+    expect(screen.getByLabelText('Título de la mejora 1')).toHaveValue('Botón visible');
+    expect(screen.getByLabelText(/Adjuntar captura antes de la mejora 1/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Adjuntar captura después de la mejora 1/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Quitar mejora 1' }));
+    expect(screen.queryByLabelText('Título de la mejora 1')).toBeNull();
+  });
+  it('envía las mejoras al guardar el consenso', async () => {
+    const e = evaluation({ fase: 'PENDIENTE_CONSENSO' });
+    api.mockResolvedValue({ ...e, revision: 2 });
+    renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Agregar mejora' }));
+    await userEvent.type(screen.getByLabelText('Título de la mejora 1'), 'Botón visible');
+    await waitFor(() => expect(api).toHaveBeenCalledWith('p1', '/evaluaciones/e1/consenso', 'PATCH', expect.objectContaining({ mejoras: [expect.objectContaining({ titulo: 'Botón visible', antesIds: [], despuesIds: [] })] })), { timeout: 3000 });
+  });
+  it('el informe muestra la sección solo si hay mejoras', () => {
+    const vacio = final('actual');
+    const { unmount } = renderFlow(<InformeView evaluacion={vacio} historial={[]} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.queryByRole('heading', { name: 'Mejoras antes/después' })).toBeNull();
+    unmount();
+    const lleno = final('actual');
+    lleno.informe!.consenso.mejoras = [{ id: 'm1', titulo: 'Botón visible', descripcion: 'Se aumentó el contraste.', antesIds: [], despuesIds: [] }];
+    renderFlow(<InformeView evaluacion={lleno} historial={[]} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.getByRole('heading', { name: 'Mejoras antes/después' })).toBeInTheDocument();
+    expect(screen.getByText('Se aumentó el contraste.')).toBeInTheDocument();
+    expect(screen.getAllByText('Sin capturas.')).toHaveLength(2);
+  });
+});

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { detectarDiscrepancias, escalaDe } from '@observatorio-ux/shared-types';
-import type { CriterioFlujo, DecisionCriterio, DecisionHallazgo, EvaluacionFlujo } from '@observatorio-ux/shared-types';
+import type { CriterioFlujo, DecisionCriterio, DecisionHallazgo, EvaluacionFlujo, MejoraAntesDespues } from '@observatorio-ux/shared-types';
 import { Field } from './ConfiguracionEditor';
 import { EvidenciaEditor } from './EvidenciaEditor';
 import { HallazgoEditor, SaveStatus, ValoracionEditor } from './TrabajoEditor';
@@ -9,7 +9,9 @@ import { avancePorCategoria, esChecklist, etiquetasDiscrepancia, hallazgoVacio, 
 import { useFlujoDraft } from './useFlujoDraft';
 
 export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack }: { evaluacion: EvaluacionFlujo; usuarioId: string; onSaved: (e: EvaluacionFlujo) => void; onBack: () => void }) {
-  const state = useFlujoDraft(evaluacion, usuarioId, 'consenso', { criterios: evaluacion.consenso.criterios, hallazgos: evaluacion.consenso.hallazgos, positivos: evaluacion.consenso.positivos ?? [], conclusion: evaluacion.consenso.conclusion ?? '' }, onSaved);
+  const [subiendo, setSubiendo] = useState<Record<string, boolean>>({});
+  const subiendoCapturas = Object.values(subiendo).some(Boolean);
+  const state = useFlujoDraft(evaluacion, usuarioId, 'consenso', { criterios: evaluacion.consenso.criterios, hallazgos: evaluacion.consenso.hallazgos, positivos: evaluacion.consenso.positivos ?? [], conclusion: evaluacion.consenso.conclusion ?? '', mejoras: evaluacion.consenso.mejoras ?? [] }, onSaved, subiendoCapturas);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [seleccion, setSeleccion] = useState<string[]>([]);
@@ -67,6 +69,21 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack }: { eva
         <button type="button" className="secondary" onClick={() => state.setDraft({ ...state.draft, positivos: state.draft.positivos.filter(x => x.id !== p.id) })}>Quitar aspecto positivo {i + 1}</button>
       </fieldset>)}
       <button type="button" className="secondary" disabled={state.draft.positivos.length >= 200} onClick={() => state.setDraft({ ...state.draft, positivos: [...state.draft.positivos, { id: crypto.randomUUID(), titulo: '', descripcion: '' }] })}>Agregar aspecto positivo</button></fieldset>
+    </section>
+    <section className="panel"><div className="panel-head"><h2>Mejoras antes/después</h2></div>
+      <p>Registra cambios propuestos o aplicados al prototipo, con capturas del estado anterior y del estado posterior.</p>
+      <fieldset disabled={busy}><legend>Mejoras del informe</legend>{state.draft.mejoras.map((m, i) => {
+        const cambiar = (patch: Partial<MejoraAntesDespues>) => state.setDraft(prev => ({ ...prev, mejoras: prev.mejoras.map(x => x.id === m.id ? { ...x, ...patch } : x) }));
+        const lado = (clave: 'antesIds' | 'despuesIds', nombre: string) => <EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={m[clave]} editable={!busy} sinAnotar max={10} etiqueta={`${nombre} de la mejora ${i + 1}`} onChange={ids => cambiar(clave === 'antesIds' ? { antesIds: ids } : { despuesIds: ids })} onPendingChange={v => setSubiendo(p => p[m.id + clave] === v ? p : { ...p, [m.id + clave]: v })} />;
+        return <fieldset key={m.id}><legend>Mejora {i + 1}: {m.titulo || 'Sin título'}</legend>
+          <Field label={`Título de la mejora ${i + 1}`}><input maxLength={300} value={m.titulo} onChange={e => cambiar({ titulo: e.target.value })} /></Field>
+          <Field label={`Descripción de la mejora ${i + 1}`}><textarea maxLength={10000} value={m.descripcion} onChange={e => cambiar({ descripcion: e.target.value })} /></Field>
+          <h3>Antes</h3>{lado('antesIds', 'antes')}
+          <h3>Después</h3>{lado('despuesIds', 'después')}
+          <button type="button" className="secondary" disabled={subiendoCapturas} onClick={() => state.setDraft(prev => ({ ...prev, mejoras: prev.mejoras.filter(x => x.id !== m.id) }))}>Quitar mejora {i + 1}</button>
+        </fieldset>;
+      })}
+      <button type="button" className="secondary" disabled={state.draft.mejoras.length >= 100} onClick={() => state.setDraft(prev => ({ ...prev, mejoras: [...prev.mejoras, { id: crypto.randomUUID(), titulo: '', descripcion: '', antesIds: [], despuesIds: [] }] }))}>Agregar mejora</button></fieldset>
     </section>
     <section className="panel"><div className="panel-head"><h2>Conclusión y recomendaciones finales</h2></div>
       <Field label="Conclusión y recomendaciones finales"><textarea maxLength={10000} disabled={busy} value={state.draft.conclusion} onChange={e => state.setDraft({ ...state.draft, conclusion: e.target.value })} /></Field>

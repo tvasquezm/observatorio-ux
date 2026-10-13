@@ -78,3 +78,17 @@ describe('Informe PDF: aspectos positivos y conclusión', () => {
     for (const texto of ['Aspectos positivos', 'Menú claro', 'Etiquetas comprensibles.', 'Conclusión y recomendaciones finales', 'Corregir el formulario antes de publicar.']) expect(contenido).toContain(texto);
   });
 });
+
+describe('Informe PDF: mejoras antes/después', () => {
+  it('incluye la sección con sus capturas y la omite en una evaluación antigua', () => {
+    const ev = evaluacion();
+    const antiguo = JSON.stringify(construirInformeFlujoPdf(ev, new Map(), new Date('2026-10-09T12:00:00Z')).content);
+    expect(antiguo).not.toContain('Mejoras antes/después');
+    ev.informe!.consenso.mejoras = [{ id: 'm1', titulo: 'Botón visible', descripcion: 'Más contraste.', antesIds: ['a1'], despuesIds: ['d1', 'd2'] }];
+    const capturas = new Map<string, string | null>([['a1', 'data:image/png;base64,AA'], ['d1', 'data:image/png;base64,BB'], ['d2', null]]);
+    const pdf = construirInformeFlujoPdf(ev, capturas, new Date('2026-10-09T12:00:00Z'));
+    const contenido = JSON.stringify(pdf.content);
+    for (const texto of ['Mejoras antes/después', 'Botón visible', 'Más contraste.', 'evidencia-a1', 'evidencia-d1', 'Captura d2 disponible en la aplicación']) expect(contenido).toContain(texto);
+    expect(Object.keys(pdf.images ?? {})).toEqual(expect.arrayContaining(['evidencia-a1', 'evidencia-d1']));
+  });
+});

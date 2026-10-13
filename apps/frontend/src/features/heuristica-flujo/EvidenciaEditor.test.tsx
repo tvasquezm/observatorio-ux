@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { EvidenciaEditor } from './EvidenciaEditor';
@@ -63,5 +63,25 @@ describe('EvidenciaEditor', () => {
     expect(screen.getByRole('button', { name: 'Eliminar anotación 1' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Guardar anotaciones' }));
     expect(api.guardarAnotaciones).toHaveBeenLastCalledWith('p1', 'ev1', 'cap1', expect.any(Array), 0);
+  });
+  it('sinAnotar permite subir y quitar capturas sin herramientas de anotación', async () => {
+    const onChange = vi.fn();
+    api.subirEvidenciaFlujo.mockResolvedValue({ ...meta, id: 'cap2' });
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <EvidenciaEditor proyectoId="p1" evaluacionId="ev1" evidenciaIds={['cap1']} editable sinAnotar etiqueta="antes de la mejora 1" onChange={onChange} />
+    </QueryClientProvider>);
+    await screen.findByAltText('Captura de evidencia');
+    expect(screen.queryByRole('button', { name: 'Agregar anotación' })).not.toBeInTheDocument();
+    await userEvent.upload(screen.getByLabelText(/Adjuntar captura antes de la mejora 1/), new File(['png'], 'a.png', { type: 'image/png' }));
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith(['cap1', 'cap2']));
+    await userEvent.click(screen.getByRole('button', { name: 'Quitar captura antes de la mejora 1' }));
+    expect(onChange).toHaveBeenLastCalledWith([]);
+  });
+  it('respeta el máximo de capturas indicado', async () => {
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <EvidenciaEditor proyectoId="p1" evaluacionId="ev1" evidenciaIds={['cap1']} editable sinAnotar max={1} onChange={vi.fn()} />
+    </QueryClientProvider>);
+    await screen.findByAltText('Captura de evidencia');
+    expect(screen.getByLabelText(/Adjuntar captura/)).toBeDisabled();
   });
 });

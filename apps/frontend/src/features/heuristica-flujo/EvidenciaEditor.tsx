@@ -9,6 +9,8 @@ interface Props {
   proyectoId: string; evaluacionId: string; evidenciaIds: string[]; editable: boolean;
   onChange?: (ids: string[]) => void;
   onPendingChange?: (pending: boolean) => void;
+  /** Permite subir y quitar capturas, pero sin herramientas de anotación (mejoras antes/después). */
+  sinAnotar?: boolean; max?: number; etiqueta?: string;
 }
 const TIPOS = { rectangulo: 'Rectángulo', circulo: 'Círculo', flecha: 'Flecha', destacado: 'Destacado', texto: 'Texto' } as const;
 const vacia = (): AnotacionEvidencia => ({ id: crypto.randomUUID(), tipo: 'rectangulo', x: 0.1, y: 0.1, x2: 0.5, y2: 0.5, color: '#d83232', texto: '' });
@@ -113,7 +115,7 @@ function Captura({ id, onPendingChange, ...props }: Omit<Props, 'evidenciaIds' |
   return <Lienzo key={`${id}:${userId}`} {...props} meta={q.data.meta} blob={q.data.blob} onPendingChange={onPendingChange} />;
 }
 
-export function EvidenciaEditor({ proyectoId, evaluacionId, evidenciaIds, editable, onChange, onPendingChange }: Props) {
+export function EvidenciaEditor({ proyectoId, evaluacionId, evidenciaIds, editable, onChange, onPendingChange, sinAnotar = false, max = 50, etiqueta }: Props) {
   const [subiendo, setSubiendo] = useState(false);
   const [error, setError] = useState('');
   const [pendientes, setPendientes] = useState<Record<string, boolean>>({});
@@ -130,8 +132,8 @@ export function EvidenciaEditor({ proyectoId, evaluacionId, evidenciaIds, editab
     catch (e) { setError(mensaje(e)); } finally { setSubiendo(false); }
   }
   return <div>
-    {editable && onChange && <label className="field">Adjuntar captura<input type="file" accept="image/png,image/jpeg,image/webp" disabled={subiendo || evidenciaIds.length >= 50} onChange={e => { const archivo = e.target.files?.[0]; e.target.value = ''; if (archivo) void subir(archivo); }} /><small>PNG, JPEG o WebP. Máximo 2 MB por imagen.</small></label>}
+    {editable && onChange && <label className="field">Adjuntar captura{etiqueta ? ` ${etiqueta}` : ''}<input type="file" accept="image/png,image/jpeg,image/webp" disabled={subiendo || evidenciaIds.length >= max} onChange={e => { const archivo = e.target.files?.[0]; e.target.value = ''; if (archivo) void subir(archivo); }} /><small>PNG, JPEG o WebP. Máximo 2 MB por imagen.</small></label>}
     {subiendo && <p role="status">Subiendo captura…</p>}{error && <p role="alert">{error}</p>}
-    {evidenciaIds.map(id => <div key={id}><Captura proyectoId={proyectoId} evaluacionId={evaluacionId} id={id} editable={editable} onPendingChange={v => setPendientes(p => p[id] === v ? p : { ...p, [id]: v })} />{editable && onChange && <button type="button" className="text-button" disabled={subiendo || pendientes[id]} onClick={() => onChange(evidenciaIds.filter(n => n !== id))}>Quitar captura del hallazgo</button>}</div>)}
+    {evidenciaIds.map(id => <div key={id}><Captura proyectoId={proyectoId} evaluacionId={evaluacionId} id={id} editable={editable && !sinAnotar} onPendingChange={v => setPendientes(p => p[id] === v ? p : { ...p, [id]: v })} />{editable && onChange && <button type="button" className="text-button" disabled={subiendo || pendientes[id]} onClick={() => onChange(evidenciaIds.filter(n => n !== id))}>{etiqueta ? `Quitar captura ${etiqueta}` : 'Quitar captura del hallazgo'}</button>}</div>)}
   </div>;
 }

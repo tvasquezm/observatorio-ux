@@ -26,6 +26,7 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
   const imagenes: Record<string, string> = {};
   for (const [id, img] of capturas) if (img) imagenes[`evidencia-${id}`] = img;
   const positivos = consenso.positivos ?? [];
+  const mejoras = consenso.mejoras ?? [];
   const conclusion = (consenso.conclusion ?? '').trim();
   const finalizado = informe.finalizadoEn !== null;
   const detalleHallazgos: Content[] = hallazgos.flatMap((h, i) => [
@@ -36,6 +37,13 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
     ...(h.notas ? [campo('Notas', h.notas)] : []),
     campo('Hallazgos individuales de origen', h.origenIds.join(', ')),
     ...h.evidenciaIds.map(id => capturas.get(id) ? { image: `evidencia-${id}`, fit: [460, 310], margin: [0, 6, 0, 6] } as Content : { text: `Captura ${id} disponible en la aplicación (no incluida en este PDF).`, color: MUTED, italics: true } as Content),
+  ]);
+  const imagenEvidencia = (id: string): Content => capturas.get(id) ? { image: `evidencia-${id}`, fit: [460, 310], margin: [0, 6, 0, 6] } : { text: `Captura ${id} disponible en la aplicación (no incluida en este PDF).`, color: MUTED, italics: true };
+  const detalleMejoras: Content[] = mejoras.flatMap((m, i): Content[] => [
+    titulo(`${i + 1}. ${m.titulo}`),
+    ...(m.descripcion ? [{ text: m.descripcion, margin: [0, 2, 0, 4] } as Content] : []),
+    { text: 'Antes', bold: true, margin: [0, 4, 0, 2] }, ...(m.antesIds.length ? m.antesIds.map(imagenEvidencia) : [{ text: 'Sin capturas.', color: MUTED } as Content]),
+    { text: 'Después', bold: true, margin: [0, 4, 0, 2] }, ...(m.despuesIds.length ? m.despuesIds.map(imagenEvidencia) : [{ text: 'Sin capturas.', color: MUTED } as Content]),
   ]);
   return {
     info: { title: `Evaluación heurística · ${config.nombre} · v${informe.version}`, creator: 'UXLab Observatorio', subject: 'Informe consolidado de evaluación heurística' },
@@ -70,6 +78,7 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
       table(['Criterio / fuente', 'Valoración final', 'Justificación'], consenso.criterios.map(r => { const c = config.metodologia.criterios.find(x => x.id === r.criterioId); return [`${nombreCriterio(r.criterioId)}\n${c?.origen.autor ?? ''} · ${c?.origen.version ?? ''}\n${c?.origen.fuente ?? ''}`, valorCriterio(r), r.justificacion]; }), ['*', 100, '*']),
       ...(positivos.length ? [titulo('Aspectos positivos'), ...positivos.flatMap((p): Content[] => [{ text: p.titulo, bold: true, margin: [0, 6, 0, 2] }, ...(p.descripcion ? [{ text: p.descripcion, margin: [0, 0, 0, 4] } as Content] : [])])] : []),
       titulo('Problemas y recomendaciones'), ...(detalleHallazgos.length ? detalleHallazgos : [{ text: 'La revisión acordada no identificó problemas de usabilidad.' } as Content]),
+      ...(mejoras.length ? [titulo('Mejoras antes/después'), ...detalleMejoras] : []),
       ...(conclusion ? [titulo('Conclusión y recomendaciones finales'), { text: conclusion } as Content] : []),
       titulo('Decisiones de revisión'),
       table(['Problema', 'Decisión', 'Orígenes', 'Motivo'], consenso.hallazgos.map(h => [h.titulo, h.decision === 'ACEPTADO' ? 'Aceptado / fusionado' : 'Descartado', h.origenIds.join(', '), h.justificacion]), ['*', 90, 90, '*']),
@@ -105,7 +114,8 @@ export async function rasterizarEvidencia(blob: Blob, anotaciones: AnotacionEvid
 
 export async function exportarInformeFlujoPdf(proyectoId: string, evaluacion: EvaluacionFlujo): Promise<void> {
   const capturas = new Map<string, string | null>();
-  const ids = [...new Set(evaluacion.informe?.consenso.hallazgos.filter(h => h.decision === 'ACEPTADO').flatMap(h => h.evidenciaIds) ?? [])];
+  const consenso = evaluacion.informe?.consenso;
+  const ids = [...new Set([...(consenso?.hallazgos.filter(h => h.decision === 'ACEPTADO').flatMap(h => h.evidenciaIds) ?? []), ...(consenso?.mejoras ?? []).flatMap(m => [...m.antesIds, ...m.despuesIds])])];
   for (const id of ids) {
     try { const { meta, blob } = await cargarEvidencia(proyectoId, evaluacion.id, id); capturas.set(id, await rasterizarEvidencia(blob, meta.anotaciones)); }
     catch { capturas.set(id, null); }
