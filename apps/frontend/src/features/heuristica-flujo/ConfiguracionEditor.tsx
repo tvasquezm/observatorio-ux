@@ -2,22 +2,27 @@ import { useState } from 'react';
 import { copiarMetodologia, combinarMetodologias, escalaPredefinida, metodologiaVacia, problemasMetodologia } from '@observatorio-ux/shared-types';
 import type { ConfiguracionFlujo, EscalaFlujo, MetodologiaFlujo, MiembroEquipoFlujo } from '@observatorio-ux/shared-types';
 import { useAuthStore } from '../auth/store/useAuthStore';
+import { useConfirm } from '../../shared/api/confirm';
 import { Field, Fuente } from './campos';
 import { EscalaCriterio, EscalaRapida, PasoCabecera, PegarLista, VistaPreviaEvaluador } from './ConstructorMetodo';
 
 export { Field, Fuente } from './campos';
-export function ConfiguracionEditor({ value, onChange, biblioteca, equipo, onSaveMethod }: {
+export function ConfiguracionEditor({ value, onChange, biblioteca, equipo, onSaveMethod, onUpdateMethod, onDeleteMethod }: {
   value: ConfiguracionFlujo; onChange: (v: ConfiguracionFlujo) => void; biblioteca: MetodologiaFlujo[];
   equipo: MiembroEquipoFlujo[]; onSaveMethod: (m: MetodologiaFlujo) => Promise<void>;
+  onUpdateMethod?: (m: MetodologiaFlujo) => Promise<void>; onDeleteMethod?: (id: string) => Promise<void>;
 }) {
   const [seleccion, setSeleccion] = useState<string[]>([]);
   const [error, setError] = useState('');
+  const [errorBiblioteca, setErrorBiblioteca] = useState('');
+  const confirm = useConfirm();
   const [saving, setSaving] = useState(false);
   const author = useAuthStore(s => s.user?.nombre ?? 'Autor de la evaluación');
   const set = (patch: Partial<ConfiguracionFlujo>) => onChange({ ...value, ...patch });
   const m = value.metodologia;
   const method = (patch: Partial<MetodologiaFlujo>) => set({ metodologia: { ...m, ...patch, protegida: false } });
   const escala = (patch: Partial<EscalaFlujo>) => method({ escala: { ...m.escala, ...patch } });
+  const guardado = onUpdateMethod ? biblioteca.find(b => !b.protegida && b.id === m.id) : undefined;
   return <>
     <section className="panel">
       <div className="panel-head"><h2>Producto y alcance</h2></div>
@@ -33,12 +38,23 @@ export function ConfiguracionEditor({ value, onChange, biblioteca, equipo, onSav
         <ul>{original.criterios.map(c => <li key={c.id}>{c.nombre}: {c.descripcion}</li>)}</ul>
         <label className="hf-check"><input type="checkbox" checked={seleccion.includes(original.id)} onChange={e => setSeleccion(e.target.checked ? [...seleccion, original.id] : seleccion.filter(id => id !== original.id))} />Combinar {original.nombre}</label>
         <button type="button" onClick={() => set({ metodologia: copiarMetodologia(original) })}>Usar copia de {original.nombre}</button>
+        {!original.protegida && onUpdateMethod && onDeleteMethod && <div className="hf-actions">
+          <button type="button" onClick={() => { setErrorBiblioteca(''); set({ metodologia: JSON.parse(JSON.stringify(original)) as MetodologiaFlujo }); }}>Editar {original.nombre}</button>
+          <button type="button" onClick={async () => {
+            if (!(await confirm(`¿Borrar el método «${original.nombre}»? Las evaluaciones que ya lo usan no cambian.`))) return;
+            setErrorBiblioteca('');
+            try { await onDeleteMethod(original.id); } catch (e) { setErrorBiblioteca(e instanceof Error ? e.message : 'No se pudo borrar el método.'); }
+          }}>Borrar {original.nombre}</button>
+          <span className="hf-ayuda">Solo tú ves tus métodos. Editarlos o borrarlos no cambia las evaluaciones ya creadas.</span>
+        </div>}
       </details>)}
       <div className="hf-actions"><button type="button" onClick={() => set({ metodologia: metodologiaVacia(author, crypto.randomUUID()) })}>Empezar de cero</button></div>
+      {errorBiblioteca && <p role="alert" className="hf-error">{errorBiblioteca}</p>}
       <button type="button" disabled={seleccion.length < 2} onClick={() => set({ metodologia: combinarMetodologias(biblioteca.filter(x => seleccion.includes(x.id))) })}>Combinar seleccionadas conservando origen</button>
     </section>
     <section className="panel">
       <PasoCabecera n={2} titulo="Criterios de esta copia" ayuda="Escribe cada criterio, o pega una lista y se crean todos de una vez." />
+      {guardado && <p role="status">✎ Estás editando tu método guardado «{guardado.nombre}». Al guardar se actualiza; las evaluaciones ya creadas no cambian.</p>}
       <Field label="Nombre de la metodología personalizada"><input maxLength={160} value={m.nombre} onChange={e => method({ nombre: e.target.value })} /></Field>
       <PegarLista metodologia={m} autor={author} onAdd={nuevos => method({ criterios: [...m.criterios, ...nuevos] })} />
       {m.criterios.map((c, index) => <fieldset key={c.id}><legend>Criterio {index + 1}</legend>
@@ -51,7 +67,7 @@ export function ConfiguracionEditor({ value, onChange, biblioteca, equipo, onSav
         <div className="hf-actions">{([-1, 1] as const).map(direction => <button key={direction} type="button" aria-label={`${direction === -1 ? 'Subir' : 'Bajar'} criterio ${index + 1}`} disabled={index + direction < 0 || index + direction >= m.criterios.length} onClick={() => { const criterios = [...m.criterios]; [criterios[index], criterios[index + direction]] = [criterios[index + direction], criterios[index]]; method({ criterios }); }}>{direction === -1 ? '↑ Subir' : '↓ Bajar'}</button>)}<button type="button" onClick={() => method({ criterios: m.criterios.filter(x => x.id !== c.id) })}>Quitar criterio {index + 1}</button></div>
       </fieldset>)}
       <div className="hf-actions"><button type="button" onClick={() => method({ criterios: [...m.criterios, { id: crypto.randomUUID(), nombre: '', descripcion: '', categoria: 'Personalizado', peso: 1, origen: { metodologiaId: m.id, autor: author, fuente: `Definición propia de ${author}`, version: '1', tipo: 'personalizado' } }] })}>Agregar criterio</button>
-        <button type="button" disabled={saving || problemasMetodologia(m).length > 0} onClick={async () => { setSaving(true); setError(''); try { await onSaveMethod(m); } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo guardar la metodología'); } finally { setSaving(false); } }}>Guardar metodología reutilizable</button></div>
+        <button type="button" disabled={saving || problemasMetodologia(m).length > 0} onClick={async () => { setSaving(true); setError(''); try { await (guardado && onUpdateMethod ? onUpdateMethod(m) : onSaveMethod(m)); } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo guardar la metodología'); } finally { setSaving(false); } }}>{guardado ? 'Guardar cambios del método' : 'Guardar metodología reutilizable'}</button></div>
       {error && <p role="alert" className="hf-error">{error}</p>}
     </section>
     <section className="panel"><PasoCabecera n={3} titulo="Escala de valoración" ayuda="Elige cómo se responde cada criterio. Puedes usar una sola escala para todo o una distinta por criterio (en el paso 2)." />

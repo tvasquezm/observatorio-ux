@@ -67,6 +67,24 @@ export class HeuristicaFlujoService {
     return nueva;
   }
 
+  // Solo el autor puede editar o borrar. Si no existe o es de otra persona la respuesta es la misma (404).
+  // Las evaluaciones ya creadas guardan su propia copia del método (snapshot), así que no cambian.
+  async actualizarMetodologia(proyectoId: string, id: string, body: unknown, user: AuthenticatedUser) {
+    await this.projectAccess.assertAccess(proyectoId, user);
+    const contenido = validar(metodologiaSchema, body);
+    const autor = await this.prisma.usuario.findUniqueOrThrow({ where: { id: user.id }, select: { nombre: true } });
+    const nueva = { ...contenido, id, autor: autor.nombre, protegida: false };
+    const { count } = await this.prisma.metodologiaHeuristica.updateMany({ where: { id, autorId: user.id }, data: { contenido: json(nueva) } });
+    if (!count) throw new NotFoundException('No encontramos ese método entre los tuyos.');
+    return nueva;
+  }
+
+  async borrarMetodologia(proyectoId: string, id: string, user: AuthenticatedUser) {
+    await this.projectAccess.assertAccess(proyectoId, user);
+    const { count } = await this.prisma.metodologiaHeuristica.deleteMany({ where: { id, autorId: user.id } });
+    if (!count) throw new NotFoundException('No encontramos ese método entre los tuyos.');
+  }
+
   private async validarConfiguracion(proyectoId: string, c: ConfiguracionFlujo, user: AuthenticatedUser, completa = false) {
     const miembros = await this.equipo(proyectoId, user);
     if ([...c.evaluadorIds, ...c.lectorIds].some(id => !miembros.some(m => m.id === id))) throw new BadRequestException('Expertos y lectores deben pertenecer al equipo del proyecto.');

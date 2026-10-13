@@ -65,6 +65,8 @@ All notable changes to this project will be documented in this file. See [commit
 * **heuristica-flujo:** constructor guiado de métodos en 4 pasos: partir de una
   metodología o de cero, pegar una lista de criterios, escala predefinida (Sí/No,
   1 a 5, Nielsen 0 a 4) o distinta por criterio, y vista previa del formulario del evaluador.
+* **heuristica-flujo:** editar y borrar los métodos propios desde la biblioteca; solo el autor
+  puede hacerlo y las evaluaciones ya creadas no cambian.
 
 ### Fixes
 

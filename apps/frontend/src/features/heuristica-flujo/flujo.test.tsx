@@ -259,3 +259,62 @@ describe('historial e informe', () => {
 it('distingue todos NA justificados de criterios pendientes', () => {
   const c = config(); expect(pendientesTrabajo(c, [{ criterioId: c.metodologia.criterios[0].id, valor: null, noAplica: true, motivo: 'Fuera de alcance', notas: '' }], [])).toEqual([]);
 });
+
+describe('métodos propios: editar y borrar', () => {
+  const propia = () => ({ ...copiarMetodologia(METODOLOGIAS_HEURISTICAS[0], 'a1b2c3d4-0000-4000-8000-000000000001', 'Mi método'), autor: 'Ana' });
+  let latest: ConfiguracionFlujo;
+  function Editor({ conAcciones = true, onSave = vi.fn().mockResolvedValue(undefined), onUpdate = vi.fn().mockResolvedValue(undefined), onDelete = vi.fn().mockResolvedValue(undefined) }: { conAcciones?: boolean; onSave?: () => Promise<void>; onUpdate?: () => Promise<void>; onDelete?: () => Promise<void> }) {
+    const [v, setV] = useState(config());
+    latest = v;
+    return <ConfiguracionEditor value={v} onChange={setV} biblioteca={[METODOLOGIAS_HEURISTICAS[0], propia()]} equipo={[]} onSaveMethod={onSave}
+      {...(conAcciones ? { onUpdateMethod: onUpdate, onDeleteMethod: onDelete } : {})} />;
+  }
+  it('ofrece Editar y Borrar solo en métodos propios y solo cuando hay acciones', () => {
+    const { unmount } = renderFlow(<Editor />);
+    expect(screen.getByRole('button', { name: 'Editar Mi método' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Borrar Mi método' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: `Borrar ${METODOLOGIAS_HEURISTICAS[0].nombre}` })).toBeNull();
+    expect(screen.queryByRole('button', { name: `Editar ${METODOLOGIAS_HEURISTICAS[0].nombre}` })).toBeNull();
+    unmount();
+    renderFlow(<Editor conAcciones={false} />);
+    expect(screen.queryByRole('button', { name: 'Editar Mi método' })).toBeNull();
+  });
+  it('editar carga el método con su id y guardar lo actualiza sin crear otro', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined), onUpdate = vi.fn().mockResolvedValue(undefined);
+    renderFlow(<Editor onSave={onSave} onUpdate={onUpdate} />);
+    expect(screen.queryByText(/Estás editando tu método guardado/)).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Editar Mi método' }));
+    expect(latest.metodologia.id).toBe(propia().id);
+    expect(screen.getByText(/Estás editando tu método guardado «Mi método»/)).toBeInTheDocument();
+    await userEvent.clear(screen.getByLabelText('Nombre del criterio 1')); await userEvent.type(screen.getByLabelText('Nombre del criterio 1'), 'Cambiado');
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios del método' }));
+    expect(onUpdate).toHaveBeenCalledTimes(1);
+    expect(onUpdate.mock.calls[0][0]).toMatchObject({ id: propia().id, protegida: false });
+    expect(onUpdate.mock.calls[0][0].criterios[0].nombre).toBe('Cambiado');
+    expect(onSave).not.toHaveBeenCalled();
+  });
+  it('una copia nueva sigue guardándose como método nuevo', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined), onUpdate = vi.fn();
+    renderFlow(<Editor onSave={onSave} onUpdate={onUpdate} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar metodología reutilizable' }));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onUpdate).not.toHaveBeenCalled();
+  });
+  it('pide confirmación antes de borrar y respeta la cancelación', async () => {
+    const onDelete = vi.fn().mockResolvedValue(undefined);
+    renderFlow(<Editor onDelete={onDelete} />);
+    confirm.mockResolvedValueOnce(false);
+    await userEvent.click(screen.getByRole('button', { name: 'Borrar Mi método' }));
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining('Las evaluaciones que ya lo usan no cambian'));
+    expect(onDelete).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'Borrar Mi método' }));
+    await waitFor(() => expect(onDelete).toHaveBeenCalledWith(propia().id));
+  });
+  it('explica el error de borrado sin perder la configuración', async () => {
+    renderFlow(<Editor onDelete={vi.fn().mockRejectedValue(new Error('No encontramos ese método entre los tuyos.'))} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Borrar Mi método' }));
+    expect(await screen.findByText('No encontramos ese método entre los tuyos.')).toBeInTheDocument();
+    expect(latest.nombre).toBe('Portal');
+  });
+});
+

@@ -17,6 +17,7 @@ const hallazgo = (id: string): HallazgoFlujo => ({ id, criterioIds: [METODOLOGIA
 function preparar() {
   const filas = new Map<string, EvaluacionHeuristicaCompleta>();
   const evidencias = new Map<string, Record<string, unknown>>();
+  const metodos = new Map<string, { id: string; autorId: string; contenido: unknown }>();
   let cola = Promise.resolve();
   const delegate = {
     create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => {
@@ -45,7 +46,12 @@ function preparar() {
     }),
     proyecto: { findUniqueOrThrow: jest.fn(async () => ({ creadoPorId: coordinador.id, miembros: ['e1','e2','e3','e4','e5',lector.id].map(usuarioId => ({ usuarioId })), sala: null })) },
     usuario: { findMany: jest.fn(async () => [coordinador, experto, usuario('e2'), usuario('e3'), usuario('e4'), usuario('e5'), lector].map(u => ({ id: u.id, nombre: u.id, rol: u.rol }))), findUniqueOrThrow: jest.fn(async () => ({ nombre: 'Nombre servidor' })) },
-    metodologiaHeuristica: { create: jest.fn(), findMany: jest.fn(async () => []) },
+    metodologiaHeuristica: {
+      create: jest.fn(async ({ data }: { data: { id: string; autorId: string; contenido: unknown } }) => { metodos.set(data.id, structuredClone(data)); return data; }),
+      findMany: jest.fn(async ({ where }: { where: { autorId: string } }) => [...metodos.values()].filter(m => m.autorId === where.autorId).map(m => structuredClone(m))),
+      updateMany: jest.fn(async ({ where, data }: { where: { id: string; autorId: string }; data: { contenido: unknown } }) => { const m = metodos.get(where.id); if (!m || m.autorId !== where.autorId) return { count: 0 }; m.contenido = structuredClone(data.contenido); return { count: 1 }; }),
+      deleteMany: jest.fn(async ({ where }: { where: { id: string; autorId: string } }) => { const m = metodos.get(where.id); if (!m || m.autorId !== where.autorId) return { count: 0 }; metodos.delete(where.id); return { count: 1 }; }),
+    },
     evidenciaHeuristicaCompleta: {
       count: jest.fn(async () => evidencias.size),
       findMany: jest.fn(async ({ where }: { where: { id: { in: string[] }; evaluacionId: string; autorId?: string } }) => [...evidencias.values()].filter(v => where.id.in.includes(v.id as string) && v.evaluacionId === where.evaluacionId && (!where.autorId || where.autorId === v.autorId))),
@@ -55,7 +61,7 @@ function preparar() {
     },
   };
   const acceso = { assertAccess: jest.fn(async () => {}) };
-  return { service: new HeuristicaFlujoService(prisma as unknown as PrismaService, acceso as unknown as ProjectAccessService), prisma, filas, evidencias, acceso };
+  return { service: new HeuristicaFlujoService(prisma as unknown as PrismaService, acceso as unknown as ProjectAccessService), prisma, filas, evidencias, metodos, acceso };
 }
 
 async function entregarTodos(service: HeuristicaFlujoService, cantidad = 1, conHallazgos = false) {
@@ -164,6 +170,57 @@ describe('Flujo heurístico: privacidad, transiciones y consenso', () => {
     expect(propia.id).not.toBe(METODOLOGIAS_HEURISTICAS[0].id);
     expect(propia).toMatchObject({ autor: 'Nombre servidor', protegida: false });
     expect(propia.criterios[0].origen).toEqual(METODOLOGIAS_HEURISTICAS[0].criterios[0].origen);
+  });
+});
+
+describe('Métodos propios del flujo', () => {
+  const copia = () => ({ ...structuredClone(METODOLOGIAS_HEURISTICAS[0]), protegida: false });
+  const sinGuardar = (propia: Awaited<ReturnType<HeuristicaFlujoService['guardarMetodologia']>>) => structuredClone(propia);
+
+  it('el autor edita su método: conserva id, fija autor y protegida desde el servidor', async () => {
+    const { service, metodos } = preparar();
+    const propia = await service.guardarMetodologia('p', copia(), coordinador);
+    const editada = await service.actualizarMetodologia('p', propia.id, { ...propia, id: 'otro', protegida: true, autor: 'Falso', nombre: 'Renombrada', criterios: propia.criterios.slice(0, 2) }, coordinador);
+    expect(editada).toMatchObject({ id: propia.id, nombre: 'Renombrada', autor: 'Nombre servidor', protegida: false });
+    expect(editada.criterios).toHaveLength(2);
+    expect(metodos.size).toBe(1);
+    const lista = await service.metodologias('p', coordinador);
+    expect(lista.filter(m => (m as { id: string }).id === propia.id)).toEqual([editada]);
+  });
+  it('otra persona recibe 404 al editar o borrar y el método no cambia', async () => {
+    const { service, metodos } = preparar();
+    const propia = await service.guardarMetodologia('p', copia(), coordinador);
+    const antes = structuredClone([...metodos.values()]);
+    await expect(service.actualizarMetodologia('p', propia.id, { ...propia, nombre: 'Robado' }, experto)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.borrarMetodologia('p', propia.id, experto)).rejects.toBeInstanceOf(NotFoundException);
+    expect([...metodos.values()]).toEqual(antes);
+  });
+  it('un método inexistente o del catálogo responde igual que uno ajeno', async () => {
+    const { service } = preparar();
+    await expect(service.actualizarMetodologia('p', randomUUID(), copia(), coordinador)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.actualizarMetodologia('p', METODOLOGIAS_HEURISTICAS[0].id, copia(), coordinador)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.borrarMetodologia('p', METODOLOGIAS_HEURISTICAS[0].id, coordinador)).rejects.toBeInstanceOf(NotFoundException);
+  });
+  it('rechaza un cuerpo inválido sin tocar lo guardado y exige acceso al proyecto', async () => {
+    const { service, metodos, acceso } = preparar();
+    const propia = await service.guardarMetodologia('p', copia(), coordinador);
+    const antes = structuredClone([...metodos.values()]);
+    await expect(service.actualizarMetodologia('p', propia.id, { ...sinGuardar(propia), criterios: [] }, coordinador)).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.actualizarMetodologia('p', propia.id, { ...sinGuardar(propia), extra: true }, coordinador)).rejects.toBeInstanceOf(BadRequestException);
+    expect([...metodos.values()]).toEqual(antes);
+    acceso.assertAccess.mockRejectedValueOnce(new ForbiddenException());
+    await expect(service.borrarMetodologia('ajeno', propia.id, coordinador)).rejects.toBeInstanceOf(ForbiddenException);
+    expect(metodos.size).toBe(1);
+  });
+  it('borra solo una vez y no altera una evaluación que ya usa una copia', async () => {
+    const { service } = preparar();
+    const propia = await service.guardarMetodologia('p', copia(), coordinador);
+    const e = await service.crear('p', { ...configuracion(), metodologia: propia }, coordinador);
+    await service.borrarMetodologia('p', propia.id, coordinador);
+    await expect(service.borrarMetodologia('p', propia.id, coordinador)).rejects.toBeInstanceOf(NotFoundException);
+    expect((await service.metodologias('p', coordinador)).some(m => (m as { id: string }).id === propia.id)).toBe(false);
+    const leida = await service.obtener('p', e.id, coordinador);
+    expect(leida.configuracion.metodologia).toEqual(propia);
   });
 });
 
