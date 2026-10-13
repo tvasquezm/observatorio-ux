@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { detectarDiscrepancias, escalaDe } from '@observatorio-ux/shared-types';
-import type { DecisionCriterio, DecisionHallazgo, EvaluacionFlujo } from '@observatorio-ux/shared-types';
+import type { CriterioFlujo, DecisionCriterio, DecisionHallazgo, EvaluacionFlujo } from '@observatorio-ux/shared-types';
 import { Field } from './ConfiguracionEditor';
 import { EvidenciaEditor } from './EvidenciaEditor';
 import { HallazgoEditor, SaveStatus, ValoracionEditor } from './TrabajoEditor';
 import { flujoRequest } from './flujo.api';
-import { hallazgoVacio, respuestaVacia } from './flujo-utils';
+import { avancePorCategoria, esChecklist, etiquetasDiscrepancia, hallazgoVacio, respuestaVacia } from './flujo-utils';
 import { useFlujoDraft } from './useFlujoDraft';
 
 export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack }: { evaluacion: EvaluacionFlujo; usuarioId: string; onSaved: (e: EvaluacionFlujo) => void; onBack: () => void }) {
@@ -14,6 +14,7 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack }: { eva
   const [busy, setBusy] = useState(false);
   const [seleccion, setSeleccion] = useState<string[]>([]);
   const agenda = detectarDiscrepancias(evaluacion.configuracion, evaluacion.trabajos);
+  const checklist = esChecklist(evaluacion.configuracion);
   const originales = evaluacion.trabajos.flatMap(t => t.hallazgos.map(h => ({ ...h, evaluador: t.nombre })));
   const cubiertos = new Set(state.draft.hallazgos.flatMap(h => h.origenIds));
   const update = (h: DecisionHallazgo) => state.setDraft({ ...state.draft, hallazgos: state.draft.hallazgos.map(x => x.id === h.id ? h : x) });
@@ -22,23 +23,26 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack }: { eva
     try { await state.save(); onSaved(await flujoRequest<EvaluacionFlujo>(evaluacion.proyectoId, `/evaluaciones/${evaluacion.id}/${action}`, 'POST', { revision: state.getRevision() })); }
     catch (e) { setError(e instanceof Error ? e.message : 'No se pudo completar la acción'); } finally { setBusy(false); }
   }
-  return <>
-    <button type="button" className="secondary" onClick={async () => { if (await state.confirmLeave()) onBack(); }}>← Evaluaciones</button>
-    <div className="page-head"><div><h2>Consenso · {evaluacion.configuracion.nombre}</h2><p>Todos los expertos entregaron. Revisen los originales y acuerden cada criterio y problema. La agenda orienta; no decide por promedio o mayoría.</p></div></div>
-    <button type="button" className="secondary" disabled={state.saving || busy} onClick={async () => { if (!(await state.confirmLeave())) return; try { await state.reloadRevision(); } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo actualizar'); } }}>Actualizar consenso y confirmaciones</button>
-    <section className="panel"><div className="panel-head"><h2>Agenda de discrepancias</h2></div>
-      {agenda.criterios.length ? <ul>{agenda.criterios.map(c => <li key={c.criterioId}>{evaluacion.configuracion.metodologia.criterios.find(x => x.id === c.criterioId)?.nombre}: {c.motivos.join(' · ')}</li>)}</ul> : <p>No se detectaron diferencias de valoración. Confirmen de todos modos el acuerdo.</p>}
-      <p>{agenda.hallazgos.length} hallazgos individuales para revisar. {originales.filter(h => !cubiertos.has(h.id)).length} originales sin decisión.</p>
-    </section>
-    <SaveStatus {...state} />
-    <fieldset disabled={busy}><legend>Acuerdo por criterio</legend>{evaluacion.configuracion.metodologia.criterios.map(c => {
+  const bloqueCriterio = (c: CriterioFlujo) => {
       const r: DecisionCriterio = state.draft.criterios.find(x => x.criterioId === c.id) ?? { ...respuestaVacia(c.id), justificacion: '' };
       return <fieldset key={c.id}><legend>{c.nombre}</legend>
         <ul>{evaluacion.trabajos.map(t => { const own = t.respuestas.find(x => x.criterioId === c.id); return <li key={t.evaluadorId}>{t.nombre}: {own?.noAplica ? `No aplica: ${own.motivo}` : escalaDe(evaluacion.configuracion.metodologia, c).niveles.find(n => n.id === own?.valor)?.etiqueta ?? 'Sin evaluar'} {own?.notas && `· ${own.notas}`}</li>; })}</ul>
         <ValoracionEditor config={evaluacion.configuracion} respuesta={r} onChange={x => state.setDraft({ ...state.draft, criterios: [...state.draft.criterios.filter(x => x.criterioId !== c.id), { ...r, ...x }] })} />
         <Field label="Justificación del acuerdo"><textarea value={r.justificacion} onChange={e => state.setDraft({ ...state.draft, criterios: [...state.draft.criterios.filter(x => x.criterioId !== c.id), { ...r, justificacion: e.target.value }] })} /></Field>
       </fieldset>;
-    })}</fieldset>
+    };
+  return <>
+    <button type="button" className="secondary" onClick={async () => { if (await state.confirmLeave()) onBack(); }}>← Evaluaciones</button>
+    <div className="page-head"><div><h2>Consenso · {evaluacion.configuracion.nombre}</h2><p>Todos los expertos entregaron. Revisen los originales y acuerden cada criterio y problema. La agenda orienta; no decide por promedio o mayoría.</p></div></div>
+    <button type="button" className="secondary" disabled={state.saving || busy} onClick={async () => { if (!(await state.confirmLeave())) return; try { await state.reloadRevision(); } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo actualizar'); } }}>Actualizar consenso y confirmaciones</button>
+    <section className="panel"><div className="panel-head"><h2>Agenda de discrepancias</h2></div>
+      {agenda.criterios.length ? <ul>{agenda.criterios.map(c => <li key={c.criterioId}>{evaluacion.configuracion.metodologia.criterios.find(x => x.id === c.criterioId)?.nombre}: {c.motivos.join(' · ')}{checklist && ` Difieren: ${etiquetasDiscrepancia(evaluacion.configuracion, c)}`}</li>)}</ul> : <p>No se detectaron diferencias de valoración. Confirmen de todos modos el acuerdo.</p>}
+      <p>{agenda.hallazgos.length} hallazgos individuales para revisar. {originales.filter(h => !cubiertos.has(h.id)).length} originales sin decisión.</p>
+    </section>
+    <SaveStatus {...state} />
+    <fieldset disabled={busy}><legend>Acuerdo por criterio</legend>{checklist
+      ? avancePorCategoria(evaluacion.configuracion, state.draft.criterios).map(g => <section key={g.categoria} className="hf-cat" aria-label={g.categoria}><h3>{g.categoria}</h3><p className="hf-avance">{g.respondidos} de {g.criterios.length} con valoración acordada{g.respondidos === g.criterios.length ? ' · ✓ Categoría completa' : ''}</p>{g.criterios.map(bloqueCriterio)}</section>)
+      : evaluacion.configuracion.metodologia.criterios.map(bloqueCriterio)}</fieldset>
     <section className="panel"><div className="panel-head"><h2>Hallazgos originales preservados</h2></div>
       {originales.map(h => <details key={h.id}><summary>{h.evaluador}: {h.titulo} · {cubiertos.has(h.id) ? 'Vinculado a decisión' : 'Pendiente de decisión'}</summary><p>ID de origen: {h.id}</p><p>{h.pantalla}: {h.descripcion}</p><p>Severidad {h.severidad} · Prioridad {h.prioridad}</p><p>Recomendación: {h.recomendacion}</p><p>{h.notas}</p><EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={h.evidenciaIds} editable={false} /></details>)}
       <fieldset disabled={busy}><legend>Seleccionar originales para aceptar, fusionar o descartar</legend>{originales.map(h => <label className="hf-check" key={h.id}><input type="checkbox" checked={seleccion.includes(h.id)} disabled={cubiertos.has(h.id)} onChange={e => setSeleccion(e.target.checked ? [...seleccion, h.id] : seleccion.filter(x => x !== h.id))} />{h.evaluador}: {h.titulo}</label>)}</fieldset>

@@ -76,6 +76,8 @@ All notable changes to this project will be documented in this file. See [commit
   evaluaciones anteriores, sin ese campo, no cambian.
 * **heuristica-flujo:** el informe y su PDF muestran "n de N cumplen (x %)" por categoría y total,
   en texto; solo aparece si la escala define respuestas favorables.
+* **heuristica-flujo:** el consenso de un checklist agrupa los criterios por categoría y la agenda de
+  discrepancias indica en texto qué respuestas difieren ("Difieren: Sí / No").
 
 ### Fixes
 

@@ -1,5 +1,5 @@
 import { escalaDe } from '@observatorio-ux/shared-types';
-import type { ConfiguracionFlujo, CriterioFlujo, CumplimientoGrupo, HallazgoFlujo, RespuestaCriterio } from '@observatorio-ux/shared-types';
+import type { ConfiguracionFlujo, CriterioFlujo, CumplimientoGrupo, DiscrepanciasFlujo, HallazgoFlujo, RespuestaCriterio } from '@observatorio-ux/shared-types';
 
 export function pendientesTrabajo(config: ConfiguracionFlujo, respuestas: RespuestaCriterio[], hallazgos: HallazgoFlujo[]) {
   const pendientes = config.metodologia.criterios.filter(c => !criterioRespondido(config, c, respuestas.find(r => r.criterioId === c.id))).map(c => `Valora o justifica no aplica: ${c.nombre}`);
@@ -37,4 +37,11 @@ export function textoCumplimiento(g: CumplimientoGrupo): string {
   const base = valorables ? `${g.favorables} de ${valorables} cumplen (${Math.round(g.favorables / valorables * 100)} %)` : 'Sin criterios valorables';
   const extra = [g.sinEvaluar ? `${g.sinEvaluar} sin evaluar` : '', g.noAplica ? `${g.noAplica} no aplica` : ''].filter(Boolean);
   return extra.length ? `${base} · ${extra.join(' · ')}` : base;
+}
+/** Respuestas distintas de un criterio en discrepancia, con las etiquetas de su escala: "Sí / No". */
+export function etiquetasDiscrepancia(config: ConfiguracionFlujo, d: DiscrepanciasFlujo['criterios'][number]): string {
+  const criterio = config.metodologia.criterios.find(c => c.id === d.criterioId);
+  const niveles = criterio ? escalaDe(config.metodologia, criterio).niveles : [];
+  const etiqueta = (r: typeof d.respuestas[number]) => r.noAplica ? 'N.A.' : niveles.find(n => n.id === r.valor)?.etiqueta ?? 'Sin evaluar';
+  return [...new Set(d.respuestas.map(etiqueta))].join(' / ');
 }

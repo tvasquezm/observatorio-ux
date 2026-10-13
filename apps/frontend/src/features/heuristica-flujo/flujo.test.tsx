@@ -395,3 +395,27 @@ describe('cumplimiento en el informe', () => {
     expect(textoCumplimiento({ ...base, favorables: 1, desfavorables: 2, sinEvaluar: 1 })).toBe('1 de 3 cumplen (33 %) · 1 sin evaluar');
   });
 });
+describe('consenso con checklist', () => {
+  function consensoEval(mixta = false): EvaluacionFlujo {
+    const base = evaluation({ fase: 'PENDIENTE_CONSENSO' });
+    const m = copiarMetodologia(METODOLOGIAS_HEURISTICAS.find(x => x.id === 'hassan-checklist-2003')!);
+    m.criterios = [...m.criterios.filter(c => c.categoria === 'Generales').slice(0, 2), ...m.criterios.filter(c => c.categoria === 'Identidad e información').slice(0, 1)];
+    if (mixta) m.criterios[2] = { ...m.criterios[2], escala: copiarMetodologia(METODOLOGIAS_HEURISTICAS[0]).escala };
+    const resp = (valor: string) => m.criterios.map(c => ({ criterioId: c.id, valor, noAplica: false, motivo: '', notas: '' }));
+    const trabajo = (evaluadorId: string, nombre: string, valor: string) => ({ evaluadorId, nombre, respuestas: resp(valor), hallazgos: [], entregadoEn: '2026-10-09T12:00:00Z', guardadoEn: '2026-10-09T12:00:00Z' });
+    return { ...base, configuracion: { ...base.configuracion, metodologia: m, evaluadorIds: ['u1', 'u2'] }, trabajos: [trabajo('u1', 'Ana', 'si'), trabajo('u2', 'Beto', 'no')] };
+  }
+  it('agrupa por categoría y dice en texto qué respuestas difieren', () => {
+    const e = consensoEval();
+    renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.getByRole('region', { name: 'Generales' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Identidad e información' })).toBeInTheDocument();
+    expect(screen.getByText('0 de 2 con valoración acordada')).toBeInTheDocument();
+    expect(screen.getAllByText(/Difieren: Sí \/ No/)).toHaveLength(3);
+  });
+  it('con escalas mixtas conserva la vista plana', () => {
+    renderFlow(<ConsensoEditor evaluacion={consensoEval(true)} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.queryByRole('region', { name: 'Generales' })).toBeNull();
+    expect(screen.queryByText(/Difieren:/)).toBeNull();
+  });
+});
