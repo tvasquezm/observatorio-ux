@@ -9,7 +9,7 @@ import { avancePorCategoria, esChecklist, etiquetasDiscrepancia, hallazgoVacio, 
 import { useFlujoDraft } from './useFlujoDraft';
 
 export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack }: { evaluacion: EvaluacionFlujo; usuarioId: string; onSaved: (e: EvaluacionFlujo) => void; onBack: () => void }) {
-  const state = useFlujoDraft(evaluacion, usuarioId, 'consenso', { criterios: evaluacion.consenso.criterios, hallazgos: evaluacion.consenso.hallazgos }, onSaved);
+  const state = useFlujoDraft(evaluacion, usuarioId, 'consenso', { criterios: evaluacion.consenso.criterios, hallazgos: evaluacion.consenso.hallazgos, positivos: evaluacion.consenso.positivos ?? [], conclusion: evaluacion.consenso.conclusion ?? '' }, onSaved);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [seleccion, setSeleccion] = useState<string[]>([]);
@@ -60,6 +60,17 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack }: { eva
       <EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={h.evidenciaIds} editable={false} />
       <button type="button" className="secondary" onClick={() => state.setDraft({ ...state.draft, hallazgos: state.draft.hallazgos.filter(x => x.id !== h.id) })}>Reabrir orígenes de decisión {i + 1}</button>
     </fieldset>)}</section>
+    <section className="panel"><div className="panel-head"><h2>Aspectos positivos acordados</h2></div>
+      <fieldset disabled={busy}><legend>Lo que funciona bien en el producto</legend>{state.draft.positivos.map((p, i) => <fieldset key={p.id}><legend>Aspecto positivo {i + 1}: {p.titulo || 'Sin título'}</legend>
+        <Field label={`Título del aspecto positivo ${i + 1}`}><input maxLength={300} value={p.titulo} onChange={e => state.setDraft({ ...state.draft, positivos: state.draft.positivos.map(x => x.id === p.id ? { ...x, titulo: e.target.value } : x) })} /></Field>
+        <Field label={`Descripción del aspecto positivo ${i + 1}`}><textarea maxLength={10000} value={p.descripcion} onChange={e => state.setDraft({ ...state.draft, positivos: state.draft.positivos.map(x => x.id === p.id ? { ...x, descripcion: e.target.value } : x) })} /></Field>
+        <button type="button" className="secondary" onClick={() => state.setDraft({ ...state.draft, positivos: state.draft.positivos.filter(x => x.id !== p.id) })}>Quitar aspecto positivo {i + 1}</button>
+      </fieldset>)}
+      <button type="button" className="secondary" disabled={state.draft.positivos.length >= 200} onClick={() => state.setDraft({ ...state.draft, positivos: [...state.draft.positivos, { id: crypto.randomUUID(), titulo: '', descripcion: '' }] })}>Agregar aspecto positivo</button></fieldset>
+    </section>
+    <section className="panel"><div className="panel-head"><h2>Conclusión y recomendaciones finales</h2></div>
+      <Field label="Conclusión y recomendaciones finales"><textarea maxLength={10000} disabled={busy} value={state.draft.conclusion} onChange={e => state.setDraft({ ...state.draft, conclusion: e.target.value })} /></Field>
+    </section>
     <SaveStatus {...state} />
     <section className="panel"><div className="panel-head"><h2>Confirmación de todos los expertos</h2></div><p>Editar el consenso revoca las confirmaciones previas. {state.dirty ? 'Hay cambios pendientes: las aprobaciones visibles corresponden a la versión guardada.' : ''}</p>
       <ul>{evaluacion.trabajos.map(t => <li key={t.evaluadorId}>{t.nombre}: {evaluacion.consenso.aprobadoPor.includes(t.evaluadorId) && !state.dirty ? 'Confirmado' : 'Confirmación pendiente'}</li>)}</ul>

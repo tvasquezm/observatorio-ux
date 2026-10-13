@@ -65,3 +65,16 @@ describe('Anotación de imágenes del informe', () => {
     [100, 100, 400, 200].forEach((n, i) => expect(llamadas[0][i]).toBeCloseTo(n));
   });
 });
+
+describe('Informe PDF: aspectos positivos y conclusión', () => {
+  it('incluye ambas secciones cuando hay contenido y las omite en una evaluación antigua', () => {
+    const ev = evaluacion();
+    const antiguo = JSON.stringify(construirInformeFlujoPdf(ev, new Map(), new Date('2026-10-09T12:00:00Z')).content);
+    expect(antiguo).not.toContain('Aspectos positivos');
+    expect(antiguo).not.toContain('Conclusión y recomendaciones finales');
+    ev.informe!.consenso.positivos = [{ id: 'pos1', titulo: 'Menú claro', descripcion: 'Etiquetas comprensibles.' }];
+    ev.informe!.consenso.conclusion = 'Corregir el formulario antes de publicar.';
+    const contenido = JSON.stringify(construirInformeFlujoPdf(ev, new Map(), new Date('2026-10-09T12:00:00Z')).content);
+    for (const texto of ['Aspectos positivos', 'Menú claro', 'Etiquetas comprensibles.', 'Conclusión y recomendaciones finales', 'Corregir el formulario antes de publicar.']) expect(contenido).toContain(texto);
+  });
+});

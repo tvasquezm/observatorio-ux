@@ -39,7 +39,8 @@ export interface TrabajoFlujo {
 }
 export interface DecisionCriterio extends RespuestaCriterio { justificacion: string }
 export interface DecisionHallazgo extends HallazgoFlujo { origenIds: string[]; decision: 'PENDIENTE' | 'ACEPTADO' | 'DESCARTADO'; justificacion: string }
-export interface ConsensoFlujo { criterios: DecisionCriterio[]; hallazgos: DecisionHallazgo[]; aprobadoPor: string[] }
+export interface AspectoPositivo { id: string; titulo: string; descripcion: string }
+export interface ConsensoFlujo { criterios: DecisionCriterio[]; hallazgos: DecisionHallazgo[]; aprobadoPor: string[]; positivos?: AspectoPositivo[]; conclusion?: string }
 export type EstadoComparacion = 'SOLUCIONADO' | 'PERMANECE' | 'MEJORO' | 'EMPEORO' | 'NUEVO' | 'NO_VERIFICADO' | 'NO_COMPARABLE';
 export interface VinculoComparacion { anteriorId: string | null; actualId: string | null; estado: EstadoComparacion; justificacion: string }
 export interface ComparacionFlujo { previaId: string; compatible: boolean; motivos: string[]; vinculos: VinculoComparacion[]; confirmadoPor: string | null; confirmadoEn: string | null }

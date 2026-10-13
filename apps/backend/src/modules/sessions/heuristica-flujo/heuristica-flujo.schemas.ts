@@ -41,6 +41,8 @@ export const trabajoSchema = revisionSchema.extend({
 export const consensoSchema = revisionSchema.extend({
   criterios: z.array(respuestaSchema.extend({ justificacion: texto })).max(500).refine(v => unico(v.map(c => c.criterioId)), 'Criterios repetidos'),
   hallazgos: z.array(hallazgoSchema.extend({ origenIds: ids(5000), decision: z.enum(['PENDIENTE', 'ACEPTADO', 'DESCARTADO']), justificacion: texto })).max(5000).refine(v => unico(v.map(h => h.id)), 'Hallazgos repetidos'),
+  positivos: z.array(z.strictObject({ id: identificador, titulo: z.string().max(300), descripcion: texto })).max(200).refine(v => unico(v.map(p => p.id)), 'Aspectos positivos repetidos').optional(),
+  conclusion: texto.optional(),
 });
 export const anotacionesSchema = revisionSchema.extend({ anotaciones: z.array(z.strictObject({
   id: identificador, tipo: z.enum(['rectangulo', 'circulo', 'flecha', 'destacado', 'texto']),

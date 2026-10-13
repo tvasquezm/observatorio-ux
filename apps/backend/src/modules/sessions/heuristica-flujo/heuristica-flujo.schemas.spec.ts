@@ -1,4 +1,4 @@
-import { configuracionSchema, anotacionesSchema, trabajoSchema, validar } from './heuristica-flujo.schemas.js';
+import { configuracionSchema, anotacionesSchema, consensoSchema, trabajoSchema, validar } from './heuristica-flujo.schemas.js';
 import { METODOLOGIAS_HEURISTICAS } from '@observatorio-ux/shared-types';
 
 describe('Límites de entrada del flujo', () => {
@@ -34,5 +34,20 @@ describe('Límites de entrada del flujo', () => {
     expect(() => validar(configuracionSchema, c)).toThrow();
     const checklist = structuredClone(METODOLOGIAS_HEURISTICAS.find(m => m.id === 'hassan-checklist-2003')!);
     expect(validar(configuracionSchema, { ...config(), metodologia: checklist }).metodologia.escala.niveles.map(n => n.favorable)).toEqual([true, false]);
+  });
+});
+
+describe('Consenso: aspectos positivos y conclusión', () => {
+  const base = { revision: 1, criterios: [], hallazgos: [] };
+  const positivo = (id: string) => ({ id, titulo: 'Menú claro', descripcion: 'Las etiquetas se entienden.' });
+  it('acepta el consenso con y sin los campos nuevos', () => {
+    expect(validar(consensoSchema, base).positivos).toBeUndefined();
+    const v = validar(consensoSchema, { ...base, positivos: [positivo('a')], conclusion: 'Corregir el formulario.' });
+    expect(v.positivos).toHaveLength(1);
+    expect(v.conclusion).toBe('Corregir el formulario.');
+  });
+  it('rechaza más de 200 positivos, ids repetidos, campos desconocidos y conclusión excesiva', () => {
+    const muchos = Array.from({ length: 201 }, (_, i) => positivo(`p${i}`));
+    for (const cambios of [{ positivos: muchos }, { positivos: [positivo('a'), positivo('a')] }, { positivos: [{ ...positivo('a'), captura: 'x' }] }, { conclusion: 'x'.repeat(10001) }]) expect(() => validar(consensoSchema, { ...base, ...cambios })).toThrow();
   });
 });

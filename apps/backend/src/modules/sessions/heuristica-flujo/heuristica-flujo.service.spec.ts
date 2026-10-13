@@ -303,3 +303,35 @@ describe('Comparaciones manuales y snapshots', () => {
     await expect(service.comparacion('p', actual.id, anterior.id, lector)).rejects.toBeInstanceOf(ForbiddenException);
   });
 });
+
+describe('Consenso: aspectos positivos y conclusión', () => {
+  const positivos = [{ id: 'pos1', titulo: 'Navegación clara', descripcion: 'Las etiquetas del menú se entienden.' }];
+  it('conserva positivos y conclusión hasta el informe consolidado', async () => {
+    const { service, filas } = preparar();
+    let e = await entregarTodos(service, 1);
+    e = await service.guardarConsenso('p', e.id, { ...decisiones(e), positivos, conclusion: 'Recomendamos corregir el formulario.' }, coordinador);
+    expect(filas.get(e.id)!.consenso).toMatchObject({ positivos, conclusion: 'Recomendamos corregir el formulario.' });
+    for (const id of e.configuracion.evaluadorIds) e = await service.aprobar('p', e.id, { revision: e.revision }, usuario(id));
+    e = await service.consolidar('p', e.id, { revision: e.revision }, coordinador);
+    expect(e.informe!.consenso.positivos).toEqual(positivos);
+    expect(e.informe!.consenso.conclusion).toBe('Recomendamos corregir el formulario.');
+  });
+  it('un consenso antiguo sin los campos nuevos sigue siendo válido hasta consolidar', async () => {
+    const { service, filas } = preparar();
+    let e = await entregarTodos(service, 1);
+    e = await service.guardarConsenso('p', e.id, decisiones(e), coordinador);
+    expect(e.consenso).toMatchObject({ positivos: [], conclusion: '' });
+    const guardado = filas.get(e.id)!.consenso as Record<string, unknown>;
+    delete guardado.positivos; delete guardado.conclusion;
+    for (const id of e.configuracion.evaluadorIds) e = await service.aprobar('p', e.id, { revision: e.revision }, usuario(id));
+    e = await service.consolidar('p', e.id, { revision: e.revision }, coordinador);
+    expect(e.fase).toBe('CONSOLIDADA');
+    expect(e.informe!.consenso.positivos ?? []).toEqual([]);
+  });
+  it('no permite confirmar un positivo sin título', async () => {
+    const { service } = preparar();
+    let e = await entregarTodos(service, 1);
+    e = await service.guardarConsenso('p', e.id, { ...decisiones(e), positivos: [{ id: 'pos1', titulo: '  ', descripcion: 'Sin título' }] }, coordinador);
+    await expect(service.aprobar('p', e.id, { revision: e.revision }, usuario(e.configuracion.evaluadorIds[0]))).rejects.toThrow('Completa el título de cada aspecto positivo.');
+  });
+});

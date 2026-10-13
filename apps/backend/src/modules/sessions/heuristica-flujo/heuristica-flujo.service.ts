@@ -232,6 +232,7 @@ export class HeuristicaFlujoService {
     const referencias = e.consenso.hallazgos.flatMap(h => h.origenIds);
     if (new Set(referencias).size !== referencias.length || referencias.some(id => !originales.some(h => h.id === id))) throw new BadRequestException('Cada hallazgo original debe aparecer una sola vez.');
     if (completo && (referencias.length !== originales.length || e.consenso.hallazgos.some(h => h.decision === 'PENDIENTE' || !h.origenIds.length || !h.justificacion.trim()))) throw new BadRequestException('Resuelve todos los hallazgos originales, incluida cada fusión o descarte justificado.');
+    if (completo && (e.consenso.positivos ?? []).some(p => !p.titulo.trim())) throw new BadRequestException('Completa el título de cada aspecto positivo.');
     await this.validarHallazgos(e, e.consenso.hallazgos, tx, null, false);
     if (completo) await this.validarHallazgos(e, e.consenso.hallazgos.filter(h => h.decision === 'ACEPTADO'), tx, null, true);
   }
@@ -241,7 +242,7 @@ export class HeuristicaFlujoService {
     return this.bloqueada(proyectoId, id, user, b.revision, async (e, tx) => {
       this.fase(e, 'PENDIENTE_CONSENSO');
       if (e.coordinadorId !== user.id && !e.configuracion.evaluadorIds.includes(user.id)) throw new ForbiddenException();
-      e.consenso = { criterios: b.criterios, hallazgos: b.hallazgos, aprobadoPor: [] };
+      e.consenso = { criterios: b.criterios, hallazgos: b.hallazgos, aprobadoPor: [], positivos: b.positivos ?? [], conclusion: b.conclusion ?? '' };
       await this.validarConsenso(e, tx, false);
       return this.persistir(e, tx, user);
     });

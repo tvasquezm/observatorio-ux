@@ -13,6 +13,9 @@ All notable changes to this project will be documented in this file. See [commit
   propios; evaluación heurística con edición, capturas y analítica por heurística.
 * **borradores:** conserva los cambios escritos durante la subida de capturas y
   confirma antes de abandonar, cancelar, reemplazar una edición o finalizar la evaluación.
+* **evaluacion-heuristica:** el consenso registra una lista de aspectos positivos y una conclusión con
+  recomendaciones finales (campos opcionales, solo del consenso); ambos salen en el informe y en el PDF
+  cuando tienen contenido, y las evaluaciones anteriores se ven igual.
 * **evaluacion-heuristica:** evita el desbordamiento horizontal causado por el
   campo oculto de adjuntos; conserva su etiqueta accesible y el botón para subir capturas.
 

@@ -431,3 +431,39 @@ describe('consenso con checklist', () => {
     expect(screen.queryByText(/Difieren:/)).toBeNull();
   });
 });
+
+describe('aspectos positivos y conclusión', () => {
+  it('agrega y quita un aspecto positivo en el consenso', async () => {
+    renderFlow(<ConsensoEditor evaluacion={evaluation({ fase: 'PENDIENTE_CONSENSO' })} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.queryByLabelText('Título del aspecto positivo 1')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Agregar aspecto positivo' }));
+    await userEvent.type(screen.getByLabelText('Título del aspecto positivo 1'), 'Menú claro');
+    expect(screen.getByLabelText('Título del aspecto positivo 1')).toHaveValue('Menú claro');
+    await userEvent.click(screen.getByRole('button', { name: 'Quitar aspecto positivo 1' }));
+    expect(screen.queryByLabelText('Título del aspecto positivo 1')).toBeNull();
+  });
+  it('envía positivos y conclusión al guardar el consenso', async () => {
+    const e = evaluation({ fase: 'PENDIENTE_CONSENSO' });
+    api.mockResolvedValue({ ...e, revision: 2 });
+    renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Agregar aspecto positivo' }));
+    await userEvent.type(screen.getByLabelText('Título del aspecto positivo 1'), 'Menú claro');
+    await userEvent.type(screen.getByLabelText('Conclusión y recomendaciones finales'), 'Corregir el formulario');
+    await waitFor(() => expect(api).toHaveBeenCalledWith('p1', '/evaluaciones/e1/consenso', 'PATCH', expect.objectContaining({ positivos: [expect.objectContaining({ titulo: 'Menú claro' })], conclusion: 'Corregir el formulario' })), { timeout: 3000 });
+  });
+  it('el informe muestra las secciones solo con contenido', () => {
+    const vacio = final('actual');
+    const { unmount } = renderFlow(<InformeView evaluacion={vacio} historial={[]} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.queryByRole('heading', { name: 'Aspectos positivos' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Conclusión y recomendaciones finales' })).toBeNull();
+    unmount();
+    const lleno = final('actual');
+    lleno.informe!.consenso.positivos = [{ id: 'pos1', titulo: 'Menú claro', descripcion: 'Etiquetas comprensibles.' }];
+    lleno.informe!.consenso.conclusion = 'Corregir el formulario.';
+    renderFlow(<InformeView evaluacion={lleno} historial={[]} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.getByRole('heading', { name: 'Aspectos positivos' })).toBeInTheDocument();
+    expect(screen.getByText('Etiquetas comprensibles.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Conclusión y recomendaciones finales' })).toBeInTheDocument();
+    expect(screen.getByText('Corregir el formulario.')).toBeInTheDocument();
+  });
+});

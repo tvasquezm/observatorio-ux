@@ -25,6 +25,8 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
   const escalasPropias = [...new Map(config.metodologia.criterios.filter(c => c.escala).map(c => [JSON.stringify(c.escala), c.escala!] as const)).values()];
   const imagenes: Record<string, string> = {};
   for (const [id, img] of capturas) if (img) imagenes[`evidencia-${id}`] = img;
+  const positivos = consenso.positivos ?? [];
+  const conclusion = (consenso.conclusion ?? '').trim();
   const finalizado = informe.finalizadoEn !== null;
   const detalleHallazgos: Content[] = hallazgos.flatMap((h, i) => [
     titulo(`${i + 1}. ${h.titulo}`),
@@ -66,7 +68,9 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
       ...(cumplimiento ? [titulo('Cumplimiento'), table(['Categoría', 'Cumplimiento'], [...cumplimiento.porCategoria.map(c => [c.categoria, textoCumplimiento(c)]), ['Total', textoCumplimiento(cumplimiento.total)]], ['*', '*']), { text: 'Solo cuentan las respuestas marcadas como favorables o desfavorables; no aplica y sin evaluar quedan fuera del porcentaje.', color: MUTED } as Content] : []),
       titulo('Criterios y decisiones acordadas'),
       table(['Criterio / fuente', 'Valoración final', 'Justificación'], consenso.criterios.map(r => { const c = config.metodologia.criterios.find(x => x.id === r.criterioId); return [`${nombreCriterio(r.criterioId)}\n${c?.origen.autor ?? ''} · ${c?.origen.version ?? ''}\n${c?.origen.fuente ?? ''}`, valorCriterio(r), r.justificacion]; }), ['*', 100, '*']),
+      ...(positivos.length ? [titulo('Aspectos positivos'), ...positivos.flatMap((p): Content[] => [{ text: p.titulo, bold: true, margin: [0, 6, 0, 2] }, ...(p.descripcion ? [{ text: p.descripcion, margin: [0, 0, 0, 4] } as Content] : [])])] : []),
       titulo('Problemas y recomendaciones'), ...(detalleHallazgos.length ? detalleHallazgos : [{ text: 'La revisión acordada no identificó problemas de usabilidad.' } as Content]),
+      ...(conclusion ? [titulo('Conclusión y recomendaciones finales'), { text: conclusion } as Content] : []),
       titulo('Decisiones de revisión'),
       table(['Problema', 'Decisión', 'Orígenes', 'Motivo'], consenso.hallazgos.map(h => [h.titulo, h.decision === 'ACEPTADO' ? 'Aceptado / fusionado' : 'Descartado', h.origenIds.join(', '), h.justificacion]), ['*', 90, 90, '*']),
       campo('Aprobación explícita', informe.evaluadores.filter(e => consenso.aprobadoPor.includes(e.id)).map(e => e.nombre).join(', ')),
