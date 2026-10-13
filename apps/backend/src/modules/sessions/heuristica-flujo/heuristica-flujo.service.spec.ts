@@ -116,6 +116,20 @@ describe('Flujo heurístico: privacidad, transiciones y consenso', () => {
     expect((filas.get(e.id)!.trabajos as unknown as EvaluacionFlujo['trabajos'])[0].respuestas[0].notas).toBe('Borrador');
   });
 
+  it('valida el valor contra la escala efectiva de cada criterio', async () => {
+    const { service } = preparar();
+    const config = configuracion();
+    config.metodologia = { ...config.metodologia, id: 'propia', protegida: false };
+    const [primero, segundo] = config.metodologia.criterios;
+    primero.escala = { tipo: 'categorica', sentido: 'sin_orden', fuente: 'Checklist propio', niveles: [{ id: 'si', etiqueta: 'Sí', significado: 'Cumple' }, { id: 'no', etiqueta: 'No', significado: 'No cumple' }] };
+    let e = await service.crear('p', config, coordinador);
+    e = await service.iniciar('p', e.id, { revision: e.revision }, coordinador);
+    const r = (criterioId: string, valor: string) => ({ criterioId, valor, noAplica: false, motivo: '', notas: '' });
+    e = await service.guardarTrabajo('p', e.id, { revision: e.revision, respuestas: [r(primero.id, 'si'), r(segundo.id, 'cumple')], hallazgos: [] }, experto);
+    await expect(service.guardarTrabajo('p', e.id, { revision: e.revision, respuestas: [r(primero.id, 'cumple')], hallazgos: [] }, experto)).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.guardarTrabajo('p', e.id, { revision: e.revision, respuestas: [r(segundo.id, 'si')], hallazgos: [] }, experto)).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it('serializa guardados y rechaza revision obsoleta sin sobrescribir', async () => {
     const { service, prisma } = preparar();
     let e = await service.crear('p', configuracion(), coordinador);

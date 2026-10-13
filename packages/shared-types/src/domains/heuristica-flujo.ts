@@ -1,7 +1,8 @@
 // Contrato del flujo completo. Las evaluaciones antiguas mantienen su API.
 export type FaseHeuristica = 'BORRADOR' | 'EN_EVALUACION' | 'PENDIENTE_CONSENSO' | 'CONSOLIDADA' | 'FINALIZADA';
 export interface OrigenCriterio { metodologiaId: string; autor: string; fuente: string; version: string; tipo: string }
-export interface CriterioFlujo { id: string; nombre: string; descripcion: string; categoria: string; origen: OrigenCriterio; peso: number }
+/** `escala` propia opcional: si falta, el criterio usa la escala de la metodología (ver `escalaDe`). */
+export interface CriterioFlujo { id: string; nombre: string; descripcion: string; categoria: string; origen: OrigenCriterio; peso: number; escala?: EscalaFlujo }
 export interface NivelEscala { id: string; etiqueta: string; significado: string; valor?: number }
 export interface EscalaFlujo {
   tipo: 'categorica' | 'ordinal' | 'numerica' | 'cualitativa';
@@ -13,6 +14,10 @@ export interface EscalaFlujo {
 export interface MetodologiaFlujo {
   id: string; nombre: string; autor: string; fuente: string; version: string; tipo: string; ambito: string;
   criterios: CriterioFlujo[]; escala: EscalaFlujo; protegida: boolean;
+}
+/** Escala efectiva de un criterio: la propia si existe, si no la de la metodología. */
+export function escalaDe(metodologia: Pick<MetodologiaFlujo, 'escala'>, criterio: Pick<CriterioFlujo, 'escala'>): EscalaFlujo {
+  return criterio.escala ?? metodologia.escala;
 }
 export interface ConfiguracionFlujo {
   nombre: string;

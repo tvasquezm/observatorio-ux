@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   METODOLOGIAS_HEURISTICAS, copiarMetodologia, combinarMetodologias, resumirEvaluacion,
-  comprobarCompatibilidad, detectarDiscrepancias,
+  comprobarCompatibilidad, detectarDiscrepancias, escalaDe,
 } from '@observatorio-ux/shared-types';
+import { pendientesTrabajo } from './flujo-utils';
 import type { ConfiguracionFlujo, ConsensoFlujo, DecisionCriterio, DecisionHallazgo, TrabajoFlujo } from '@observatorio-ux/shared-types';
 
 function configuracion(): ConfiguracionFlujo {
@@ -54,9 +55,53 @@ describe('catálogo y snapshots', () => {
     expect(mezcla.criterios.every(c => c.origen.metodologiaId === 'nielsen10')).toBe(true);
     expect(mezcla.escala.tipo).toBe('categorica');
     expect(mezcla.ambito).toContain('Escalas distintas');
+    expect(mezcla.criterios.filter(c => c.escala?.tipo === 'ordinal')).toHaveLength(10);
+    expect(mezcla.criterios.filter(c => !c.escala)).toHaveLength(20);
     mezcla.criterios[0].origen.version = 'Cambio local';
     expect(METODOLOGIAS_HEURISTICAS[0].criterios[0].origen.version).not.toBe('Cambio local');
     expect(() => combinarMetodologias([])).toThrow();
+  });
+});
+
+describe('escala por criterio', () => {
+  const rango = { tipo: 'numerica' as const, sentido: 'mayor_mejor' as const, fuente: 'Rúbrica local', niveles: [{ id: 'n1', etiqueta: '1', significado: 'Bajo', valor: 1 }, { id: 'n5', etiqueta: '5', significado: 'Alto', valor: 5 }] };
+  it('usa la escala propia y cuenta aparte sin tocar el índice', () => {
+    const config = configuracion(), consenso = vacio();
+    config.metodologia.criterios[0].escala = rango;
+    expect(escalaDe(config.metodologia, config.metodologia.criterios[0])).toBe(rango);
+    expect(escalaDe(config.metodologia, config.metodologia.criterios[1])).toBe(config.metodologia.escala);
+    consenso.criterios = [respuesta(config.metodologia.criterios[0].id, 'n5'), respuesta(config.metodologia.criterios[1].id, 'cumple'), respuesta(config.metodologia.criterios[2].id, 'cumple')];
+    const r = resumirEvaluacion(config, consenso);
+    expect(r).toMatchObject({ evaluados: 3, pendientes: 7 });
+    expect(r.porCategoria.find(n => n.id === 'cumple')!.count).toBe(2);
+    expect(r.porEscala).toEqual([{ fuente: 'Rúbrica local', tipo: 'numerica', criterios: 1, evaluados: 1, distribucion: [{ id: 'n1', etiqueta: '1', count: 0 }, { id: 'n5', etiqueta: '5', count: 1 }] }]);
+  });
+  it('rechaza como pendiente un valor de otra escala', () => {
+    const config = configuracion(), consenso = vacio();
+    config.metodologia.criterios[0].escala = rango;
+    consenso.criterios = [respuesta(config.metodologia.criterios[0].id, 'cumple')];
+    expect(resumirEvaluacion(config, consenso)).toMatchObject({ evaluados: 0, pendientes: 10 });
+  });
+  it('sin escalas propias el resultado conserva su forma anterior', () => {
+    expect(resumirEvaluacion(configuracion(), vacio()).porEscala).toEqual([]);
+  });
+  it('los pendientes del evaluador usan la escala efectiva del criterio', () => {
+    const config = configuracion();
+    config.metodologia.criterios[0].escala = rango;
+    const respuestas = config.metodologia.criterios.map(c => respuesta(c.id, c.id === config.metodologia.criterios[0].id ? 'n5' : 'cumple'));
+    expect(pendientesTrabajo(config, respuestas, [])).toEqual([]);
+    respuestas[0] = respuesta(config.metodologia.criterios[0].id, 'cumple');
+    expect(pendientesTrabajo(config, respuestas, [])).toHaveLength(1);
+  });
+  it('compara las escalas propias y exige que estén completas', () => {
+    const anterior = configuracion(), actual = configuracion();
+    anterior.metodologia.criterios[0].escala = rango;
+    actual.metodologia.criterios[0].escala = structuredClone(rango);
+    expect(comprobarCompatibilidad(anterior, actual)).toEqual({ compatible: true, motivos: [] });
+    actual.metodologia.criterios[0].escala!.niveles[0].significado = 'Otro';
+    expect(comprobarCompatibilidad(anterior, actual).motivos).toEqual(['Las escalas o sus reglas de cálculo no son equivalentes.']);
+    anterior.metodologia.criterios[0].escala!.niveles[0].significado = actual.metodologia.criterios[0].escala!.niveles[0].significado = '';
+    expect(comprobarCompatibilidad(anterior, actual).compatible).toBe(false);
   });
 });
 

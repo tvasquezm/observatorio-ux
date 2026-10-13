@@ -12,6 +12,14 @@ describe('Límites de entrada del flujo', () => {
     const c = config(); c.metodologia.criterios[0].peso = 0;
     expect(() => validar(configuracionSchema, c)).toThrow();
   });
+  it('admite escala propia opcional por criterio y rechaza una inválida', () => {
+    expect(validar(configuracionSchema, config()).metodologia.criterios[0].escala).toBeUndefined();
+    const c = config();
+    (c.metodologia.criterios[0] as Record<string, unknown>).escala = { tipo: 'categorica', sentido: 'sin_orden', fuente: 'Checklist propio', niveles: [{ id: 'si', etiqueta: 'Sí', significado: 'Cumple' }, { id: 'no', etiqueta: 'No', significado: 'No cumple' }] };
+    expect(validar(configuracionSchema, c).metodologia.criterios[0].escala?.niveles).toHaveLength(2);
+    (c.metodologia.criterios[0] as Record<string, unknown>).escala = { tipo: 'numerica', sentido: 'mayor_mejor', fuente: 'x', niveles: [{ id: 'a', etiqueta: 'A', significado: 'A' }] };
+    expect(() => validar(configuracionSchema, c)).toThrow();
+  });
   it('admite trabajo incompleto sin campos de autoría y valida coordenadas', () => {
     expect(validar(trabajoSchema, { revision: 0, respuestas: [], hallazgos: [] }).respuestas).toEqual([]);
     expect(() => validar(trabajoSchema, { revision: 0, respuestas: [], hallazgos: [], evaluadorId: 'otro' })).toThrow();

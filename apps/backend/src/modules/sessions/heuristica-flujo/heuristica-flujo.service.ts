@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, UnsupportedMediaTypeException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
-import { METODOLOGIAS_HEURISTICAS, comprobarCompatibilidad, EVIDENCIA_MAX_BYTES } from '@observatorio-ux/shared-types';
+import { METODOLOGIAS_HEURISTICAS, comprobarCompatibilidad, escalaDe, EVIDENCIA_MAX_BYTES } from '@observatorio-ux/shared-types';
 import type { ConfiguracionFlujo, ConsensoFlujo, EvaluacionFlujo, EvidenciaFlujo, HallazgoFlujo, InformeFlujo, RespuestaCriterio, TrabajoFlujo } from '@observatorio-ux/shared-types';
 import { Prisma, type EvaluacionHeuristicaCompleta, type EvidenciaHeuristicaCompleta } from '../../../generated/prisma/client.js';
 import { PrismaService } from '../../../core/database/prisma.service.js';
@@ -165,8 +165,9 @@ export class HeuristicaFlujoService {
 
   private validarRespuestas(e: EvaluacionFlujo, respuestas: RespuestaCriterio[], completas: boolean) {
     const criterios = e.configuracion.metodologia.criterios;
-    const niveles = e.configuracion.metodologia.escala.niveles;
-    if (respuestas.some(r => !criterios.some(c => c.id === r.criterioId) || (r.valor !== null && !niveles.some(n => n.id === r.valor)) || (r.noAplica && r.valor !== null))) throw new BadRequestException('Respuesta con criterio/valor inválido o NA valorado.');
+    // El valor debe pertenecer a la escala efectiva del criterio (propia o la de la metodología).
+    const valorValido = (r: RespuestaCriterio) => { const c = criterios.find(x => x.id === r.criterioId); return !!c && (r.valor === null || escalaDe(e.configuracion.metodologia, c).niveles.some(n => n.id === r.valor)); };
+    if (respuestas.some(r => !valorValido(r) || (r.noAplica && r.valor !== null))) throw new BadRequestException('Respuesta con criterio/valor inválido o NA valorado.');
     if (completas && (respuestas.length !== criterios.length || respuestas.some(r => r.noAplica ? !r.motivo.trim() : r.valor === null))) throw new BadRequestException('Valora todos los criterios o justifica cada no aplica.');
   }
 

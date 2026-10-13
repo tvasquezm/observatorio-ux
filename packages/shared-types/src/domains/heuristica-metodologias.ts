@@ -1,4 +1,4 @@
-import type { EscalaFlujo, MetodologiaFlujo } from './heuristica-flujo';
+import type { CriterioFlujo, EscalaFlujo, MetodologiaFlujo } from './heuristica-flujo';
 
 export const ESCALA_OPERATIVA_HEURISTICA: EscalaFlujo = {
   tipo: 'categorica', sentido: 'sin_orden', fuente: 'Escala operativa de la plataforma',
@@ -180,21 +180,25 @@ export function copiarMetodologia(original: MetodologiaFlujo, id = `${original.i
 export function combinarMetodologias(originales: MetodologiaFlujo[], id = 'combinada', nombre = 'Metodología combinada'): MetodologiaFlujo {
   if (!originales.length) throw new Error('Selecciona al menos una metodología.');
   const copias = originales.map(m => copiarMetodologia(m));
+  const base = copias[0].escala;
   const usados = new Set<string>();
-  const criterios = copias.flatMap((m, indice) => m.criterios.map(c => {
-    const base = `${originales[indice].id}:${c.id}`;
-    let criterioId = base, sufijo = 2;
-    while (usados.has(criterioId)) criterioId = `${base}:${sufijo++}`;
+  // Cada criterio conserva su escala efectiva; solo se guarda `escala` propia cuando difiere de la base.
+  const criterios: CriterioFlujo[] = copias.flatMap((m, indice) => m.criterios.map((c): CriterioFlujo => {
+    const baseId = `${originales[indice].id}:${c.id}`;
+    let criterioId = baseId, sufijo = 2;
+    while (usados.has(criterioId)) criterioId = `${baseId}:${sufijo++}`;
     usados.add(criterioId);
-    return { ...c, id: criterioId };
+    const { escala: propia, ...resto } = c;
+    const efectiva = propia ?? m.escala;
+    return JSON.stringify(efectiva) === JSON.stringify(base) ? { ...resto, id: criterioId } : { ...resto, id: criterioId, escala: efectiva };
   }));
-  const mismaEscala = originales.every(m => JSON.stringify(m.escala) === JSON.stringify(originales[0].escala));
+  const mismaEscala = criterios.every(c => !c.escala);
   return {
     id, nombre, criterios, protegida: false,
     autor: [...new Set(originales.map(m => m.autor))].join('; '),
     fuente: [...new Set(originales.map(m => m.fuente))].join('\n'),
     version: 'Combinación operativa v1; versiones originales en cada criterio', tipo: 'Combinación personalizada',
-    ambito: originales.map(m => `${m.nombre}: ${m.ambito}`).join('\n') + (mismaEscala ? '' : '\nEscalas distintas: se aplica la escala categórica operativa de la plataforma; revisar antes de iniciar.'),
-    escala: mismaEscala ? copias[0].escala : JSON.parse(JSON.stringify(ESCALA_OPERATIVA_HEURISTICA)) as EscalaFlujo,
+    ambito: originales.map(m => `${m.nombre}: ${m.ambito}`).join('\n') + (mismaEscala ? '' : '\nEscalas distintas: cada criterio conserva la escala de su metodología de origen.'),
+    escala: base,
   };
 }

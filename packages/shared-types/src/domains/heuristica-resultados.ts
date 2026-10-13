@@ -1,8 +1,16 @@
-import type { ConfiguracionFlujo, ConsensoFlujo, TrabajoFlujo } from './heuristica-flujo';
+import { escalaDe } from './heuristica-flujo';
+import type { ConfiguracionFlujo, ConsensoFlujo, EscalaFlujo, TrabajoFlujo } from './heuristica-flujo';
 
+/** Distribución de los criterios que usan una escala propia (distinta de la de la metodología). */
+export interface DistribucionEscalaPropia {
+  fuente: string; tipo: EscalaFlujo['tipo']; criterios: number; evaluados: number;
+  distribucion: Array<{ id: string; etiqueta: string; count: number }>;
+}
 export interface ResumenEvaluacionFlujo {
   evaluados: number; pendientes: number; noAplica: number;
+  /** Solo criterios que usan la escala de la metodología. Los de escala propia van en `porEscala`. */
   porCategoria: Array<{ id: string; etiqueta: string; count: number }>;
+  porEscala: DistribucionEscalaPropia[];
   porSeveridad: number[]; totalHallazgos: number;
   indice: number | null; denominador: number; formula: string | null;
 }
@@ -10,6 +18,7 @@ export interface ResumenEvaluacionFlujo {
 export function resumirEvaluacion(configuracion: ConfiguracionFlujo, consenso: ConsensoFlujo): ResumenEvaluacionFlujo {
   const { criterios, escala } = configuracion.metodologia;
   const porCategoria = escala.niveles.map(({ id, etiqueta }) => ({ id, etiqueta, count: 0 }));
+  const propias = new Map<string, DistribucionEscalaPropia>();
   const numerica = escala.tipo === 'numerica' && escala.formula === 'media_ponderada'
     && escala.sentido !== 'sin_orden' && escala.niveles.length > 0
     && new Set(escala.niveles.map(n => n.id)).size === escala.niveles.length
@@ -17,6 +26,17 @@ export function resumirEvaluacion(configuracion: ConfiguracionFlujo, consenso: C
     && criterios.every(c => Number.isFinite(c.peso) && c.peso > 0);
   let evaluados = 0, noAplica = 0, denominador = 0, numerador = 0;
   for (const criterio of criterios) {
+    // Criterios con escala propia: se cuentan aparte; nunca se mezclan rangos distintos en el índice.
+    let grupo: DistribucionEscalaPropia | null = null;
+    if (criterio.escala) {
+      const clave = JSON.stringify(criterio.escala);
+      grupo = propias.get(clave) ?? null;
+      if (!grupo) {
+        grupo = { fuente: criterio.escala.fuente, tipo: criterio.escala.tipo, criterios: 0, evaluados: 0, distribucion: criterio.escala.niveles.map(({ id, etiqueta }) => ({ id, etiqueta, count: 0 })) };
+        propias.set(clave, grupo);
+      }
+      grupo.criterios++;
+    }
     const respuestas = consenso.criterios.filter(r => r.criterioId === criterio.id);
     // Una decisión ambigua permanece pendiente; nunca escoger una respuesta por orden.
     if (respuestas.length !== 1) continue;
@@ -25,9 +45,14 @@ export function resumirEvaluacion(configuracion: ConfiguracionFlujo, consenso: C
       if (respuesta.valor === null && respuesta.motivo.trim()) noAplica++;
       continue;
     }
-    const nivel = escala.niveles.find(n => n.id === respuesta.valor);
+    const nivel = escalaDe(configuracion.metodologia, criterio).niveles.find(n => n.id === respuesta.valor);
     if (!nivel) continue;
     evaluados++;
+    if (grupo) {
+      grupo.evaluados++;
+      grupo.distribucion.find(n => n.id === nivel.id)!.count++;
+      continue;
+    }
     porCategoria.find(n => n.id === nivel.id)!.count++;
     if (numerica) {
       denominador += criterio.peso;
@@ -38,10 +63,11 @@ export function resumirEvaluacion(configuracion: ConfiguracionFlujo, consenso: C
   const porSeveridad = [0, 0, 0, 0, 0];
   hallazgos.forEach(h => { if (Number.isInteger(h.severidad) && h.severidad >= 0 && h.severidad <= 4) porSeveridad[h.severidad]++; });
   const indice = numerica && denominador > 0 && Number.isFinite(numerador) && Number.isFinite(denominador) ? numerador / denominador : null;
+  const base = 'Σ(valor × peso) / Σ(peso de criterios evaluados aplicables)';
   return {
-    evaluados, pendientes: criterios.length - evaluados - noAplica, noAplica, porCategoria, porSeveridad,
+    evaluados, pendientes: criterios.length - evaluados - noAplica, noAplica, porCategoria, porEscala: [...propias.values()], porSeveridad,
     totalHallazgos: hallazgos.length, indice, denominador,
-    formula: numerica ? 'Σ(valor × peso) / Σ(peso de criterios evaluados aplicables)' : null,
+    formula: numerica ? (propias.size ? `${base}, solo criterios con la escala de la metodología` : base) : null,
   };
 }
 
@@ -66,13 +92,12 @@ export function comprobarCompatibilidad(anterior: ConfiguracionFlujo, actual: Co
   if (!completas(anterior) || !completas(actual) || definiciones(anterior) !== definiciones(actual)) motivos.push('Los criterios, sus definiciones, versiones de origen o pesos no son equivalentes.');
   const escalas = (c: ConfiguracionFlujo) => {
     const e = c.metodologia.escala;
-    return JSON.stringify([e.tipo, e.sentido, e.fuente, e.formula ?? null, e.niveles.map(n => [n.id, n.etiqueta, n.significado, n.valor ?? null])]);
+    const propias = c.metodologia.criterios.filter(x => x.escala).map(x => [x.id, x.escala]).sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+    return JSON.stringify([e.tipo, e.sentido, e.fuente, e.formula ?? null, e.niveles.map(n => [n.id, n.etiqueta, n.significado, n.valor ?? null]), propias]);
   };
-  const escalaCompleta = (c: ConfiguracionFlujo) => {
-    const e = c.metodologia.escala;
-    return e.fuente.trim() && e.niveles.length > 0 && new Set(e.niveles.map(n => n.id)).size === e.niveles.length
-      && e.niveles.every(n => n.id.trim() && n.etiqueta.trim() && n.significado.trim() && (e.tipo !== 'numerica' || typeof n.valor === 'number' && Number.isFinite(n.valor)));
-  };
+  const escalaValida = (e: EscalaFlujo) => e.fuente.trim() && e.niveles.length > 0 && new Set(e.niveles.map(n => n.id)).size === e.niveles.length
+    && e.niveles.every(n => n.id.trim() && n.etiqueta.trim() && n.significado.trim() && (e.tipo !== 'numerica' || typeof n.valor === 'number' && Number.isFinite(n.valor)));
+  const escalaCompleta = (c: ConfiguracionFlujo) => escalaValida(c.metodologia.escala) && c.metodologia.criterios.every(x => !x.escala || escalaValida(x.escala));
   if (!escalaCompleta(anterior) || !escalaCompleta(actual) || escalas(anterior) !== escalas(actual)) motivos.push('Las escalas o sus reglas de cálculo no son equivalentes.');
   return { compatible: motivos.length === 0, motivos };
 }

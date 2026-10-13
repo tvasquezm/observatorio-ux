@@ -24,6 +24,17 @@ describe('Informe consolidado PDF', () => {
     expect(contenido).toContain('Portal');
     expect(contenido).toContain('Ana');
   });
+  it('muestra la escala propia y su valoración sin mezclarla con la de la metodología', () => {
+    const ev = evaluacion();
+    const propia = { tipo: 'categorica' as const, sentido: 'sin_orden' as const, fuente: 'Checklist propio', niveles: [{ id: 'si', etiqueta: 'Sí cumple', significado: 'Cumple el ítem' }, { id: 'no', etiqueta: 'No cumple', significado: 'No cumple el ítem' }] };
+    ev.informe!.configuracion = structuredClone(ev.informe!.configuracion);
+    ev.informe!.configuracion.metodologia.criterios[0].escala = propia;
+    ev.informe!.consenso.criterios[0].valor = 'si';
+    const contenido = JSON.stringify(construirInformeFlujoPdf(ev, new Map(), new Date()).content);
+    expect(contenido).toContain('Escala propia de algunos criterios');
+    expect(contenido).toContain('Valoración (escala propia: Checklist propio)');
+    expect(contenido).toContain('Sí cumple');
+  });
   it('impide exportar resultados antes de consolidar', () => {
     const ev = evaluacion(); ev.fase = 'PENDIENTE_CONSENSO'; ev.informe = null;
     expect(() => construirInformeFlujoPdf(ev, new Map(), new Date())).toThrow(/consolida/i);

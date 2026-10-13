@@ -6,7 +6,6 @@ const identificador = z.string().min(1).max(150);
 const unico = (ids: string[]) => new Set(ids).size === ids.length;
 const ids = (max: number) => z.array(identificador).max(max).refine(unico, 'Identificadores repetidos');
 const origen = z.strictObject({ metodologiaId: identificador, autor: texto.min(1), fuente: texto.min(1), version: texto.min(1), tipo: texto.min(1) });
-const criterio = z.strictObject({ id: identificador, nombre: texto.min(1), descripcion: texto, categoria: texto.min(1), origen, peso: z.number().finite().positive().max(10000) });
 const nivel = z.strictObject({ id: identificador, etiqueta: texto.min(1), significado: texto.min(1), valor: z.number().finite().optional() });
 const escala = z.strictObject({
   tipo: z.enum(['categorica', 'ordinal', 'numerica', 'cualitativa']),
@@ -17,6 +16,7 @@ const escala = z.strictObject({
   if (v.formula && (v.tipo !== 'numerica' || v.sentido === 'sin_orden' || v.niveles.some(n => n.valor === undefined))) ctx.addIssue({ code: 'custom', message: 'La media requiere escala numérica explícita, valores y sentido.' });
   if (v.tipo === 'numerica' && v.niveles.some(n => n.valor === undefined)) ctx.addIssue({ code: 'custom', message: 'Los niveles numéricos requieren valor.' });
 });
+const criterio = z.strictObject({ id: identificador, nombre: texto.min(1), descripcion: texto, categoria: texto.min(1), origen, peso: z.number().finite().positive().max(10000), escala: escala.optional() });
 export const metodologiaSchema = z.strictObject({
   id: identificador, nombre: texto.min(1), autor: texto.min(1), fuente: texto.min(1), version: texto.min(1), tipo: texto.min(1), ambito: texto,
   criterios: z.array(criterio).min(1).max(500).refine(v => unico(v.map(c => c.id)), 'Criterios repetidos'), escala, protegida: z.boolean(),

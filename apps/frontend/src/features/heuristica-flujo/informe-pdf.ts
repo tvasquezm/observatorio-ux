@@ -1,5 +1,5 @@
 import type { AnotacionEvidencia, EvaluacionFlujo } from '@observatorio-ux/shared-types';
-import { resumirEvaluacion, SEVERIDADES } from '@observatorio-ux/shared-types';
+import { escalaDe, resumirEvaluacion, SEVERIDADES } from '@observatorio-ux/shared-types';
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces';
 import { brandChrome, cargarPdfMake, date, INK, MUTED, table, TEAL, type ReportBrand } from '../../shared/utils/pdf';
 import { cargarEvidencia } from './evidencia.api';
@@ -16,7 +16,11 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
   if (resumen.pendientes || !config.evaluadorIds.every(id => consenso.aprobadoPor.includes(id)) || consenso.hallazgos.some(h => h.decision === 'PENDIENTE')) throw new Error('El informe consolidado tiene decisiones o aprobaciones pendientes.');
   const hallazgos = consenso.hallazgos.filter(h => h.decision === 'ACEPTADO').slice().sort((a, b) => b.severidad - a.severidad);
   const nombreCriterio = (id: string) => config.metodologia.criterios.find(c => c.id === id)?.nombre ?? id;
-  const valorCriterio = (r: typeof consenso.criterios[number]) => r.noAplica ? `No aplica: ${r.motivo}` : config.metodologia.escala.niveles.find(n => n.id === r.valor)?.etiqueta ?? 'Pendiente';
+  const valorCriterio = (r: typeof consenso.criterios[number]) => {
+    const criterio = config.metodologia.criterios.find(c => c.id === r.criterioId);
+    return r.noAplica ? `No aplica: ${r.motivo}` : (criterio ? escalaDe(config.metodologia, criterio) : config.metodologia.escala).niveles.find(n => n.id === r.valor)?.etiqueta ?? 'Pendiente';
+  };
+  const escalasPropias = [...new Map(config.metodologia.criterios.filter(c => c.escala).map(c => [JSON.stringify(c.escala), c.escala!] as const)).values()];
   const imagenes: Record<string, string> = {};
   for (const [id, img] of capturas) if (img) imagenes[`evidencia-${id}`] = img;
   const finalizado = informe.finalizadoEn !== null;
@@ -46,9 +50,14 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
       titulo('Escala de valoración'),
       campo('Tipo y sentido', `${config.metodologia.escala.tipo} · ${config.metodologia.escala.sentido}`), campo('Origen de la escala', config.metodologia.escala.fuente),
       table(['Respuesta', 'Significado', 'Valor'], config.metodologia.escala.niveles.map(n => [n.etiqueta, n.significado, n.valor ?? 'Sin puntaje']), [100, '*', 70]),
+      ...escalasPropias.flatMap((e): Content[] => [
+        campo('Escala propia de algunos criterios', `${e.tipo} · ${e.sentido} · ${e.fuente}`),
+        table(['Respuesta', 'Significado', 'Valor'], e.niveles.map(n => [n.etiqueta, n.significado, n.valor ?? 'Sin puntaje']), [100, '*', 70]),
+      ]),
       titulo('Cobertura y resultados'),
       table(['Criterios evaluados', 'No aplica justificado', 'Pendientes', 'Problemas únicos'], [[resumen.evaluados, resumen.noAplica, resumen.pendientes, resumen.totalHallazgos]]),
-      table(['Valoración del criterio', 'Cantidad'], resumen.porCategoria.map(n => [n.etiqueta, n.count]), ['*', 90]),
+      table([resumen.porEscala.length ? 'Valoración (escala de la metodología)' : 'Valoración del criterio', 'Cantidad'], resumen.porCategoria.map(n => [n.etiqueta, n.count]), ['*', 90]),
+      ...resumen.porEscala.map(g => table([`Valoración (escala propia: ${g.fuente})`, 'Cantidad'], g.distribucion.map(n => [n.etiqueta, n.count]), ['*', 90])),
       table(['Severidad del problema', 'Cantidad'], SEVERIDADES.map(n => [`${n.valor} · ${n.etiqueta}`, resumen.porSeveridad[n.valor]]), ['*', 90]),
       { text: 'No aplica y sin evaluar quedan fuera del cálculo. La severidad es ordinal: se informa por distribución, sin asumir distancias iguales entre niveles.', color: MUTED },
       ...(resumen.formula ? [campo('Fórmula del índice', resumen.formula), campo('Denominador (suma de pesos aplicables evaluados)', String(resumen.denominador)), campo('Índice', resumen.indice === null ? 'No calculable' : String(Math.round(resumen.indice * 1000) / 1000))] : []),
