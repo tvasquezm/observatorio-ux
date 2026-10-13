@@ -76,6 +76,9 @@ All notable changes to this project will be documented in this file. See [commit
   evaluaciones anteriores, sin ese campo, no cambian.
 * **heuristica-flujo:** el informe y su PDF muestran "n de N cumplen (x %)" por categoría y total,
   en texto; solo aparece si la escala define respuestas favorables.
+* **heuristica-flujo:** rúbrica UTEM del curso Experiencia de Usuario en el catálogo (22 preguntas con nota
+  de 1 a 5 en seis conceptos, con las etiquetas del documento); las tres preguntas abiertas de Experiencia
+  no son criterios.
 * **heuristica-flujo:** el consenso de un checklist agrupa los criterios por categoría y la agenda de
   discrepancias indica en texto qué respuestas difieren ("Difieren: Sí / No").
 

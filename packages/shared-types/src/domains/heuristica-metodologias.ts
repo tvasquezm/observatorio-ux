@@ -333,8 +333,63 @@ const HASSAN_CHECKLIST: MetodologiaFlujo = metodologia(
   'Checklist web; adaptación propia de la plataforma', escalaPredefinida('si_no'),
 );
 
+/** Rúbrica del curso Experiencia de Usuario (UTEM): 22 preguntas con nota de 1 a 5, agrupadas en seis conceptos. Las tres preguntas abiertas de Experiencia no son criterios. */
+const ITEMS_RUBRICA_UTEM: Array<[categoria: string, items: string[]]> = [
+  ['Identidad', [
+    'Identidad o logotipo significativo, identificable y suficientemente visible.',
+    'Identidad del sitio en todas las páginas',
+    'Existen mecanismos de contacto',
+    '¿El diseño corresponde al tipo de audiencia a la que está dirigido?',
+  ]],
+  ['Contenido', [
+    '¿Le parecen adecuados los contenidos destacados en la portada/home?',
+    '¿Al ver la portada/home del sitio, pudo distinguir de una sola mirada cuál era el contenido más relevante? ¿Cómo logró distinguirlo?',
+    '¿Los textos de los enlaces son suficientemente descriptivos de lo que se ofrece en las páginas hacia las cuales te dirigen?',
+    '¿Los rótulos son claros?',
+  ]],
+  ['Diseño', [
+    '¿El diseño es consistente en todas las pantallas del sitio - APP?',
+    '¿Las páginas tienen scroll adecuado?',
+    '¿Le pareció pertinente el uso de las imágenes?',
+    '¿Considera que gráficamente el sitio está equilibrado?',
+  ]],
+  ['Navegación', [
+    '¿Es predecible la respuesta del sistema antes de hacer clic sobre el enlace?',
+    '¿El menú es consistente en todo el recorrido del sistema?',
+    'En menú de navegación, ¿Se ha controlado el número de elementos y de términos por elemento para no producir sobrecarga memorística?',
+    '¿Existen elementos que le permitan saber exactamente en qué lugar se encuentra? (ej. breadcrumbs, página actual)',
+  ]],
+  ['Accesibilidad', [
+    '¿El tipo de fuente, efectos tipográficos, ancho de línea y alineación empleados facilitan la lectura?',
+    '¿Existe un alto contraste entre el color de fuente y el fondo?',
+    '¿El tamaño de letras es adecuado?',
+  ]],
+  ['Utilidad', [
+    '¿Le quedó claro cuál es el objetivo del sitio web - APP?',
+    '¿Los contenidos y servicios que ofrece se corresponden con esos objetivos?',
+    '¿Cree que los contenidos que se ofrecen son de utilidad?',
+  ]],
+];
+const ESCALA_RUBRICA_UTEM: EscalaFlujo = {
+  tipo: 'numerica', sentido: 'mayor_mejor', formula: 'media_ponderada', fuente: 'Rúbrica UTEM, Evaluación heurística (nota de 1 a 5)',
+  niveles: [
+    nivelEscala('n1', '1 · Muy malo o no funciona', 'Característica no observada.', 1),
+    nivelEscala('n2', '2 · Funciona pobremente', 'Se muestra, pero no aporta a la experiencia general del sitio.', 2),
+    nivelEscala('n3', '3 · Funciona medianamente', 'Se muestra relativamente, pero podría ser mejor.', 3),
+    nivelEscala('n4', '4 · Cumple', 'Se observa correctamente, pero se pueden incorporar mejoras al respecto.', 4),
+    nivelEscala('n5', '5 · Es lo que el usuario busca', 'Se muestra de una manera tan correcta que cumple o excede la expectativa del usuario.', 5),
+  ],
+};
+const RUBRICA_UTEM: MetodologiaFlujo = metodologia(
+  'rubrica-utem-eval-heuristica', 'Rúbrica UTEM: evaluación heurística', 'UTEM, Experiencia de Usuario (prof. Ronald Méndez Sánchez)',
+  'https://www.utem.cl/', 'Documento del curso «Evaluación heurística»; texto de las preguntas tal como figura en la rúbrica; v1',
+  'Rúbrica de 22 preguntas con nota de 1 a 5 sobre identidad, contenido, diseño, navegación, accesibilidad y utilidad de un sitio web o app. Material del curso: la URL apunta a la institución, no al documento.',
+  ITEMS_RUBRICA_UTEM.flatMap(([categoria, items]) => items.map((item): Definicion => [item, '', categoria])),
+  'Rúbrica de curso; texto original', ESCALA_RUBRICA_UTEM,
+);
+
 /** Catálogo protegido y congelado. El checklist va junto a la síntesis de Hassan y Martín. */
-export const METODOLOGIAS_HEURISTICAS: MetodologiaFlujo[] = CATALOGO_BASE.flatMap(m => m.id === 'hassan-montero-martin-fernandez' ? [m, HASSAN_CHECKLIST] : [m]);
+export const METODOLOGIAS_HEURISTICAS: MetodologiaFlujo[] = [...CATALOGO_BASE.flatMap(m => m.id === 'hassan-montero-martin-fernandez' ? [m, HASSAN_CHECKLIST] : [m]), RUBRICA_UTEM];
 congelar(METODOLOGIAS_HEURISTICAS);
 export function claveEscalaPredefinida(escala: EscalaFlujo): ClaveEscalaPredefinida | null {
   // `favorable` no cambia la identidad de la escala: los métodos guardados antes de B1 siguen reconociéndose.

@@ -23,17 +23,17 @@ const hallazgo = (id: string, decision: DecisionHallazgo['decision'] = 'ACEPTADO
 });
 
 describe('catálogo y snapshots', () => {
-  it('conserva las once familias y fuentes versionadas protegidas', () => {
+  it('conserva las doce familias y fuentes versionadas protegidas', () => {
     expect(METODOLOGIAS_HEURISTICAS.map(m => [m.id, m.criterios.length])).toEqual([
       ['nielsen10', 10], ['shneiderman8', 8], ['tognazzini', 19], ['bastien-scapin', 18], ['gerhardt-powals', 10],
-      ['hassan-montero-martin-fernandez', 11], ['hassan-checklist-2003', 71], ['bertini2006', 8], ['wcag22', 12], ['coga2021', 8], ['amershi2019', 18],
+      ['hassan-montero-martin-fernandez', 11], ['hassan-checklist-2003', 71], ['bertini2006', 8], ['wcag22', 12], ['coga2021', 8], ['amershi2019', 18], ['rubrica-utem-eval-heuristica', 22],
     ]);
     const ids = METODOLOGIAS_HEURISTICAS.flatMap(m => m.criterios.map(c => c.id));
     expect(new Set(ids).size).toBe(ids.length);
     for (const m of METODOLOGIAS_HEURISTICAS) {
       expect(m.protegida && Object.isFrozen(m.criterios[0].origen)).toBe(true);
       expect(m.fuente).toMatch(/^https:\/\//);
-      expect(m.escala.fuente).toBe(m.id === 'hassan-checklist-2003' ? 'Escala Sí/No de la plataforma' : 'Escala operativa de la plataforma');
+      expect(m.escala.fuente).toBe(m.id === 'hassan-checklist-2003' ? 'Escala Sí/No de la plataforma' : m.id === 'rubrica-utem-eval-heuristica' ? 'Rúbrica UTEM, Evaluación heurística (nota de 1 a 5)' : 'Escala operativa de la plataforma');
       expect(m.criterios.every(c => c.origen.version === m.version && c.origen.autor === m.autor)).toBe(true);
     }
   });
@@ -340,3 +340,27 @@ describe('clasificación y cumplimiento (B1)', () => {
     expect(Object.keys(resumirEvaluacion(c, vacio())).sort()).toEqual(['denominador', 'evaluados', 'formula', 'indice', 'noAplica', 'pendientes', 'porCategoria', 'porEscala', 'porSeveridad', 'totalHallazgos']);
   });
 });
+
+describe('rúbrica UTEM', () => {
+  const rubrica = () => METODOLOGIAS_HEURISTICAS.find(m => m.id === 'rubrica-utem-eval-heuristica')!;
+  it('tiene 22 criterios en seis conceptos y escala numérica 1 a 5 con las etiquetas del documento', () => {
+    const m = rubrica();
+    expect(m.protegida).toBe(true);
+    expect(m.criterios).toHaveLength(22);
+    expect([...new Set(m.criterios.map(c => c.categoria))]).toEqual(['Identidad', 'Contenido', 'Diseño', 'Navegación', 'Accesibilidad', 'Utilidad']);
+    expect(m.escala.tipo).toBe('numerica');
+    expect(m.escala.sentido).toBe('mayor_mejor');
+    expect(m.escala.niveles.map(n => [n.valor, n.etiqueta])).toEqual([[1, '1 · Muy malo o no funciona'], [2, '2 · Funciona pobremente'], [3, '3 · Funciona medianamente'], [4, '4 · Cumple'], [5, '5 · Es lo que el usuario busca']]);
+    expect(problemasMetodologia(m)).toEqual([]);
+  });
+  it('no marca niveles favorables: no genera "n de N cumplen" y el índice sí es calculable', () => {
+    const m = copiarMetodologia(rubrica());
+    expect(m.escala.niveles.some(n => n.favorable !== undefined)).toBe(false);
+    expect(esChecklist({ ...configuracion(), metodologia: m })).toBe(false);
+  });
+  it('no cambia la síntesis ni la lista previa del catálogo', () => {
+    expect(METODOLOGIAS_HEURISTICAS[0].id).toBe('nielsen10');
+    expect(METODOLOGIAS_HEURISTICAS.find(x => x.id === 'hassan-checklist-2003')!.criterios).toHaveLength(71);
+  });
+});
+
