@@ -16,6 +16,9 @@ All notable changes to this project will be documented in this file. See [commit
 * **evaluacion-heuristica:** el consenso registra una lista de aspectos positivos y una conclusión con
   recomendaciones finales (campos opcionales, solo del consenso); ambos salen en el informe y en el PDF
   cuando tienen contenido, y las evaluaciones anteriores se ven igual.
+* **evaluacion-heuristica:** el consenso admite una lista de mejoras antes/después con capturas; el
+  coordinador y los expertos pueden adjuntar capturas durante el consenso y los lectores ven las del informe
+  consolidado (contrato de backend; la interfaz llega en una fase posterior).
 * **evaluacion-heuristica:** evita el desbordamiento horizontal causado por el
   campo oculto de adjuntos; conserva su etiqueta accesible y el botón para subir capturas.
 

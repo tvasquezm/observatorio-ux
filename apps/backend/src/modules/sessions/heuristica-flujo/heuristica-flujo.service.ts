@@ -233,6 +233,10 @@ export class HeuristicaFlujoService {
     if (new Set(referencias).size !== referencias.length || referencias.some(id => !originales.some(h => h.id === id))) throw new BadRequestException('Cada hallazgo original debe aparecer una sola vez.');
     if (completo && (referencias.length !== originales.length || e.consenso.hallazgos.some(h => h.decision === 'PENDIENTE' || !h.origenIds.length || !h.justificacion.trim()))) throw new BadRequestException('Resuelve todos los hallazgos originales, incluida cada fusión o descarte justificado.');
     if (completo && (e.consenso.positivos ?? []).some(p => !p.titulo.trim())) throw new BadRequestException('Completa el título de cada aspecto positivo.');
+    const mejoras = e.consenso.mejoras ?? [];
+    if (completo && mejoras.some(m => !m.titulo.trim())) throw new BadRequestException('Completa el título de cada mejora.');
+    const capturas = [...new Set(mejoras.flatMap(m => [...m.antesIds, ...m.despuesIds]))];
+    if (capturas.length && (await tx.evidenciaHeuristicaCompleta.findMany({ where: { id: { in: capturas }, evaluacionId: e.id }, select: { id: true } })).length !== capturas.length) throw new BadRequestException('Las capturas de las mejoras deben pertenecer a esta evaluación.');
     await this.validarHallazgos(e, e.consenso.hallazgos, tx, null, false);
     if (completo) await this.validarHallazgos(e, e.consenso.hallazgos.filter(h => h.decision === 'ACEPTADO'), tx, null, true);
   }
@@ -242,7 +246,7 @@ export class HeuristicaFlujoService {
     return this.bloqueada(proyectoId, id, user, b.revision, async (e, tx) => {
       this.fase(e, 'PENDIENTE_CONSENSO');
       if (e.coordinadorId !== user.id && !e.configuracion.evaluadorIds.includes(user.id)) throw new ForbiddenException();
-      e.consenso = { criterios: b.criterios, hallazgos: b.hallazgos, aprobadoPor: [], positivos: b.positivos ?? [], conclusion: b.conclusion ?? '' };
+      e.consenso = { criterios: b.criterios, hallazgos: b.hallazgos, aprobadoPor: [], positivos: b.positivos ?? [], conclusion: b.conclusion ?? '', mejoras: b.mejoras ?? [] };
       await this.validarConsenso(e, tx, false);
       return this.persistir(e, tx, user);
     });
@@ -300,7 +304,8 @@ export class HeuristicaFlujoService {
     const mimeType = detectarMimeImagen(archivo.buffer);
     if (!mimeType) throw new UnsupportedMediaTypeException('El contenido no es PNG/JPEG/WebP.');
     return this.bloqueada(proyectoId, id, user, undefined, async (e, tx) => {
-      this.editable(e, user);
+      if (e.fase === 'PENDIENTE_CONSENSO') { if (e.coordinadorId !== user.id && !e.configuracion.evaluadorIds.includes(user.id)) throw new ForbiddenException('Solo el coordinador o un experto pueden adjuntar capturas durante el consenso.'); }
+      else this.editable(e, user);
       const cantidad = await tx.evidenciaHeuristicaCompleta.count({ where: { evaluacionId: id, autorId: user.id } });
       if (cantidad >= 50) throw new ConflictException('Máximo 50 capturas por experto.');
       return this.meta(await tx.evidenciaHeuristicaCompleta.create({ data: { evaluacionId: id, autorId: user.id, mimeType, tamano: archivo.buffer.length, datos: Uint8Array.from(archivo.buffer), anotaciones: [] } }));
@@ -312,7 +317,7 @@ export class HeuristicaFlujoService {
     if (!ev) throw new NotFoundException('La evidencia no existe en esta evaluación.');
     const compartida = ['PENDIENTE_CONSENSO', 'CONSOLIDADA', 'FINALIZADA'].includes(e.fase);
     const investigador = e.coordinadorId === user.id || e.configuracion.evaluadorIds.includes(user.id);
-    const incluida = e.informe?.consenso.hallazgos.some(h => h.decision === 'ACEPTADO' && h.evidenciaIds.includes(ev.id));
+    const incluida = e.informe?.consenso.hallazgos.some(h => h.decision === 'ACEPTADO' && h.evidenciaIds.includes(ev.id)) || e.informe?.consenso.mejoras?.some(m => m.antesIds.includes(ev.id) || m.despuesIds.includes(ev.id));
     if (!(ev.autorId === user.id && e.configuracion.evaluadorIds.includes(user.id)) && !(compartida && investigador) && !(e.configuracion.lectorIds.includes(user.id) && incluida)) throw new ForbiddenException('Esta captura no está disponible para tu rol en la fase actual.');
     return ev;
   }

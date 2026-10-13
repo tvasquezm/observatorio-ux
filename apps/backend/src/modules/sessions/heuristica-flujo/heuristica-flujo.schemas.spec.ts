@@ -51,3 +51,17 @@ describe('Consenso: aspectos positivos y conclusión', () => {
     for (const cambios of [{ positivos: muchos }, { positivos: [positivo('a'), positivo('a')] }, { positivos: [{ ...positivo('a'), captura: 'x' }] }, { conclusion: 'x'.repeat(10001) }]) expect(() => validar(consensoSchema, { ...base, ...cambios })).toThrow();
   });
 });
+
+describe('Consenso: mejoras antes/después', () => {
+  const base = { revision: 1, criterios: [], hallazgos: [] };
+  const mejora = (id: string) => ({ id, titulo: 'Formulario', descripcion: 'Con mensaje de error.', antesIds: ['a1'], despuesIds: ['d1'] });
+  it('acepta el consenso con y sin mejoras', () => {
+    expect(validar(consensoSchema, base).mejoras).toBeUndefined();
+    expect(validar(consensoSchema, { ...base, mejoras: [mejora('m1')] }).mejoras).toHaveLength(1);
+  });
+  it('rechaza más de 100 mejoras, ids repetidos, más de 10 capturas por lado y campos desconocidos', () => {
+    const muchas = Array.from({ length: 101 }, (_, i) => mejora(`m${i}`));
+    const once = Array.from({ length: 11 }, (_, i) => `c${i}`);
+    for (const mejoras of [muchas, [mejora('a'), mejora('a')], [{ ...mejora('a'), antesIds: once }], [{ ...mejora('a'), despuesIds: ['x', 'x'] }], [{ ...mejora('a'), nota: 'x' }]]) expect(() => validar(consensoSchema, { ...base, mejoras })).toThrow();
+  });
+});

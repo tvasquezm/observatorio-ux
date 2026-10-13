@@ -320,9 +320,9 @@ describe('Consenso: aspectos positivos y conclusión', () => {
     const { service, filas } = preparar();
     let e = await entregarTodos(service, 1);
     e = await service.guardarConsenso('p', e.id, decisiones(e), coordinador);
-    expect(e.consenso).toMatchObject({ positivos: [], conclusion: '' });
+    expect(e.consenso).toMatchObject({ positivos: [], conclusion: '', mejoras: [] });
     const guardado = filas.get(e.id)!.consenso as Record<string, unknown>;
-    delete guardado.positivos; delete guardado.conclusion;
+    delete guardado.positivos; delete guardado.conclusion; delete guardado.mejoras;
     for (const id of e.configuracion.evaluadorIds) e = await service.aprobar('p', e.id, { revision: e.revision }, usuario(id));
     e = await service.consolidar('p', e.id, { revision: e.revision }, coordinador);
     expect(e.fase).toBe('CONSOLIDADA');
@@ -333,5 +333,43 @@ describe('Consenso: aspectos positivos y conclusión', () => {
     let e = await entregarTodos(service, 1);
     e = await service.guardarConsenso('p', e.id, { ...decisiones(e), positivos: [{ id: 'pos1', titulo: '  ', descripcion: 'Sin título' }] }, coordinador);
     await expect(service.aprobar('p', e.id, { revision: e.revision }, usuario(e.configuracion.evaluadorIds[0]))).rejects.toThrow('Completa el título de cada aspecto positivo.');
+  });
+});
+
+describe('Consenso: mejoras antes/después con capturas', () => {
+  const PNG = Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0,0,0,0]);
+  const subir = (service: HeuristicaFlujoService, id: string, user: AuthenticatedUser) => service.subirEvidencia('p', id, { buffer: PNG, size: PNG.length }, user);
+  const mejora = (antesIds: string[], despuesIds: string[], titulo = 'Formulario de inscripción') => ({ id: 'm1', titulo, descripcion: 'Se agregó el mensaje de error.', antesIds, despuesIds });
+  it('coordinador y experto adjuntan en consenso; el lector solo ve las capturas del informe', async () => {
+    const { service } = preparar();
+    let e = await entregarTodos(service, 1);
+    const antes = await subir(service, e.id, coordinador);
+    const despues = await subir(service, e.id, experto);
+    const suelta = await subir(service, e.id, experto);
+    e = await service.guardarConsenso('p', e.id, { ...decisiones(e), mejoras: [mejora([antes.id], [despues.id])] }, coordinador);
+    expect(e.consenso.mejoras).toHaveLength(1);
+    await expect(service.obtenerEvidencia('p', e.id, antes.id, lector)).rejects.toBeInstanceOf(ForbiddenException);
+    for (const id of e.configuracion.evaluadorIds) e = await service.aprobar('p', e.id, { revision: e.revision }, usuario(id));
+    e = await service.consolidar('p', e.id, { revision: e.revision }, coordinador);
+    expect(e.informe!.consenso.mejoras).toEqual([mejora([antes.id], [despues.id])]);
+    await expect(service.obtenerEvidencia('p', e.id, antes.id, lector)).resolves.toMatchObject({ mimeType: 'image/png' });
+    await expect(service.obtenerEvidencia('p', e.id, despues.id, lector)).resolves.toMatchObject({ mimeType: 'image/png' });
+    await expect(service.obtenerEvidencia('p', e.id, suelta.id, lector)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(subir(service, e.id, coordinador)).rejects.toBeInstanceOf(ConflictException);
+  });
+  it('no deja adjuntar en consenso a un lector ni a un ajeno', async () => {
+    const { service } = preparar();
+    const e = await entregarTodos(service, 1);
+    for (const user of [lector, usuario('admin', 'ADMIN')]) await expect(subir(service, e.id, user)).rejects.toBeInstanceOf(ForbiddenException);
+  });
+  it('rechaza capturas de otra evaluación o inexistentes y exige título al confirmar', async () => {
+    const { service } = preparar();
+    let e = await entregarTodos(service, 1);
+    const otra = await entregarTodos(service, 1);
+    const ajena = await subir(service, otra.id, experto);
+    for (const id of [ajena.id, randomUUID()]) await expect(service.guardarConsenso('p', e.id, { ...decisiones(e), mejoras: [mejora([id], [])] }, coordinador)).rejects.toBeInstanceOf(BadRequestException);
+    const propia = await subir(service, e.id, experto);
+    e = await service.guardarConsenso('p', e.id, { ...decisiones(e), mejoras: [mejora([propia.id], [], '  ')] }, coordinador);
+    await expect(service.aprobar('p', e.id, { revision: e.revision }, experto)).rejects.toThrow('Completa el título de cada mejora.');
   });
 });
