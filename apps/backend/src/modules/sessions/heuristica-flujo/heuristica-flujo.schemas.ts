@@ -6,7 +6,7 @@ const identificador = z.string().min(1).max(150);
 const unico = (ids: string[]) => new Set(ids).size === ids.length;
 const ids = (max: number) => z.array(identificador).max(max).refine(unico, 'Identificadores repetidos');
 const origen = z.strictObject({ metodologiaId: identificador, autor: texto.min(1), fuente: texto.min(1), version: texto.min(1), tipo: texto.min(1) });
-const nivel = z.strictObject({ id: identificador, etiqueta: texto.min(1), significado: texto.min(1), valor: z.number().finite().optional() });
+const nivel = z.strictObject({ id: identificador, etiqueta: texto.min(1), significado: texto.min(1), valor: z.number().finite().optional(), favorable: z.boolean().optional() });
 const escala = z.strictObject({
   tipo: z.enum(['categorica', 'ordinal', 'numerica', 'cualitativa']),
   niveles: z.array(nivel).min(1).max(100).refine(v => unico(v.map(n => n.id)), 'Niveles repetidos'),

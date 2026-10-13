@@ -25,4 +25,14 @@ describe('Límites de entrada del flujo', () => {
     expect(() => validar(trabajoSchema, { revision: 0, respuestas: [], hallazgos: [], evaluadorId: 'otro' })).toThrow();
     expect(() => validar(anotacionesSchema, { revision: 0, anotaciones: [{ id: 'a', tipo: 'texto', x: -1, y: 0, x2: 1, y2: 1, color: '#000000', texto: 'a' }] })).toThrow();
   });
+  it('admite favorable opcional en los niveles, valida el checklist del catálogo y rechaza valores no booleanos', () => {
+    const c = config();
+    const escala = (favorable: unknown) => ({ tipo: 'categorica', sentido: 'sin_orden', fuente: 'Checklist propio', niveles: [{ id: 'si', etiqueta: 'Sí', significado: 'Cumple', favorable }, { id: 'no', etiqueta: 'No', significado: 'No cumple' }] });
+    (c.metodologia.criterios[0] as Record<string, unknown>).escala = escala(true);
+    expect(validar(configuracionSchema, c).metodologia.criterios[0].escala?.niveles[0].favorable).toBe(true);
+    (c.metodologia.criterios[0] as Record<string, unknown>).escala = escala('si');
+    expect(() => validar(configuracionSchema, c)).toThrow();
+    const checklist = structuredClone(METODOLOGIAS_HEURISTICAS.find(m => m.id === 'hassan-checklist-2003')!);
+    expect(validar(configuracionSchema, { ...config(), metodologia: checklist }).metodologia.escala.niveles.map(n => n.favorable)).toEqual([true, false]);
+  });
 });

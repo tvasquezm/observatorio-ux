@@ -125,3 +125,53 @@ export function detectarDiscrepancias(configuracion: ConfiguracionFlujo, trabajo
   const hallazgos = trabajos.flatMap(t => t.hallazgos.map(h => ({ evaluadorId: t.evaluadorId, hallazgoId: h.id, criterioIds: [...h.criterioIds], titulo: h.titulo })));
   return { criterios, hallazgos };
 }
+
+export type ClaseCriterio = 'favorable' | 'desfavorable' | 'neutro' | 'sin_evaluar' | 'no_aplica';
+export interface ClasificacionCriterio { criterioId: string; categoria: string; clase: ClaseCriterio }
+/**
+ * Clasifica cada criterio del consenso según la escala efectiva del criterio.
+ * Mismas reglas que `resumirEvaluacion`: decisión ausente o ambigua, valor desconocido o "no aplica" sin motivo = sin evaluar.
+ * Un nivel sin `favorable` es neutro; la favorabilidad nunca se deduce del sentido ni de los valores.
+ */
+export function clasificarCriterios(configuracion: ConfiguracionFlujo, consenso: ConsensoFlujo): ClasificacionCriterio[] {
+  return configuracion.metodologia.criterios.map(criterio => {
+    const base = { criterioId: criterio.id, categoria: criterio.categoria };
+    const respuestas = consenso.criterios.filter(r => r.criterioId === criterio.id);
+    if (respuestas.length !== 1) return { ...base, clase: 'sin_evaluar' as const };
+    const respuesta = respuestas[0];
+    if (respuesta.noAplica) return { ...base, clase: respuesta.valor === null && respuesta.motivo.trim() ? 'no_aplica' as const : 'sin_evaluar' as const };
+    const nivel = escalaDe(configuracion.metodologia, criterio).niveles.find(n => n.id === respuesta.valor);
+    if (!nivel) return { ...base, clase: 'sin_evaluar' as const };
+    return { ...base, clase: nivel.favorable === true ? 'favorable' as const : nivel.favorable === false ? 'desfavorable' as const : 'neutro' as const };
+  });
+}
+
+export interface CumplimientoGrupo {
+  favorables: number; desfavorables: number; neutros: number; sinEvaluar: number; noAplica: number;
+  /** favorables / (favorables + desfavorables), de 0 a 1; null si ningún criterio tiene respuesta favorable o desfavorable. */
+  proporcion: number | null;
+}
+export interface ResumenCumplimiento { total: CumplimientoGrupo; porCategoria: Array<CumplimientoGrupo & { categoria: string }> }
+
+/**
+ * Cumplimiento por categoría y total. Devuelve null si ningún criterio usa una escala con niveles favorables
+ * (por ejemplo evaluaciones anteriores a esta función): en ese caso no hay nada que mostrar.
+ */
+export function resumirCumplimiento(configuracion: ConfiguracionFlujo, consenso: ConsensoFlujo): ResumenCumplimiento | null {
+  const { metodologia } = configuracion;
+  if (!metodologia.criterios.some(c => escalaDe(metodologia, c).niveles.some(n => n.favorable !== undefined))) return null;
+  const vacio = (): CumplimientoGrupo => ({ favorables: 0, desfavorables: 0, neutros: 0, sinEvaluar: 0, noAplica: 0, proporcion: null });
+  const clave = { favorable: 'favorables', desfavorable: 'desfavorables', neutro: 'neutros', sin_evaluar: 'sinEvaluar', no_aplica: 'noAplica' } as const;
+  const total = vacio();
+  const grupos = new Map<string, CumplimientoGrupo & { categoria: string }>();
+  for (const { categoria, clase } of clasificarCriterios(configuracion, consenso)) {
+    const grupo = grupos.get(categoria) ?? { categoria, ...vacio() };
+    grupo[clave[clase]]++; total[clave[clase]]++;
+    grupos.set(categoria, grupo);
+  }
+  const proporcion = (g: CumplimientoGrupo) => g.favorables + g.desfavorables > 0 ? g.favorables / (g.favorables + g.desfavorables) : null;
+  total.proporcion = proporcion(total);
+  const porCategoria = [...grupos.values()];
+  porCategoria.forEach(g => { g.proporcion = proporcion(g); });
+  return { total, porCategoria };
+}

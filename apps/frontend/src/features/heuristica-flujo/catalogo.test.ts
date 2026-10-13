@@ -3,6 +3,7 @@ import {
   METODOLOGIAS_HEURISTICAS, copiarMetodologia, combinarMetodologias, resumirEvaluacion,
   comprobarCompatibilidad, detectarDiscrepancias, escalaDe,
   claveEscalaPredefinida, escalaPredefinida, metodologiaVacia, parsearListaCriterios, problemasMetodologia,
+  clasificarCriterios, resumirCumplimiento,
 } from '@observatorio-ux/shared-types';
 import { avancePorCategoria, criterioRespondido, esChecklist, pendientesTrabajo } from './flujo-utils';
 import type { ConfiguracionFlujo, ConsensoFlujo, DecisionCriterio, DecisionHallazgo, TrabajoFlujo } from '@observatorio-ux/shared-types';
@@ -286,5 +287,56 @@ describe('checklist Hassan y Martín (D22)', () => {
     expect(generales().respondidos).toBe(2);
     expect(criterioRespondido(c, a, { ...base(a.id), valor: 'cumple' })).toBe(false);
     expect(avancePorCategoria(c, []).map(g => g.categoria)[0]).toBe('Generales');
+  });
+});
+
+describe('clasificación y cumplimiento (B1)', () => {
+  const checklist = () => copiarMetodologia(METODOLOGIAS_HEURISTICAS.find(m => m.id === 'hassan-checklist-2003')!);
+  const configChecklist = (): ConfiguracionFlujo => ({ ...configuracion(), metodologia: checklist() });
+  const consensoDe = (...criterios: DecisionCriterio[]): ConsensoFlujo => ({ ...vacio(), criterios });
+  it('la escala Sí/No marca Sí favorable y No desfavorable; los guardados antes siguen reconociéndose', () => {
+    expect(escalaPredefinida('si_no').niveles.map(n => n.favorable)).toEqual([true, false]);
+    const antigua = escalaPredefinida('si_no');
+    antigua.niveles.forEach(n => { delete n.favorable; });
+    expect(claveEscalaPredefinida(antigua)).toBe('si_no');
+    expect(escalaPredefinida('likert_1_5').niveles.every(n => n.favorable === undefined)).toBe(true);
+  });
+  it('clasifica favorable, desfavorable, no aplica y sin evaluar según la escala efectiva', () => {
+    const c = configChecklist(); const [a, b, n, sinMotivo, desconocido, ambiguo] = c.metodologia.criterios.map(x => x.id);
+    const consenso = consensoDe(
+      respuesta(a, 'si'), respuesta(b, 'no'), respuesta(n, null, true), { ...respuesta(sinMotivo, null, true), motivo: '' },
+      respuesta(desconocido, 'cumple'), respuesta(ambiguo, 'si'), respuesta(ambiguo, 'no'),
+    );
+    const clases = clasificarCriterios(c, consenso).map(x => x.clase);
+    expect(clases.slice(0, 6)).toEqual(['favorable', 'desfavorable', 'no_aplica', 'sin_evaluar', 'sin_evaluar', 'sin_evaluar']);
+    expect(clases.slice(6).every(x => x === 'sin_evaluar')).toBe(true);
+    expect(clasificarCriterios(c, consenso)[0]).toMatchObject({ criterioId: a, categoria: 'Generales' });
+  });
+  it('calcula la proporción por categoría y total; sin respuestas favorables o desfavorables es null', () => {
+    const c = configChecklist(); const ids = c.metodologia.criterios.filter(x => x.categoria === 'Generales').map(x => x.id);
+    const r = resumirCumplimiento(c, consensoDe(respuesta(ids[0], 'si'), respuesta(ids[1], 'no'), respuesta(ids[2], 'si'), respuesta(ids[3], null, true)))!;
+    expect(r.porCategoria[0]).toMatchObject({ categoria: 'Generales', favorables: 2, desfavorables: 1, noAplica: 1, sinEvaluar: 3 });
+    expect(r.porCategoria[0].proporcion).toBeCloseTo(2 / 3);
+    expect(r.total).toMatchObject({ favorables: 2, desfavorables: 1, noAplica: 1, sinEvaluar: 67 });
+    expect(r.porCategoria).toHaveLength(11);
+    expect(r.porCategoria[1].proporcion).toBeNull();
+    const todoNoAplica = resumirCumplimiento(c, consensoDe(...c.metodologia.criterios.map(x => respuesta(x.id, null, true))))!;
+    expect(todoNoAplica.total).toMatchObject({ favorables: 0, desfavorables: 0, noAplica: 71, proporcion: null });
+  });
+  it('evaluación antigua o escala sin niveles favorables no produce cumplimiento', () => {
+    expect(resumirCumplimiento(configuracion(), consensoDe(respuesta('nielsen10:1')))).toBeNull();
+    expect(clasificarCriterios(configuracion(), consensoDe(respuesta('nielsen10:1')))[0].clase).toBe('neutro');
+    const c = configuracion(); c.metodologia.escala = escalaPredefinida('likert_1_5');
+    expect(resumirCumplimiento(c, vacio())).toBeNull();
+  });
+  it('con escalas mixtas solo cuentan los criterios cuya escala efectiva define favorables', () => {
+    const c = configuracion();
+    c.metodologia.criterios[0] = { ...c.metodologia.criterios[0], escala: escalaPredefinida('si_no') };
+    const r = resumirCumplimiento(c, consensoDe(respuesta('nielsen10:1', 'si'), respuesta('nielsen10:2', 'cumple')))!;
+    expect(r.total).toMatchObject({ favorables: 1, desfavorables: 0, neutros: 1, sinEvaluar: 8, proporcion: 1 });
+  });
+  it('no altera resumirEvaluacion', () => {
+    const c = configChecklist();
+    expect(Object.keys(resumirEvaluacion(c, vacio())).sort()).toEqual(['denominador', 'evaluados', 'formula', 'indice', 'noAplica', 'pendientes', 'porCategoria', 'porEscala', 'porSeveridad', 'totalHallazgos']);
   });
 });

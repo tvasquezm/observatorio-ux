@@ -70,6 +70,10 @@ All notable changes to this project will be documented in this file. See [commit
 * **heuristica-flujo:** checklist web de Hassan y Martín (71 ítems Sí/No, 11 categorías,
   redacción propia) y vista de lista de comprobación para el evaluador: ítems agrupados por
   categoría con "n de N respondidos"; se usa cuando todos los criterios tienen dos niveles.
+* **heuristica-flujo:** los niveles de una escala pueden marcar si la respuesta es favorable
+  (campo opcional `favorable`); la escala Sí/No marca Sí como favorable. Nuevas funciones
+  `clasificarCriterios` y `resumirCumplimiento` calculan el cumplimiento por categoría; las
+  evaluaciones anteriores, sin ese campo, no cambian.
 
 ### Fixes
 

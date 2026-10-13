@@ -3,7 +3,8 @@ export type FaseHeuristica = 'BORRADOR' | 'EN_EVALUACION' | 'PENDIENTE_CONSENSO'
 export interface OrigenCriterio { metodologiaId: string; autor: string; fuente: string; version: string; tipo: string }
 /** `escala` propia opcional: si falta, el criterio usa la escala de la metodología (ver `escalaDe`). */
 export interface CriterioFlujo { id: string; nombre: string; descripcion: string; categoria: string; origen: OrigenCriterio; peso: number; escala?: EscalaFlujo }
-export interface NivelEscala { id: string; etiqueta: string; significado: string; valor?: number }
+/** `favorable` opcional: true = respuesta favorable (cumple), false = desfavorable, ausente = neutra. Solo se usa para clasificar; nunca se infiere. */
+export interface NivelEscala { id: string; etiqueta: string; significado: string; valor?: number; favorable?: boolean }
 export interface EscalaFlujo {
   tipo: 'categorica' | 'ordinal' | 'numerica' | 'cualitativa';
   niveles: NivelEscala[];

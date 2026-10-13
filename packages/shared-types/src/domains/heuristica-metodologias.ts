@@ -207,7 +207,7 @@ const nivelEscala = (id: string, etiqueta: string, significado: string, valor?: 
 const ESCALAS_PREDEFINIDAS: Record<ClaveEscalaPredefinida, () => EscalaFlujo> = {
   si_no: () => ({
     tipo: 'categorica', sentido: 'sin_orden', fuente: 'Escala Sí/No de la plataforma',
-    niveles: [nivelEscala('si', 'Sí', 'El producto cumple lo que pide este ítem.'), nivelEscala('no', 'No', 'El producto no cumple lo que pide este ítem.')],
+    niveles: [{ ...nivelEscala('si', 'Sí', 'El producto cumple lo que pide este ítem.'), favorable: true }, { ...nivelEscala('no', 'No', 'El producto no cumple lo que pide este ítem.'), favorable: false }],
   }),
   likert_1_5: () => ({
     tipo: 'numerica', sentido: 'mayor_mejor', formula: 'media_ponderada', fuente: 'Escala de cumplimiento 1 a 5 de la plataforma',
@@ -337,8 +337,10 @@ const HASSAN_CHECKLIST: MetodologiaFlujo = metodologia(
 export const METODOLOGIAS_HEURISTICAS: MetodologiaFlujo[] = CATALOGO_BASE.flatMap(m => m.id === 'hassan-montero-martin-fernandez' ? [m, HASSAN_CHECKLIST] : [m]);
 congelar(METODOLOGIAS_HEURISTICAS);
 export function claveEscalaPredefinida(escala: EscalaFlujo): ClaveEscalaPredefinida | null {
-  const texto = JSON.stringify(escala);
-  return (Object.keys(ESCALAS_PREDEFINIDAS) as ClaveEscalaPredefinida[]).find(k => JSON.stringify(ESCALAS_PREDEFINIDAS[k]()) === texto) ?? null;
+  // `favorable` no cambia la identidad de la escala: los métodos guardados antes de B1 siguen reconociéndose.
+  const sinFavorable = (e: EscalaFlujo) => JSON.stringify({ ...e, niveles: e.niveles.map(n => { const copia = { ...n }; delete copia.favorable; return copia; }) });
+  const texto = sinFavorable(escala);
+  return (Object.keys(ESCALAS_PREDEFINIDAS) as ClaveEscalaPredefinida[]).find(k => sinFavorable(ESCALAS_PREDEFINIDAS[k]()) === texto) ?? null;
 }
 
 /** Metodología propia sin criterios; usa la escala operativa hasta que se elija otra. */
