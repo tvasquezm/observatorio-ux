@@ -35,6 +35,18 @@ describe('Informe consolidado PDF', () => {
     expect(contenido).toContain('Valoración (escala propia: Checklist propio)');
     expect(contenido).toContain('Sí cumple');
   });
+  it('incluye cumplimiento en texto solo si la escala define favorables', () => {
+    const antiguo = JSON.stringify(construirInformeFlujoPdf(evaluacion(), new Map(), new Date()).content);
+    expect(antiguo).not.toContain('cumplen');
+    const ev = evaluacion();
+    const m = structuredClone(METODOLOGIAS_HEURISTICAS.find(x => x.id === 'hassan-checklist-2003')!);
+    m.criterios = m.criterios.filter(c => c.categoria === 'Generales').slice(0, 2);
+    ev.informe!.configuracion = { ...ev.informe!.configuracion, metodologia: m };
+    ev.informe!.consenso.criterios = m.criterios.map((c, i) => ({ criterioId: c.id, valor: i ? 'no' : 'si', noAplica: false, motivo: '', notas: '', justificacion: 'ok' }));
+    const contenido = JSON.stringify(construirInformeFlujoPdf(ev, new Map(), new Date()).content);
+    expect(contenido).toContain('Cumplimiento');
+    expect(contenido).toContain('1 de 2 cumplen (50 %)');
+  });
   it('impide exportar resultados antes de consolidar', () => {
     const ev = evaluacion(); ev.fase = 'PENDIENTE_CONSENSO'; ev.informe = null;
     expect(() => construirInformeFlujoPdf(ev, new Map(), new Date())).toThrow(/consolida/i);

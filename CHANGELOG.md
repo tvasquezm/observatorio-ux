@@ -74,6 +74,8 @@ All notable changes to this project will be documented in this file. See [commit
   (campo opcional `favorable`); la escala Sí/No marca Sí como favorable. Nuevas funciones
   `clasificarCriterios` y `resumirCumplimiento` calculan el cumplimiento por categoría; las
   evaluaciones anteriores, sin ese campo, no cambian.
+* **heuristica-flujo:** el informe y su PDF muestran "n de N cumplen (x %)" por categoría y total,
+  en texto; solo aparece si la escala define respuestas favorables.
 
 ### Fixes
 

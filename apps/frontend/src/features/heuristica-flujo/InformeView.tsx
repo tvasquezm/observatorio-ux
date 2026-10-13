@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { escalaDe, resumirEvaluacion } from '@observatorio-ux/shared-types';
+import { escalaDe, resumirCumplimiento, resumirEvaluacion } from '@observatorio-ux/shared-types';
 import type { ComparacionFlujo, EstadoComparacion, EvaluacionFlujo, VinculoComparacion } from '@observatorio-ux/shared-types';
 import { Field, Fuente } from './ConfiguracionEditor';
 import { EvidenciaEditor } from './EvidenciaEditor';
 import { SaveStatus } from './TrabajoEditor';
 import { flujoRequest } from './flujo.api';
+import { textoCumplimiento } from './flujo-utils';
 import { useFlujoDraft } from './useFlujoDraft';
 
 function ComparacionEditor({ actual, anterior, comparacion, usuarioId, onSaved, registerGuard }: { actual: EvaluacionFlujo; anterior: EvaluacionFlujo; comparacion: ComparacionFlujo; usuarioId: string; onSaved: (e: EvaluacionFlujo) => void; registerGuard: (guard: (() => Promise<boolean>) | null) => void }) {
@@ -40,6 +41,7 @@ export function InformeView({ evaluacion, historial, usuarioId, onSaved, onBack 
   if (!informe) return <p role="alert">El informe consolidado no está disponible.</p>;
   const config = informe.configuracion;
   const resumen = resumirEvaluacion(config, informe.consenso);
+  const cumplimiento = resumirCumplimiento(config, informe.consenso);
   const opciones = historial.filter(e => e.id !== evaluacion.id && e.fase === 'FINALIZADA' && e.configuracion.producto.clave === config.producto.clave);
   async function action(action: 'finalizar' | 'version') {
     setBusy(true); setError('');
@@ -60,6 +62,8 @@ export function InformeView({ evaluacion, historial, usuarioId, onSaved, onBack 
       <ul aria-label="Distribución de valoraciones">{resumen.porCategoria.map(c => <li key={c.id}>{c.etiqueta}: {c.count}</li>)}</ul>{resumen.porEscala.map(g => <ul key={g.fuente + g.tipo + g.distribucion.map(n => n.id).join()} aria-label={`Distribución con escala propia: ${g.fuente}`}>{g.distribucion.map(n => <li key={n.id}>{n.etiqueta}: {n.count} (escala propia: {g.fuente})</li>)}</ul>)}<ul aria-label="Distribución de severidad">{resumen.porSeveridad.map((count, i) => <li key={i}>Severidad {i}: {count}</li>)}</ul>
       {resumen.formula && <p>Índice: {resumen.indice ?? 'No calculable'} · Fórmula: {resumen.formula} · Denominador: {resumen.denominador}</p>}
     </section>
+    {cumplimiento && <section className="panel"><div className="panel-head"><h2>Cumplimiento</h2></div><p>Solo cuentan las respuestas marcadas como favorables o desfavorables; no aplica y sin evaluar quedan fuera del porcentaje.</p>
+      <div className="hf-table"><table><thead><tr><th>Categoría</th><th>Cumplimiento</th></tr></thead><tbody>{cumplimiento.porCategoria.map(c => <tr key={c.categoria}><td>{c.categoria}</td><td>{textoCumplimiento(c)}</td></tr>)}<tr><th scope="row">Total</th><td>{textoCumplimiento(cumplimiento.total)}</td></tr></tbody></table></div></section>}
     <section className="panel"><div className="panel-head"><h2>Acuerdo y procedencia por criterio</h2></div><div className="hf-table"><table><thead><tr><th>Criterio / origen</th><th>Acuerdo</th><th>Justificación</th></tr></thead><tbody>{config.metodologia.criterios.map(c => { const r = informe.consenso.criterios.find(r => r.criterioId === c.id); return <tr key={c.id}><td>{c.nombre}<br />{c.origen.autor} · {c.origen.version}<br /><Fuente value={c.origen.fuente} /></td><td>{r?.noAplica ? `No aplica: ${r.motivo}` : escalaDe(config.metodologia, c).niveles.find(n => n.id === r?.valor)?.etiqueta ?? 'Pendiente'}</td><td>{r?.justificacion}<br />{r?.notas}</td></tr>; })}</tbody></table></div></section>
     <section className="panel"><div className="panel-head"><h2>Problemas únicos y decisiones</h2></div>{informe.consenso.hallazgos.map(h => <article className="finding" key={h.id}><h3>{h.titulo} · {h.decision}</h3><p>Origen: {h.origenIds.join(', ')} · {h.justificacion}</p>{h.decision === 'ACEPTADO' && <><p>{h.pantalla}: {h.descripcion}</p><p>Severidad {h.severidad} · Prioridad {h.prioridad}</p><p>Recomendación: {h.recomendacion}</p><p>{h.notas}</p><EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={h.evidenciaIds} editable={false} /></>}</article>)}</section>
     <div className="hf-actions"><button type="button" className="secondary" disabled={busy} onClick={async () => { setBusy(true); setError(''); try { const { exportarInformeFlujoPdf } = await import('./informe-pdf'); await exportarInformeFlujoPdf(evaluacion.proyectoId, evaluacion); } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo generar PDF'); } finally { setBusy(false); } }}>Descargar informe PDF</button>

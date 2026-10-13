@@ -11,7 +11,7 @@ import { ConsensoEditor } from './ConsensoEditor';
 import { InformeView } from './InformeView';
 import { ConfiguracionEditor } from './ConfiguracionEditor';
 import { FlujoHeuristicaPage } from './FlujoHeuristicaPage';
-import { pendientesTrabajo } from './flujo-utils';
+import { pendientesTrabajo, textoCumplimiento } from './flujo-utils';
 import { useAuthStore } from '../auth/store/useAuthStore';
 
 const api = vi.hoisted(() => vi.fn());
@@ -367,5 +367,31 @@ describe('vista checklist', () => {
     renderFlow(<Harness initial={checklistEval(true)} />);
     expect(screen.queryByRole('radiogroup')).toBeNull();
     expect(screen.getAllByLabelText('Valoración')).toHaveLength(3);
+  });
+});
+describe('cumplimiento en el informe', () => {
+  function checklistFinal(): EvaluacionFlujo {
+    const e = final('actual');
+    const m = copiarMetodologia(METODOLOGIAS_HEURISTICAS.find(x => x.id === 'hassan-checklist-2003')!);
+    m.criterios = m.criterios.filter(c => c.categoria === 'Generales').slice(0, 2);
+    e.configuracion = { ...e.configuracion, metodologia: m };
+    e.consenso.criterios = m.criterios.map((c, i) => ({ criterioId: c.id, valor: i ? 'no' : 'si', noAplica: false, motivo: '', notas: '', justificacion: 'ok' }));
+    e.consenso.hallazgos = [];
+    e.informe = { ...e.informe!, configuracion: e.configuracion, consenso: e.consenso };
+    return e;
+  }
+  it('muestra "n de N cumplen" por categoría y total en texto', () => {
+    renderFlow(<InformeView evaluacion={checklistFinal()} historial={[]} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.getByRole('heading', { name: 'Cumplimiento' })).toBeInTheDocument();
+    expect(screen.getAllByText('1 de 2 cumplen (50 %)')).toHaveLength(2);
+  });
+  it('no muestra la sección con una escala sin favorables (evaluación antigua)', () => {
+    renderFlow(<InformeView evaluacion={final('actual')} historial={[]} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.queryByRole('heading', { name: 'Cumplimiento' })).toBeNull();
+  });
+  it('textoCumplimiento: sin valorables, y con sin evaluar / no aplica', () => {
+    const base = { favorables: 0, desfavorables: 0, neutros: 0, sinEvaluar: 0, noAplica: 0, proporcion: null };
+    expect(textoCumplimiento({ ...base, noAplica: 2 })).toBe('Sin criterios valorables · 2 no aplica');
+    expect(textoCumplimiento({ ...base, favorables: 1, desfavorables: 2, sinEvaluar: 1 })).toBe('1 de 3 cumplen (33 %) · 1 sin evaluar');
   });
 });

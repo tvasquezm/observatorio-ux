@@ -1,5 +1,5 @@
 import { escalaDe } from '@observatorio-ux/shared-types';
-import type { ConfiguracionFlujo, CriterioFlujo, HallazgoFlujo, RespuestaCriterio } from '@observatorio-ux/shared-types';
+import type { ConfiguracionFlujo, CriterioFlujo, CumplimientoGrupo, HallazgoFlujo, RespuestaCriterio } from '@observatorio-ux/shared-types';
 
 export function pendientesTrabajo(config: ConfiguracionFlujo, respuestas: RespuestaCriterio[], hallazgos: HallazgoFlujo[]) {
   const pendientes = config.metodologia.criterios.filter(c => !criterioRespondido(config, c, respuestas.find(r => r.criterioId === c.id))).map(c => `Valora o justifica no aplica: ${c.nombre}`);
@@ -30,4 +30,11 @@ export function avancePorCategoria(config: ConfiguracionFlujo, respuestas: Respu
     grupos.set(c.categoria, g);
   }
   return [...grupos.values()];
+}
+/** "n de N cumplen (x %)" con N = favorables + desfavorables; sin ellos no hay porcentaje que calcular. */
+export function textoCumplimiento(g: CumplimientoGrupo): string {
+  const valorables = g.favorables + g.desfavorables;
+  const base = valorables ? `${g.favorables} de ${valorables} cumplen (${Math.round(g.favorables / valorables * 100)} %)` : 'Sin criterios valorables';
+  const extra = [g.sinEvaluar ? `${g.sinEvaluar} sin evaluar` : '', g.noAplica ? `${g.noAplica} no aplica` : ''].filter(Boolean);
+  return extra.length ? `${base} · ${extra.join(' · ')}` : base;
 }
