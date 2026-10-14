@@ -18,7 +18,7 @@ const api = vi.hoisted(() => vi.fn());
 const confirm = vi.hoisted(() => vi.fn());
 vi.mock('./flujo.api', () => ({ flujoRequest: api }));
 vi.mock('../../shared/api/confirm', () => ({ useConfirm: () => confirm }));
-vi.mock('./EvidenciaEditor', () => ({ EvidenciaEditor: () => <span>Evidencias</span> }));
+vi.mock('./EvidenciaEditor', () => ({ EvidenciaEditor: ({ etiqueta }: { etiqueta?: string }) => <span>Evidencias{etiqueta ? ` · ${etiqueta}` : ''}</span> }));
 
 function config(): ConfiguracionFlujo {
   const metodologia = copiarMetodologia(METODOLOGIAS_HEURISTICAS[0]);
@@ -475,8 +475,8 @@ describe('mejoras antes/después', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Agregar mejora' }));
     await userEvent.type(screen.getByLabelText('Título de la mejora 1'), 'Botón visible');
     expect(screen.getByLabelText('Título de la mejora 1')).toHaveValue('Botón visible');
-    expect(screen.getByLabelText(/Adjuntar captura antes de la mejora 1/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Adjuntar captura después de la mejora 1/)).toBeInTheDocument();
+    expect(screen.getByText('Evidencias · antes de la mejora 1')).toBeInTheDocument();
+    expect(screen.getByText('Evidencias · después de la mejora 1')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Quitar mejora 1' }));
     expect(screen.queryByLabelText('Título de la mejora 1')).toBeNull();
   });
