@@ -124,7 +124,7 @@ describe('configuración y consenso', () => {
     let latest = initial;
     function Editor() { const [v, setV] = useState(initial); return <ConfiguracionEditor value={v} onChange={x => { latest = x; setV(x); }} biblioteca={[METODOLOGIAS_HEURISTICAS[0]]} equipo={Array.from({ length: 6 }, (_, i) => ({ id: `u${i}`, nombre: `Experto ${i}`, rol: 'ESTUDIANTE' }))} onSaveMethod={vi.fn()} />; }
     renderFlow(<Editor />);
-    const experts = within(screen.getByRole('group', { name: 'Expertos (0/5)' })).getAllByRole('checkbox');
+    const experts = within(screen.getByRole('group', { name: 'Equipo (expertos 0/5)' })).getAllByRole('checkbox', { name: /^Experto:/ });
     for (let i = 0; i < 5; i++) await userEvent.click(experts[i]);
     expect(experts[5]).toBeDisabled();
     await userEvent.clear(screen.getByLabelText('Nombre del criterio 1')); await userEvent.type(screen.getByLabelText('Nombre del criterio 1'), 'Personalizado');
@@ -197,7 +197,7 @@ describe('historial e informe', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Nueva evaluación completa' })).toBeEnabled());
     await userEvent.click(screen.getByRole('button', { name: 'Nueva evaluación completa' }));
     await userEvent.type(screen.getByLabelText('Nombre de la evaluación'), 'Borrador local');
-    await userEvent.click(within(screen.getByRole('group', { name: 'Expertos (0/5)' })).getByRole('checkbox'));
+    await userEvent.click(within(screen.getByRole('group', { name: 'Equipo (expertos 0/5)' })).getByRole('checkbox', { name: /^Experto:/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Guardar borrador de evaluación' }));
     await screen.findByText('Sin conexión al crear');
     first.unmount();
