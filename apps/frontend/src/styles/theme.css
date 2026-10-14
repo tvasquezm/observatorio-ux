@@ -2799,3 +2799,36 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
   .hx-bars .hx-bar { grid-column: 1 / -1; grid-row: 2; }
   .hx-evidence { padding: 12px; }
 }
+
+/* Evaluación heurística (flujo) */
+.hf { max-width: 880px; margin-inline: auto; }
+.hf .panel { margin-bottom: 12px; padding: 14px 16px; }
+.hf .hf-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,260px),1fr)); gap: 12px; }
+.hf .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.hf input:not([type=checkbox]), .hf select, .hf textarea { width: 100%; }
+.hf textarea { min-height: 76px; resize: vertical; }
+.hf fieldset { border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin: 10px 0; min-width: 0; }
+.hf legend { padding: 0 6px; font-weight: 600; }
+.hf .hf-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
+.hf .hf-check { display: inline-flex; gap: 8px; align-items: center; margin: 6px 12px 6px 0; }
+.hf .hf-error { color: var(--danger-text); white-space: pre-line; }
+.hf table { width: 100%; border-collapse: collapse; }
+.hf th, .hf td { padding: 10px; text-align: left; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.hf .hf-table { overflow-x: auto; }
+.hf details { margin-bottom: 12px; }
+.hf summary { cursor: pointer; padding: 8px 0; }
+.hf .hf-origin { font-size: 12px; overflow-wrap: anywhere; }
+.hf .hf-status { font-size: 13px; }
+.hf pre { max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; }
+.hf .hf-paso { display: block; }
+.hf .hf-ayuda { font-size: 14px; margin: 4px 0 12px; }
+.hf .hf-cat { margin: 20px 0; }
+.hf .hf-avance { font-size: 14px; font-weight: 600; margin: 4px 0 8px; }
+.hf .hf-item { padding: 12px 16px; }
+.hf .hf-metodo { border-bottom: 1px solid var(--line); }
+.hf .hf-metodo .hf-actions { margin: 8px 0 0; }
+.hf .hf-criterio { border: 1px solid var(--line); border-radius: 8px; padding: 0 16px; }
+.hf .hf-criterio[open] { padding-bottom: 8px; }
+.hf .hf-persona { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 16px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.hf .hf-persona > span { flex: 1 1 200px; }
+.hf .hf-barra { position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 10px 16px; margin-top: 12px; background: var(--surface); border-top: 1px solid var(--line); }
