@@ -89,7 +89,10 @@ export function CriteriosMarcables({ original, sel }: { original: MetodologiaFlu
   const n = claves.filter(k => sel.marcados.includes(k)).length;
   return <div className="hf-elegir-grupo">
     <label className="hf-check"><input type="checkbox" aria-label={`Todos los criterios de ${original.nombre}`} checked={n === claves.length && n > 0} ref={el => { if (el) el.indeterminate = n > 0 && n < claves.length; }} onChange={e => sel.cambiar(claves, e.target.checked)} />Todos · {n}/{claves.length}</label>
-    {original.criterios.map(c => <label className="hf-check" key={c.id}><input type="checkbox" aria-label={`Criterio: ${c.nombre} (${original.nombre})`} checked={sel.marcados.includes(sel.clave(original, c))} onChange={e => sel.cambiar([sel.clave(original, c)], e.target.checked)} />{c.nombre} <span className="hf-ayuda">{c.categoria}{c.descripcion ? ` · ${c.descripcion}` : ''}</span></label>)}
+    {original.criterios.map(c => {
+      const detalle = [c.categoria.trim().toLowerCase() === c.nombre.trim().toLowerCase() ? '' : c.categoria, c.descripcion].filter(Boolean).join(' · ');
+      return <label className="hf-check" key={c.id}><input type="checkbox" aria-label={`Criterio: ${c.nombre} (${original.nombre})`} checked={sel.marcados.includes(sel.clave(original, c))} onChange={e => sel.cambiar([sel.clave(original, c)], e.target.checked)} /><span>{c.nombre}</span>{detalle && <> <span className="hf-ayuda">· {detalle}</span></>}</label>;
+    })}
   </div>;
 }
 

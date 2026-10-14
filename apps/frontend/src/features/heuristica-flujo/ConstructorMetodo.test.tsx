@@ -105,6 +105,15 @@ describe('biblioteca unificada: usar o marcar criterios', () => {
     expect(screen.getByText('✓ Se cargaron 2 criterios de 2 metodologías en el paso 2.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Crear metodología con los seleccionados' })).toBeNull();
   });
+  it('no repite el nombre cuando la categoría es igual y la muestra cuando difiere', () => {
+    const bastien = METODOLOGIAS_HEURISTICAS.find(m => m.criterios.some(c => c.categoria.toLowerCase() !== c.nombre.toLowerCase()))!;
+    const distinto = bastien.criterios.find(c => c.categoria.toLowerCase() !== c.nombre.toLowerCase())!;
+    render(<Editor biblioteca={[a, bastien]} />);
+    const texto = (m: typeof a, c: typeof a.criterios[number]) => screen.getByLabelText(`Criterio: ${c.nombre} (${m.nombre})`).closest('label')!.textContent;
+    expect(a.criterios[0].categoria.toLowerCase()).toBe(a.criterios[0].nombre.toLowerCase());
+    expect(texto(a, a.criterios[0])).toBe(`${a.criterios[0].nombre} · ${a.criterios[0].descripcion}`);
+    expect(texto(bastien, distinto)).toBe(`${distinto.nombre} · ${distinto.categoria} · ${distinto.descripcion}`);
+  });
   it('"Todos" marca una metodología completa y Usar copia la metodología sin marcar nada', async () => {
     render(<Editor biblioteca={[a, b]} />);
     await userEvent.click(screen.getByLabelText(`Todos los criterios de ${b.nombre}`));
