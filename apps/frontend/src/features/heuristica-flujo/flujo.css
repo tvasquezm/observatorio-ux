@@ -21,3 +21,7 @@
 .hf .hf-cat { margin: 20px 0; }
 .hf .hf-avance { font-size: 14px; font-weight: 600; margin: 4px 0 8px; }
 .hf .hf-item { padding: 12px 16px; }
+.hf .hf-metodo { border-bottom: 1px solid var(--border, #ddd); }
+.hf .hf-metodo .hf-actions { margin: 8px 0 0; }
+.hf .hf-criterio { border: 1px solid var(--border, #dedede); border-radius: 8px; padding: 0 16px; }
+.hf .hf-criterio[open] { padding-bottom: 8px; }

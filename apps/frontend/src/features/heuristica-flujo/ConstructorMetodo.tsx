@@ -8,7 +8,7 @@ import { respuestaVacia } from './flujo-utils';
 const ESCALAS: [ClaveEscalaPredefinida, string][] = [['si_no', 'Sí / No'], ['likert_1_5', 'Cumplimiento de 1 a 5'], ['nielsen_0_4', 'Severidad de Nielsen de 0 a 4']];
 
 export function PasoCabecera({ n, titulo, ayuda }: { n: number; titulo: string; ayuda: string }) {
-  return <div className="panel-head hf-paso"><h2>Paso {n} de 4 · {titulo}</h2><p className="hf-ayuda">{ayuda}</p></div>;
+  return <div className="panel-head hf-paso"><h2>Paso {n} de 4 · {titulo}</h2>{ayuda && <p className="hf-ayuda">{ayuda}</p>}</div>;
 }
 
 export function PegarLista({ metodologia, autor, onAdd }: { metodologia: MetodologiaFlujo; autor: string; onAdd: (criterios: CriterioFlujo[]) => void }) {

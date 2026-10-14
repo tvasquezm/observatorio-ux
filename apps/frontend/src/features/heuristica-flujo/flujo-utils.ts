@@ -45,3 +45,11 @@ export function etiquetasDiscrepancia(config: ConfiguracionFlujo, d: Discrepanci
   const etiqueta = (r: typeof d.respuestas[number]) => r.noAplica ? 'N.A.' : niveles.find(n => n.id === r.valor)?.etiqueta ?? 'Sin evaluar';
   return [...new Set(d.respuestas.map(etiqueta))].join(' / ');
 }
+
+/** Identificador estable del producto derivado del nombre (editable en «Más detalles»). */
+export const claveDeNombre = (nombre: string) => nombre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 200);
+/** Campos que el backend exige para iniciar (heuristica-flujo.service.ts). */
+export function faltantesParaIniciar(c: ConfiguracionFlujo): string[] {
+  const campos: [string, string][] = [['nombre de la evaluación', c.nombre], ['nombre del producto', c.producto.nombre], ['objetivo', c.objetivo], ['identificador del producto', c.producto.clave], ['versión', c.producto.version], ['dispositivo', c.producto.dispositivo], ['tareas', c.tareas], ['pantallas', c.pantallas]];
+  return campos.filter(([, v]) => !v.trim()).map(([k]) => k);
+}
