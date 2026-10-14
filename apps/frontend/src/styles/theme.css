@@ -2831,4 +2831,6 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .hf .hf-criterio[open] { padding-bottom: 8px; }
 .hf .hf-persona { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 16px; padding: 6px 0; border-bottom: 1px solid var(--line); }
 .hf .hf-persona > span { flex: 1 1 200px; }
-.hf .hf-barra { position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 10px 16px; margin-top: 12px; background: var(--surface); border-top: 1px solid var(--line); }
+.hf .hf-barra { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.hf .hf-elegir-grupo { margin: 6px 0 6px 12px; }
+.hf .hf-elegir-grupo .hf-check { display: flex; }

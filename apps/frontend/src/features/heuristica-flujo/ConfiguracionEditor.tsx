@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { copiarMetodologia, combinarMetodologias, escalaPredefinida, metodologiaVacia, problemasMetodologia } from '@observatorio-ux/shared-types';
+import { copiarMetodologia, escalaPredefinida, metodologiaVacia, problemasMetodologia } from '@observatorio-ux/shared-types';
 import type { ConfiguracionFlujo, EscalaFlujo, MetodologiaFlujo, MiembroEquipoFlujo } from '@observatorio-ux/shared-types';
 import { useAuthStore } from '../auth/store/useAuthStore';
 import { useConfirm } from '../../shared/api/confirm';
 import { InfoTip } from '../../shared/components/ui/InfoTip';
 import { Field, Fuente } from './campos';
 import { claveDeNombre, faltantesParaIniciar } from './flujo-utils';
-import { EscalaCriterio, EscalaRapida, PasoCabecera, PegarLista, VistaPreviaEvaluador } from './ConstructorMetodo';
+import { ElegirCriterios, EscalaCriterio, EscalaRapida, PasoCabecera, PegarLista, VistaPreviaEvaluador } from './ConstructorMetodo';
 
 export { Field, Fuente } from './campos';
 export function ConfiguracionEditor({ value, onChange, biblioteca, equipo, onSaveMethod, onUpdateMethod, onDeleteMethod }: {
@@ -14,7 +14,6 @@ export function ConfiguracionEditor({ value, onChange, biblioteca, equipo, onSav
   equipo: MiembroEquipoFlujo[]; onSaveMethod: (m: MetodologiaFlujo) => Promise<void>;
   onUpdateMethod?: (m: MetodologiaFlujo) => Promise<void>; onDeleteMethod?: (id: string) => Promise<void>;
 }) {
-  const [seleccion, setSeleccion] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [errorBiblioteca, setErrorBiblioteca] = useState('');
   const confirm = useConfirm();
@@ -67,10 +66,7 @@ export function ConfiguracionEditor({ value, onChange, biblioteca, equipo, onSav
       </div>)}
       <div className="hf-actions"><button type="button" className="secondary" onClick={() => set({ metodologia: metodologiaVacia(author, crypto.randomUUID()) })}>Empezar de cero</button></div>
       {errorBiblioteca && <p role="alert" className="hf-error">{errorBiblioteca}</p>}
-      <details><summary>Combinar varias</summary>
-        {biblioteca.map(original => <label className="hf-check" key={original.id}><input type="checkbox" checked={seleccion.includes(original.id)} onChange={e => setSeleccion(e.target.checked ? [...seleccion, original.id] : seleccion.filter(id => id !== original.id))} />Combinar {original.nombre}</label>)}
-        <div className="hf-actions"><button type="button" className="secondary" disabled={seleccion.length < 2} onClick={() => set({ metodologia: combinarMetodologias(biblioteca.filter(x => seleccion.includes(x.id))) })}>Combinar seleccionadas conservando origen</button></div>
-      </details>
+      <ElegirCriterios biblioteca={biblioteca} onCrear={nueva => set({ metodologia: nueva })} onCrearYGuardar={onSaveMethod} />
     </section>
     <section className="panel">
       <PasoCabecera n={2} titulo="Criterios de esta copia" ayuda="Escribe cada criterio, o pega una lista y se crean todos de una vez." />
