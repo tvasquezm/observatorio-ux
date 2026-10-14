@@ -39,3 +39,7 @@ JSON admite hasta 5 MB por petición; superar ese límite devuelve 413. `avanceE
 - PATCH `/evaluaciones/:id/comparacion` body `{revision, previaId, vinculos:VinculoComparacion[]}` → evaluación con comparación confirmada, solo coordinador. No modifica informe final. No se infiere solucionado por ausencia; exige justificación y confirmación humana. Revalidar compatibilidad del lado servidor y permitir estados comparativos solo cuando alcance/escala/criterios coinciden; incompatible admite NO_COMPARABLE/NO_VERIFICADO.
 
 Métricas compartidas: `resumirEvaluacion(configuracion, consenso)` devuelve `evaluados, pendientes, noAplica, porCategoria:[{id,etiqueta,count}], porSeveridad:number[5], totalHallazgos, indice:number|null, denominador:number, formula:string|null`. Solo hallazgos ACEPTADOS se cuentan una vez. `comprobarCompatibilidad(anterior:ConfiguracionFlujo, actual:ConfiguracionFlujo)` devuelve `{compatible:boolean,motivos:string[]}`. `detectarDiscrepancias(configuracion, trabajos)` devuelve criterios con valores/aplicabilidad distintos y hallazgos no compartidos, como agenda informativa sin decidir el acuerdo.
+
+## Escalas: `favorable`
+
+`NivelEscala.favorable?: boolean` (opcional, estricto en el esquema): `true` = respuesta favorable, `false` = desfavorable, ausente = neutra. Nunca se deduce de `sentido` ni de `valor`. `clasificarCriterios` y `resumirCumplimiento` (shared-types) lo usan; `resumirEvaluacion` no cambia. Sin ningún nivel favorable en la escala efectiva, `resumirCumplimiento` devuelve `null`.

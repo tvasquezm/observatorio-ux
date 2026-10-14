@@ -6,8 +6,7 @@ const identificador = z.string().min(1).max(150);
 const unico = (ids: string[]) => new Set(ids).size === ids.length;
 const ids = (max: number) => z.array(identificador).max(max).refine(unico, 'Identificadores repetidos');
 const origen = z.strictObject({ metodologiaId: identificador, autor: texto.min(1), fuente: texto.min(1), version: texto.min(1), tipo: texto.min(1) });
-const criterio = z.strictObject({ id: identificador, nombre: texto.min(1), descripcion: texto, categoria: texto.min(1), origen, peso: z.number().finite().positive().max(10000) });
-const nivel = z.strictObject({ id: identificador, etiqueta: texto.min(1), significado: texto.min(1), valor: z.number().finite().optional() });
+const nivel = z.strictObject({ id: identificador, etiqueta: texto.min(1), significado: texto.min(1), valor: z.number().finite().optional(), favorable: z.boolean().optional() });
 const escala = z.strictObject({
   tipo: z.enum(['categorica', 'ordinal', 'numerica', 'cualitativa']),
   niveles: z.array(nivel).min(1).max(100).refine(v => unico(v.map(n => n.id)), 'Niveles repetidos'),
@@ -17,6 +16,7 @@ const escala = z.strictObject({
   if (v.formula && (v.tipo !== 'numerica' || v.sentido === 'sin_orden' || v.niveles.some(n => n.valor === undefined))) ctx.addIssue({ code: 'custom', message: 'La media requiere escala numérica explícita, valores y sentido.' });
   if (v.tipo === 'numerica' && v.niveles.some(n => n.valor === undefined)) ctx.addIssue({ code: 'custom', message: 'Los niveles numéricos requieren valor.' });
 });
+const criterio = z.strictObject({ id: identificador, nombre: texto.min(1), descripcion: texto, categoria: texto.min(1), origen, peso: z.number().finite().positive().max(10000), escala: escala.optional() });
 export const metodologiaSchema = z.strictObject({
   id: identificador, nombre: texto.min(1), autor: texto.min(1), fuente: texto.min(1), version: texto.min(1), tipo: texto.min(1), ambito: texto,
   criterios: z.array(criterio).min(1).max(500).refine(v => unico(v.map(c => c.id)), 'Criterios repetidos'), escala, protegida: z.boolean(),
@@ -41,6 +41,9 @@ export const trabajoSchema = revisionSchema.extend({
 export const consensoSchema = revisionSchema.extend({
   criterios: z.array(respuestaSchema.extend({ justificacion: texto })).max(500).refine(v => unico(v.map(c => c.criterioId)), 'Criterios repetidos'),
   hallazgos: z.array(hallazgoSchema.extend({ origenIds: ids(5000), decision: z.enum(['PENDIENTE', 'ACEPTADO', 'DESCARTADO']), justificacion: texto })).max(5000).refine(v => unico(v.map(h => h.id)), 'Hallazgos repetidos'),
+  positivos: z.array(z.strictObject({ id: identificador, titulo: z.string().max(300), descripcion: texto })).max(200).refine(v => unico(v.map(p => p.id)), 'Aspectos positivos repetidos').optional(),
+  conclusion: texto.optional(),
+  mejoras: z.array(z.strictObject({ id: identificador, titulo: z.string().max(300), descripcion: texto, antesIds: ids(10), despuesIds: ids(10) })).max(100).refine(v => unico(v.map(m => m.id)), 'Mejoras repetidas').optional(),
 });
 export const anotacionesSchema = revisionSchema.extend({ anotaciones: z.array(z.strictObject({
   id: identificador, tipo: z.enum(['rectangulo', 'circulo', 'flecha', 'destacado', 'texto']),

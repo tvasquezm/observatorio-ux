@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { EVIDENCIA_MAX_BYTES } from '@observatorio-ux/shared-types';
@@ -30,6 +30,15 @@ export class HeuristicaFlujoController {
   @Post('metodologias')
   guardarMetodologia(@Param('proyectoId', ParseUUIDPipe) proyectoId: string, @Body() body: unknown, @CurrentUser() user: AuthenticatedUser) {
     return this.service.guardarMetodologia(proyectoId, body, user);
+  }
+  @Patch('metodologias/:id')
+  actualizarMetodologia(@Param('proyectoId', ParseUUIDPipe) proyectoId: string, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.actualizarMetodologia(proyectoId, id, body, user);
+  }
+  @Delete('metodologias/:id')
+  @HttpCode(204)
+  async borrarMetodologia(@Param('proyectoId', ParseUUIDPipe) proyectoId: string, @Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthenticatedUser): Promise<void> {
+    await this.service.borrarMetodologia(proyectoId, id, user);
   }
   @Get('evaluaciones')
   listar(@Param('proyectoId', ParseUUIDPipe) proyectoId: string, @CurrentUser() user: AuthenticatedUser) {

@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, UnsupportedMediaTypeException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
-import { METODOLOGIAS_HEURISTICAS, comprobarCompatibilidad, EVIDENCIA_MAX_BYTES } from '@observatorio-ux/shared-types';
+import { METODOLOGIAS_HEURISTICAS, comprobarCompatibilidad, escalaDe, EVIDENCIA_MAX_BYTES } from '@observatorio-ux/shared-types';
 import type { ConfiguracionFlujo, ConsensoFlujo, EvaluacionFlujo, EvidenciaFlujo, HallazgoFlujo, InformeFlujo, RespuestaCriterio, TrabajoFlujo } from '@observatorio-ux/shared-types';
 import { Prisma, type EvaluacionHeuristicaCompleta, type EvidenciaHeuristicaCompleta } from '../../../generated/prisma/client.js';
 import { PrismaService } from '../../../core/database/prisma.service.js';
@@ -65,6 +65,24 @@ export class HeuristicaFlujoService {
     const nueva = { ...contenido, id: randomUUID(), autor: autor.nombre, protegida: false };
     await this.prisma.metodologiaHeuristica.create({ data: { id: nueva.id, autorId: user.id, contenido: json(nueva) } });
     return nueva;
+  }
+
+  // Solo el autor puede editar o borrar. Si no existe o es de otra persona la respuesta es la misma (404).
+  // Las evaluaciones ya creadas guardan su propia copia del método (snapshot), así que no cambian.
+  async actualizarMetodologia(proyectoId: string, id: string, body: unknown, user: AuthenticatedUser) {
+    await this.projectAccess.assertAccess(proyectoId, user);
+    const contenido = validar(metodologiaSchema, body);
+    const autor = await this.prisma.usuario.findUniqueOrThrow({ where: { id: user.id }, select: { nombre: true } });
+    const nueva = { ...contenido, id, autor: autor.nombre, protegida: false };
+    const { count } = await this.prisma.metodologiaHeuristica.updateMany({ where: { id, autorId: user.id }, data: { contenido: json(nueva) } });
+    if (!count) throw new NotFoundException('No encontramos ese método entre los tuyos.');
+    return nueva;
+  }
+
+  async borrarMetodologia(proyectoId: string, id: string, user: AuthenticatedUser) {
+    await this.projectAccess.assertAccess(proyectoId, user);
+    const { count } = await this.prisma.metodologiaHeuristica.deleteMany({ where: { id, autorId: user.id } });
+    if (!count) throw new NotFoundException('No encontramos ese método entre los tuyos.');
   }
 
   private async validarConfiguracion(proyectoId: string, c: ConfiguracionFlujo, user: AuthenticatedUser, completa = false) {
@@ -165,8 +183,9 @@ export class HeuristicaFlujoService {
 
   private validarRespuestas(e: EvaluacionFlujo, respuestas: RespuestaCriterio[], completas: boolean) {
     const criterios = e.configuracion.metodologia.criterios;
-    const niveles = e.configuracion.metodologia.escala.niveles;
-    if (respuestas.some(r => !criterios.some(c => c.id === r.criterioId) || (r.valor !== null && !niveles.some(n => n.id === r.valor)) || (r.noAplica && r.valor !== null))) throw new BadRequestException('Respuesta con criterio/valor inválido o NA valorado.');
+    // El valor debe pertenecer a la escala efectiva del criterio (propia o la de la metodología).
+    const valorValido = (r: RespuestaCriterio) => { const c = criterios.find(x => x.id === r.criterioId); return !!c && (r.valor === null || escalaDe(e.configuracion.metodologia, c).niveles.some(n => n.id === r.valor)); };
+    if (respuestas.some(r => !valorValido(r) || (r.noAplica && r.valor !== null))) throw new BadRequestException('Respuesta con criterio/valor inválido o NA valorado.');
     if (completas && (respuestas.length !== criterios.length || respuestas.some(r => r.noAplica ? !r.motivo.trim() : r.valor === null))) throw new BadRequestException('Valora todos los criterios o justifica cada no aplica.');
   }
 
@@ -213,6 +232,11 @@ export class HeuristicaFlujoService {
     const referencias = e.consenso.hallazgos.flatMap(h => h.origenIds);
     if (new Set(referencias).size !== referencias.length || referencias.some(id => !originales.some(h => h.id === id))) throw new BadRequestException('Cada hallazgo original debe aparecer una sola vez.');
     if (completo && (referencias.length !== originales.length || e.consenso.hallazgos.some(h => h.decision === 'PENDIENTE' || !h.origenIds.length || !h.justificacion.trim()))) throw new BadRequestException('Resuelve todos los hallazgos originales, incluida cada fusión o descarte justificado.');
+    if (completo && (e.consenso.positivos ?? []).some(p => !p.titulo.trim())) throw new BadRequestException('Completa el título de cada aspecto positivo.');
+    const mejoras = e.consenso.mejoras ?? [];
+    if (completo && mejoras.some(m => !m.titulo.trim())) throw new BadRequestException('Completa el título de cada mejora.');
+    const capturas = [...new Set(mejoras.flatMap(m => [...m.antesIds, ...m.despuesIds]))];
+    if (capturas.length && (await tx.evidenciaHeuristicaCompleta.findMany({ where: { id: { in: capturas }, evaluacionId: e.id }, select: { id: true } })).length !== capturas.length) throw new BadRequestException('Las capturas de las mejoras deben pertenecer a esta evaluación.');
     await this.validarHallazgos(e, e.consenso.hallazgos, tx, null, false);
     if (completo) await this.validarHallazgos(e, e.consenso.hallazgos.filter(h => h.decision === 'ACEPTADO'), tx, null, true);
   }
@@ -222,7 +246,7 @@ export class HeuristicaFlujoService {
     return this.bloqueada(proyectoId, id, user, b.revision, async (e, tx) => {
       this.fase(e, 'PENDIENTE_CONSENSO');
       if (e.coordinadorId !== user.id && !e.configuracion.evaluadorIds.includes(user.id)) throw new ForbiddenException();
-      e.consenso = { criterios: b.criterios, hallazgos: b.hallazgos, aprobadoPor: [] };
+      e.consenso = { criterios: b.criterios, hallazgos: b.hallazgos, aprobadoPor: [], positivos: b.positivos ?? [], conclusion: b.conclusion ?? '', mejoras: b.mejoras ?? [] };
       await this.validarConsenso(e, tx, false);
       return this.persistir(e, tx, user);
     });
@@ -280,7 +304,8 @@ export class HeuristicaFlujoService {
     const mimeType = detectarMimeImagen(archivo.buffer);
     if (!mimeType) throw new UnsupportedMediaTypeException('El contenido no es PNG/JPEG/WebP.');
     return this.bloqueada(proyectoId, id, user, undefined, async (e, tx) => {
-      this.editable(e, user);
+      if (e.fase === 'PENDIENTE_CONSENSO') { if (e.coordinadorId !== user.id && !e.configuracion.evaluadorIds.includes(user.id)) throw new ForbiddenException('Solo el coordinador o un experto pueden adjuntar capturas durante el consenso.'); }
+      else this.editable(e, user);
       const cantidad = await tx.evidenciaHeuristicaCompleta.count({ where: { evaluacionId: id, autorId: user.id } });
       if (cantidad >= 50) throw new ConflictException('Máximo 50 capturas por experto.');
       return this.meta(await tx.evidenciaHeuristicaCompleta.create({ data: { evaluacionId: id, autorId: user.id, mimeType, tamano: archivo.buffer.length, datos: Uint8Array.from(archivo.buffer), anotaciones: [] } }));
@@ -292,7 +317,7 @@ export class HeuristicaFlujoService {
     if (!ev) throw new NotFoundException('La evidencia no existe en esta evaluación.');
     const compartida = ['PENDIENTE_CONSENSO', 'CONSOLIDADA', 'FINALIZADA'].includes(e.fase);
     const investigador = e.coordinadorId === user.id || e.configuracion.evaluadorIds.includes(user.id);
-    const incluida = e.informe?.consenso.hallazgos.some(h => h.decision === 'ACEPTADO' && h.evidenciaIds.includes(ev.id));
+    const incluida = e.informe?.consenso.hallazgos.some(h => h.decision === 'ACEPTADO' && h.evidenciaIds.includes(ev.id)) || e.informe?.consenso.mejoras?.some(m => m.antesIds.includes(ev.id) || m.despuesIds.includes(ev.id));
     if (!(ev.autorId === user.id && e.configuracion.evaluadorIds.includes(user.id)) && !(compartida && investigador) && !(e.configuracion.lectorIds.includes(user.id) && incluida)) throw new ForbiddenException('Esta captura no está disponible para tu rol en la fase actual.');
     return ev;
   }

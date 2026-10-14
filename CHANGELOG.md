@@ -13,6 +13,13 @@ All notable changes to this project will be documented in this file. See [commit
   propios; evaluación heurística con edición, capturas y analítica por heurística.
 * **borradores:** conserva los cambios escritos durante la subida de capturas y
   confirma antes de abandonar, cancelar, reemplazar una edición o finalizar la evaluación.
+* **evaluacion-heuristica:** el consenso registra una lista de aspectos positivos y una conclusión con
+  recomendaciones finales (campos opcionales, solo del consenso); ambos salen en el informe y en el PDF
+  cuando tienen contenido, y las evaluaciones anteriores se ven igual.
+* **evaluacion-heuristica:** el consenso admite una lista de mejoras antes/después con capturas; el
+  coordinador y los expertos pueden adjuntar capturas durante el consenso y los lectores ven las del informe
+  consolidado. El editor de consenso tiene la sección "Mejoras antes/después" (capturas sin anotar, hasta 10
+  por lado); el informe y el PDF la muestran solo si hay mejoras.
 * **evaluacion-heuristica:** evita el desbordamiento horizontal causado por el
   campo oculto de adjuntos; conserva su etiqueta accesible y el botón para subir capturas.
 
@@ -62,6 +69,27 @@ All notable changes to this project will be documented in this file. See [commit
   sesiones y analítica de sus estudiantes, y comentar en sus artefactos. No
   puede editar artefactos, cerrar estudios ni gestionar miembros: eso sigue
   reservado al creador del proyecto o a un ADMIN.
+* **heuristica-flujo:** constructor guiado de métodos en 4 pasos: partir de una
+  metodología o de cero, pegar una lista de criterios, escala predefinida (Sí/No,
+  1 a 5, Nielsen 0 a 4) o distinta por criterio, y vista previa del formulario del evaluador.
+* **heuristica-flujo:** editar y borrar los métodos propios desde la biblioteca; solo el autor
+  puede hacerlo y las evaluaciones ya creadas no cambian.
+* **heuristica-flujo:** checklist web de Hassan y Martín (71 ítems Sí/No, 11 categorías,
+  redacción propia) y vista de lista de comprobación para el evaluador: ítems agrupados por
+  categoría con "n de N respondidos"; se usa cuando todos los criterios tienen dos niveles.
+* **heuristica-flujo:** los niveles de una escala pueden marcar si la respuesta es favorable
+  (campo opcional `favorable`); la escala Sí/No marca Sí como favorable. Nuevas funciones
+  `clasificarCriterios` y `resumirCumplimiento` calculan el cumplimiento por categoría; las
+  evaluaciones anteriores, sin ese campo, no cambian.
+* **heuristica-flujo:** el informe y su PDF muestran "n de N cumplen (x %)" por categoría y total,
+  en texto; solo aparece si la escala define respuestas favorables.
+* **heuristica-flujo:** rúbrica UTEM del curso Experiencia de Usuario en el catálogo (22 preguntas con nota
+  de 1 a 5 en seis conceptos, con las etiquetas del documento); las tres preguntas abiertas de Experiencia
+  no son criterios.
+* **heuristica-flujo:** "Guardar borrador de evaluación" queda deshabilitado, con aviso en texto, si la
+  metodología no tiene criterios (antes el servidor respondía "Datos inválidos.").
+* **heuristica-flujo:** el consenso de un checklist agrupa los criterios por categoría y la agenda de
+  discrepancias indica en texto qué respuestas difieren ("Difieren: Sí / No").
 
 ### Fixes
 

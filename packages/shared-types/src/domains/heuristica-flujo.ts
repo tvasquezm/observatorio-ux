@@ -1,8 +1,10 @@
 // Contrato del flujo completo. Las evaluaciones antiguas mantienen su API.
 export type FaseHeuristica = 'BORRADOR' | 'EN_EVALUACION' | 'PENDIENTE_CONSENSO' | 'CONSOLIDADA' | 'FINALIZADA';
 export interface OrigenCriterio { metodologiaId: string; autor: string; fuente: string; version: string; tipo: string }
-export interface CriterioFlujo { id: string; nombre: string; descripcion: string; categoria: string; origen: OrigenCriterio; peso: number }
-export interface NivelEscala { id: string; etiqueta: string; significado: string; valor?: number }
+/** `escala` propia opcional: si falta, el criterio usa la escala de la metodología (ver `escalaDe`). */
+export interface CriterioFlujo { id: string; nombre: string; descripcion: string; categoria: string; origen: OrigenCriterio; peso: number; escala?: EscalaFlujo }
+/** `favorable` opcional: true = respuesta favorable (cumple), false = desfavorable, ausente = neutra. Solo se usa para clasificar; nunca se infiere. */
+export interface NivelEscala { id: string; etiqueta: string; significado: string; valor?: number; favorable?: boolean }
 export interface EscalaFlujo {
   tipo: 'categorica' | 'ordinal' | 'numerica' | 'cualitativa';
   niveles: NivelEscala[];
@@ -13,6 +15,10 @@ export interface EscalaFlujo {
 export interface MetodologiaFlujo {
   id: string; nombre: string; autor: string; fuente: string; version: string; tipo: string; ambito: string;
   criterios: CriterioFlujo[]; escala: EscalaFlujo; protegida: boolean;
+}
+/** Escala efectiva de un criterio: la propia si existe, si no la de la metodología. */
+export function escalaDe(metodologia: Pick<MetodologiaFlujo, 'escala'>, criterio: Pick<CriterioFlujo, 'escala'>): EscalaFlujo {
+  return criterio.escala ?? metodologia.escala;
 }
 export interface ConfiguracionFlujo {
   nombre: string;
@@ -33,7 +39,9 @@ export interface TrabajoFlujo {
 }
 export interface DecisionCriterio extends RespuestaCriterio { justificacion: string }
 export interface DecisionHallazgo extends HallazgoFlujo { origenIds: string[]; decision: 'PENDIENTE' | 'ACEPTADO' | 'DESCARTADO'; justificacion: string }
-export interface ConsensoFlujo { criterios: DecisionCriterio[]; hallazgos: DecisionHallazgo[]; aprobadoPor: string[] }
+export interface AspectoPositivo { id: string; titulo: string; descripcion: string }
+export interface MejoraAntesDespues { id: string; titulo: string; descripcion: string; antesIds: string[]; despuesIds: string[] }
+export interface ConsensoFlujo { criterios: DecisionCriterio[]; hallazgos: DecisionHallazgo[]; aprobadoPor: string[]; positivos?: AspectoPositivo[]; conclusion?: string; mejoras?: MejoraAntesDespues[] }
 export type EstadoComparacion = 'SOLUCIONADO' | 'PERMANECE' | 'MEJORO' | 'EMPEORO' | 'NUEVO' | 'NO_VERIFICADO' | 'NO_COMPARABLE';
 export interface VinculoComparacion { anteriorId: string | null; actualId: string | null; estado: EstadoComparacion; justificacion: string }
 export interface ComparacionFlujo { previaId: string; compatible: boolean; motivos: string[]; vinculos: VinculoComparacion[]; confirmadoPor: string | null; confirmadoEn: string | null }

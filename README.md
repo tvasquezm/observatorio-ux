@@ -11,14 +11,19 @@ Plataforma SaaS para la ejecución, gestión y análisis matemático de metodolo
 
 Trabajo de título de **Ingeniería en Informática (UTEM)**. Centraliza en un solo lugar cinco metodologías de UX Research —Evaluación Heurística, Card Sorting, Perfil de Persona, Journey Map y Mapa de Momentos Críticos—, con autenticación por roles, gestión de proyectos y un modelo de datos pensado para el análisis, no solo el almacenamiento.
 
-> **Estado:** en desarrollo activo. Los entregables técnicos de los Sprints 1–7 están implementados (incluye reportería PDF/JSON y prueba de carga k6); las reuniones y validaciones humanas pendientes se registran por separado. Antes de auditar o contribuir, revisa [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Vulnerabilidades: [`SECURITY.md`](SECURITY.md).
+> **Estado:** en desarrollo activo. Los entregables técnicos de los Sprints 1–7 están implementados (incluye reportería PDF/JSON y prueba de carga k6) y sobre ellos se sumó el flujo completo de Evaluación Heurística. Los cambios recientes están en la sección *Unreleased* de [`CHANGELOG.md`](CHANGELOG.md); las reuniones y validaciones humanas pendientes se registran por separado. Antes de auditar o contribuir, revisa [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Vulnerabilidades: [`SECURITY.md`](SECURITY.md).
 
 ## Tabla de contenidos
 
 - [🔬 Observatorio UX — Plataforma SaaS de Investigación UX](#-observatorio-ux--plataforma-saas-de-investigación-ux)
   - [Tabla de contenidos](#tabla-de-contenidos)
   - [Sobre el proyecto](#sobre-el-proyecto)
+  - [Funcionalidades](#funcionalidades)
+    - [Técnicas de investigación](#técnicas-de-investigación)
+    - [Evaluación heurística: flujo completo](#evaluación-heurística-flujo-completo)
+    - [Gestión y administración](#gestión-y-administración)
   - [Arquitectura](#arquitectura)
+  - [Modelo de datos](#modelo-de-datos)
   - [Stack tecnológico](#stack-tecnológico)
   - [Roles y acceso](#roles-y-acceso)
   - [Estructura del monorepo](#estructura-del-monorepo)
@@ -37,17 +42,72 @@ Trabajo de título de **Ingeniería en Informática (UTEM)**. Centraliza en un s
 
 Los equipos de investigación UX suelen trabajar con herramientas fragmentadas (hojas de cálculo, formularios sueltos, notas dispersas), lo que dificulta la trazabilidad y hace inviable un análisis matemático riguroso. Observatorio UX resuelve esto con un modelo de datos único y módulos de reportería comunes (exportación a PDF y JSON) para comparar evidencia entre sesiones y proyectos.
 
+## Funcionalidades
+
+### Técnicas de investigación
+
+| Técnica | Qué permite |
+| --- | --- |
+| **Card Sorting** | Estudios abiertos, cerrados o híbridos con tarjetas y categorías. Los participantes responden por un enlace, sin cuenta y con consentimiento. Incluye vista de resultados y exportación CSV/PDF. |
+| **Evaluación Heurística** | Recorrido completo con configuración, trabajo individual de expertos, consenso, informe y comparación entre evaluaciones. Ver la sección siguiente. Las evaluaciones anteriores al flujo nuevo se conservan en su propia sección. |
+| **Perfil de Persona** | Personas con relación y rol en el servicio, características distintivas, evidencia, estado y observaciones de validación. |
+| **Journey Map** | Etapas del recorrido de la persona usuaria, con acciones, emociones y oportunidades por etapa; se pueden crear y quitar etapas. |
+| **Mapa de Momentos Críticos** | Incidentes positivos y negativos con causas y acciones, y una matriz accesible de impacto y frecuencia. |
+
+Persona, Journey Map y Momentos Críticos se guardan como artefactos versionados con bloqueo de edición, para que dos personas no pisen el mismo trabajo (ver [Arquitectura](#arquitectura)).
+
+### Evaluación heurística: flujo completo
+
+- **Fases:** `BORRADOR → EN_EVALUACION → PENDIENTE_CONSENSO → CONSOLIDADA → FINALIZADA`. Iniciar fija la configuración; entregar no equivale a consolidar.
+- **Roles:** el coordinador configura y cierra; de 1 a 5 expertos trabajan de forma independiente; los lectores autorizados solo ven el consolidado.
+- **Biblioteca de metodologías:** Nielsen, Shneiderman, Tognazzini, Bastien y Scapin, Gerhardt-Powals, Hassan Montero y Martín Fernández (con su checklist web), Bertini et al. para móvil, WCAG 2.2, COGA 2021, Amershi et al. para interacción con IA y la Rúbrica UTEM. Cada criterio conserva su autor y fuente. Los originales son inmutables: se puede usar una copia completa, marcar criterios sueltos de una o varias metodologías, o empezar de cero, y guardar el resultado en tus metodologías.
+- **Escalas:** Sí/No, cumplimiento de 1 a 5, severidad de Nielsen de 0 a 4, o una escala propia por metodología o por criterio.
+- **Trabajo individual:** cada criterio se valora o se marca como no aplica con motivo; los hallazgos llevan severidad, prioridad y recomendación; las capturas admiten anotaciones (rectángulo, círculo, flecha, destacado y texto) sin perder la imagen original; hay autoguardado y protección del borrador.
+- **Consenso manual:** se vinculan los hallazgos de origen, se aceptan o descartan con justificación y todos los expertos confirman la propuesta. Admite aspectos positivos, conclusión con recomendaciones finales y mejoras antes/después con capturas.
+- **Informe y PDF:** el consolidado determina las métricas; una nueva revisión crea una evaluación independiente.
+- **Comparación:** entre dos evaluaciones finalizadas del mismo producto, con vínculos y estados confirmados manualmente.
+
+Diseño y decisiones: [`docs/superpowers/specs/2026-10-09-flujo-heuristica.md`](docs/superpowers/specs/2026-10-09-flujo-heuristica.md).
+
+### Gestión y administración
+
+- **Proyectos y miembros:** cada proyecto tiene miembros y puede vincularse a una sala. La eliminación es lógica.
+- **Salas y equipos:** los docentes organizan estudiantes en salas y equipos; las salas eliminadas se recuperan desde su papelera (DOCENTE y ADMIN).
+- **Participantes:** acceso sin cuenta, con consentimiento por proyecto; las invitaciones nominales con código siguen disponibles para estudios controlados.
+- **Comentarios:** discusión sobre los artefactos de un proyecto.
+- **Analítica:** vista por proyecto, restringida a DOCENTE y ADMIN.
+- **Reportes:** exportación del proyecto a PDF y JSON (`GET /api/projects/:id/reports/pdf` y `/json`), con control de acceso.
+- **Panel de administración (`/admin`, solo ADMIN):** cuentas y cambio de rol, CRUD de proyectos y resumen de sesiones por proyecto.
+- **Privacidad:** política visible en `/privacidad`.
+
 ## Arquitectura
 
 Monorepo con **arquitectura de slices verticales** (bajo acoplamiento, alta cohesión):
 
-- `apps/backend/` — API RESTful en NestJS. `core/` = infraestructura transversal (acceso, caché, configuración, base de datos, decoradores, filtros, guards y pipes). `modules/` = un slice por dominio: `auth`, `users`, `projects`, `artifacts`, `salas`, `equipos`, `comments`, `reports` y `sessions` (con las metodologías `card-sorting` y `evaluacion-heuristica`); **ninguna metodología importa código de otra**.
-- `apps/frontend/` — SPA en React. `shared/` = UI base y hooks globales. `features/` = lógica e interfaces por dominio (`admin`, `auth`, `card-sorting`, `comments`, `equipos`, `evaluacion-heuristica`, `journey-map`, `legal`, `momentos-criticos`, `onboarding`, `persona`, `projects`, `reports`, `salas`), en espejo con `modules/` del backend.
+- `apps/backend/` — API RESTful en NestJS. `core/` = infraestructura transversal (acceso, caché, configuración, base de datos, decoradores, filtros, guards y pipes). `modules/` = un slice por dominio: `auth`, `users`, `projects`, `artifacts`, `salas`, `equipos`, `comments`, `reports` y `sessions` (con las metodologías `card-sorting`, `evaluacion-heuristica` —sesiones y analítica de las evaluaciones anteriores— y `heuristica-flujo` —el flujo completo—); **ninguna metodología importa código de otra**.
+- `apps/frontend/` — SPA en React. `shared/` = UI base y hooks globales. `features/` = lógica e interfaces por dominio (`admin`, `auth`, `card-sorting`, `comments`, `equipos`, `evaluacion-heuristica`, `heuristica-flujo`, `journey-map`, `legal`, `momentos-criticos`, `onboarding`, `persona`, `projects`, `reports`, `salas`), en espejo con `modules/` del backend.
 - `packages/shared-types/` — contratos DTO y validación compartidos entre ambos.
 
-La interfaz usa un sistema de diseño propio, **Academic Minimalism**: paleta monocromática en grises + un "Azul Académico" (Indigo) reservado para acciones transaccionales.
+La interfaz usa CSS propio, con las variables de diseño (color primario teal) en `apps/frontend/src/styles/theme.css`.
 
-> Toda la API usa **un solo idioma para las rutas: inglés** (`/api/projects`, `/api/projects/:id/artifacts` y `/api/projects/:id/evaluacion-heuristica/...`). Ver `docs/ARCHITECTURE.md` §5.
+> Los recursos de un proyecto cuelgan de `/api/projects/:id/...` (`artifacts`, `comments`, `reports` y `evaluacion-heuristica`); `auth`, `users`, `salas` (con sus `equipos`) y `card-sorting` tienen su propio prefijo. En `projects` y `artifacts` se eliminaron los alias en español y quedó un solo idioma. Ver `docs/ARCHITECTURE.md` §5.
+
+## Modelo de datos
+
+PostgreSQL con Prisma; el esquema y las migraciones están en `apps/backend/prisma/`.
+
+| Dominio | Modelos |
+| --- | --- |
+| Núcleo | `Proyecto`, `ProyectoMiembro`, `Usuario` (roles `ESTUDIANTE`, `DOCENTE`, `ADMIN`) |
+| Participación | `Participante`, `ParticipanteWhitelist`, `Consentimiento` |
+| Organización | `Sala`, `SalaEstudiante`, `Equipo`, `EquipoMiembro` |
+| Sesiones | `ResearchSession` (Card Sorting y evaluaciones heurísticas anteriores), `EvidenciaHeuristica` |
+| Card Sorting | `Card`, `Category`, `CardGrouping`, `CardSortingQuestion`, `CardSortingAnswer` (tipos `ABIERTO`, `CERRADO`, `HIBRIDO`) |
+| Artefactos | `UxArtifact`: un solo modelo para `PERSONA`, `JOURNEY_MAP` y `MOMENTOS_CRITICOS`, con contenido JSON y versionado append-only |
+| Flujo heurístico | `EvaluacionHeuristicaCompleta`, `MetodologiaHeuristica`, `EvidenciaHeuristicaCompleta` |
+| Comentarios | `Comentario` |
+
+El flujo heurístico nuevo usa tablas propias y no modifica los resultados de `ResearchSession`.
 
 ## Stack tecnológico
 
@@ -185,9 +245,16 @@ pnpm --filter frontend test       # componentes, hooks y permisos del frontend
 pnpm -r test                      # corre las pruebas de todos los workspaces
 ```
 
-Las pruebas E2E cubren el recorrido `login → proyecto → 5 técnicas`, la
-restricción de Analítica para estudiantes y la ausencia de desbordamiento en
-escritorio (1440×900) y móvil táctil (390×844):
+Las pruebas E2E cubren, en `tests/e2e/`:
+
+- Card Sorting sin confundir evaluador y participante.
+- El recorrido `login → proyecto → 5 técnicas`.
+- La restricción de Analítica para estudiantes.
+- El panel y las cuentas administrativas, solo para ADMIN.
+- Crear, leer y editar un momento crítico contra la API real.
+- La ausencia de desbordamiento en escritorio (1440×900) y móvil táctil (390×844).
+
+Para ejecutarlas:
 
 ```bash
 docker compose up -d db           # Playwright prepara migraciones y seed
@@ -227,6 +294,9 @@ Si falla, el log de cada paso está ahí mismo.
 **Guías de referencia:**
 
 - [`docs/integracion-card-sorting-momentos-criticos.md`](docs/integracion-card-sorting-momentos-criticos.md) — comparación de los PR #27/#28, unificación de Card Sorting, mejoras de Momentos Críticos y verificaciones
+- [`docs/superpowers/specs/2026-10-09-flujo-heuristica.md`](docs/superpowers/specs/2026-10-09-flujo-heuristica.md) — diseño del flujo completo de Evaluación Heurística
+- [`docs/superpowers/plans/2026-10-09-flujo-heuristica.md`](docs/superpowers/plans/2026-10-09-flujo-heuristica.md) — plan de implementación del flujo
+- [`docs/superpowers/plans/2026-10-09-heuristica-api.md`](docs/superpowers/plans/2026-10-09-heuristica-api.md) — contrato de integración y API del flujo
 - [`docs/BACKEND.md`](docs/BACKEND.md) — guía de arranque del backend y flujo completo de autenticación/artefactos
 - [`docs/ONBOARDING-FRONTEND.md`](docs/ONBOARDING-FRONTEND.md) — guía de arranque para `apps/frontend`
 - [`docs/COMANDOS.md`](docs/COMANDOS.md) — referencia rápida de todos los comandos del proyecto

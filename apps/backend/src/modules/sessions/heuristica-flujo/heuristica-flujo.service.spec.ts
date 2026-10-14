@@ -17,6 +17,7 @@ const hallazgo = (id: string): HallazgoFlujo => ({ id, criterioIds: [METODOLOGIA
 function preparar() {
   const filas = new Map<string, EvaluacionHeuristicaCompleta>();
   const evidencias = new Map<string, Record<string, unknown>>();
+  const metodos = new Map<string, { id: string; autorId: string; contenido: unknown }>();
   let cola = Promise.resolve();
   const delegate = {
     create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => {
@@ -45,7 +46,12 @@ function preparar() {
     }),
     proyecto: { findUniqueOrThrow: jest.fn(async () => ({ creadoPorId: coordinador.id, miembros: ['e1','e2','e3','e4','e5',lector.id].map(usuarioId => ({ usuarioId })), sala: null })) },
     usuario: { findMany: jest.fn(async () => [coordinador, experto, usuario('e2'), usuario('e3'), usuario('e4'), usuario('e5'), lector].map(u => ({ id: u.id, nombre: u.id, rol: u.rol }))), findUniqueOrThrow: jest.fn(async () => ({ nombre: 'Nombre servidor' })) },
-    metodologiaHeuristica: { create: jest.fn(), findMany: jest.fn(async () => []) },
+    metodologiaHeuristica: {
+      create: jest.fn(async ({ data }: { data: { id: string; autorId: string; contenido: unknown } }) => { metodos.set(data.id, structuredClone(data)); return data; }),
+      findMany: jest.fn(async ({ where }: { where: { autorId: string } }) => [...metodos.values()].filter(m => m.autorId === where.autorId).map(m => structuredClone(m))),
+      updateMany: jest.fn(async ({ where, data }: { where: { id: string; autorId: string }; data: { contenido: unknown } }) => { const m = metodos.get(where.id); if (!m || m.autorId !== where.autorId) return { count: 0 }; m.contenido = structuredClone(data.contenido); return { count: 1 }; }),
+      deleteMany: jest.fn(async ({ where }: { where: { id: string; autorId: string } }) => { const m = metodos.get(where.id); if (!m || m.autorId !== where.autorId) return { count: 0 }; metodos.delete(where.id); return { count: 1 }; }),
+    },
     evidenciaHeuristicaCompleta: {
       count: jest.fn(async () => evidencias.size),
       findMany: jest.fn(async ({ where }: { where: { id: { in: string[] }; evaluacionId: string; autorId?: string } }) => [...evidencias.values()].filter(v => where.id.in.includes(v.id as string) && v.evaluacionId === where.evaluacionId && (!where.autorId || where.autorId === v.autorId))),
@@ -55,7 +61,7 @@ function preparar() {
     },
   };
   const acceso = { assertAccess: jest.fn(async () => {}) };
-  return { service: new HeuristicaFlujoService(prisma as unknown as PrismaService, acceso as unknown as ProjectAccessService), prisma, filas, evidencias, acceso };
+  return { service: new HeuristicaFlujoService(prisma as unknown as PrismaService, acceso as unknown as ProjectAccessService), prisma, filas, evidencias, metodos, acceso };
 }
 
 async function entregarTodos(service: HeuristicaFlujoService, cantidad = 1, conHallazgos = false) {
@@ -116,6 +122,20 @@ describe('Flujo heurístico: privacidad, transiciones y consenso', () => {
     expect((filas.get(e.id)!.trabajos as unknown as EvaluacionFlujo['trabajos'])[0].respuestas[0].notas).toBe('Borrador');
   });
 
+  it('valida el valor contra la escala efectiva de cada criterio', async () => {
+    const { service } = preparar();
+    const config = configuracion();
+    config.metodologia = { ...config.metodologia, id: 'propia', protegida: false };
+    const [primero, segundo] = config.metodologia.criterios;
+    primero.escala = { tipo: 'categorica', sentido: 'sin_orden', fuente: 'Checklist propio', niveles: [{ id: 'si', etiqueta: 'Sí', significado: 'Cumple' }, { id: 'no', etiqueta: 'No', significado: 'No cumple' }] };
+    let e = await service.crear('p', config, coordinador);
+    e = await service.iniciar('p', e.id, { revision: e.revision }, coordinador);
+    const r = (criterioId: string, valor: string) => ({ criterioId, valor, noAplica: false, motivo: '', notas: '' });
+    e = await service.guardarTrabajo('p', e.id, { revision: e.revision, respuestas: [r(primero.id, 'si'), r(segundo.id, 'cumple')], hallazgos: [] }, experto);
+    await expect(service.guardarTrabajo('p', e.id, { revision: e.revision, respuestas: [r(primero.id, 'cumple')], hallazgos: [] }, experto)).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.guardarTrabajo('p', e.id, { revision: e.revision, respuestas: [r(segundo.id, 'si')], hallazgos: [] }, experto)).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it('serializa guardados y rechaza revision obsoleta sin sobrescribir', async () => {
     const { service, prisma } = preparar();
     let e = await service.crear('p', configuracion(), coordinador);
@@ -150,6 +170,57 @@ describe('Flujo heurístico: privacidad, transiciones y consenso', () => {
     expect(propia.id).not.toBe(METODOLOGIAS_HEURISTICAS[0].id);
     expect(propia).toMatchObject({ autor: 'Nombre servidor', protegida: false });
     expect(propia.criterios[0].origen).toEqual(METODOLOGIAS_HEURISTICAS[0].criterios[0].origen);
+  });
+});
+
+describe('Métodos propios del flujo', () => {
+  const copia = () => ({ ...structuredClone(METODOLOGIAS_HEURISTICAS[0]), protegida: false });
+  const sinGuardar = (propia: Awaited<ReturnType<HeuristicaFlujoService['guardarMetodologia']>>) => structuredClone(propia);
+
+  it('el autor edita su método: conserva id, fija autor y protegida desde el servidor', async () => {
+    const { service, metodos } = preparar();
+    const propia = await service.guardarMetodologia('p', copia(), coordinador);
+    const editada = await service.actualizarMetodologia('p', propia.id, { ...propia, id: 'otro', protegida: true, autor: 'Falso', nombre: 'Renombrada', criterios: propia.criterios.slice(0, 2) }, coordinador);
+    expect(editada).toMatchObject({ id: propia.id, nombre: 'Renombrada', autor: 'Nombre servidor', protegida: false });
+    expect(editada.criterios).toHaveLength(2);
+    expect(metodos.size).toBe(1);
+    const lista = await service.metodologias('p', coordinador);
+    expect(lista.filter(m => (m as { id: string }).id === propia.id)).toEqual([editada]);
+  });
+  it('otra persona recibe 404 al editar o borrar y el método no cambia', async () => {
+    const { service, metodos } = preparar();
+    const propia = await service.guardarMetodologia('p', copia(), coordinador);
+    const antes = structuredClone([...metodos.values()]);
+    await expect(service.actualizarMetodologia('p', propia.id, { ...propia, nombre: 'Robado' }, experto)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.borrarMetodologia('p', propia.id, experto)).rejects.toBeInstanceOf(NotFoundException);
+    expect([...metodos.values()]).toEqual(antes);
+  });
+  it('un método inexistente o del catálogo responde igual que uno ajeno', async () => {
+    const { service } = preparar();
+    await expect(service.actualizarMetodologia('p', randomUUID(), copia(), coordinador)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.actualizarMetodologia('p', METODOLOGIAS_HEURISTICAS[0].id, copia(), coordinador)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.borrarMetodologia('p', METODOLOGIAS_HEURISTICAS[0].id, coordinador)).rejects.toBeInstanceOf(NotFoundException);
+  });
+  it('rechaza un cuerpo inválido sin tocar lo guardado y exige acceso al proyecto', async () => {
+    const { service, metodos, acceso } = preparar();
+    const propia = await service.guardarMetodologia('p', copia(), coordinador);
+    const antes = structuredClone([...metodos.values()]);
+    await expect(service.actualizarMetodologia('p', propia.id, { ...sinGuardar(propia), criterios: [] }, coordinador)).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.actualizarMetodologia('p', propia.id, { ...sinGuardar(propia), extra: true }, coordinador)).rejects.toBeInstanceOf(BadRequestException);
+    expect([...metodos.values()]).toEqual(antes);
+    acceso.assertAccess.mockRejectedValueOnce(new ForbiddenException());
+    await expect(service.borrarMetodologia('ajeno', propia.id, coordinador)).rejects.toBeInstanceOf(ForbiddenException);
+    expect(metodos.size).toBe(1);
+  });
+  it('borra solo una vez y no altera una evaluación que ya usa una copia', async () => {
+    const { service } = preparar();
+    const propia = await service.guardarMetodologia('p', copia(), coordinador);
+    const e = await service.crear('p', { ...configuracion(), metodologia: propia }, coordinador);
+    await service.borrarMetodologia('p', propia.id, coordinador);
+    await expect(service.borrarMetodologia('p', propia.id, coordinador)).rejects.toBeInstanceOf(NotFoundException);
+    expect((await service.metodologias('p', coordinador)).some(m => (m as { id: string }).id === propia.id)).toBe(false);
+    const leida = await service.obtener('p', e.id, coordinador);
+    expect(leida.configuracion.metodologia).toEqual(propia);
   });
 });
 
@@ -230,5 +301,75 @@ describe('Comparaciones manuales y snapshots', () => {
     expect(r.comparacion!.compatible).toBe(false);
     (filas.get(anterior.id)!.configuracion as unknown as ConfiguracionFlujo).lectorIds = [];
     await expect(service.comparacion('p', actual.id, anterior.id, lector)).rejects.toBeInstanceOf(ForbiddenException);
+  });
+});
+
+describe('Consenso: aspectos positivos y conclusión', () => {
+  const positivos = [{ id: 'pos1', titulo: 'Navegación clara', descripcion: 'Las etiquetas del menú se entienden.' }];
+  it('conserva positivos y conclusión hasta el informe consolidado', async () => {
+    const { service, filas } = preparar();
+    let e = await entregarTodos(service, 1);
+    e = await service.guardarConsenso('p', e.id, { ...decisiones(e), positivos, conclusion: 'Recomendamos corregir el formulario.' }, coordinador);
+    expect(filas.get(e.id)!.consenso).toMatchObject({ positivos, conclusion: 'Recomendamos corregir el formulario.' });
+    for (const id of e.configuracion.evaluadorIds) e = await service.aprobar('p', e.id, { revision: e.revision }, usuario(id));
+    e = await service.consolidar('p', e.id, { revision: e.revision }, coordinador);
+    expect(e.informe!.consenso.positivos).toEqual(positivos);
+    expect(e.informe!.consenso.conclusion).toBe('Recomendamos corregir el formulario.');
+  });
+  it('un consenso antiguo sin los campos nuevos sigue siendo válido hasta consolidar', async () => {
+    const { service, filas } = preparar();
+    let e = await entregarTodos(service, 1);
+    e = await service.guardarConsenso('p', e.id, decisiones(e), coordinador);
+    expect(e.consenso).toMatchObject({ positivos: [], conclusion: '', mejoras: [] });
+    const guardado = filas.get(e.id)!.consenso as Record<string, unknown>;
+    delete guardado.positivos; delete guardado.conclusion; delete guardado.mejoras;
+    for (const id of e.configuracion.evaluadorIds) e = await service.aprobar('p', e.id, { revision: e.revision }, usuario(id));
+    e = await service.consolidar('p', e.id, { revision: e.revision }, coordinador);
+    expect(e.fase).toBe('CONSOLIDADA');
+    expect(e.informe!.consenso.positivos ?? []).toEqual([]);
+  });
+  it('no permite confirmar un positivo sin título', async () => {
+    const { service } = preparar();
+    let e = await entregarTodos(service, 1);
+    e = await service.guardarConsenso('p', e.id, { ...decisiones(e), positivos: [{ id: 'pos1', titulo: '  ', descripcion: 'Sin título' }] }, coordinador);
+    await expect(service.aprobar('p', e.id, { revision: e.revision }, usuario(e.configuracion.evaluadorIds[0]))).rejects.toThrow('Completa el título de cada aspecto positivo.');
+  });
+});
+
+describe('Consenso: mejoras antes/después con capturas', () => {
+  const PNG = Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0,0,0,0]);
+  const subir = (service: HeuristicaFlujoService, id: string, user: AuthenticatedUser) => service.subirEvidencia('p', id, { buffer: PNG, size: PNG.length }, user);
+  const mejora = (antesIds: string[], despuesIds: string[], titulo = 'Formulario de inscripción') => ({ id: 'm1', titulo, descripcion: 'Se agregó el mensaje de error.', antesIds, despuesIds });
+  it('coordinador y experto adjuntan en consenso; el lector solo ve las capturas del informe', async () => {
+    const { service } = preparar();
+    let e = await entregarTodos(service, 1);
+    const antes = await subir(service, e.id, coordinador);
+    const despues = await subir(service, e.id, experto);
+    const suelta = await subir(service, e.id, experto);
+    e = await service.guardarConsenso('p', e.id, { ...decisiones(e), mejoras: [mejora([antes.id], [despues.id])] }, coordinador);
+    expect(e.consenso.mejoras).toHaveLength(1);
+    await expect(service.obtenerEvidencia('p', e.id, antes.id, lector)).rejects.toBeInstanceOf(ForbiddenException);
+    for (const id of e.configuracion.evaluadorIds) e = await service.aprobar('p', e.id, { revision: e.revision }, usuario(id));
+    e = await service.consolidar('p', e.id, { revision: e.revision }, coordinador);
+    expect(e.informe!.consenso.mejoras).toEqual([mejora([antes.id], [despues.id])]);
+    await expect(service.obtenerEvidencia('p', e.id, antes.id, lector)).resolves.toMatchObject({ mimeType: 'image/png' });
+    await expect(service.obtenerEvidencia('p', e.id, despues.id, lector)).resolves.toMatchObject({ mimeType: 'image/png' });
+    await expect(service.obtenerEvidencia('p', e.id, suelta.id, lector)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(subir(service, e.id, coordinador)).rejects.toBeInstanceOf(ConflictException);
+  });
+  it('no deja adjuntar en consenso a un lector ni a un ajeno', async () => {
+    const { service } = preparar();
+    const e = await entregarTodos(service, 1);
+    for (const user of [lector, usuario('admin', 'ADMIN')]) await expect(subir(service, e.id, user)).rejects.toBeInstanceOf(ForbiddenException);
+  });
+  it('rechaza capturas de otra evaluación o inexistentes y exige título al confirmar', async () => {
+    const { service } = preparar();
+    let e = await entregarTodos(service, 1);
+    const otra = await entregarTodos(service, 1);
+    const ajena = await subir(service, otra.id, experto);
+    for (const id of [ajena.id, randomUUID()]) await expect(service.guardarConsenso('p', e.id, { ...decisiones(e), mejoras: [mejora([id], [])] }, coordinador)).rejects.toBeInstanceOf(BadRequestException);
+    const propia = await subir(service, e.id, experto);
+    e = await service.guardarConsenso('p', e.id, { ...decisiones(e), mejoras: [mejora([propia.id], [], '  ')] }, coordinador);
+    await expect(service.aprobar('p', e.id, { revision: e.revision }, experto)).rejects.toThrow('Completa el título de cada mejora.');
   });
 });
