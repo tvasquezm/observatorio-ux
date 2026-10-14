@@ -17,10 +17,10 @@ function config(): ConfiguracionFlujo {
   return { nombre: 'Portal', producto: { clave: 'portal', nombre: 'Portal', version: '1', url: '', dispositivo: 'Web' }, objetivo: '', tareas: '', pantallas: '', exclusiones: '', metodologia, evaluadorIds: [], lectorIds: [] };
 }
 let latest: ConfiguracionFlujo;
-function Editor({ initial = config(), onSaveMethod = vi.fn() }: { initial?: ConfiguracionFlujo; onSaveMethod?: () => Promise<void> }) {
+function Editor({ initial = config(), onSaveMethod = vi.fn(), biblioteca = [METODOLOGIAS_HEURISTICAS[0]] }: { initial?: ConfiguracionFlujo; onSaveMethod?: () => Promise<void>; biblioteca?: typeof METODOLOGIAS_HEURISTICAS }) {
   const [v, setV] = useState(initial);
   latest = v;
-  return <ConfiguracionEditor value={v} onChange={setV} biblioteca={[METODOLOGIAS_HEURISTICAS[0]]} equipo={[]} onSaveMethod={onSaveMethod} />;
+  return <ConfiguracionEditor value={v} onChange={setV} biblioteca={biblioteca} equipo={[]} onSaveMethod={onSaveMethod} />;
 }
 beforeEach(() => { useAuthStore.setState({ user: { id: 'u1', nombre: 'Ana', email: 'ana@example.org', rol: 'ESTUDIANTE' }, isAuthenticated: true }); });
 
@@ -89,5 +89,30 @@ describe('constructor guiado de métodos', () => {
     expect(latest.metodologia.criterios.some(c => c.escala)).toBe(false);
     expect(screen.getByText('✓ La metodología está lista para usar.')).toBeInTheDocument();
     expect(screen.getByText('2 criterios en total.')).toBeInTheDocument();
+  });
+});
+
+describe('biblioteca unificada: usar o marcar criterios', () => {
+  const [a, b] = METODOLOGIAS_HEURISTICAS;
+  it('marca criterios de dos metodologías en sus tarjetas y los carga en el paso 2', async () => {
+    render(<Editor biblioteca={[a, b]} />);
+    expect(screen.queryByRole('button', { name: 'Crear metodología con los seleccionados' })).toBeNull();
+    await userEvent.click(screen.getByLabelText(`Criterio: ${a.criterios[0].nombre} (${a.nombre})`));
+    await userEvent.click(screen.getByLabelText(`Criterio: ${b.criterios[0].nombre} (${b.nombre})`));
+    expect(screen.getByText('2 criterios de 2 metodologías seleccionados.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Crear metodología con los seleccionados' }));
+    expect(latest.metodologia.criterios.map(c => c.nombre)).toEqual([a.criterios[0].nombre, b.criterios[0].nombre]);
+    expect(screen.getByText('✓ Se cargaron 2 criterios de 2 metodologías en el paso 2.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Crear metodología con los seleccionados' })).toBeNull();
+  });
+  it('"Todos" marca una metodología completa y Usar copia la metodología sin marcar nada', async () => {
+    render(<Editor biblioteca={[a, b]} />);
+    await userEvent.click(screen.getByLabelText(`Todos los criterios de ${b.nombre}`));
+    expect(screen.getByText(`${b.criterios.length} criterios de 1 metodologías seleccionados.`)).toBeInTheDocument();
+    await userEvent.click(screen.getByLabelText(`Todos los criterios de ${b.nombre}`));
+    expect(screen.queryByRole('button', { name: 'Crear metodología con los seleccionados' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: `Usar copia de ${b.nombre}` }));
+    expect(latest.metodologia.criterios).toHaveLength(b.criterios.length);
+    expect(latest.metodologia.nombre).toBe(`${b.nombre} (copia)`);
   });
 });

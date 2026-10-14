@@ -59,10 +59,9 @@ export function VistaPreviaEvaluador({ value }: { value: ConfiguracionFlujo }) {
   </>;
 }
 
-export function ElegirCriterios({ biblioteca, onCrear, onCrearYGuardar }: { biblioteca: MetodologiaFlujo[]; onCrear: (m: MetodologiaFlujo) => void; onCrearYGuardar: (m: MetodologiaFlujo) => Promise<void> }) {
+export function useSeleccionCriterios({ biblioteca, onCrear, onCrearYGuardar }: { biblioteca: MetodologiaFlujo[]; onCrear: (m: MetodologiaFlujo) => void; onCrearYGuardar: (m: MetodologiaFlujo) => Promise<void> }) {
   const [marcados, setMarcados] = useState<string[]>([]);
   const [nombre, setNombre] = useState('Metodología personalizada');
-  const [abierto, setAbierto] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
   const [resultado, setResultado] = useState('');
@@ -73,30 +72,39 @@ export function ElegirCriterios({ biblioteca, onCrear, onCrearYGuardar }: { bibl
   const construir = () => combinarMetodologias(recortadas, crypto.randomUUID(), nombre.trim());
   const cambiar = (claves: string[], marcar: boolean) => { setResultado(''); setError(''); setMarcados(prev => marcar ? [...prev.filter(k => !claves.includes(k)), ...claves] : prev.filter(k => !claves.includes(k))); };
   const resumen = (n: number, m: number) => `${n} criterios de ${m} metodologías`;
+  const crear = () => { const nueva = construir(); onCrear(nueva); setResultado(`✓ Se cargaron ${resumen(nueva.criterios.length, recortadas.length)} en el paso 2.`); setMarcados([]); };
+  const crearYGuardar = async () => {
+    setGuardando(true); setError(''); setResultado('');
+    try { const nueva = construir(); await onCrearYGuardar(nueva); setResultado('✓ Guardada en tus metodologías. Aparece en la lista; pulsa Usar para trabajar con ella.'); setMarcados([]); }
+    catch (e) { setError(e instanceof Error ? e.message : 'No se pudo guardar la metodología.'); }
+    finally { setGuardando(false); }
+  };
+  return { marcados, nombre, setNombre, guardando, error, resultado, clave, total, listo, cambiar, crear, crearYGuardar, cantidad: recortadas.length, resumen };
+}
+export type SeleccionCriterios = ReturnType<typeof useSeleccionCriterios>;
+
+/** Criterios de una metodología como casillas marcables; se usa dentro de su tarjeta. */
+export function CriteriosMarcables({ original, sel }: { original: MetodologiaFlujo; sel: SeleccionCriterios }) {
+  const claves = original.criterios.map(c => sel.clave(original, c));
+  const n = claves.filter(k => sel.marcados.includes(k)).length;
+  return <div className="hf-elegir-grupo">
+    <label className="hf-check"><input type="checkbox" aria-label={`Todos los criterios de ${original.nombre}`} checked={n === claves.length && n > 0} ref={el => { if (el) el.indeterminate = n > 0 && n < claves.length; }} onChange={e => sel.cambiar(claves, e.target.checked)} />Todos · {n}/{claves.length}</label>
+    {original.criterios.map(c => <label className="hf-check" key={c.id}><input type="checkbox" aria-label={`Criterio: ${c.nombre} (${original.nombre})`} checked={sel.marcados.includes(sel.clave(original, c))} onChange={e => sel.cambiar([sel.clave(original, c)], e.target.checked)} />{c.nombre} <span className="hf-ayuda">{c.categoria}{c.descripcion ? ` · ${c.descripcion}` : ''}</span></label>)}
+  </div>;
+}
+
+/** Barra única para crear una metodología nueva con los criterios marcados en cualquier tarjeta. */
+export function BarraSeleccion({ sel }: { sel: SeleccionCriterios }) {
   return <>
-    <details open={abierto} onToggle={e => setAbierto(e.currentTarget.open)}><summary>Elegir criterios de varias metodologías</summary>
-      <p className="hf-ayuda">Marca los criterios que quieras de una o varias metodologías. Las originales no se modifican: se crea una metodología nueva.</p>
-      {biblioteca.map(o => {
-        const claves = o.criterios.map(c => clave(o, c));
-        const n = claves.filter(k => marcados.includes(k)).length;
-        return <details key={o.id} className="hf-elegir-grupo"><summary>{o.nombre} · {n}/{o.criterios.length}</summary>
-          <label className="hf-check"><input type="checkbox" aria-label={`Todos los criterios de ${o.nombre}`} checked={n === claves.length && n > 0} ref={el => { if (el) el.indeterminate = n > 0 && n < claves.length; }} onChange={e => cambiar(claves, e.target.checked)} />Todos</label>
-          {o.criterios.map(c => <label className="hf-check" key={c.id}><input type="checkbox" aria-label={`Criterio: ${c.nombre} (${o.nombre})`} checked={marcados.includes(clave(o, c))} onChange={e => cambiar([clave(o, c)], e.target.checked)} />{c.nombre} <span className="hf-ayuda">{c.categoria}</span></label>)}
-        </details>;
-      })}
-      <p role="status" className="hf-ayuda">{resumen(total, recortadas.length)} seleccionados.</p>
-      <Field label="Nombre de la nueva metodología"><input maxLength={160} value={nombre} onChange={e => setNombre(e.target.value)} /></Field>
+    {sel.total > 0 && <div className="hf-metodo">
+      <p role="status" className="hf-ayuda">{sel.resumen(sel.total, sel.cantidad)} seleccionados.</p>
+      <Field label="Nombre de la nueva metodología"><input maxLength={160} value={sel.nombre} onChange={e => sel.setNombre(e.target.value)} /></Field>
       <div className="hf-actions">
-        <button type="button" className="secondary" disabled={!listo} onClick={() => { const nueva = construir(); onCrear(nueva); setResultado(`✓ Se cargaron ${resumen(nueva.criterios.length, recortadas.length)} en el paso 2.`); setMarcados([]); setAbierto(false); }}>Crear metodología con los seleccionados</button>
-        <button type="button" className="secondary" disabled={!listo} onClick={async () => {
-          setGuardando(true); setError(''); setResultado('');
-          try { const nueva = construir(); await onCrearYGuardar(nueva); setResultado('✓ Guardada en tus metodologías. Aparece en la lista; pulsa Usar para trabajar con ella.'); setMarcados([]); setAbierto(false); }
-          catch (e) { setError(e instanceof Error ? e.message : 'No se pudo guardar la metodología.'); }
-          finally { setGuardando(false); }
-        }}>Crear y guardar en mis metodologías</button>
+        <button type="button" className="secondary" disabled={!sel.listo} onClick={sel.crear}>Crear metodología con los seleccionados</button>
+        <button type="button" className="secondary" disabled={!sel.listo} onClick={() => void sel.crearYGuardar()}>Crear y guardar en mis metodologías</button>
       </div>
-    </details>
-    {resultado && <p role="status">{resultado}</p>}
-    {error && <p role="alert" className="hf-error">{error}</p>}
+    </div>}
+    {sel.resultado && <p role="status">{sel.resultado}</p>}
+    {sel.error && <p role="alert" className="hf-error">{sel.error}</p>}
   </>;
 }

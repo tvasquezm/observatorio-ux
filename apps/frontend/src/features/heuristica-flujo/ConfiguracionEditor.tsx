@@ -6,7 +6,7 @@ import { useConfirm } from '../../shared/api/confirm';
 import { InfoTip } from '../../shared/components/ui/InfoTip';
 import { Field, Fuente } from './campos';
 import { claveDeNombre, faltantesParaIniciar } from './flujo-utils';
-import { ElegirCriterios, EscalaCriterio, EscalaRapida, PasoCabecera, PegarLista, VistaPreviaEvaluador } from './ConstructorMetodo';
+import { BarraSeleccion, CriteriosMarcables, EscalaCriterio, EscalaRapida, PasoCabecera, PegarLista, useSeleccionCriterios, VistaPreviaEvaluador } from './ConstructorMetodo';
 
 export { Field, Fuente } from './campos';
 export function ConfiguracionEditor({ value, onChange, biblioteca, equipo, onSaveMethod, onUpdateMethod, onDeleteMethod }: {
@@ -21,6 +21,7 @@ export function ConfiguracionEditor({ value, onChange, biblioteca, equipo, onSav
   const author = useAuthStore(s => s.user?.nombre ?? 'Autor de la evaluación');
   const set = (patch: Partial<ConfiguracionFlujo>) => onChange({ ...value, ...patch });
   const m = value.metodologia;
+  const sel = useSeleccionCriterios({ biblioteca, onCrear: nueva => set({ metodologia: nueva }), onCrearYGuardar: onSaveMethod });
   const method = (patch: Partial<MetodologiaFlujo>) => set({ metodologia: { ...m, ...patch, protegida: false } });
   const escala = (patch: Partial<EscalaFlujo>) => method({ escala: { ...m.escala, ...patch } });
   const p = value.producto;
@@ -46,7 +47,7 @@ export function ConfiguracionEditor({ value, onChange, biblioteca, equipo, onSav
     </section>
     <section className="panel">
       <PasoCabecera n={1} titulo="Partir de una metodología" ayuda="" />
-      <InfoTip label="Ayuda sobre la biblioteca de metodologías" align="start">Copia una metodología existente, combina varias o empieza de cero. Los originales están protegidos: trabajas sobre una copia y cada criterio conserva su autor y fuente. WCAG y COGA orientan la revisión, sin certificar conformidad.</InfoTip>
+      <InfoTip label="Ayuda sobre la biblioteca de metodologías" align="start">Copia una metodología completa con Usar, marca criterios sueltos de una o varias para crear una nueva, o empieza de cero. Los originales están protegidos: trabajas sobre una copia y cada criterio conserva su autor y fuente. WCAG y COGA orientan la revisión, sin certificar conformidad.</InfoTip>
       {biblioteca.map(original => <div key={original.id} className="hf-metodo">
         <div className="hf-actions"><strong>{original.nombre}</strong><span className="hf-ayuda">{original.protegida ? 'Original protegido' : 'Copia personal'}</span>
           <button type="button" className="secondary" aria-label={`Usar copia de ${original.nombre}`} onClick={() => set({ metodologia: copiarMetodologia(original) })}>Usar</button>
@@ -60,13 +61,13 @@ export function ConfiguracionEditor({ value, onChange, biblioteca, equipo, onSav
         </div>
         <details><summary>Criterios y fuente</summary>
           <p>{original.autor} · {original.version} · {original.ambito}</p><Fuente value={original.fuente} />
-          <ul>{original.criterios.map(c => <li key={c.id}>{c.nombre}: {c.descripcion}</li>)}</ul>
+          <CriteriosMarcables original={original} sel={sel} />
           {!original.protegida && onUpdateMethod && onDeleteMethod && <p className="hf-ayuda">Solo tú ves tus métodos. Editarlos o borrarlos no cambia las evaluaciones ya creadas.</p>}
         </details>
       </div>)}
       <div className="hf-actions"><button type="button" className="secondary" onClick={() => set({ metodologia: metodologiaVacia(author, crypto.randomUUID()) })}>Empezar de cero</button></div>
       {errorBiblioteca && <p role="alert" className="hf-error">{errorBiblioteca}</p>}
-      <ElegirCriterios biblioteca={biblioteca} onCrear={nueva => set({ metodologia: nueva })} onCrearYGuardar={onSaveMethod} />
+      <BarraSeleccion sel={sel} />
     </section>
     <section className="panel">
       <PasoCabecera n={2} titulo="Criterios de esta copia" ayuda="Escribe cada criterio, o pega una lista y se crean todos de una vez." />
