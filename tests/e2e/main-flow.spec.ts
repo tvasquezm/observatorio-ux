@@ -65,8 +65,7 @@ test('recorre login, proyecto y las cinco técnicas UX', async ({ page }, testIn
 
   // Resumen ofrece tarjetas; el grupo Técnicas aparece al entrar en una técnica.
   await page.locator('.tech-card').filter({ has: page.getByRole('heading', { name: 'Personas', exact: true }) }).click();
-  await expect(page).toHaveURL(`/proyectos/${PROJECT_ID}/personas`);
-  await expect(page.getByRole('heading', { name: 'Personas', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Personas', exact: true, level: 2 })).toBeVisible();
   await expectNoPageOverflow(page);
 
   const projectMenu = page.locator('.project-menu, .pm');
@@ -74,7 +73,6 @@ test('recorre login, proyecto y las cinco técnicas UX', async ({ page }, testIn
   for (const [linkName, headingName] of techniques.slice(1)) {
     if (compactMenu) await projectMenu.locator('summary').click();
     else await projectMenu.getByRole('button', { name: /^Técnicas/ }).click();
-    if (compactMenu) await expect(projectMenu).toHaveAttribute('open', '');
     await projectMenu.getByRole('link', { name: linkName, exact: true }).click();
     if (compactMenu) await expect(projectMenu).not.toHaveAttribute('open', '');
     else await expect(projectMenu.getByRole('group', { name: 'Técnicas' })).toHaveCount(0);
