@@ -8,6 +8,7 @@ import {
 import { EstadoSesion } from '../../../generated/prisma/client.js';
 import {
   EVIDENCIA_MAX_BYTES,
+  EVIDENCIA_MAX_MB,
   EVIDENCIA_MAX_POR_SESION,
 } from '@observatorio-ux/shared-types';
 import { PrismaService } from '../../../core/database/prisma.service.js';
@@ -37,7 +38,7 @@ export class HeuristicaEvidenciaService {
       throw new BadRequestException('Adjunta una imagen en el campo "archivo".');
     }
     if (archivo.buffer.length > EVIDENCIA_MAX_BYTES) {
-      throw new BadRequestException('La imagen supera el máximo de 2 MB.');
+      throw new BadRequestException(`La imagen supera el máximo de ${EVIDENCIA_MAX_MB} MB.`);
     }
     const mimeType = detectarMimeImagen(archivo.buffer);
     if (!mimeType) {

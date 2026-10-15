@@ -14,7 +14,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { EVIDENCIA_MAX_BYTES } from '@observatorio-ux/shared-types';
+import { EVIDENCIA_MAX_BYTES, EVIDENCIA_MAX_MB } from '@observatorio-ux/shared-types';
 import type { Response } from 'express';
 import { CurrentUser } from '../../../core/decorators/current-user.decorator.js';
 import { Roles } from '../../../core/decorators/roles.decorator.js';
@@ -91,7 +91,7 @@ export class EvaluacionHeuristicaController {
   }
 
   @Post(':sesionId/evidencias')
-  @ApiOperation({ summary: 'Sube una captura de pantalla (PNG/JPEG/WebP, máx. 2 MB)' })
+  @ApiOperation({ summary: `Sube una captura de pantalla (PNG/JPEG/WebP, máx. ${EVIDENCIA_MAX_MB} MB)` })
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(
     FileInterceptor('archivo', { limits: { fileSize: EVIDENCIA_MAX_BYTES, files: 1 } }),

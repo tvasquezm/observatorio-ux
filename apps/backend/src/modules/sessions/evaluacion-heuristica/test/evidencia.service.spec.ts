@@ -73,7 +73,7 @@ describe('HeuristicaEvidenciaService', () => {
     expect(prisma.evidenciaHeuristica.create).not.toHaveBeenCalled();
   });
 
-  it('400 sin archivo o por encima de 2 MB', async () => {
+  it('400 sin archivo o por encima del máximo', async () => {
     await expect(service.subir('s1', undefined, user)).rejects.toBeInstanceOf(BadRequestException);
     const grande = Buffer.concat([PNG, Buffer.alloc(EVIDENCIA_MAX_BYTES)]);
     await expect(service.subir('s1', archivo(grande), user)).rejects.toBeInstanceOf(BadRequestException);
