@@ -72,3 +72,44 @@ curl --fail --show-error \
   -o reporte-prueba.pdf \
   "http://localhost:3000/api/projects/$PROYECTO_ID/reports/pdf"
 ```
+
+## Carga de capturas de evidencia (2026-10-15)
+
+Las capturas de pantalla superaban el tope de 2 MB y no podían subirse. Se
+comprimen en el navegador antes de enviarlas y el tope del servidor sube a 4 MB.
+Los reportes PDF incrustan estas capturas, por eso se documenta aquí.
+
+- `EVIDENCIA_MAX_BYTES` pasa de 2 MB a 4 MB y se agrega `EVIDENCIA_MAX_MB` en
+  `packages/shared-types`. Los mensajes del backend y del frontend leen esa
+  constante. Nginx (`client_max_body_size 5m`) queda por encima y no cambia.
+- `apps/frontend/src/shared/utils/comprimir-imagen.ts` reduce las imágenes de
+  más de 500 KB: lado mayor de 2560 px y 8 megapíxeles, WebP con calidad 0.85,
+  0.70 y 0.55, y hasta 4 rondas reduciendo un 25% las dimensiones hasta bajar de
+  3 MB. Si el navegador no codifica WebP usa JPEG. Ante cualquier fallo devuelve
+  el original y la validación decide.
+- Se aplica en los dos puntos de subida: `HallazgoForm.tsx` (evaluación
+  individual) y `EvidenciaEditor.tsx` (flujo completo). La compresión ocurre
+  antes de `validarArchivoEvidencia`. Las anotaciones del flujo completo son
+  coordenadas normalizadas entre 0 y 1, por lo que no se desalinean al reducir.
+- El servidor mantiene todas sus validaciones: tamaño, tipo real por magic
+  bytes y máximo de 50 capturas por sesión.
+- Las capturas siguen en las tablas `evidencias_heuristica` y
+  `evidencias_heuristicas_completas` (`BYTEA`), separadas de los listados y
+  leídas solo por identificador. No hay migración ni variables de entorno nuevas.
+- `MAX_CAPTURAS_PDF` sigue en 30. Con capturas comprimidas el peso es mucho
+  menor al máximo de 4 MB; el peor caso sin comprimir es de unos 120 MB en la
+  memoria del navegador al generar el PDF.
+
+Verificación en rama `feat/compresion-capturas-evidencia`:
+
+```bash
+pnpm build:shared
+pnpm --filter backend test
+pnpm --filter frontend test
+pnpm --filter frontend build
+```
+
+Resultado: backend 326/326, frontend 456/456 y compilación sin errores de
+tipos. Pendiente: probar a mano con una captura de más de 3 MB en ambos flujos y
+confirmar en producción que el rewrite de Vercel hacia Render admite cuerpos de
+hasta 4 MB.

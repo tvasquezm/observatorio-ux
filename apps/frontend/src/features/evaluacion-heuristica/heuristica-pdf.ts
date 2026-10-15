@@ -19,7 +19,7 @@ import {
 } from './heuristica-utils';
 import { resumirSesion } from './heuristica-resumen';
 
-/** Tope de capturas incrustadas: cada una puede pesar hasta 2 MB y pdfmake las codifica en memoria. */
+/** Tope de capturas incrustadas: cada una puede pesar hasta 4 MB y pdfmake las codifica en memoria. */
 export const MAX_CAPTURAS_PDF = 30;
 
 const COLOR_SEVERIDAD = ['#526a73', '#526a73', '#85601b', '#a44626', '#922f3d'];

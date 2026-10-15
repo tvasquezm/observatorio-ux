@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { METODOLOGIAS_HEURISTICAS } from '@observatorio-ux/shared-types';
+import { EVIDENCIA_MAX_BYTES, METODOLOGIAS_HEURISTICAS } from '@observatorio-ux/shared-types';
 import type { ConfiguracionFlujo, EvaluacionFlujo, HallazgoFlujo } from '@observatorio-ux/shared-types';
 import type { AuthenticatedUser } from '../../auth/types/authenticated-user.interface.js';
 import { Prisma, type EvaluacionHeuristicaCompleta } from '../../../generated/prisma/client.js';
@@ -249,7 +249,7 @@ describe('Evidencias del flujo', () => {
     let e = await service.crear('p', configuracion(), coordinador);
     e = await service.iniciar('p', e.id, { revision: e.revision }, coordinador);
     await expect(service.subirEvidencia('p', e.id, { buffer: Buffer.from('<svg/>'), size: 6 }, experto)).rejects.toThrow();
-    await expect(service.subirEvidencia('p', e.id, { buffer: Buffer.alloc(2*1024*1024+1), size: 1 }, experto)).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.subirEvidencia('p', e.id, { buffer: Buffer.alloc(EVIDENCIA_MAX_BYTES+1), size: 1 }, experto)).rejects.toBeInstanceOf(BadRequestException);
     prisma.evidenciaHeuristicaCompleta.count.mockResolvedValue(50);
     await expect(service.subirEvidencia('p', e.id, { buffer: PNG, size: PNG.length }, experto)).rejects.toBeInstanceOf(ConflictException);
   });
