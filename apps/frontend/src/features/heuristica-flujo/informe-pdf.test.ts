@@ -24,6 +24,29 @@ describe('Informe consolidado PDF', () => {
     expect(contenido).toContain('Portal');
     expect(contenido).toContain('Ana');
   });
+  it('muestra la escala propia y su valoración sin mezclarla con la de la metodología', () => {
+    const ev = evaluacion();
+    const propia = { tipo: 'categorica' as const, sentido: 'sin_orden' as const, fuente: 'Checklist propio', niveles: [{ id: 'si', etiqueta: 'Sí cumple', significado: 'Cumple el ítem' }, { id: 'no', etiqueta: 'No cumple', significado: 'No cumple el ítem' }] };
+    ev.informe!.configuracion = structuredClone(ev.informe!.configuracion);
+    ev.informe!.configuracion.metodologia.criterios[0].escala = propia;
+    ev.informe!.consenso.criterios[0].valor = 'si';
+    const contenido = JSON.stringify(construirInformeFlujoPdf(ev, new Map(), new Date()).content);
+    expect(contenido).toContain('Escala propia de algunos criterios');
+    expect(contenido).toContain('Valoración (escala propia: Checklist propio)');
+    expect(contenido).toContain('Sí cumple');
+  });
+  it('incluye cumplimiento en texto solo si la escala define favorables', () => {
+    const antiguo = JSON.stringify(construirInformeFlujoPdf(evaluacion(), new Map(), new Date()).content);
+    expect(antiguo).not.toContain('cumplen');
+    const ev = evaluacion();
+    const m = structuredClone(METODOLOGIAS_HEURISTICAS.find(x => x.id === 'hassan-checklist-2003')!);
+    m.criterios = m.criterios.filter(c => c.categoria === 'Generales').slice(0, 2);
+    ev.informe!.configuracion = { ...ev.informe!.configuracion, metodologia: m };
+    ev.informe!.consenso.criterios = m.criterios.map((c, i) => ({ criterioId: c.id, valor: i ? 'no' : 'si', noAplica: false, motivo: '', notas: '', justificacion: 'ok' }));
+    const contenido = JSON.stringify(construirInformeFlujoPdf(ev, new Map(), new Date()).content);
+    expect(contenido).toContain('Cumplimiento');
+    expect(contenido).toContain('1 de 2 cumplen (50 %)');
+  });
   it('impide exportar resultados antes de consolidar', () => {
     const ev = evaluacion(); ev.fase = 'PENDIENTE_CONSENSO'; ev.informe = null;
     expect(() => construirInformeFlujoPdf(ev, new Map(), new Date())).toThrow(/consolida/i);
@@ -40,5 +63,32 @@ describe('Anotación de imágenes del informe', () => {
     dibujarAnotacion(ctx, { id: 'a', tipo: 'rectangulo', x: 0.1, y: 0.2, x2: 0.5, y2: 0.6, color: '#ff0000', texto: '' }, 1000, 500);
     expect(llamadas[0]).toHaveLength(4);
     [100, 100, 400, 200].forEach((n, i) => expect(llamadas[0][i]).toBeCloseTo(n));
+  });
+});
+
+describe('Informe PDF: aspectos positivos y conclusión', () => {
+  it('incluye ambas secciones cuando hay contenido y las omite en una evaluación antigua', () => {
+    const ev = evaluacion();
+    const antiguo = JSON.stringify(construirInformeFlujoPdf(ev, new Map(), new Date('2026-10-09T12:00:00Z')).content);
+    expect(antiguo).not.toContain('Aspectos positivos');
+    expect(antiguo).not.toContain('Conclusión y recomendaciones finales');
+    ev.informe!.consenso.positivos = [{ id: 'pos1', titulo: 'Menú claro', descripcion: 'Etiquetas comprensibles.' }];
+    ev.informe!.consenso.conclusion = 'Corregir el formulario antes de publicar.';
+    const contenido = JSON.stringify(construirInformeFlujoPdf(ev, new Map(), new Date('2026-10-09T12:00:00Z')).content);
+    for (const texto of ['Aspectos positivos', 'Menú claro', 'Etiquetas comprensibles.', 'Conclusión y recomendaciones finales', 'Corregir el formulario antes de publicar.']) expect(contenido).toContain(texto);
+  });
+});
+
+describe('Informe PDF: mejoras antes/después', () => {
+  it('incluye la sección con sus capturas y la omite en una evaluación antigua', () => {
+    const ev = evaluacion();
+    const antiguo = JSON.stringify(construirInformeFlujoPdf(ev, new Map(), new Date('2026-10-09T12:00:00Z')).content);
+    expect(antiguo).not.toContain('Mejoras antes/después');
+    ev.informe!.consenso.mejoras = [{ id: 'm1', titulo: 'Botón visible', descripcion: 'Más contraste.', antesIds: ['a1'], despuesIds: ['d1', 'd2'] }];
+    const capturas = new Map<string, string | null>([['a1', 'data:image/png;base64,AA'], ['d1', 'data:image/png;base64,BB'], ['d2', null]]);
+    const pdf = construirInformeFlujoPdf(ev, capturas, new Date('2026-10-09T12:00:00Z'));
+    const contenido = JSON.stringify(pdf.content);
+    for (const texto of ['Mejoras antes/después', 'Botón visible', 'Más contraste.', 'evidencia-a1', 'evidencia-d1', 'Captura d2 disponible en la aplicación']) expect(contenido).toContain(texto);
+    expect(Object.keys(pdf.images ?? {})).toEqual(expect.arrayContaining(['evidencia-a1', 'evidencia-d1']));
   });
 });

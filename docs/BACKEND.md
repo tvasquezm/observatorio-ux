@@ -186,6 +186,22 @@ Los hallazgos anteriores al rediseño no tienen los campos nuevos; los lectores 
 con `nosniff` y CSP restrictiva. Las escrituras sobre `resultado` se serializan con
 `SELECT ... FOR UPDATE` dentro de una transacción.
 
+### Métodos propios del flujo completo
+
+Prefijo `/api/projects/:proyectoId/evaluacion-heuristica/metodologias`. Requiere acceso al proyecto.
+
+```text
+GET    /metodologias        catálogo protegido + los métodos del usuario autenticado
+POST   /metodologias        guarda un método propio (el servidor fija id, autor y protegida=false)
+PATCH  /metodologias/:id    reemplaza el contenido de un método propio (mismo esquema que POST)
+DELETE /metodologias/:id    borra un método propio (204)
+```
+
+`:id` debe ser un UUID. Solo el autor puede editar o borrar: si el método no existe, es del
+catálogo o pertenece a otra persona, la respuesta es la misma (404), sin distinguir los casos.
+En `PATCH`, el `id`, `autor` y `protegida` del cuerpo se ignoran. Editar o borrar un método no
+cambia las evaluaciones ya creadas, porque cada evaluación guarda su propia copia del método.
+
 ## Artefactos UX
 
 Los tres módulos de artefactos utilizan el modelo versionado `UxArtifact`:

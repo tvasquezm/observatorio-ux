@@ -1,13 +1,17 @@
 import { useState } from 'react';
+import { escalaDe } from '@observatorio-ux/shared-types';
 import type { ConfiguracionFlujo, EvaluacionFlujo, HallazgoFlujo, RespuestaCriterio } from '@observatorio-ux/shared-types';
-import { Field } from './ConfiguracionEditor';
+import { Field } from './campos';
 import { EvidenciaEditor } from './EvidenciaEditor';
 import { useFlujoDraft } from './useFlujoDraft';
 import { flujoRequest } from './flujo.api';
-import { hallazgoVacio, pendientesTrabajo, respuestaVacia } from './flujo-utils';
+import { ChecklistView } from './ChecklistView';
+import { esChecklist, hallazgoVacio, pendientesTrabajo, respuestaVacia } from './flujo-utils';
 
 export function ValoracionEditor({ config, respuesta, onChange }: { config: ConfiguracionFlujo; respuesta: RespuestaCriterio; onChange: (r: RespuestaCriterio) => void }) {
-  return <><Field label="Valoración"><select value={respuesta.noAplica ? 'NA' : respuesta.valor ?? ''} onChange={e => onChange({ ...respuesta, valor: e.target.value === 'NA' || !e.target.value ? null : e.target.value, noAplica: e.target.value === 'NA' })}><option value="">Sin evaluar</option>{config.metodologia.escala.niveles.map(n => <option key={n.id} value={n.id}>{n.etiqueta} — {n.significado}</option>)}<option value="NA">No aplica (requiere motivo)</option></select></Field>
+  const criterio = config.metodologia.criterios.find(c => c.id === respuesta.criterioId);
+  const niveles = (criterio ? escalaDe(config.metodologia, criterio) : config.metodologia.escala).niveles;
+  return <><Field label="Valoración"><select value={respuesta.noAplica ? 'NA' : respuesta.valor ?? ''} onChange={e => onChange({ ...respuesta, valor: e.target.value === 'NA' || !e.target.value ? null : e.target.value, noAplica: e.target.value === 'NA' })}><option value="">Sin evaluar</option>{niveles.map(n => <option key={n.id} value={n.id}>{n.etiqueta} — {n.significado}</option>)}<option value="NA">No aplica (requiere motivo)</option></select></Field>
     {respuesta.noAplica && <Field label="Motivo de no aplica"><textarea value={respuesta.motivo} onChange={e => onChange({ ...respuesta, motivo: e.target.value })} /></Field>}
     <Field label="Notas de la valoración"><textarea value={respuesta.notas} onChange={e => onChange({ ...respuesta, notas: e.target.value })} /></Field></>;
 }
@@ -39,7 +43,7 @@ export function TrabajoEditor({ evaluacion, usuarioId, onSaved, onBack }: { eval
     {!trabajo && <p role="status">No estás asignado como experto. El consolidado estará disponible cuando termine el consenso.</p>}
     {trabajo && <>
       {editable && <SaveStatus {...state} />}
-      <fieldset disabled={!editable || busy}><legend>Valoraciones individuales</legend>{evaluacion.configuracion.metodologia.criterios.map(c => {
+      <fieldset disabled={!editable || busy}><legend>Valoraciones individuales</legend>{esChecklist(evaluacion.configuracion) ? <ChecklistView config={evaluacion.configuracion} respuestas={state.draft.respuestas} hallazgos={state.draft.hallazgos} editable={editable} onChange={r => state.setDraft({ ...state.draft, respuestas: [...state.draft.respuestas.filter(x => x.criterioId !== r.criterioId), r] })} onAddHallazgo={id => state.setDraft({ ...state.draft, hallazgos: [...state.draft.hallazgos, hallazgoVacio(id)] })} /> : evaluacion.configuracion.metodologia.criterios.map(c => {
         const r = state.draft.respuestas.find(r => r.criterioId === c.id) ?? respuestaVacia(c.id);
         return <fieldset key={c.id}><legend>{c.nombre}</legend><p>{c.descripcion}</p><p className="hf-origin">{c.origen.autor} · {c.origen.version}</p>
           <ValoracionEditor config={evaluacion.configuracion} respuesta={r} onChange={r => state.setDraft({ ...state.draft, respuestas: [...state.draft.respuestas.filter(x => x.criterioId !== c.id), r] })} />

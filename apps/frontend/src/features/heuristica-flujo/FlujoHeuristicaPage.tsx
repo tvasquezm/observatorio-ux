@@ -12,12 +12,11 @@ import { ConsensoEditor } from './ConsensoEditor';
 import { InformeView } from './InformeView';
 import { useFlujoDraft } from './useFlujoDraft';
 import { flujoRequest } from './flujo.api';
-import './flujo.css';
 
 function nuevaConfiguracion(m: MetodologiaFlujo): ConfiguracionFlujo {
   return { nombre: '', producto: { clave: '', nombre: '', version: '', url: '', dispositivo: '' }, objetivo: '', tareas: '', pantallas: '', exclusiones: '', metodologia: copiarMetodologia(m), evaluadorIds: [], lectorIds: [] };
 }
-function NuevaEvaluacion({ proyectoId, biblioteca, equipo, onSaved, onCancel, onSaveMethod }: { proyectoId: string; biblioteca: MetodologiaFlujo[]; equipo: MiembroEquipoFlujo[]; onSaved: (e: EvaluacionFlujo) => void; onCancel: () => void; onSaveMethod: (m: MetodologiaFlujo) => Promise<void> }) {
+function NuevaEvaluacion({ proyectoId, biblioteca, equipo, onSaved, onCancel, onSaveMethod, onUpdateMethod, onDeleteMethod }: { proyectoId: string; biblioteca: MetodologiaFlujo[]; equipo: MiembroEquipoFlujo[]; onSaved: (e: EvaluacionFlujo) => void; onCancel: () => void; onSaveMethod: (m: MetodologiaFlujo) => Promise<void>; onUpdateMethod: (m: MetodologiaFlujo) => Promise<void>; onDeleteMethod: (id: string) => Promise<void> }) {
   const usuarioId = useAuthStore(s => s.user?.id ?? '');
   const key = `heuristica:nueva:${usuarioId}:${proyectoId}`;
   const initial = useRef(nuevaConfiguracion(biblioteca[0]));
@@ -41,20 +40,23 @@ function NuevaEvaluacion({ proyectoId, biblioteca, equipo, onSaved, onCancel, on
     return () => window.removeEventListener('beforeunload', listener);
   }, [dirty, busy]);
   useEffect(() => { try { if (dirty) sessionStorage.setItem(key, JSON.stringify(value)); else sessionStorage.removeItem(key); setLocalError(''); } catch { setLocalError('No se pudo conservar el borrador local. Guarda antes de cerrar.'); } }, [key, value, dirty]);
+  const sinCriterios = value.metodologia.criterios.length === 0;
   const clearDraft = () => { try { sessionStorage.removeItem(key); } catch { /* El navegador también bloqueó el guardado local. */ } };
   return <><button type="button" className="secondary" disabled={busy} onClick={async () => { if (dirty && !(await confirm('¿Cancelar y descartar el borrador nuevo?'))) return; clearDraft(); onCancel(); }}>← Cancelar nueva evaluación</button>
     <p role="status">{localError || (dirty ? 'Borrador local conservado en esta pestaña; se recupera al retomar Nueva evaluación.' : 'Completa la configuración para guardar el borrador.')}</p>
-    <h2>Nueva evaluación heurística</h2><ConfiguracionEditor value={value} onChange={setValue} biblioteca={biblioteca} equipo={equipo} onSaveMethod={onSaveMethod} />
-    <button type="button" className="primary" disabled={busy} onClick={async () => { setBusy(true); setError(''); try { const result = await flujoRequest<EvaluacionFlujo>(proyectoId, '/evaluaciones', 'POST', value); clearDraft(); onSaved(result); } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo crear'); } finally { setBusy(false); } }}>Guardar borrador de evaluación</button>{error && <p role="alert" className="hf-error">{error}</p>}
+    <h2>Nueva evaluación heurística</h2><ConfiguracionEditor value={value} onChange={setValue} biblioteca={biblioteca} equipo={equipo} onSaveMethod={onSaveMethod} onUpdateMethod={onUpdateMethod} onDeleteMethod={onDeleteMethod} />
+    <div className="hf-barra">{sinCriterios && <p className="hf-ayuda">Agrega al menos un criterio para guardar.</p>}
+    <button type="button" className="primary" disabled={busy || sinCriterios} onClick={async () => { setBusy(true); setError(''); try { const result = await flujoRequest<EvaluacionFlujo>(proyectoId, '/evaluaciones', 'POST', value); clearDraft(); onSaved(result); } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo crear'); } finally { setBusy(false); } }}>Guardar borrador de evaluación</button>{error && <p role="alert" className="hf-error">{error}</p>}</div>
   </>;
 }
-function ConfiguracionSesion({ evaluacion, usuarioId, biblioteca, equipo, onSaved, onBack, onSaveMethod }: { evaluacion: EvaluacionFlujo; usuarioId: string; biblioteca: MetodologiaFlujo[]; equipo: MiembroEquipoFlujo[]; onSaved: (e: EvaluacionFlujo) => void; onBack: () => void; onSaveMethod: (m: MetodologiaFlujo) => Promise<void> }) {
+function ConfiguracionSesion({ evaluacion, usuarioId, biblioteca, equipo, onSaved, onBack, onSaveMethod, onUpdateMethod, onDeleteMethod }: { evaluacion: EvaluacionFlujo; usuarioId: string; biblioteca: MetodologiaFlujo[]; equipo: MiembroEquipoFlujo[]; onSaved: (e: EvaluacionFlujo) => void; onBack: () => void; onSaveMethod: (m: MetodologiaFlujo) => Promise<void>; onUpdateMethod: (m: MetodologiaFlujo) => Promise<void>; onDeleteMethod: (id: string) => Promise<void> }) {
   const state = useFlujoDraft(evaluacion, usuarioId, 'configuracion', evaluacion.configuracion, onSaved);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   return <><button type="button" className="secondary" onClick={async () => { if (await state.confirmLeave()) onBack(); }}>← Evaluaciones</button><div className="page-head"><div><h2>{state.draft.nombre || 'Borrador de evaluación'}</h2><p>Configura el alcance antes de iniciar. Iniciar fija una copia versionada del método y la escala.</p></div><span className="badge">BORRADOR</span></div>
-    <SaveStatus {...state} /><fieldset disabled={busy}><legend>Configuración del borrador</legend><ConfiguracionEditor value={state.draft} onChange={state.setDraft} biblioteca={biblioteca} equipo={equipo} onSaveMethod={onSaveMethod} /></fieldset><SaveStatus {...state} />
-    <button type="button" className="primary" disabled={busy || state.saving} onClick={async () => { setBusy(true); setError(''); try { await state.save(); onSaved(await flujoRequest<EvaluacionFlujo>(evaluacion.proyectoId, `/evaluaciones/${evaluacion.id}/iniciar`, 'POST', { revision: state.getRevision() })); } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo iniciar'); } finally { setBusy(false); } }}>Iniciar con configuración fija</button>{error && <p role="alert" className="hf-error">{error}</p>}
+    <fieldset disabled={busy}><legend>Configuración del borrador</legend><ConfiguracionEditor value={state.draft} onChange={state.setDraft} biblioteca={biblioteca} equipo={equipo} onSaveMethod={onSaveMethod} onUpdateMethod={onUpdateMethod} onDeleteMethod={onDeleteMethod} /></fieldset>
+    <div className="hf-barra"><SaveStatus {...state} />
+    <button type="button" className="primary" disabled={busy || state.saving} onClick={async () => { setBusy(true); setError(''); try { await state.save(); onSaved(await flujoRequest<EvaluacionFlujo>(evaluacion.proyectoId, `/evaluaciones/${evaluacion.id}/iniciar`, 'POST', { revision: state.getRevision() })); } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo iniciar'); } finally { setBusy(false); } }}>Iniciar con configuración fija</button>{error && <p role="alert" className="hf-error">{error}</p>}</div>
   </>;
 }
 export function FlujoHeuristicaPage() {
@@ -80,6 +82,14 @@ export function FlujoHeuristicaPage() {
     await flujoRequest<MetodologiaFlujo>(proyectoId, '/metodologias', 'POST', m);
     await client.invalidateQueries({ queryKey: [...key, 'metodologias'] });
   }
+  async function updateMethod(m: MetodologiaFlujo) {
+    await flujoRequest<MetodologiaFlujo>(proyectoId, `/metodologias/${encodeURIComponent(m.id)}`, 'PATCH', m);
+    await client.invalidateQueries({ queryKey: [...key, 'metodologias'] });
+  }
+  async function deleteMethod(id: string) {
+    await flujoRequest<void>(proyectoId, `/metodologias/${encodeURIComponent(id)}`, 'DELETE');
+    await client.invalidateQueries({ queryKey: [...key, 'metodologias'] });
+  }
   const evaluacion = active.data;
   const back = () => setSelected(null);
   const guide = (
@@ -94,12 +104,12 @@ export function FlujoHeuristicaPage() {
     </details>
   );
   let content;
-  if (creating && library.data?.length && team.data) content = <NuevaEvaluacion key={proyectoId} proyectoId={proyectoId} biblioteca={library.data} equipo={team.data} onSaved={saved} onCancel={() => setCreating(false)} onSaveMethod={saveMethod} />;
+  if (creating && library.data?.length && team.data) content = <NuevaEvaluacion key={proyectoId} proyectoId={proyectoId} biblioteca={library.data} equipo={team.data} onSaved={saved} onCancel={() => setCreating(false)} onSaveMethod={saveMethod} onUpdateMethod={updateMethod} onDeleteMethod={deleteMethod} />;
   else if (selected && active.isLoading) content = <p role="status">Cargando evaluación…</p>;
   else if (selected && active.error) content = <><button type="button" className="secondary" onClick={back}>← Evaluaciones</button><p role="alert" className="hf-error">{active.error.message}</p><button type="button" className="secondary" onClick={() => void active.refetch()}>Reintentar</button></>;
   else if (evaluacion && selected) {
     const common = { evaluacion, usuarioId, onSaved: saved, onBack: back };
-    if (evaluacion.fase === 'BORRADOR') content = evaluacion.coordinadorId === usuarioId && library.data && team.data ? <ConfiguracionSesion key={`${evaluacion.id}:configuracion`} {...common} biblioteca={library.data} equipo={team.data} onSaveMethod={saveMethod} /> : <><button type="button" className="secondary" onClick={back}>← Evaluaciones</button><p>El coordinador está configurando la evaluación.</p></>;
+    if (evaluacion.fase === 'BORRADOR') content = evaluacion.coordinadorId === usuarioId && library.data && team.data ? <ConfiguracionSesion key={`${evaluacion.id}:configuracion`} {...common} biblioteca={library.data} equipo={team.data} onSaveMethod={saveMethod} onUpdateMethod={updateMethod} onDeleteMethod={deleteMethod} /> : <><button type="button" className="secondary" onClick={back}>← Evaluaciones</button><p>El coordinador está configurando la evaluación.</p></>;
     else if (evaluacion.fase === 'EN_EVALUACION') content = <TrabajoEditor key={`${evaluacion.id}:trabajo`} {...common} />;
     else if (evaluacion.fase === 'PENDIENTE_CONSENSO') content = evaluacion.coordinadorId === usuarioId || evaluacion.configuracion.evaluadorIds.includes(usuarioId) ? <ConsensoEditor key={`${evaluacion.id}:consenso`} {...common} /> : <><button type="button" className="secondary" onClick={back}>← Evaluaciones</button><p>El equipo está acordando el consenso. El informe estará disponible al consolidar.</p></>;
     else content = <InformeView key={`${evaluacion.id}:informe`} {...common} historial={history.data ?? []} />;

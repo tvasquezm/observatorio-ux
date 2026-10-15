@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { resumirEvaluacion } from '@observatorio-ux/shared-types';
+import { escalaDe, resumirCumplimiento, resumirEvaluacion } from '@observatorio-ux/shared-types';
 import type { ComparacionFlujo, EstadoComparacion, EvaluacionFlujo, VinculoComparacion } from '@observatorio-ux/shared-types';
 import { Field, Fuente } from './ConfiguracionEditor';
 import { EvidenciaEditor } from './EvidenciaEditor';
 import { SaveStatus } from './TrabajoEditor';
 import { flujoRequest } from './flujo.api';
+import { textoCumplimiento } from './flujo-utils';
 import { useFlujoDraft } from './useFlujoDraft';
 
 function ComparacionEditor({ actual, anterior, comparacion, usuarioId, onSaved, registerGuard }: { actual: EvaluacionFlujo; anterior: EvaluacionFlujo; comparacion: ComparacionFlujo; usuarioId: string; onSaved: (e: EvaluacionFlujo) => void; registerGuard: (guard: (() => Promise<boolean>) | null) => void }) {
@@ -40,6 +41,10 @@ export function InformeView({ evaluacion, historial, usuarioId, onSaved, onBack 
   if (!informe) return <p role="alert">El informe consolidado no está disponible.</p>;
   const config = informe.configuracion;
   const resumen = resumirEvaluacion(config, informe.consenso);
+  const cumplimiento = resumirCumplimiento(config, informe.consenso);
+  const positivos = informe.consenso.positivos ?? [];
+  const mejoras = informe.consenso.mejoras ?? [];
+  const conclusion = (informe.consenso.conclusion ?? '').trim();
   const opciones = historial.filter(e => e.id !== evaluacion.id && e.fase === 'FINALIZADA' && e.configuracion.producto.clave === config.producto.clave);
   async function action(action: 'finalizar' | 'version') {
     setBusy(true); setError('');
@@ -57,11 +62,18 @@ export function InformeView({ evaluacion, historial, usuarioId, onSaved, onBack 
       <div><dt>Fechas</dt><dd>Inicio: {informe.iniciadoEn ?? '—'} · Consolidación: {informe.consolidadoEn} · Finalización: {informe.finalizadoEn ?? 'Pendiente'}</dd></div>
     </dl></section>
     <section className="panel"><div className="panel-head"><h2>Cobertura y distribución del consenso</h2></div><dl className="hx-stats"><div><dt>Criterios evaluados</dt><dd>{resumen.evaluados}/{config.metodologia.criterios.length}</dd></div><div><dt>No aplica justificado</dt><dd>{resumen.noAplica}</dd></div><div><dt>Pendientes</dt><dd>{resumen.pendientes}</dd></div><div><dt>Problemas únicos aceptados</dt><dd>{resumen.totalHallazgos}</dd></div></dl>
-      <ul aria-label="Distribución de valoraciones">{resumen.porCategoria.map(c => <li key={c.id}>{c.etiqueta}: {c.count}</li>)}</ul><ul aria-label="Distribución de severidad">{resumen.porSeveridad.map((count, i) => <li key={i}>Severidad {i}: {count}</li>)}</ul>
+      <ul aria-label="Distribución de valoraciones">{resumen.porCategoria.map(c => <li key={c.id}>{c.etiqueta}: {c.count}</li>)}</ul>{resumen.porEscala.map(g => <ul key={g.fuente + g.tipo + g.distribucion.map(n => n.id).join()} aria-label={`Distribución con escala propia: ${g.fuente}`}>{g.distribucion.map(n => <li key={n.id}>{n.etiqueta}: {n.count} (escala propia: {g.fuente})</li>)}</ul>)}<ul aria-label="Distribución de severidad">{resumen.porSeveridad.map((count, i) => <li key={i}>Severidad {i}: {count}</li>)}</ul>
       {resumen.formula && <p>Índice: {resumen.indice ?? 'No calculable'} · Fórmula: {resumen.formula} · Denominador: {resumen.denominador}</p>}
     </section>
-    <section className="panel"><div className="panel-head"><h2>Acuerdo y procedencia por criterio</h2></div><div className="hf-table"><table><thead><tr><th>Criterio / origen</th><th>Acuerdo</th><th>Justificación</th></tr></thead><tbody>{config.metodologia.criterios.map(c => { const r = informe.consenso.criterios.find(r => r.criterioId === c.id); return <tr key={c.id}><td>{c.nombre}<br />{c.origen.autor} · {c.origen.version}<br /><Fuente value={c.origen.fuente} /></td><td>{r?.noAplica ? `No aplica: ${r.motivo}` : config.metodologia.escala.niveles.find(n => n.id === r?.valor)?.etiqueta ?? 'Pendiente'}</td><td>{r?.justificacion}<br />{r?.notas}</td></tr>; })}</tbody></table></div></section>
+    {cumplimiento && <section className="panel"><div className="panel-head"><h2>Cumplimiento</h2></div><p>Solo cuentan las respuestas marcadas como favorables o desfavorables; no aplica y sin evaluar quedan fuera del porcentaje.</p>
+      <div className="hf-table"><table><thead><tr><th>Categoría</th><th>Cumplimiento</th></tr></thead><tbody>{cumplimiento.porCategoria.map(c => <tr key={c.categoria}><td>{c.categoria}</td><td>{textoCumplimiento(c)}</td></tr>)}<tr><th scope="row">Total</th><td>{textoCumplimiento(cumplimiento.total)}</td></tr></tbody></table></div></section>}
+    <section className="panel"><div className="panel-head"><h2>Acuerdo y procedencia por criterio</h2></div><div className="hf-table"><table><thead><tr><th>Criterio / origen</th><th>Acuerdo</th><th>Justificación</th></tr></thead><tbody>{config.metodologia.criterios.map(c => { const r = informe.consenso.criterios.find(r => r.criterioId === c.id); return <tr key={c.id}><td>{c.nombre}<br />{c.origen.autor} · {c.origen.version}<br /><Fuente value={c.origen.fuente} /></td><td>{r?.noAplica ? `No aplica: ${r.motivo}` : escalaDe(config.metodologia, c).niveles.find(n => n.id === r?.valor)?.etiqueta ?? 'Pendiente'}</td><td>{r?.justificacion}<br />{r?.notas}</td></tr>; })}</tbody></table></div></section>
+    {positivos.length > 0 && <section className="panel"><div className="panel-head"><h2>Aspectos positivos</h2></div>{positivos.map(p => <article className="finding" key={p.id}><h3>{p.titulo}</h3>{p.descripcion && <p>{p.descripcion}</p>}</article>)}</section>}
     <section className="panel"><div className="panel-head"><h2>Problemas únicos y decisiones</h2></div>{informe.consenso.hallazgos.map(h => <article className="finding" key={h.id}><h3>{h.titulo} · {h.decision}</h3><p>Origen: {h.origenIds.join(', ')} · {h.justificacion}</p>{h.decision === 'ACEPTADO' && <><p>{h.pantalla}: {h.descripcion}</p><p>Severidad {h.severidad} · Prioridad {h.prioridad}</p><p>Recomendación: {h.recomendacion}</p><p>{h.notas}</p><EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={h.evidenciaIds} editable={false} /></>}</article>)}</section>
+    {mejoras.length > 0 && <section className="panel"><div className="panel-head"><h2>Mejoras antes/después</h2></div>{mejoras.map((m, i) => <article className="finding" key={m.id}><h3>{i + 1}. {m.titulo}</h3>{m.descripcion && <p style={{ whiteSpace: 'pre-wrap' }}>{m.descripcion}</p>}
+      <h4>Antes</h4>{m.antesIds.length ? <EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={m.antesIds} editable={false} /> : <p>Sin capturas.</p>}
+      <h4>Después</h4>{m.despuesIds.length ? <EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={m.despuesIds} editable={false} /> : <p>Sin capturas.</p>}</article>)}</section>}
+    {conclusion && <section className="panel"><div className="panel-head"><h2>Conclusión y recomendaciones finales</h2></div><p style={{ whiteSpace: 'pre-wrap' }}>{conclusion}</p></section>}
     <div className="hf-actions"><button type="button" className="secondary" disabled={busy} onClick={async () => { setBusy(true); setError(''); try { const { exportarInformeFlujoPdf } = await import('./informe-pdf'); await exportarInformeFlujoPdf(evaluacion.proyectoId, evaluacion); } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo generar PDF'); } finally { setBusy(false); } }}>Descargar informe PDF</button>
       {evaluacion.coordinadorId === usuarioId && (evaluacion.fase === 'CONSOLIDADA' ? <button type="button" className="primary" disabled={busy} onClick={() => void action('finalizar')}>Finalizar y fijar informe</button> : <button type="button" className="primary" disabled={busy} onClick={() => void action('version')}>Crear nueva revisión independiente</button>)}</div>
     {evaluacion.fase === 'FINALIZADA' && <><Field label="Comparar con evaluación finalizada del mismo producto"><select value={previaId} onChange={async e => { const id = e.target.value; if (!leaveGuard.current || await leaveGuard.current()) setPreviaId(id); }}><option value="">Seleccionar evaluación anterior</option>{opciones.map(e => <option key={e.id} value={e.id}>{e.configuracion.nombre} · {e.configuracion.producto.version} · {new Date(e.finalizadoEn ?? e.updatedAt).toLocaleDateString()}</option>)}</select></Field>
@@ -70,4 +82,3 @@ export function InformeView({ evaluacion, historial, usuarioId, onSaved, onBack 
     {error && <p role="alert" className="hf-error">{error}</p>}
   </>;
 }
-
