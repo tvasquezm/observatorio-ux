@@ -351,6 +351,16 @@ guarda el `artefactoLogicoId` (no el `id` de una versión puntual del
 `UxArtifact`) para que el comentario siga siendo válido aunque el
 artefacto se versione.
 
+**Técnica:** `tecnica` es opcional al crear (body) y se valida contra la lista
+cerrada `TECNICAS_COMENTARIO` de `shared-types` (`personas`, `journey-map`,
+`momentos-criticos`, `card-sorting`, `evaluacion-heuristica`); una clave
+inválida responde 400. Sin `tecnica` el comentario es general del proyecto, y
+los comentarios anteriores a este campo quedan como generales. Al listar,
+`?tecnica=<clave>` devuelve los de esa técnica, `?tecnica=general` solo los
+generales y sin el parámetro se devuelven todos; un valor inválido responde 400.
+Se puede combinar con `?artefactoLogicoId=`. La tabla tiene el índice
+`(proyectoId, tecnica)`. Los reportes PDF y JSON no incluyen `tecnica`.
+
 **Permisos:** crear y listar requieren acceso al proyecto (dueño, `ADMIN` o
 `ProyectoMiembro`, vía `ProjectAccessService.assertAccess`). Editar
 (`PATCH`) y eliminar (`DELETE`) están restringidos al propio autor del
@@ -364,11 +374,18 @@ notificaciones — comentario plano por proyecto/artefacto.
 `autorId`) — lo necesita el frontend para mostrar quién comentó.
 
 **Frontend:** tab "Comentarios" en `ProjectDetailLayout` →
-`pages/ProjectCommentsPage.tsx` (`features/comments/`). Alcance de esta
-fase: comentarios generales del proyecto, sin filtro por
-`artefactoLogicoId` en la UI (el backend ya lo soporta si se necesita
-después). Crear disponible para cualquiera con acceso al proyecto;
-editar/borrar solo el propio autor o `ADMIN`, igual que el backend.
+`pages/ProjectCommentsPage.tsx` (`features/comments/`). Sin filtro por
+`artefactoLogicoId` en la UI (el backend ya lo soporta). Crear disponible para
+cualquiera con acceso al proyecto; editar/borrar solo el propio autor o
+`ADMIN`, igual que el backend.
+
+La pantalla muestra por defecto los comentarios generales y tiene filtros por
+técnica y "Todos"; el filtro vive en la URL (`?tecnica=`). En "Todos" cada
+comentario indica su origen. Un comentario publicado con un filtro de técnica
+queda en esa técnica; con "General" o "Todos" queda general. El componente
+`ComentariosPanel` (compositor, lista, edición y borrado) se reutiliza en cada
+página de técnica mediante `ComentariosTecnica`, un bloque desplegable que
+consulta la API solo al abrirse e incluye un enlace a Comentarios filtrado.
 
 ## Manejo de errores estandarizado
 
