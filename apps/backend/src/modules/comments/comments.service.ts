@@ -1,8 +1,13 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import {
+  CLAVES_TECNICA_COMENTARIO,
+  FILTRO_COMENTARIO_GENERAL,
+} from '@observatorio-ux/shared-types';
 import { PrismaService } from '../../core/database/prisma.service.js';
 import { ProjectAccessService } from '../../core/access/project-access.service.js';
 import { AuthenticatedUser } from '../auth/types/authenticated-user.interface.js';
@@ -26,6 +31,7 @@ export class CommentsService {
       data: {
         proyectoId,
         artefactoLogicoId: dto.artefactoLogicoId?.trim() || null,
+        ...(dto.tecnica ? { tecnica: dto.tecnica } : {}),
         texto: dto.texto,
         autorId: user.id,
       },
@@ -36,14 +42,28 @@ export class CommentsService {
     proyectoId: string,
     artefactoLogicoId: string | undefined,
     user: AuthenticatedUser,
+    tecnica?: string,
   ) {
     await this.projectAccess.assertAccess(proyectoId, user);
+
+    // Sin `tecnica` se devuelven todos; `general` solo los sin tecnica.
+    let filtroTecnica = {};
+    if (tecnica) {
+      if (tecnica === FILTRO_COMENTARIO_GENERAL) {
+        filtroTecnica = { tecnica: null };
+      } else if (CLAVES_TECNICA_COMENTARIO.includes(tecnica)) {
+        filtroTecnica = { tecnica };
+      } else {
+        throw new BadRequestException('La técnica indicada no es válida.');
+      }
+    }
 
     return this.prisma.comentario.findMany({
       where: {
         proyectoId,
         deletedAt: null,
         ...(artefactoLogicoId ? { artefactoLogicoId } : {}),
+        ...filtroTecnica,
       },
       orderBy: { createdAt: 'asc' },
       include: {

@@ -1,5 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { validate } from 'class-validator';
+import { CreateCommentDto } from '../comments.dto.js';
 import { CommentsService } from '../comments.service.js';
 import { PrismaService } from '../../../core/database/prisma.service.js';
 import { ProjectAccessService } from '../../../core/access/project-access.service.js';
@@ -84,6 +86,24 @@ describe('CommentsService', () => {
       );
     });
 
+    it('guarda la técnica cuando se envía y no la incluye si falta', async () => {
+      prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
+      prisma.comentario.create.mockResolvedValue({ id: 'com-1' });
+
+      await service.create('proy-1', { texto: 'x', tecnica: 'personas' }, ownerUser);
+      expect(prisma.comentario.create.mock.calls[0][0].data).toHaveProperty('tecnica', 'personas');
+
+      await service.create('proy-1', { texto: 'x' }, ownerUser);
+      expect(prisma.comentario.create.mock.calls[1][0].data).not.toHaveProperty('tecnica');
+    });
+
+    it('el DTO rechaza una técnica fuera de la lista y acepta una válida', async () => {
+      const invalido = Object.assign(new CreateCommentDto(), { texto: 'x', tecnica: 'otra' });
+      const valido = Object.assign(new CreateCommentDto(), { texto: 'x', tecnica: 'card-sorting' });
+      expect(await validate(invalido)).toHaveLength(1);
+      expect(await validate(valido)).toHaveLength(0);
+    });
+
     it('lanza NotFoundException si el proyecto no existe', async () => {
       prisma.proyecto.findUnique.mockResolvedValue(null);
 
@@ -130,6 +150,29 @@ describe('CommentsService', () => {
 
       const callArg = prisma.comentario.findMany.mock.calls[0][0];
       expect(callArg.where).not.toHaveProperty('artefactoLogicoId');
+    });
+
+    it('filtra por técnica, por general o no filtra', async () => {
+      prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
+      prisma.comentario.findMany.mockResolvedValue([]);
+
+      await service.findAll('proy-1', undefined, ownerUser, 'personas');
+      expect(prisma.comentario.findMany.mock.calls[0][0].where).toHaveProperty('tecnica', 'personas');
+
+      await service.findAll('proy-1', undefined, ownerUser, 'general');
+      expect(prisma.comentario.findMany.mock.calls[1][0].where).toHaveProperty('tecnica', null);
+
+      await service.findAll('proy-1', undefined, ownerUser);
+      expect(prisma.comentario.findMany.mock.calls[2][0].where).not.toHaveProperty('tecnica');
+    });
+
+    it('lanza BadRequestException con una técnica inválida sin consultar', async () => {
+      prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
+
+      await expect(
+        service.findAll('proy-1', undefined, ownerUser, 'otra'),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.comentario.findMany).not.toHaveBeenCalled();
     });
 
     it('lanza ForbiddenException si el usuario no tiene acceso al proyecto', async () => {
