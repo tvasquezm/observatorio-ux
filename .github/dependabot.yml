@@ -18,7 +18,18 @@ updates:
     ignore:
       - dependency-name: "@nestjs/*"
         update-types: ["version-update:semver-major"]
+      # TypeScript 7 rompe ts-jest/ts-node/nest-cli y opciones de tsconfig
+      # (ignoreDeprecations, moduleResolution node). Migrar a mano.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
     groups:
+      # react, react-dom y sus tipos deben subir juntos: por separado el CI falla.
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
       minor-and-patch:
         update-types:
           - "minor"
