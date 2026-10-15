@@ -25,6 +25,7 @@ describe('Menú de secciones del proyecto', () => {
   it.each([true, false])('en el resumen evita duplicar las tarjetas de técnicas (compacto=%s)', async (compact) => {
     vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: compact, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
     mount('');
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Proyecto UX' })).toHaveFocus());
     await userEvent.click(compact
       ? screen.getByText('Secciones del proyecto').closest('summary')!
       : screen.getByRole('button', { name: /^Proyecto/ }));
