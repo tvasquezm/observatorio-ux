@@ -18,6 +18,9 @@ updates:
     ignore:
       - dependency-name: "@nestjs/*"
         update-types: ["version-update:semver-major"]
+      # Migrar el compilador a mano cuando Nest CLI y ts-jest sean compatibles.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
     groups:
       minor-and-patch:
         update-types:
