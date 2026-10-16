@@ -97,6 +97,9 @@ jobs:
       - name: Validar scripts de arranque del backend
         run: sh -n apps/backend/entrypoint.sh apps/backend/entrypoint.prod.sh
 
+      - name: Validar el flujo del script de carga
+        run: node --test tests/load/participante.test.mjs
+
       - name: Tests del backend
         run: pnpm --filter backend test
 
