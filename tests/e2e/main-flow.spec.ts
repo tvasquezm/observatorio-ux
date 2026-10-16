@@ -65,7 +65,7 @@ test('recorre login, proyecto y las cinco técnicas UX', async ({ page }, testIn
 
   // Resumen ofrece tarjetas; el grupo Técnicas aparece al entrar en una técnica.
   await page.locator('.tech-card').filter({ has: page.getByRole('heading', { name: 'Personas', exact: true }) }).click();
-  await expect(page.getByRole('heading', { name: 'Personas', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Personas', exact: true, level: 2 })).toBeVisible();
   await expectNoPageOverflow(page);
 
   const projectMenu = page.locator('.project-menu, .pm');

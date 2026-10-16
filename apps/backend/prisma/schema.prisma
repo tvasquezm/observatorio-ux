@@ -486,6 +486,10 @@ model Comentario {
   // que el comentario siga siendo válido aunque el artefacto se versione.
   artefactoLogicoId String?
 
+  // Tecnica a la que pertenece el comentario (claves en shared-types,
+  // TECNICAS_COMENTARIO). Nulo = comentario general del proyecto.
+  tecnica String?
+
   autor   Usuario @relation("ComentariosComoAutor", fields: [autorId], references: [id])
   autorId String
 
@@ -497,5 +501,6 @@ model Comentario {
   // Soft delete: mismo patrón que Sala/Proyecto/UxArtifact.
   deletedAt DateTime?
 
+  @@index([proyectoId, tecnica])
   @@map("comentarios")
 }

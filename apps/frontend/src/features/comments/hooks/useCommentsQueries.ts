@@ -11,17 +11,19 @@ import {
 import { notify } from '../../../shared/api/toast';
 
 export const commentsKeys = {
-  list: (proyectoId: string) => ['projects', proyectoId, 'comments'] as const,
+  all: (proyectoId: string) => ['projects', proyectoId, 'comments'] as const,
+  list: (proyectoId: string, filtro?: string) =>
+    ['projects', proyectoId, 'comments', filtro ?? 'todos'] as const,
 };
 
 function mensajeError(err: unknown, fallback: string) {
   return err instanceof CommentsApiError ? err.message : fallback;
 }
 
-export function useComments(proyectoId: string | null) {
+export function useComments(proyectoId: string | null, filtro?: string) {
   return useQuery({
-    queryKey: commentsKeys.list(proyectoId ?? ''),
-    queryFn: () => listComments(proyectoId as string),
+    queryKey: commentsKeys.list(proyectoId ?? '', filtro),
+    queryFn: () => listComments(proyectoId as string, filtro),
     enabled: !!proyectoId,
   });
 }
@@ -29,9 +31,10 @@ export function useComments(proyectoId: string | null) {
 export function useCreateComment(proyectoId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (texto: string) => createComment(proyectoId, texto),
+    mutationFn: ({ texto, tecnica }: { texto: string; tecnica?: string }) =>
+      createComment(proyectoId, texto, tecnica),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: commentsKeys.list(proyectoId) });
+      qc.invalidateQueries({ queryKey: commentsKeys.all(proyectoId) });
     },
     onError: (err) => {
       notify.error(mensajeError(err, 'No se pudo publicar el comentario.'));
@@ -45,7 +48,7 @@ export function useUpdateComment(proyectoId: string) {
     mutationFn: ({ comentarioId, texto }: { comentarioId: string; texto: string }) =>
       updateComment(proyectoId, comentarioId, texto),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: commentsKeys.list(proyectoId) });
+      qc.invalidateQueries({ queryKey: commentsKeys.all(proyectoId) });
     },
     onError: (err) => {
       notify.error(mensajeError(err, 'No se pudo editar el comentario.'));
@@ -58,7 +61,7 @@ export function useRemoveComment(proyectoId: string) {
   return useMutation({
     mutationFn: (comentarioId: string) => removeComment(proyectoId, comentarioId),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: commentsKeys.list(proyectoId) });
+      qc.invalidateQueries({ queryKey: commentsKeys.all(proyectoId) });
     },
     onError: (err) => {
       notify.error(mensajeError(err, 'No se pudo borrar el comentario.'));
