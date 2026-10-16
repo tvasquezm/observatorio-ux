@@ -20,6 +20,7 @@ import {
   JourneyEmotionStrip,
   JourneyVisual,
 } from '../features/journey-map/components/JourneyVisual';
+import { ComentariosTecnica } from '../features/comments/components/ComentariosTecnica';
 
 const CAMPOS_LISTA: (keyof Phase)[] = [
   'actividades',
@@ -532,6 +533,7 @@ export function JourneyMapPage() {
             !isLoading && <p>No hay Journey Maps todavía.</p>}
         </div>
       </div>
+      <ComentariosTecnica proyectoId={proyectoId} tecnica="journey-map" />
     </div>
   );
 }
