@@ -42,8 +42,9 @@ export class CommentsController {
     @Param('proyectoId', ParseUUIDPipe) proyectoId: string,
     @Query('artefactoLogicoId') artefactoLogicoId: string | undefined,
     @CurrentUser() user: AuthenticatedUser,
+    @Query('tecnica') tecnica?: string,
   ) {
-    return this.commentsService.findAll(proyectoId, artefactoLogicoId, user);
+    return this.commentsService.findAll(proyectoId, artefactoLogicoId, user, tecnica);
   }
 
   @Patch(':comentarioId')

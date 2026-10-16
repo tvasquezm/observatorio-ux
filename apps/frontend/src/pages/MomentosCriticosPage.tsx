@@ -33,6 +33,7 @@ import {
   MomentosMatrix,
 } from '../features/momentos-criticos/components/MomentosVisual';
 import { prioridad, procesoMomentos } from '../features/momentos-criticos/momentos-visual';
+import { ComentariosTecnica } from '../features/comments/components/ComentariosTecnica';
 
 const incidenteVacio = (): IncidenteCritico => ({
   nombre: '',
@@ -541,6 +542,7 @@ export function MomentosCriticosPage() {
           </div>
         )}
       </section>
+      <ComentariosTecnica proyectoId={proyectoId} tecnica="momentos-criticos" />
     </div>
   );
 }

@@ -20,6 +20,7 @@ import { useArtifactEditLock } from '../shared/hooks/useArtifactEditLock';
 import { useUnsavedChanges } from '../shared/hooks/useUnsavedChanges';
 import { PersonaCard } from '../features/persona/components/PersonaCard';
 import { ETIQUETAS_CAMPOS } from '../features/persona/persona-visual';
+import { ComentariosTecnica } from '../features/comments/components/ComentariosTecnica';
 
 const CAMPOS_LISTA: (keyof PersonaContenido)[] = [
   'hobbies',
@@ -348,6 +349,7 @@ export function PersonasPage() {
           <p>{puedeEditar ? 'Usa «Nueva persona» para construir el primer perfil del proyecto.' : 'Los perfiles aparecerán aquí cuando el equipo los registre.'}</p>
         </div>
       )}
+      <ComentariosTecnica proyectoId={proyectoId} tecnica="personas" />
     </div>
   );
 }
