@@ -2,8 +2,9 @@
 // real de un participante de Card Sorting — access -> consent -> join ->
 // results — contra el estudio ya sembrado que se pase por env var.
 //
-// No crea datos: PROYECTO_ID y ESTUDIO_ID deben existir de antemano (un
-// proyecto con un estudio maestro de Card Sorting sin cerrar).
+// PROYECTO_ID y ESTUDIO_ID deben existir de antemano (un proyecto con un
+// estudio maestro de Card Sorting sin cerrar). Cada iteración crea datos
+// de participantes, consentimientos y resultados: usar un entorno de prueba.
 //
 // Los VUs corren desde una sola máquina y comparten IP real ante nginx.
 // `limit_req` (deploy/nginx/default.conf) y el throttle global del backend
@@ -113,8 +114,8 @@ export default function () {
   if (!step(joinRes, 'join')) return;
   const session = joinRes.json();
 
-  const cards = session.cardsDefinidas || [];
-  const categorias = session.categoriasDefinidas || [];
+  const cards = session.estudio?.cardsDefinidas || [];
+  const categorias = session.estudio?.categoriasDefinidas || [];
   if (cards.length === 0) {
     flowErrors.add(1);
     return;

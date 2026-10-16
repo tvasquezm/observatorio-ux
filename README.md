@@ -319,6 +319,8 @@ Si falla, el log de cada paso está ahí mismo.
 - [`docs/sprints/sprint5-pauta-evaluacion-usabilidad.md`](docs/sprints/sprint5-pauta-evaluacion-usabilidad.md) — pauta borrador lista para revisión del profesor
 - [`docs/sprints/sprint6-despliegue.md`](docs/sprints/sprint6-despliegue.md) — despliegue productivo reproducible, operación y estado F1–F8/R6
 - [`docs/sprints/sprint7.md`](docs/sprints/sprint7.md) — exportación PDF/JSON por proyecto, datos incluidos y permisos
+- [`docs/sprints/sprint8.md`](docs/sprints/sprint8.md) — pruebas automatizadas y requisitos para ejecutar la carga con k6
+- [`docs/sprints/sprint9.md`](docs/sprints/sprint9.md) — registro de incidencias y verificaciones
 - [`docs/sprints/remediacion-auditoria-2026-09-24.md`](docs/sprints/remediacion-auditoria-2026-09-24.md) — plan de remediación de la auditoría del 24/09/2026
 
 - [`postman/`](postman/) — colecciones Postman por módulo (token de prueba vía `/auth/test-token`, deshabilitado automáticamente cuando `NODE_ENV=production`)
