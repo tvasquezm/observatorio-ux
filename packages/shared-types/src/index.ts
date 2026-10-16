@@ -3,6 +3,7 @@ export * from './common/base-payload.schema';
 export * from './common/auth.schema';
 
 export * from './domains/card-sorting';
+export * from './domains/comentarios';
 export * from './domains/evaluacion-heuristica';
 export * from './domains/heuristica-flujo';
 export * from './domains/heuristica-metodologias';
