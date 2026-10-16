@@ -42,6 +42,7 @@ import { HallazgoCard } from '../features/evaluacion-heuristica/components/Halla
 import { HallazgoForm } from '../features/evaluacion-heuristica/components/HallazgoForm';
 import { SesionesHeuristicas } from '../features/evaluacion-heuristica/components/SesionesHeuristicas';
 import { SeveridadBadge } from '../features/evaluacion-heuristica/components/SeveridadBadge';
+import { ComentariosTecnica } from '../features/comments/components/ComentariosTecnica';
 
 const CAMPOS_FORM = new Set<string>(Object.keys(formVacio()));
 
@@ -58,10 +59,16 @@ function erroresDeServidor(err: unknown): ErroresForm {
 }
 
 export function EvaluacionHeuristicaPage() {
+  const { proyectoId } = useOutletContext<ProjectOutletContext>();
   const [search, setSearch] = useSearchParams();
-  return search.get('anteriores') === '1'
-    ? <><button type="button" className="text-button" onClick={() => setSearch({})}>← Nuevo flujo de evaluación</button><EvaluacionHeuristicaLegacyPage /></>
-    : <FlujoHeuristicaPage />;
+  return (
+    <>
+      {search.get('anteriores') === '1'
+        ? <><button type="button" className="text-button" onClick={() => setSearch({})}>← Nuevo flujo de evaluación</button><EvaluacionHeuristicaLegacyPage /></>
+        : <FlujoHeuristicaPage />}
+      <ComentariosTecnica proyectoId={proyectoId} tecnica="evaluacion-heuristica" />
+    </>
+  );
 }
 
 export function EvaluacionHeuristicaLegacyPage() {

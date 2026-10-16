@@ -6,6 +6,7 @@ export interface Comentario {
   id: string;
   proyectoId: string;
   artefactoLogicoId: string | null;
+  tecnica: string | null;
   texto: string;
   autorId: string;
   createdAt: string;
@@ -27,14 +28,16 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return evaluatorRequest<T>(path, init, (status, message) => new CommentsApiError(status, message));
 }
 
-export function listComments(proyectoId: string): Promise<Comentario[]> {
-  return request<Comentario[]>(`/projects/${proyectoId}/comments`);
+// `filtro`: clave de tecnica o `general`; sin valor devuelve todos.
+export function listComments(proyectoId: string, filtro?: string): Promise<Comentario[]> {
+  const query = filtro ? `?tecnica=${encodeURIComponent(filtro)}` : '';
+  return request<Comentario[]>(`/projects/${proyectoId}/comments${query}`);
 }
 
-export function createComment(proyectoId: string, texto: string): Promise<Comentario> {
+export function createComment(proyectoId: string, texto: string, tecnica?: string): Promise<Comentario> {
   return request<Comentario>(`/projects/${proyectoId}/comments`, {
     method: 'POST',
-    body: JSON.stringify({ texto }),
+    body: JSON.stringify(tecnica ? { texto, tecnica } : { texto }),
   });
 }
 

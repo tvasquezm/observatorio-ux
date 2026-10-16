@@ -31,6 +31,9 @@ y `comentarios`. El resumen cuenta únicamente los registros incluidos.
 - Los artefactos conservan todas las versiones no eliminadas, con autor y fecha.
   El exportador de la interfaz utiliza las versiones vigentes.
 - Los comentarios excluyen los eliminados mediante Soft Delete.
+- Los comentarios conservan su forma: el campo `tecnica` (comentarios por
+  técnica, ver `docs/BACKEND.md`) no se incluye en el JSON ni en el PDF. Los
+  filtros `?tecnica=` aplican solo al endpoint `GET /api/projects/:proyectoId/comments`.
 - Las sesiones heurísticas individuales se limitan al evaluador que exporta;
   ADMIN puede exportar todas las del proyecto.
 - Card Sorting incluye los estudios propios y sus sesiones de participantes.
