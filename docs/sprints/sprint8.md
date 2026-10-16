@@ -36,4 +36,10 @@ El script `tests/load/participante.k6.js` simula usuarios concurrentes ingresand
 - **Pruebas Frontend:** `pnpm --filter frontend test`[cite: 1]
 - **Pruebas Backend:** `pnpm --filter backend test`[cite: 1]
 - **Pruebas E2E (Playwright):** `npx playwright test --project=desktop-chromium`[cite: 1]
-- **Pruebas de Carga (k6):** `k6 run tests/load/participante.k6.js`[cite: 1]
+- **Pruebas de Carga (k6):** requiere k6 instalado y un entorno de pruebas con un proyecto y un estudio maestro de Card Sorting existentes y abiertos. `PROYECTO_ID` y `ESTUDIO_ID` son los UUID reales de esos registros; el script no los crea. `BASE_URL` apunta al origen que sirve `/api`.
+
+  ```sh
+  k6 run -e BASE_URL=http://localhost:8080 -e PROYECTO_ID=<uuid-proyecto> -e ESTUDIO_ID=<uuid-estudio> tests/load/participante.k6.js
+  ```
+
+  Reemplazar ambos marcadores antes de ejecutar. El flujo crea participantes, consentimientos y resultados; usar datos de prueba. Sin los dos identificadores, el script aborta antes de enviar peticiones. El límite por IP puede producir respuestas 429 y hacer fallar los umbrales de carga.
