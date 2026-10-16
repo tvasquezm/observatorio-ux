@@ -19,6 +19,13 @@ updates:
       - dependency-name: "@nestjs/*"
         update-types: ["version-update:semver-major"]
     groups:
+      # react, react-dom y sus tipos deben actualizarse juntos.
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
       minor-and-patch:
         update-types:
           - "minor"
