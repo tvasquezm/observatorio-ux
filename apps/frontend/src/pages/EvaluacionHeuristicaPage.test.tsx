@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Outlet, RouterProvider, createMemoryRouter } from 'react-router-dom';
@@ -78,7 +78,34 @@ beforeEach(() => {
   api.obtenerEvidenciaBlob.mockRejectedValue(new Error('Sin miniatura en esta prueba'));
 });
 
+afterEach(() => vi.unstubAllGlobals());
+
 describe('EvaluacionHeuristicaPage', () => {
+  it('espera a que termine el procesamiento de la captura antes de guardar el hallazgo', async () => {
+    let rechazarDecodificacion!: (reason: Error) => void;
+    vi.stubGlobal('createImageBitmap', vi.fn(() => new Promise((_, reject) => { rechazarDecodificacion = reject; })));
+    api.obtenerSesionHeuristica.mockResolvedValue(sesion({ resultado: [hallazgo({ id: 'a' })] }));
+    api.subirEvidencia.mockResolvedValue({ id: 'captura' });
+    api.actualizarHallazgo.mockResolvedValue(sesion());
+    renderPage();
+    await abrirPrimeraSesion();
+    await userEvent.click(screen.getByRole('button', { name: /editar hallazgo: título/i }));
+    const form = screen.getByRole('form', { name: 'Editar hallazgo' });
+    const q = within(form);
+    const guardar = q.getByRole('button', { name: 'Guardar cambios' });
+    await userEvent.upload(q.getByLabelText(/captura de pantalla/i), new File([new Uint8Array(600_000)], 'captura.png', { type: 'image/png' }));
+    expect(q.getByRole('button', { name: 'Procesando...' })).toBeDisabled();
+    expect(guardar).toBeDisabled();
+    fireEvent.submit(form);
+    expect(api.actualizarHallazgo).not.toHaveBeenCalled();
+
+    await act(async () => { rechazarDecodificacion(new Error('Usar la captura original')); });
+    await waitFor(() => expect(q.getByRole('button', { name: 'Quitar' })).toBeInTheDocument());
+    expect(guardar).toBeEnabled();
+    await userEvent.click(guardar);
+    await waitFor(() => expect(api.actualizarHallazgo).toHaveBeenCalledWith('p1', 's1', 'a', expect.objectContaining({ evidenciaArchivoId: 'captura' })));
+  });
+
   it('conserva el texto escrito mientras se sube una captura', async () => {
     let finish!: (value: { id: string }) => void;
     api.subirEvidencia.mockReturnValue(new Promise<{ id: string }>(resolve => { finish = resolve; }));

@@ -49,6 +49,7 @@ export function HallazgoForm({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (guardando || subiendo || comprimiendo) return;
     const encontrados = validarForm(valores);
     setErrores(encontrados);
     if (Object.keys(encontrados).length > 0) return;
@@ -235,7 +236,7 @@ export function HallazgoForm({
       </label>
 
       <div className="row-gap">
-        <button type="submit" className="primary" disabled={guardando || subiendo}>
+        <button type="submit" className="primary" disabled={guardando || subiendo || comprimiendo}>
           {guardando ? 'Guardando…' : modo === 'crear' ? '+ Agregar hallazgo' : 'Guardar cambios'}
         </button>
         {onCancel && (
