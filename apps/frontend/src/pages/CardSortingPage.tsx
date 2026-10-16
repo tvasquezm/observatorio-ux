@@ -26,6 +26,7 @@ import type { ProjectOutletContext } from '../layouts/ProjectDetailLayout';
 import { CardSortingTypePicker } from '../features/card-sorting/components/CardSortingTypePicker';
 import { CardSortingProgress, type ProgressStep } from '../features/card-sorting/components/CardSortingProgress';
 import { CardSortingEntry } from '../features/card-sorting/components/CardSortingEntry';
+import { ComentariosTecnica } from '../features/comments/components/ComentariosTecnica';
 
 const TYPE_HINTS: Record<TipoCardSorting, string> = {
   ABIERTO: 'Los participantes crean y nombran sus propias categorías. Úsalo para descubrir cómo piensan tus usuarios.',
@@ -377,6 +378,7 @@ export function CardSortingPage() {
           </div>
         )}
       </section>
+      <ComentariosTecnica proyectoId={proyectoId} tecnica="card-sorting" />
     </div>
   );
 }
