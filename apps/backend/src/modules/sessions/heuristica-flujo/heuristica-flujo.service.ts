@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, UnsupportedMediaTypeException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
-import { METODOLOGIAS_HEURISTICAS, comprobarCompatibilidad, escalaDe, EVIDENCIA_MAX_BYTES } from '@observatorio-ux/shared-types';
+import { METODOLOGIAS_HEURISTICAS, comprobarCompatibilidad, escalaDe, EVIDENCIA_MAX_BYTES, EVIDENCIA_MAX_MB } from '@observatorio-ux/shared-types';
 import type { ConfiguracionFlujo, ConsensoFlujo, EvaluacionFlujo, EvidenciaFlujo, HallazgoFlujo, InformeFlujo, RespuestaCriterio, TrabajoFlujo } from '@observatorio-ux/shared-types';
 import { Prisma, type EvaluacionHeuristicaCompleta, type EvidenciaHeuristicaCompleta } from '../../../generated/prisma/client.js';
 import { PrismaService } from '../../../core/database/prisma.service.js';
@@ -300,7 +300,7 @@ export class HeuristicaFlujoService {
     return { id: ev.id, revision: ev.revision, evaluacionId: ev.evaluacionId, autorId: ev.autorId, mimeType: ev.mimeType, tamano: ev.tamano, anotaciones: ev.anotaciones as unknown as EvidenciaFlujo['anotaciones'], createdAt: ev.createdAt.toISOString() };
   }
   async subirEvidencia(proyectoId: string, id: string, archivo: ArchivoSubido | undefined, user: AuthenticatedUser) {
-    if (!archivo?.buffer?.length || archivo.buffer.length > EVIDENCIA_MAX_BYTES) throw new BadRequestException('Adjunta PNG/JPEG/WebP de hasta 2 MB.');
+    if (!archivo?.buffer?.length || archivo.buffer.length > EVIDENCIA_MAX_BYTES) throw new BadRequestException(`Adjunta PNG/JPEG/WebP de hasta ${EVIDENCIA_MAX_MB} MB.`);
     const mimeType = detectarMimeImagen(archivo.buffer);
     if (!mimeType) throw new UnsupportedMediaTypeException('El contenido no es PNG/JPEG/WebP.');
     return this.bloqueada(proyectoId, id, user, undefined, async (e, tx) => {

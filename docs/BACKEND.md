@@ -180,7 +180,7 @@ finalizarla. Editar/eliminar/subir exigen sesión `EN_PROGRESO` (409 si no).
 y `responsable {id, nombre}` que **fija el servidor** desde el usuario autenticado.
 Los hallazgos anteriores al rediseño no tienen los campos nuevos; los lectores deben tolerarlo.
 
-**Capturas**: PNG/JPEG/WebP, máx. 2 MB y 50 por sesión, validadas por magic bytes
+**Capturas**: PNG/JPEG/WebP, máx. 4 MB (`EVIDENCIA_MAX_BYTES`) y 50 por sesión, validadas por magic bytes
 (no por el mimetype del cliente; SVG rechazado). Se guardan en la tabla
 `evidencias_heuristica` (`BYTEA`) y se sirven solo con sesión válida y acceso a la sesión,
 con `nosniff` y CSP restrictiva. Las escrituras sobre `resultado` se serializan con

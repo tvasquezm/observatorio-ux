@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AnotacionEvidencia, EvidenciaFlujo } from '@observatorio-ux/shared-types';
 import { useAuthStore } from '../auth/store/useAuthStore';
 import { validarArchivoEvidencia } from '../evaluacion-heuristica/heuristica-utils';
+import { comprimirImagen } from '../../shared/utils/comprimir-imagen';
 import { cargarEvidencia, guardarAnotaciones, subirEvidenciaFlujo } from './evidencia.api';
 
 interface Props {
@@ -125,11 +126,13 @@ export function EvidenciaEditor({ proyectoId, evaluacionId, evidenciaIds, editab
   const pending = subiendo || evidenciaIds.some(id => pendientes[id]);
   useEffect(() => { pendingRef.current?.(pending); }, [pending]);
   useEffect(() => () => pendingRef.current?.(false), []);
-  async function subir(archivo: File) {
-    const problema = validarArchivoEvidencia(archivo); setError(problema ?? ''); if (problema) return;
+  async function subir(original: File) {
     setSubiendo(true);
-    try { const e = await subirEvidenciaFlujo(proyectoId, evaluacionId, archivo); changeRef.current?.([...idsRef.current, e.id]); }
-    catch (e) { setError(mensaje(e)); } finally { setSubiendo(false); }
+    try {
+      const archivo = await comprimirImagen(original);
+      const problema = validarArchivoEvidencia(archivo); setError(problema ?? ''); if (problema) return;
+      const e = await subirEvidenciaFlujo(proyectoId, evaluacionId, archivo); changeRef.current?.([...idsRef.current, e.id]);
+    } catch (e) { setError(mensaje(e)); } finally { setSubiendo(false); }
   }
   return <div>
     {editable && onChange && <label className="field">Adjuntar captura{etiqueta ? ` ${etiqueta}` : ''}<input type="file" accept="image/png,image/jpeg,image/webp" disabled={subiendo || evidenciaIds.length >= max} onChange={e => { const archivo = e.target.files?.[0]; e.target.value = ''; if (archivo) void subir(archivo); }} /><small>PNG, JPEG o WebP. Máximo 2 MB por imagen.</small></label>}

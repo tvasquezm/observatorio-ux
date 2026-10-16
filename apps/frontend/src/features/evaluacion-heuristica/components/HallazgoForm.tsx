@@ -1,5 +1,5 @@
 import { useRef, useState, type Dispatch, type SetStateAction } from 'react';
-import { HEURISTICAS_NIELSEN, SEVERIDADES, type SeveridadValor } from '@observatorio-ux/shared-types';
+import { EVIDENCIA_MAX_MB, HEURISTICAS_NIELSEN, SEVERIDADES, type SeveridadValor } from '@observatorio-ux/shared-types';
 import { EvaluacionHeuristicaApiError } from '../api/evaluacion-heuristica.api';
 import { useSubirEvidencia } from '../hooks/useEvaluacionHeuristicaQueries';
 import {
@@ -13,6 +13,7 @@ import {
   type HallazgoFormValues,
 } from '../heuristica-utils';
 import type { HallazgoHeuristicaInput } from '../api/evaluacion-heuristica.api';
+import { comprimirImagen } from '../../../shared/utils/comprimir-imagen';
 import { EvidenciaImagen } from './EvidenciaImagen';
 
 interface Props {
@@ -33,6 +34,7 @@ export function HallazgoForm({
 }: Props) {
   const [errores, setErrores] = useState<ErroresForm>({});
   const [errorArchivo, setErrorArchivo] = useState<string | null>(null);
+  const [comprimiendo, setComprimiendo] = useState(false);
   const inputArchivoRef = useRef<HTMLInputElement>(null);
   const { mutate: subir, isPending: subiendo } = useSubirEvidencia(proyectoId);
 
@@ -47,16 +49,20 @@ export function HallazgoForm({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (guardando || subiendo || comprimiendo) return;
     const encontrados = validarForm(valores);
     setErrores(encontrados);
     if (Object.keys(encontrados).length > 0) return;
     onSubmit(aInput(valores));
   }
 
-  function handleArchivo(e: React.ChangeEvent<HTMLInputElement>) {
-    const archivo = e.target.files?.[0];
+  async function handleArchivo(e: React.ChangeEvent<HTMLInputElement>) {
+    const original = e.target.files?.[0];
     e.target.value = '';
-    if (!archivo) return;
+    if (!original) return;
+    setComprimiendo(true);
+    const archivo = await comprimirImagen(original);
+    setComprimiendo(false);
     const problema = validarArchivoEvidencia(archivo);
     setErrorArchivo(problema);
     if (problema) return;
@@ -190,8 +196,8 @@ export function HallazgoForm({
                 aria-labelledby="hx-captura-label"
                 tabIndex={-1}
               />
-              <button type="button" className="secondary" onClick={() => inputArchivoRef.current?.click()} disabled={subiendo}>
-                {subiendo ? 'Subiendo…' : valores.evidenciaArchivoId ? 'Reemplazar captura' : 'Adjuntar captura'}
+              <button type="button" className="secondary" onClick={() => inputArchivoRef.current?.click()} disabled={subiendo || comprimiendo}>
+                {comprimiendo ? 'Procesando...' : subiendo ? 'Subiendo…' : valores.evidenciaArchivoId ? 'Reemplazar captura' : 'Adjuntar captura'}
               </button>
               {valores.evidenciaArchivoId && (
                 <button type="button" className="text-button text-button--danger" onClick={() => set('evidenciaArchivoId', null)}>
@@ -199,7 +205,7 @@ export function HallazgoForm({
                 </button>
               )}
             </div>
-            <span className="hx-hint">PNG, JPEG o WebP · máx. 2 MB</span>
+            <span className="hx-hint">PNG, JPEG o WebP · máx. {EVIDENCIA_MAX_MB} MB</span>
             {errorArchivo && <span className="hx-error" role="alert">{errorArchivo}</span>}
           </div>
         </div>
@@ -230,7 +236,7 @@ export function HallazgoForm({
       </label>
 
       <div className="row-gap">
-        <button type="submit" className="primary" disabled={guardando || subiendo}>
+        <button type="submit" className="primary" disabled={guardando || subiendo || comprimiendo}>
           {guardando ? 'Guardando…' : modo === 'crear' ? '+ Agregar hallazgo' : 'Guardar cambios'}
         </button>
         {onCancel && (

@@ -52,7 +52,8 @@ export const SEVERIDADES: readonly SeveridadHeuristica[] = [
 // para validar antes de subir. El backend revalida siempre.
 // ---------------------------------------------------------------------------
 export const EVIDENCIA_MIME_PERMITIDOS = ['image/png', 'image/jpeg', 'image/webp'] as const;
-export const EVIDENCIA_MAX_BYTES = 2 * 1024 * 1024;
+export const EVIDENCIA_MAX_BYTES = 4 * 1024 * 1024;
+export const EVIDENCIA_MAX_MB = EVIDENCIA_MAX_BYTES / (1024 * 1024);
 export const EVIDENCIA_MAX_POR_SESION = 50;
 
 // ---------------------------------------------------------------------------

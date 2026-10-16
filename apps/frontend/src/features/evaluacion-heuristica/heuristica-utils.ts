@@ -4,6 +4,7 @@
 
 import {
   EVIDENCIA_MAX_BYTES,
+  EVIDENCIA_MAX_MB,
   EVIDENCIA_MIME_PERMITIDOS,
   HEURISTICAS_NIELSEN,
   SEVERIDADES,
@@ -119,7 +120,7 @@ export function validarArchivoEvidencia(archivo: { size: number; type: string })
   if (!(EVIDENCIA_MIME_PERMITIDOS as readonly string[]).includes(archivo.type)) {
     return 'Formato no permitido. Usa PNG, JPEG o WebP.';
   }
-  if (archivo.size > EVIDENCIA_MAX_BYTES) return 'La imagen supera el máximo de 2 MB.';
+  if (archivo.size > EVIDENCIA_MAX_BYTES) return `La imagen supera el máximo de ${EVIDENCIA_MAX_MB} MB, incluso comprimida. Recórtala o divídela.`;
   return null;
 }
 

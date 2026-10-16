@@ -99,7 +99,7 @@ describe('helpers', () => {
   it('validarArchivoEvidencia: formato y tamaño', () => {
     expect(validarArchivoEvidencia({ type: 'image/png', size: 1000 })).toBeNull();
     expect(validarArchivoEvidencia({ type: 'image/svg+xml', size: 1000 })).toMatch(/Formato/);
-    expect(validarArchivoEvidencia({ type: 'image/png', size: 3 * 1024 * 1024 })).toMatch(/2 MB/);
+    expect(validarArchivoEvidencia({ type: 'image/png', size: 5 * 1024 * 1024 })).toMatch(/4 MB/);
   });
 
   it('etiquetaHeuristica usa el catálogo y tolera ids desconocidos', () => {
