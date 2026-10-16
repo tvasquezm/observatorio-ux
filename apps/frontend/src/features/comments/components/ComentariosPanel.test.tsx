@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { ComentariosPanel } from './ComentariosPanel';
+import { ComentariosTecnica } from './ComentariosTecnica';
 
 const crear = vi.hoisted(() => vi.fn());
 const useComments = vi.hoisted(() => vi.fn());
@@ -35,6 +37,35 @@ beforeEach(() => {
 });
 
 describe('ComentariosPanel', () => {
+  function plegarComentarios(abierto: boolean) {
+    const details = screen.getByText('Comentarios de Personas').closest('details') as HTMLDetailsElement;
+    details.open = abierto;
+    fireEvent(details, new Event('toggle'));
+  }
+
+  it('conserva el comentario nuevo al plegar y reabrir la técnica', () => {
+    render(<MemoryRouter><ComentariosTecnica proyectoId="p1" tecnica="personas" /></MemoryRouter>);
+    plegarComentarios(true);
+    fireEvent.change(screen.getByLabelText('Nuevo comentario'), { target: { value: 'Borrador pendiente' } });
+
+    plegarComentarios(false);
+    plegarComentarios(true);
+
+    expect(screen.getByLabelText('Nuevo comentario')).toHaveValue('Borrador pendiente');
+  });
+
+  it('conserva la edición al plegar y reabrir la técnica', async () => {
+    render(<MemoryRouter><ComentariosTecnica proyectoId="p1" tecnica="personas" /></MemoryRouter>);
+    plegarComentarios(true);
+    await userEvent.click(screen.getByRole('button', { name: 'Editar' }));
+    fireEvent.change(screen.getByLabelText('Editar comentario'), { target: { value: 'Edición pendiente' } });
+
+    plegarComentarios(false);
+    plegarComentarios(true);
+
+    expect(screen.getByLabelText('Editar comentario')).toHaveValue('Edición pendiente');
+  });
+
   it('pasa el filtro y el proyecto a la consulta', () => {
     render(<ComentariosPanel proyectoId="p1" filtro="personas" />);
     expect(useComments).toHaveBeenCalledWith('p1', 'personas');

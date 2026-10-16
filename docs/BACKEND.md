@@ -385,7 +385,8 @@ comentario indica su origen. Un comentario publicado con un filtro de técnica
 queda en esa técnica; con "General" o "Todos" queda general. El componente
 `ComentariosPanel` (compositor, lista, edición y borrado) se reutiliza en cada
 página de técnica mediante `ComentariosTecnica`, un bloque desplegable que
-consulta la API solo al abrirse e incluye un enlace a Comentarios filtrado.
+monta el panel tras la primera apertura y conserva los borradores al plegarse.
+Incluye un enlace a Comentarios filtrado.
 
 ## Manejo de errores estandarizado
 

@@ -10,13 +10,13 @@ interface ComentariosTecnicaProps {
 }
 
 export function ComentariosTecnica({ proyectoId, tecnica }: ComentariosTecnicaProps) {
-  const [abierto, setAbierto] = useState(false);
+  const [iniciado, setIniciado] = useState(false);
   const etiqueta = TECNICAS_COMENTARIO.find((t) => t.clave === tecnica)?.etiqueta ?? tecnica;
 
   return (
-    <details className="comments-technique" onToggle={(event) => setAbierto(event.currentTarget.open)}>
+    <details className="comments-technique" onToggle={(event) => { if (event.currentTarget.open) setIniciado(true); }}>
       <summary>Comentarios de {etiqueta}</summary>
-      {abierto && (
+      {iniciado && (
         <>
           <ComentariosPanel proyectoId={proyectoId} filtro={tecnica} publicarEn={tecnica} />
           <Link to={`/proyectos/${proyectoId}/comentarios?tecnica=${encodeURIComponent(tecnica)}`}>
