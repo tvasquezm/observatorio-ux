@@ -29,11 +29,13 @@ const SalasEliminadasPage = lazy(() => import('./features/salas/pages/SalasElimi
 const AdminProfesoresPage = lazy(() => import('./features/admin/pages/AdminProfesoresPage').then((m) => ({ default: m.AdminProfesoresPage })));
 const PrivacyPage = lazy(() => import('./features/legal/pages/PrivacyPage').then((m) => ({ default: m.PrivacyPage })));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })));
+const PrototipoHeuristicaPage = import.meta.env.DEV ? lazy(() => import('./features/heuristica-flujo/prototipo/PrototipoHeuristicaPage').then((m) => ({ default: m.PrototipoHeuristicaPage }))) : null;
 
 export default function App() {
   return (
     <Suspense fallback={<div className="route-loading" role="status">Cargando pantalla…</div>}>
       <Routes>
+        {PrototipoHeuristicaPage && <Route element={<AppLayout />}><Route path="/prototipo/heuristica" element={<PrototipoHeuristicaPage />} /></Route>}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/privacidad" element={<PrivacyPage />} />
       {/* Público — participante sin cuenta (Fase 1, PLAN_AJUSTES.md) */}

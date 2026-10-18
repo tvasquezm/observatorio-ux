@@ -6,6 +6,14 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **evaluacion-heuristica:** agrega un prototipo local compacto en `/prototipo/heuristica`
+  (solo en desarrollo), con respuestas visibles, mapa de preguntas y resumen del equipo.
+  Simplifica la configuración del módulo, permite comenzar la revisión directamente
+  y deja los datos de contexto como opcionales. «No aplica» completa una pregunta sin
+  valoración ni motivo y se reconoce en entrega, progreso, consenso e informes.
+* **navegacion:** la barra lateral comienza abierta y conserva la elección manual
+  del usuario, sin cerrarse al navegar o pulsar el contenido.
+
 * **navegacion:** menú de proyecto por grupos con iconos, sección actual y apertura
   animada que respeta movimiento reducido; conserva el menú al cancelar una
   navegación y devuelve el foco al elegir la sección actual.

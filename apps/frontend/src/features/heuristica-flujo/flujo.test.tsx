@@ -46,13 +46,32 @@ function Harness({ initial }: { initial: EvaluacionFlujo }) {
 beforeEach(() => { vi.resetAllMocks(); sessionStorage.clear(); confirm.mockResolvedValue(true); useAuthStore.setState({ user: { id: 'u1', nombre: 'Ana', email: 'ana@example.org', rol: 'ESTUDIANTE' }, isAuthenticated: true }); });
 
 describe('flujo individual', () => {
-  it('bloquea entrega de criterios pendientes y no aplica sin motivo', async () => {
-    renderFlow(<Harness initial={evaluation()} />);
+  it('permite entregar todas las preguntas no aplicables sin motivo ni valoración', async () => {
+    const e = evaluation(); e.configuracion.metodologia = copiarMetodologia(METODOLOGIAS_HEURISTICAS[0]);
+    api.mockImplementation(async (_p, path, _method, body) => path.endsWith('/trabajo') ? { ...e, revision: 2, trabajos: [{ ...e.trabajos[0], respuestas: body.respuestas }] } : { ...e, revision: 3, trabajos: [{ ...e.trabajos[0], entregadoEn: e.updatedAt }] });
+    renderFlow(<Harness initial={e} />);
+    for (let i = 0; i < e.configuracion.metodologia.criterios.length; i++) {
+      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Pregunta que estás revisando' }), String(i));
+      await userEvent.selectOptions(screen.getByRole('combobox', { name: '¿Esta pregunta aplica al producto?' }), 'no-aplica');
+      expect(screen.queryByRole('combobox', { name: 'Valoración' })).toBeNull();
+      expect(screen.queryByLabelText('Motivo de no aplica')).toBeNull();
+    }
+    expect(screen.getByText('10 de 10 preguntas respondidas')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Entregar mi evaluación' }));
-    expect(screen.getByRole('alert')).toHaveTextContent('Valora o justifica');
-    await userEvent.selectOptions(screen.getByLabelText('Valoración'), 'NA');
-    await userEvent.click(screen.getByRole('button', { name: 'Entregar mi evaluación' }));
-    expect(api).not.toHaveBeenCalled();
+    await screen.findByText('Trabajo entregado. Tus respuestas están cerradas.');
+    const guardado = api.mock.calls.find(c => c[1].endsWith('/trabajo'))![3];
+    expect(guardado.respuestas).toHaveLength(10);
+    expect(guardado.respuestas.every((r: { noAplica: boolean; valor: string | null; motivo: string }) => r.noAplica && r.valor === null && r.motivo === '')).toBe(true);
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+  it('separa aplicabilidad y valoración sin reutilizar una valoración descartada', async () => {
+    const e = evaluation(); renderFlow(<Harness initial={e} />);
+    await userEvent.selectOptions(screen.getByLabelText('Valoración'), e.configuracion.metodologia.escala.niveles[0].id);
+    await userEvent.selectOptions(screen.getByLabelText('¿Esta pregunta aplica al producto?'), 'no-aplica');
+    expect(screen.queryByLabelText('Valoración')).toBeNull();
+    await userEvent.selectOptions(screen.getByLabelText('¿Esta pregunta aplica al producto?'), 'aplica');
+    expect(screen.getByLabelText('Valoración')).toHaveValue('');
+    expect(screen.queryByLabelText('Motivo de no aplica')).toBeNull();
   });
   it('guarda antes de entregar y cierra el trabajo propio', async () => {
     const e = evaluation();
@@ -76,6 +95,25 @@ describe('flujo individual', () => {
     expect(screen.getByLabelText('Valoración')).toHaveValue('');
     expect(screen.getByText(/No registrar problemas no equivale/)).toBeInTheDocument();
   });
+  it('mantiene accesible un problema al quitar su última pregunta relacionada', async () => {
+    const e = evaluation(); renderFlow(<Harness initial={e} />);
+    await userEvent.click(screen.getByRole('button', { name: `Agregar hallazgo para ${e.configuracion.metodologia.criterios[0].nombre}` }));
+    await userEvent.click(screen.getByRole('checkbox', { name: e.configuracion.metodologia.criterios[0].nombre }));
+    expect(screen.getByRole('textbox', { name: 'Título del problema' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Quitar hallazgo 1' })).toBeInTheDocument();
+  });
+  it('reabre el problema incompleto aunque se haya cerrado manualmente', async () => {
+    const e = evaluation(); renderFlow(<Harness initial={e} />);
+    await userEvent.selectOptions(screen.getByLabelText('Valoración'), e.configuracion.metodologia.escala.niveles[0].id);
+    await userEvent.click(screen.getByRole('button', { name: `Agregar hallazgo para ${e.configuracion.metodologia.criterios[0].nombre}` }));
+    const resumen = screen.getByText('Problema 1 sin título');
+    const panel = resumen.closest('details')!;
+    await userEvent.click(resumen);
+    expect(panel).not.toHaveAttribute('open');
+    await userEvent.click(screen.getByRole('button', { name: 'Entregar mi evaluación' }));
+    await waitFor(() => expect(panel).toHaveAttribute('open'));
+    expect(screen.getByRole('alert')).toHaveTextContent('título y descripción');
+  });
   it('retiene texto cuando falla guardado, muestra error y permite reintentar', async () => {
     const e = evaluation(); api.mockRejectedValueOnce(new Error('Sin conexión')).mockImplementation(async (_p, _path, _m, b) => ({ ...e, revision: 2, trabajos: [{ ...e.trabajos[0], respuestas: b.respuestas, hallazgos: b.hallazgos }] }));
     renderFlow(<Harness initial={e} />);
@@ -85,7 +123,7 @@ describe('flujo individual', () => {
     expect(screen.getByLabelText('Notas de la valoración')).toHaveValue('Observación conservada');
     expect(sessionStorage.getItem('heuristica:u1:e1:trabajo:')).toContain('Observación conservada');
     await userEvent.click(screen.getAllByRole('button', { name: 'Guardar cambios' })[0]);
-    await waitFor(() => expect(screen.getAllByText(/Cambios guardados/)).toHaveLength(2));
+    await waitFor(() => expect(screen.getAllByText(/Cambios guardados/)).toHaveLength(1));
   });
   it('serializa cambios durante una escritura y usa revisión nueva', async () => {
     const e = evaluation(); let finish!: (e: EvaluacionFlujo) => void;
@@ -119,25 +157,16 @@ describe('flujo individual', () => {
 });
 
 describe('configuración y consenso', () => {
-  it('limita a cinco expertos y conserva original al personalizar', async () => {
+  it('limita el equipo a cinco personas sin modificar la metodología original', async () => {
     const initial = config(); initial.evaluadorIds = [];
     let latest = initial;
-    function Editor() { const [v, setV] = useState(initial); return <ConfiguracionEditor value={v} onChange={x => { latest = x; setV(x); }} biblioteca={[METODOLOGIAS_HEURISTICAS[0]]} equipo={Array.from({ length: 6 }, (_, i) => ({ id: `u${i}`, nombre: `Experto ${i}`, rol: 'ESTUDIANTE' }))} onSaveMethod={vi.fn()} />; }
+    function Editor() { const [v, setV] = useState(initial); return <ConfiguracionEditor value={v} onChange={x => { latest = x; setV(x); }} biblioteca={[METODOLOGIAS_HEURISTICAS[0]]} equipo={Array.from({ length: 6 }, (_, i) => ({ id: `u${i}`, nombre: `Persona ${i}`, rol: 'ESTUDIANTE' }))} />; }
     renderFlow(<Editor />);
-    const experts = within(screen.getByRole('group', { name: 'Equipo (expertos 0/5)' })).getAllByRole('checkbox', { name: /^Experto:/ });
+    const experts = within(screen.getByRole('group', { name: 'Equipo de revisión' })).getAllByRole('checkbox', { name: /^Evaluador:/ });
     for (let i = 0; i < 5; i++) await userEvent.click(experts[i]);
     expect(experts[5]).toBeDisabled();
-    await userEvent.clear(screen.getByLabelText('Nombre del criterio 1')); await userEvent.type(screen.getByLabelText('Nombre del criterio 1'), 'Personalizado');
-    expect(latest.metodologia.criterios[0].origen).toEqual(METODOLOGIAS_HEURISTICAS[0].criterios[0].origen);
-    expect(METODOLOGIAS_HEURISTICAS[0].criterios[0].nombre).not.toBe('Personalizado');
-    const level = latest.metodologia.escala.niveles[1];
-    await userEvent.click(screen.getByRole('button', { name: 'Bajar nivel 1' }));
-    expect(latest.metodologia.escala.niveles[0]).toEqual(level);
-    const size = latest.metodologia.escala.niveles.length;
-    await userEvent.click(screen.getByRole('button', { name: 'Agregar nivel' }));
-    expect(latest.metodologia.escala.niveles).toHaveLength(size + 1);
-    await userEvent.click(screen.getByRole('button', { name: `Quitar nivel ${size + 1}` }));
-    expect(latest.metodologia.escala.niveles).toHaveLength(size);
+    expect(latest.evaluadorIds).toHaveLength(5);
+    expect(latest.metodologia).toEqual(initial.metodologia);
   });
   it('no convierte agenda ni fuentes en acuerdo automático', () => {
     const e = evaluation({ fase: 'PENDIENTE_CONSENSO' });
@@ -151,6 +180,7 @@ describe('configuración y consenso', () => {
     const e = evaluation({ fase: 'PENDIENTE_CONSENSO' });
     e.trabajos[0].hallazgos = [{ id: 'origen', criterioIds: [e.configuracion.metodologia.criterios[0].id], titulo: 'Problema original', pantalla: 'Inicio', descripcion: 'Error', recomendacion: 'Mejorar', severidad: 2, prioridad: 'MEDIA', notas: '', evidenciaIds: [] }];
     renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Revisar los problemas' }));
     await userEvent.click(screen.getByLabelText('Ana: Problema original'));
     await userEvent.click(screen.getByRole('button', { name: 'Crear decisión de los originales seleccionados' }));
     expect(screen.getByLabelText('Decisión del consenso')).toHaveValue('PENDIENTE');
@@ -173,42 +203,67 @@ describe('historial e informe', () => {
     expect(await screen.findByRole('heading', { name: 'Evaluación heurística' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Evaluaciones anteriores (sesiones)' })).toBeInTheDocument();
   });
-  it('no permite guardar una evaluación sin criterios y lo dice en texto', async () => {
+  it('explica en español el dato mínimo que falta y enfoca el producto', async () => {
     api.mockImplementation(async (_p, path) => path === '/metodologias' ? [config().metodologia] : path === '/equipo' ? [{ id: 'u1', nombre: 'Ana', rol: 'ESTUDIANTE' }] : []);
     renderFlow(<FlujoHeuristicaPage />);
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Nueva evaluación completa' })).toBeEnabled());
-    await userEvent.click(screen.getByRole('button', { name: 'Nueva evaluación completa' }));
-    expect(screen.getByRole('button', { name: 'Guardar borrador de evaluación' })).toBeEnabled();
-    expect(screen.queryByText('Agrega al menos un criterio para guardar.')).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: 'Quitar criterio 1' }));
-    expect(screen.getByRole('button', { name: 'Guardar borrador de evaluación' })).toBeDisabled();
-    expect(screen.getByText('Agrega al menos un criterio para guardar.')).toBeInTheDocument();
-    expect(api).not.toHaveBeenCalledWith('p1', '/evaluaciones', 'POST', expect.anything());
+    const producto = await screen.findByLabelText('Producto o sitio');
+    await userEvent.click(screen.getByRole('button', { name: 'Comenzar revisión' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('producto o sitio');
+    expect(producto).toHaveFocus();
   });
-  it('recupera creación local tras fallo y limpia borrador al crear', async () => {
+  it('no comienza con un método sin preguntas y explica qué falta', async () => {
+    const vacia = { ...config().metodologia, criterios: [] };
+    api.mockImplementation(async (_p, path) => path === '/metodologias' ? [vacia] : path === '/equipo' ? [{ id: 'u1', nombre: 'Ana', rol: 'ESTUDIANTE' }] : []);
+    renderFlow(<FlujoHeuristicaPage />);
+    await userEvent.type(await screen.findByLabelText('Producto o sitio'), 'Portal');
+    await userEvent.click(screen.getByRole('button', { name: 'Comenzar revisión' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('una metodología con preguntas');
+    expect(api).not.toHaveBeenCalledWith('p1', '/evaluaciones/comenzar', 'POST', expect.anything());
+  });
+  it('recupera lo escrito tras fallar el inicio y comienza directamente sin datos opcionales', async () => {
     let fail = true;
-    let created = evaluation({ fase: 'BORRADOR' });
+    let started = evaluation();
     api.mockImplementation(async (_p, path, method, body) => {
-      if (method === 'POST') { if (fail) throw new Error('Sin conexión al crear'); created = evaluation({ fase: 'BORRADOR', configuracion: body }); return created; }
-      if (path === '/evaluaciones/e1') return created;
+      if (method === 'POST') { if (fail) throw new Error('Sin conexión al comenzar'); started = evaluation({ configuracion: body }); return started; }
+      if (path === '/evaluaciones/e1') return started;
       return path === '/metodologias' ? [config().metodologia] : path === '/equipo' ? [{ id: 'u1', nombre: 'Ana', rol: 'ESTUDIANTE' }] : [];
     });
     const first = renderFlow(<FlujoHeuristicaPage />);
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Nueva evaluación completa' })).toBeEnabled());
-    await userEvent.click(screen.getByRole('button', { name: 'Nueva evaluación completa' }));
-    await userEvent.type(screen.getByLabelText('Nombre de la evaluación'), 'Borrador local');
-    await userEvent.click(within(screen.getByRole('group', { name: 'Equipo (expertos 0/5)' })).getByRole('checkbox', { name: /^Experto:/ }));
-    await userEvent.click(screen.getByRole('button', { name: 'Guardar borrador de evaluación' }));
-    await screen.findByText('Sin conexión al crear');
+    await userEvent.type(await screen.findByLabelText('Producto o sitio'), 'Portal local');
+    await userEvent.click(screen.getByRole('button', { name: 'Comenzar revisión' }));
+    await screen.findByText('Sin conexión al comenzar');
     first.unmount();
     renderFlow(<FlujoHeuristicaPage />);
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Nueva evaluación completa' })).toBeEnabled());
-    await userEvent.click(screen.getByRole('button', { name: 'Nueva evaluación completa' }));
-    expect(screen.getByLabelText('Nombre de la evaluación')).toHaveValue('Borrador local');
+    expect(await screen.findByLabelText('Producto o sitio')).toHaveValue('Portal local');
     fail = false;
-    await userEvent.click(screen.getByRole('button', { name: 'Guardar borrador de evaluación' }));
-    await screen.findByRole('button', { name: 'Iniciar con configuración fija' });
+    await userEvent.click(screen.getByRole('button', { name: 'Comenzar revisión' }));
+    await screen.findByRole('combobox', { name: 'Pregunta que estás revisando' });
+    expect(api).toHaveBeenCalledWith('p1', '/evaluaciones/comenzar', 'POST', expect.objectContaining({ nombre: 'Portal local', objetivo: '', tareas: '', pantallas: '', evaluadorIds: ['u1'] }));
     expect(sessionStorage.getItem('heuristica:nueva:u1:p1')).toBeNull();
+    expect(api.mock.calls.some(c => c[1] === '/evaluaciones' && c[2] === 'POST')).toBe(false);
+  });
+  it('permite reintentar un borrador antiguo cuando falla iniciar después de guardar', async () => {
+    let guardada = evaluation({ fase: 'BORRADOR', configuracion: { ...config(), nombre: '' } });
+    let falla = true;
+    api.mockImplementation(async (_p, path, _method, body) => {
+      if (path.endsWith('/configuracion')) {
+        if (body.revision !== guardada.revision) throw new Error('Conflicto de revisión');
+        guardada = { ...guardada, revision: guardada.revision + 1, configuracion: body.configuracion }; return guardada;
+      }
+      if (path.endsWith('/iniciar')) { if (falla) { falla = false; throw new Error('No se pudo iniciar'); } return { ...guardada, fase: 'EN_EVALUACION' }; }
+      if (path === '/evaluaciones/e1') return guardada;
+      if (path === '/evaluaciones') return [guardada];
+      if (path === '/metodologias') return [config().metodologia];
+      if (path === '/equipo') return [{ id: 'u1', nombre: 'Ana', rol: 'ESTUDIANTE' }];
+      return [];
+    });
+    renderFlow(<FlujoHeuristicaPage />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Abrir revisión' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Comenzar revisión' }));
+    await screen.findByText('No se pudo iniciar');
+    await userEvent.click(screen.getByRole('button', { name: 'Comenzar revisión' }));
+    await screen.findByRole('combobox', { name: 'Pregunta que estás revisando' });
+    expect(screen.queryByText('Conflicto de revisión')).toBeNull();
   });
   it('informe cuenta solo consenso y no muestra promedio ordinal', () => {
     const e = final('actual'); e.trabajos[0].hallazgos = [{ id: 'individual', criterioIds: [], titulo: 'Solo individual', pantalla: '', descripcion: '', recomendacion: '', severidad: 4, prioridad: 'ALTA', notas: '', evidenciaIds: [] }];
@@ -272,64 +327,6 @@ it('distingue todos NA justificados de criterios pendientes', () => {
   const c = config(); expect(pendientesTrabajo(c, [{ criterioId: c.metodologia.criterios[0].id, valor: null, noAplica: true, motivo: 'Fuera de alcance', notas: '' }], [])).toEqual([]);
 });
 
-describe('métodos propios: editar y borrar', () => {
-  const propia = () => ({ ...copiarMetodologia(METODOLOGIAS_HEURISTICAS[0], 'a1b2c3d4-0000-4000-8000-000000000001', 'Mi método'), autor: 'Ana' });
-  let latest: ConfiguracionFlujo;
-  function Editor({ conAcciones = true, onSave = vi.fn().mockResolvedValue(undefined), onUpdate = vi.fn().mockResolvedValue(undefined), onDelete = vi.fn().mockResolvedValue(undefined) }: { conAcciones?: boolean; onSave?: () => Promise<void>; onUpdate?: () => Promise<void>; onDelete?: () => Promise<void> }) {
-    const [v, setV] = useState(config());
-    latest = v;
-    return <ConfiguracionEditor value={v} onChange={setV} biblioteca={[METODOLOGIAS_HEURISTICAS[0], propia()]} equipo={[]} onSaveMethod={onSave}
-      {...(conAcciones ? { onUpdateMethod: onUpdate, onDeleteMethod: onDelete } : {})} />;
-  }
-  it('ofrece Editar y Borrar solo en métodos propios y solo cuando hay acciones', () => {
-    const { unmount } = renderFlow(<Editor />);
-    expect(screen.getByRole('button', { name: 'Editar Mi método' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Borrar Mi método' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: `Borrar ${METODOLOGIAS_HEURISTICAS[0].nombre}` })).toBeNull();
-    expect(screen.queryByRole('button', { name: `Editar ${METODOLOGIAS_HEURISTICAS[0].nombre}` })).toBeNull();
-    unmount();
-    renderFlow(<Editor conAcciones={false} />);
-    expect(screen.queryByRole('button', { name: 'Editar Mi método' })).toBeNull();
-  });
-  it('editar carga el método con su id y guardar lo actualiza sin crear otro', async () => {
-    const onSave = vi.fn().mockResolvedValue(undefined), onUpdate = vi.fn().mockResolvedValue(undefined);
-    renderFlow(<Editor onSave={onSave} onUpdate={onUpdate} />);
-    expect(screen.queryByText(/Estás editando tu método guardado/)).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: 'Editar Mi método' }));
-    expect(latest.metodologia.id).toBe(propia().id);
-    expect(screen.getByText(/Estás editando tu método guardado «Mi método»/)).toBeInTheDocument();
-    await userEvent.clear(screen.getByLabelText('Nombre del criterio 1')); await userEvent.type(screen.getByLabelText('Nombre del criterio 1'), 'Cambiado');
-    await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios del método' }));
-    expect(onUpdate).toHaveBeenCalledTimes(1);
-    expect(onUpdate.mock.calls[0][0]).toMatchObject({ id: propia().id, protegida: false });
-    expect(onUpdate.mock.calls[0][0].criterios[0].nombre).toBe('Cambiado');
-    expect(onSave).not.toHaveBeenCalled();
-  });
-  it('una copia nueva sigue guardándose como método nuevo', async () => {
-    const onSave = vi.fn().mockResolvedValue(undefined), onUpdate = vi.fn();
-    renderFlow(<Editor onSave={onSave} onUpdate={onUpdate} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Guardar metodología reutilizable' }));
-    expect(onSave).toHaveBeenCalledTimes(1);
-    expect(onUpdate).not.toHaveBeenCalled();
-  });
-  it('pide confirmación antes de borrar y respeta la cancelación', async () => {
-    const onDelete = vi.fn().mockResolvedValue(undefined);
-    renderFlow(<Editor onDelete={onDelete} />);
-    confirm.mockResolvedValueOnce(false);
-    await userEvent.click(screen.getByRole('button', { name: 'Borrar Mi método' }));
-    expect(confirm).toHaveBeenCalledWith(expect.stringContaining('Las evaluaciones que ya lo usan no cambian'));
-    expect(onDelete).not.toHaveBeenCalled();
-    await userEvent.click(screen.getByRole('button', { name: 'Borrar Mi método' }));
-    await waitFor(() => expect(onDelete).toHaveBeenCalledWith(propia().id));
-  });
-  it('explica el error de borrado sin perder la configuración', async () => {
-    renderFlow(<Editor onDelete={vi.fn().mockRejectedValue(new Error('No encontramos ese método entre los tuyos.'))} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Borrar Mi método' }));
-    expect(await screen.findByText('No encontramos ese método entre los tuyos.')).toBeInTheDocument();
-    expect(latest.nombre).toBe('Portal');
-  });
-});
-
 describe('vista checklist', () => {
   function checklistEval(mixta = false): EvaluacionFlujo {
     const base = evaluation();
@@ -346,24 +343,23 @@ describe('vista checklist', () => {
     expect(screen.getByText('0 de 1 respondidos')).toBeInTheDocument();
     await userEvent.click(within(grupo(a.nombre)).getByLabelText('Sí'));
     expect(screen.getByText('1 de 2 respondidos')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Pregunta siguiente' }));
     await userEvent.click(within(grupo(b.nombre)).getByLabelText('No'));
     expect(screen.getByText('2 de 2 respondidos · ✓ Categoría completa')).toBeInTheDocument();
     expect(screen.getAllByText('✓ Respondido')).toHaveLength(2);
     expect(screen.getAllByText('Sin responder')).toHaveLength(1);
   });
-  it('no aplica sin motivo no cuenta y bloquea la entrega', async () => {
+  it('cuenta no aplica inmediatamente, también con preguntas de tipo checklist', async () => {
     const e = checklistEval(); const [a, b, c] = e.configuracion.metodologia.criterios;
     renderFlow(<Harness initial={e} />);
     await userEvent.click(within(grupo(a.nombre)).getByLabelText('Sí'));
+    await userEvent.selectOptions(screen.getByLabelText('Pregunta que estás revisando'), '2');
     await userEvent.click(within(grupo(c.nombre)).getByLabelText('No'));
-    await userEvent.click(within(grupo(b.nombre)).getByLabelText('N.A.'));
-    expect(screen.getByText('1 de 2 respondidos')).toBeInTheDocument();
-    expect(screen.getByText('Falta el motivo de "no aplica".')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Entregar mi evaluación' }));
-    expect(screen.getByRole('alert')).toHaveTextContent(`Valora o justifica no aplica: ${b.nombre}`);
-    expect(api).not.toHaveBeenCalled();
-    await userEvent.type(screen.getByLabelText('Motivo de no aplica'), 'Fuera del recorrido');
+    await userEvent.selectOptions(screen.getByLabelText('Pregunta que estás revisando'), '1');
+    await userEvent.selectOptions(within(screen.getByRole('group', { name: b.nombre })).getByLabelText('¿Esta pregunta aplica al producto?'), 'no-aplica');
     expect(screen.getByText('2 de 2 respondidos · ✓ Categoría completa')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Motivo de no aplica')).toBeNull();
+    expect(screen.getByText('3 de 3 preguntas respondidas')).toBeInTheDocument();
   });
   it('permite agregar un hallazgo desde un ítem', async () => {
     const e = checklistEval(); renderFlow(<Harness initial={e} />);
@@ -421,7 +417,7 @@ describe('consenso con checklist', () => {
     const e = consensoEval();
     renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
     expect(screen.getByRole('region', { name: 'Generales' })).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Identidad e información' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Identidad e información' })).toBeNull();
     expect(screen.getByText('0 de 2 con valoración acordada')).toBeInTheDocument();
     expect(screen.getAllByText(/Difieren: Sí \/ No/)).toHaveLength(3);
   });
@@ -436,6 +432,7 @@ describe('aspectos positivos y conclusión', () => {
   it('agrega y quita un aspecto positivo en el consenso', async () => {
     renderFlow(<ConsensoEditor evaluacion={evaluation({ fase: 'PENDIENTE_CONSENSO' })} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
     expect(screen.queryByLabelText('Título del aspecto positivo 1')).toBeNull();
+    await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
     await userEvent.click(screen.getByRole('button', { name: 'Agregar aspecto positivo' }));
     await userEvent.type(screen.getByLabelText('Título del aspecto positivo 1'), 'Menú claro');
     expect(screen.getByLabelText('Título del aspecto positivo 1')).toHaveValue('Menú claro');
@@ -446,6 +443,7 @@ describe('aspectos positivos y conclusión', () => {
     const e = evaluation({ fase: 'PENDIENTE_CONSENSO' });
     api.mockResolvedValue({ ...e, revision: 2 });
     renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
     await userEvent.click(screen.getByRole('button', { name: 'Agregar aspecto positivo' }));
     await userEvent.type(screen.getByLabelText('Título del aspecto positivo 1'), 'Menú claro');
     await userEvent.type(screen.getByLabelText('Conclusión y recomendaciones finales'), 'Corregir el formulario');
@@ -454,14 +452,14 @@ describe('aspectos positivos y conclusión', () => {
   it('el informe muestra las secciones solo con contenido', () => {
     const vacio = final('actual');
     const { unmount } = renderFlow(<InformeView evaluacion={vacio} historial={[]} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
-    expect(screen.queryByRole('heading', { name: 'Aspectos positivos' })).toBeNull();
+    expect(screen.queryByText('Ver lo que funciona bien')).toBeNull();
     expect(screen.queryByRole('heading', { name: 'Conclusión y recomendaciones finales' })).toBeNull();
     unmount();
     const lleno = final('actual');
     lleno.informe!.consenso.positivos = [{ id: 'pos1', titulo: 'Menú claro', descripcion: 'Etiquetas comprensibles.' }];
     lleno.informe!.consenso.conclusion = 'Corregir el formulario.';
     renderFlow(<InformeView evaluacion={lleno} historial={[]} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
-    expect(screen.getByRole('heading', { name: 'Aspectos positivos' })).toBeInTheDocument();
+    expect(screen.getByText('Ver lo que funciona bien')).toBeInTheDocument();
     expect(screen.getByText('Etiquetas comprensibles.')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Conclusión y recomendaciones finales' })).toBeInTheDocument();
     expect(screen.getByText('Corregir el formulario.')).toBeInTheDocument();
@@ -472,6 +470,7 @@ describe('mejoras antes/después', () => {
   it('agrega, edita y quita una mejora en el consenso', async () => {
     renderFlow(<ConsensoEditor evaluacion={evaluation({ fase: 'PENDIENTE_CONSENSO' })} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
     expect(screen.queryByLabelText('Título de la mejora 1')).toBeNull();
+    await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
     await userEvent.click(screen.getByRole('button', { name: 'Agregar mejora' }));
     await userEvent.type(screen.getByLabelText('Título de la mejora 1'), 'Botón visible');
     expect(screen.getByLabelText('Título de la mejora 1')).toHaveValue('Botón visible');
@@ -484,6 +483,7 @@ describe('mejoras antes/después', () => {
     const e = evaluation({ fase: 'PENDIENTE_CONSENSO' });
     api.mockResolvedValue({ ...e, revision: 2 });
     renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
     await userEvent.click(screen.getByRole('button', { name: 'Agregar mejora' }));
     await userEvent.type(screen.getByLabelText('Título de la mejora 1'), 'Botón visible');
     await waitFor(() => expect(api).toHaveBeenCalledWith('p1', '/evaluaciones/e1/consenso', 'PATCH', expect.objectContaining({ mejoras: [expect.objectContaining({ titulo: 'Botón visible', antesIds: [], despuesIds: [] })] })), { timeout: 3000 });
@@ -491,12 +491,12 @@ describe('mejoras antes/después', () => {
   it('el informe muestra la sección solo si hay mejoras', () => {
     const vacio = final('actual');
     const { unmount } = renderFlow(<InformeView evaluacion={vacio} historial={[]} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
-    expect(screen.queryByRole('heading', { name: 'Mejoras antes/después' })).toBeNull();
+    expect(screen.queryByText('Ver imágenes de antes y después')).toBeNull();
     unmount();
     const lleno = final('actual');
     lleno.informe!.consenso.mejoras = [{ id: 'm1', titulo: 'Botón visible', descripcion: 'Se aumentó el contraste.', antesIds: [], despuesIds: [] }];
     renderFlow(<InformeView evaluacion={lleno} historial={[]} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
-    expect(screen.getByRole('heading', { name: 'Mejoras antes/después' })).toBeInTheDocument();
+    expect(screen.getByText('Ver imágenes de antes y después')).toBeInTheDocument();
     expect(screen.getByText('Se aumentó el contraste.')).toBeInTheDocument();
     expect(screen.getAllByText('Sin capturas.')).toHaveLength(2);
   });

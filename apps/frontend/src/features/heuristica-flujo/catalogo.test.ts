@@ -108,16 +108,16 @@ describe('escala por criterio', () => {
 });
 
 describe('resumen del consenso', () => {
-  it('distingue pendiente, no aplica justificado e inválido', () => {
+  it('distingue pendiente, no aplica e inválido', () => {
     const config = configuracion(), consenso = vacio();
     consenso.criterios = [respuesta(config.metodologia.criterios[0].id), respuesta(config.metodologia.criterios[1].id, null, true), respuesta(config.metodologia.criterios[2].id, 'desconocido')];
     expect(resumirEvaluacion(config, consenso)).toMatchObject({ evaluados: 1, pendientes: 8, noAplica: 1, indice: null, denominador: 0, formula: null });
     consenso.criterios[1].motivo = '';
-    expect(resumirEvaluacion(config, consenso)).toMatchObject({ pendientes: 9, noAplica: 0 });
+    expect(resumirEvaluacion(config, consenso)).toMatchObject({ pendientes: 8, noAplica: 1 });
   });
   it('no produce un cero cuando todo es no aplica', () => {
     const config = configuracion(), consenso = vacio();
-    consenso.criterios = config.metodologia.criterios.map(c => respuesta(c.id, null, true));
+    consenso.criterios = config.metodologia.criterios.map(c => ({ ...respuesta(c.id, null, true), motivo: '' }));
     expect(resumirEvaluacion(config, consenso)).toMatchObject({ evaluados: 0, pendientes: 0, noAplica: 10, indice: null, denominador: 0 });
   });
   it('pondera solo valores numéricos explícitos y muestra el denominador aplicable', () => {
@@ -275,13 +275,13 @@ describe('checklist Hassan y Martín (D22)', () => {
     c.metodologia.criterios = [];
     expect(esChecklist(c)).toBe(false);
   });
-  it('cuenta respondidos por categoría; no aplica solo cuenta con motivo', () => {
+  it('cuenta respondidos por categoría; no aplica cuenta sin motivo', () => {
     const c = configChecklist();
     const [a, b] = c.metodologia.criterios.filter(x => x.categoria === 'Generales');
     const base = (criterioId: string) => ({ criterioId, valor: null, noAplica: false, motivo: '', notas: '' });
     const resp = [{ ...base(a.id), valor: 'si' }, { ...base(b.id), noAplica: true }];
     const generales = () => avancePorCategoria(c, resp).find(g => g.categoria === 'Generales')!;
-    expect(generales()).toMatchObject({ respondidos: 1 });
+    expect(generales()).toMatchObject({ respondidos: 2 });
     expect(generales().criterios).toHaveLength(7);
     resp[1].motivo = 'Fuera del alcance';
     expect(generales().respondidos).toBe(2);
@@ -308,7 +308,7 @@ describe('clasificación y cumplimiento (B1)', () => {
       respuesta(desconocido, 'cumple'), respuesta(ambiguo, 'si'), respuesta(ambiguo, 'no'),
     );
     const clases = clasificarCriterios(c, consenso).map(x => x.clase);
-    expect(clases.slice(0, 6)).toEqual(['favorable', 'desfavorable', 'no_aplica', 'sin_evaluar', 'sin_evaluar', 'sin_evaluar']);
+    expect(clases.slice(0, 6)).toEqual(['favorable', 'desfavorable', 'no_aplica', 'no_aplica', 'sin_evaluar', 'sin_evaluar']);
     expect(clases.slice(6).every(x => x === 'sin_evaluar')).toBe(true);
     expect(clasificarCriterios(c, consenso)[0]).toMatchObject({ criterioId: a, categoria: 'Generales' });
   });

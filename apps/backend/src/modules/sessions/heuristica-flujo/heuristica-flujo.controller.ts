@@ -48,6 +48,10 @@ export class HeuristicaFlujoController {
   crear(@Param('proyectoId', ParseUUIDPipe) proyectoId: string, @Body() body: unknown, @CurrentUser() user: AuthenticatedUser) {
     return this.service.crear(proyectoId, body, user);
   }
+  @Post('evaluaciones/comenzar')
+  comenzar(@Param('proyectoId', ParseUUIDPipe) proyectoId: string, @Body() body: unknown, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.comenzar(proyectoId, body, user);
+  }
   @Get('evaluaciones/:id')
   obtener(@Param('proyectoId', ParseUUIDPipe) proyectoId: string, @Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.service.obtener(proyectoId, id, user);
