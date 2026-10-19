@@ -530,3 +530,66 @@ describe('mejoras antes/después', () => {
     expect(screen.getAllByText('Sin capturas.')).toHaveLength(2);
   });
 });
+
+describe('continuidad al revisar', () => {
+  const equipo = [{ id: 'u1', nombre: 'Ana', rol: 'ESTUDIANTE' }];
+  const dos = (over: Partial<EvaluacionFlujo> = {}) => { const e = evaluation(over); e.configuracion.metodologia = copiarMetodologia(METODOLOGIAS_HEURISTICAS[0]); e.configuracion.metodologia.criterios = e.configuracion.metodologia.criterios.slice(0, 2); return e; };
+  const responder = (lista: EvaluacionFlujo[]) => api.mockImplementation(async (_p, path) => path === '/evaluaciones' ? lista : path === '/metodologias' ? [config().metodologia] : path === '/equipo' ? equipo : lista.find(e => path === `/evaluaciones/${e.id}`) ?? []);
+  it('ofrece retomar la última revisión sin terminar y abre esa', async () => {
+    const vieja = evaluation({ id: 'e1', updatedAt: '2026-10-01T10:00:00Z' });
+    const reciente = evaluation({ id: 'e2', updatedAt: '2026-10-15T10:00:00Z' });
+    responder([final('f1'), vieja, reciente]);
+    renderFlow(<FlujoHeuristicaPage />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Retomar mi última revisión' }));
+    await screen.findByRole('navigation', { name: 'Preguntas de la revisión' });
+    expect(api).toHaveBeenCalledWith('p1', '/evaluaciones/e2');
+    expect(api).not.toHaveBeenCalledWith('p1', '/evaluaciones/e1');
+  });
+  it('no ofrece retomar si todas las revisiones están finalizadas o no hay ninguna', async () => {
+    responder([final('f1')]);
+    const primera = renderFlow(<FlujoHeuristicaPage />);
+    await screen.findByRole('button', { name: 'Evaluaciones anteriores (sesiones)' });
+    await waitFor(() => expect(screen.getByText(/Mis revisiones .+ 1/)).toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: 'Retomar mi última revisión' })).toBeNull();
+    primera.unmount();
+    responder([]);
+    renderFlow(<FlujoHeuristicaPage />);
+    await screen.findByRole('button', { name: 'Evaluaciones anteriores (sesiones)' });
+    expect(screen.queryByRole('button', { name: 'Retomar mi última revisión' })).toBeNull();
+  });
+  it('al volver a la técnica conserva la revisión abierta y Evaluaciones la olvida', async () => {
+    const e = evaluation({ id: 'e2' });
+    responder([e]);
+    const primera = renderFlow(<FlujoHeuristicaPage />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Retomar mi última revisión' }));
+    await screen.findByRole('navigation', { name: 'Preguntas de la revisión' });
+    primera.unmount();
+    const segunda = renderFlow(<FlujoHeuristicaPage />);
+    await screen.findByRole('navigation', { name: 'Preguntas de la revisión' });
+    await userEvent.click(screen.getByRole('button', { name: /Evaluaciones/ }));
+    await screen.findByRole('button', { name: 'Evaluaciones anteriores (sesiones)' });
+    segunda.unmount();
+    renderFlow(<FlujoHeuristicaPage />);
+    await screen.findByRole('button', { name: 'Evaluaciones anteriores (sesiones)' });
+    expect(screen.queryByRole('navigation', { name: 'Preguntas de la revisión' })).toBeNull();
+  });
+  it('recuerda la pregunta en la que estabas al volver', async () => {
+    const e = dos();
+    const primera = renderFlow(<Harness initial={e} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Pregunta siguiente' }));
+    expect(screen.getByText('Pregunta 2 de 2')).toBeInTheDocument();
+    primera.unmount();
+    renderFlow(<Harness initial={e} />);
+    expect(screen.getByText('Pregunta 2 de 2')).toBeInTheDocument();
+  });
+  it('deja Anterior y Siguiente en la barra fija junto a Entregar y reserva el botón principal para la última pregunta', async () => {
+    renderFlow(<Harness initial={dos()} />);
+    const siguiente = screen.getByRole('button', { name: 'Pregunta siguiente' });
+    expect(siguiente.closest('.hf-pie-trabajo')).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Pregunta anterior' }).closest('.hf-pie-trabajo')).not.toBeNull();
+    expect(siguiente).toHaveClass('primary');
+    expect(screen.getByRole('button', { name: 'Entregar mi evaluación' })).not.toHaveClass('primary');
+    await userEvent.click(siguiente);
+    expect(screen.getByRole('button', { name: 'Entregar mi evaluación' })).toHaveClass('primary');
+  });
+});

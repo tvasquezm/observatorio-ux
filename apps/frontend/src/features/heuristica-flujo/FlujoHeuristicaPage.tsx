@@ -14,7 +14,7 @@ import { ConsensoEditor } from './ConsensoEditor';
 import { InformeView } from './InformeView';
 import { useFlujoDraft } from './useFlujoDraft';
 import { flujoRequest } from './flujo.api';
-import { claveDeNombre, faltantesParaIniciar } from './flujo-utils';
+import { claveDeNombre, faltantesParaIniciar, guardarSesion, leerSesion } from './flujo-utils';
 import { procesoHeuristica } from './heuristica-visual';
 
 function nuevaConfiguracion(m: MetodologiaFlujo, usuarioId: string): ConfiguracionFlujo {
@@ -85,9 +85,11 @@ export function FlujoHeuristicaPage() {
   const usuarioId = useAuthStore(s => s.user?.id ?? '');
   const [, setSearch] = useSearchParams();
   const client = useQueryClient();
-  const [selected, setSelected] = useState<string | null>(null);
+  const claveSel = `heuristica:sel:${usuarioId}:${proyectoId}`;
+  const [selected, setSeleccionado] = useState<string | null>(() => leerSesion(claveSel));
+  const setSelected = (id: string | null) => { setSeleccionado(id); guardarSesion(claveSel, id); };
   const [producto, setProducto] = useState('');
-  useEffect(() => { setSelected(null); }, [proyectoId, usuarioId]);
+  useEffect(() => { setSeleccionado(leerSesion(claveSel)); }, [claveSel]);
   const key = ['heuristica-flujo', proyectoId, usuarioId];
   const history = useQuery({ queryKey: [...key, 'evaluaciones'], queryFn: () => flujoRequest<EvaluacionFlujo[]>(proyectoId, '/evaluaciones') });
   const library = useQuery({ queryKey: [...key, 'metodologias'], queryFn: () => flujoRequest<MetodologiaFlujo[]>(proyectoId, '/metodologias') });
@@ -99,6 +101,8 @@ export function FlujoHeuristicaPage() {
     setSelected(e.id);
   }
   const evaluacion = active.data;
+  const pendiente = [...(history.data ?? [])].filter(e => e.fase !== 'FINALIZADA').sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))[0];
+  const etapaPendiente = { BORRADOR: 'por preparar', EN_EVALUACION: 'en revisión', PENDIENTE_CONSENSO: 'en acuerdo del equipo', CONSOLIDADA: 'con informe por finalizar', FINALIZADA: 'terminada' } as const;
   const back = () => setSelected(null);
   let content;
   if (selected && active.isLoading) content = <p role="status">Cargando evaluación…</p>;
@@ -110,6 +114,7 @@ export function FlujoHeuristicaPage() {
     else if (evaluacion.fase === 'PENDIENTE_CONSENSO') content = evaluacion.coordinadorId === usuarioId || evaluacion.configuracion.evaluadorIds.includes(usuarioId) ? <ConsensoEditor key={`${evaluacion.id}:consenso`} {...common} /> : <><button type="button" className="secondary" onClick={back}>← Evaluaciones</button><p>El equipo está acordando el consenso. El informe estará disponible al consolidar.</p></>;
     else content = <InformeView key={`${evaluacion.id}:informe`} {...common} historial={history.data ?? []} />;
   } else content = <>
+    {pendiente && <div className="hf-retomar panel" role="region" aria-label="Revisión sin terminar"><p>Tienes una revisión sin terminar: <strong>{pendiente.configuracion.nombre || pendiente.configuracion.producto.nombre}</strong> ({etapaPendiente[pendiente.fase]}).</p><button type="button" className="secondary" onClick={() => setSelected(pendiente.id)}>Retomar mi última revisión</button></div>}
     {[history.error, library.error, team.error].filter(Boolean).map((e, i) => <p role="alert" className="hf-error" key={i}>{e?.message}</p>)}
     {(library.isLoading || team.isLoading) && <p role="status">Cargando preguntas y personas…</p>}
     {library.data?.length && team.data ? <PrepararRevision key={proyectoId} proyectoId={proyectoId} biblioteca={library.data} equipo={team.data} onSaved={saved} /> : null}
