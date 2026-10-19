@@ -2984,6 +2984,38 @@ div:has(> .project-section > .hf) > .project-heading p { margin:4px 0 0; font-si
   .hf .hf-revision-distribucion > .hf-preguntas { position:static; max-height:none; overflow:visible; }
 }
 
+/* Revisar: navegacion junto a la pregunta, opciones en fila y extras plegables en una linea. */
+.hf .hf-barra-pregunta { position:sticky; top:0; z-index:4; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 12px; padding:6px 0; margin:0 0 8px; background:var(--surface); border-bottom:1px solid var(--line); }
+.hf .hf-barra-pregunta > .hf-ayuda { margin:0; font-weight:600; }
+.hf .hf-barra-pregunta .hf-navegar { display:flex; gap:8px; }
+.hf .hf-barra-pregunta .hf-navegar button { min-height:40px; min-width:130px; }
+.hf .hf-ronda-linea { display:flex; flex-wrap:wrap; align-items:center; gap:4px 12px; margin:0 0 6px; }
+.hf .hf-ronda-linea .hf-ronda-titulo { margin:0; font-size:14px; }
+.hf .hf-ronda-linea > .hf-vistas { margin:0; border:0; gap:4px; }
+.hf .hf-ronda-linea > .hf-vistas button { min-width:32px; min-height:32px; padding:0 8px; }
+.hf .hf-tarjeta .hf-opciones { grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; margin:8px 0; }
+.hf .hf-tarjeta .hf-opcion { padding:8px 10px; }
+.hf .hf-tarjeta .hf-atajos { display:flex; flex-wrap:wrap; align-items:center; gap:2px 16px; }
+.hf .hf-tarjeta .hf-atajos > p, .hf .hf-tarjeta .hf-atajos .hf-auto { margin:2px 0; }
+.hf .hf-extras { display:flex; flex-wrap:wrap; align-items:flex-start; gap:6px 12px; margin-top:8px; }
+.hf .hf-extras > p { margin:0; align-self:center; font-size:13px; color:var(--muted); }
+.hf .hf-extras > details[open] { flex:1 1 100%; }
+.hf .hf-extras > button { min-height:36px; }
+.hf .hf-revision-distribucion > .hf-preguntas > .hf-resumen-compacto { order:1; margin:0; flex-direction:column; align-items:flex-start; gap:4px; }
+@media(max-width:650px) { .hf .hf-barra-pregunta .hf-navegar { width:100%; } .hf .hf-barra-pregunta .hf-navegar button { flex:1; } }
+
+/* Revisar: mapa de preguntas como barra segmentada arriba; la pregunta usa todo el ancho. */
+.hf .hf-revision-distribucion:has(> .hf-preguntas-barra) { grid-template-columns:minmax(0,1fr); }
+.hf .hf-revision-distribucion > .hf-preguntas-barra { position:static; max-height:none; overflow:visible; display:flex; flex-direction:row; flex-wrap:wrap; align-items:center; gap:6px 16px; padding:8px 0; margin:0; border:0; border-bottom:1px solid var(--line); border-radius:0; background:transparent; }
+.hf .hf-preguntas-barra > .hf-segmentos { order:1; flex:1 1 280px; display:flex; flex-direction:row; gap:4px; min-width:0; height:36px; grid-column:auto; }
+.hf .hf-segmentos button { position:relative; flex:1 1 0; min-width:0; height:36px; min-height:0; padding:0; border:1px solid var(--line); border-radius:5px; background:var(--surface-alt); color:var(--muted); font-size:13px; }
+.hf .hf-segmentos [data-done] { color:var(--positive-text); border-color:var(--positive-text); }
+.hf .hf-segmentos [aria-current] { outline:2px solid var(--primary); outline-offset:1px; color:var(--primary); font-weight:700; }
+.hf .hf-segmentos button > span { position:absolute; top:0; right:3px; font-size:9px; }
+.hf .hf-preguntas-barra > p[role=status] { order:2; margin:0; font-size:13px; white-space:nowrap; }
+.hf .hf-revision-distribucion > .hf-preguntas-barra > .hf-resumen-compacto { order:3; flex-direction:row; flex-wrap:wrap; align-items:center; gap:2px 12px; padding:0; background:transparent; }
+.hf .hf-revision-distribucion:has(> .hf-preguntas-barra) > .hf-contenido { padding:12px 0; }
+
 /* Revisar: rondas, pausa y revision final. */
 .hf .hf-ronda-titulo { margin:0 0 8px; }
 .hf .hf-rondas > .hf-vistas { margin-bottom:12px; }

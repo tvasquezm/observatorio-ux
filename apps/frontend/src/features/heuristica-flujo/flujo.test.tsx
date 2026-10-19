@@ -662,11 +662,12 @@ describe('continuidad al revisar', () => {
     renderFlow(<Harness initial={e} />);
     expect(screen.getByText('Pregunta 2 de 2')).toBeInTheDocument();
   });
-  it('deja Anterior y Siguiente en la barra fija junto a Entregar y reserva el botón principal para la última pregunta', async () => {
+  it('deja Anterior y Siguiente junto a la pregunta, sin bajar al pie, y reserva el botón principal para la última pregunta', async () => {
     renderFlow(<Harness initial={dos()} />);
     const siguiente = screen.getByRole('button', { name: 'Pregunta siguiente' });
-    expect(siguiente.closest('.hf-pie-trabajo')).not.toBeNull();
-    expect(screen.getByRole('button', { name: 'Pregunta anterior' }).closest('.hf-pie-trabajo')).not.toBeNull();
+    expect(siguiente.closest('.hf-barra-pregunta')).not.toBeNull();
+    expect(siguiente.closest('.hf-pie-trabajo')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Pregunta anterior' }).closest('.hf-barra-pregunta')).not.toBeNull();
     expect(siguiente).toHaveClass('primary');
     expect(screen.getByRole('button', { name: 'Entregar mi evaluación' })).not.toHaveClass('primary');
     await userEvent.click(siguiente);

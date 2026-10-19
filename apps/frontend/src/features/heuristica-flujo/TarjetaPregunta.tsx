@@ -35,8 +35,8 @@ export function TarjetaPregunta({ config, criterio, numero, total, respuesta, ed
   return <section className="hf-tarjeta" onKeyDown={tecla}>
     <fieldset className="hf-pregunta-actual" disabled={!editable}><legend>{criterio.nombre}</legend><p>{criterio.descripcion}</p>
       <ValoracionEditor config={config} respuesta={respuesta} onChange={elegir} />
-      {editable && <><p className="hf-ayuda">Atajos: teclas 1 a {atajos} para responder y N para No aplica.</p>
-        <label className="hf-auto"><input type="checkbox" checked={auto} onChange={e => { clearTimeout(timer.current); setAviso(''); onAuto(e.target.checked); }} />Pasar sola a la siguiente pregunta</label></>}
+      {editable && <div className="hf-atajos"><p className="hf-ayuda">Atajos: teclas 1 a {atajos} para responder y N para No aplica.</p>
+        <label className="hf-auto"><input type="checkbox" checked={auto} onChange={e => { clearTimeout(timer.current); setAviso(''); onAuto(e.target.checked); }} />Pasar sola a la siguiente pregunta</label></div>}
       <p role="status" className="hf-aviso">{aviso}</p>
     </fieldset>
     {children}
