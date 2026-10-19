@@ -27,11 +27,11 @@ export function ChecklistView({ criterioVisibleId, config, respuestas, hallazgos
         return <fieldset hidden={!!criterioVisibleId && c.id !== criterioVisibleId} key={c.id} className="hf-item">
           <legend>{c.nombre}</legend>
           {c.descripcion && <p>{c.descripcion}</p>}
-          <label className="field">¿Esta pregunta aplica al producto?<select aria-label="¿Esta pregunta aplica al producto?" value={r.noAplica ? 'no-aplica' : 'aplica'} onChange={e => onChange({ ...r, noAplica: e.target.value === 'no-aplica', valor: null })}><option value="aplica">Sí aplica</option><option value="no-aplica">No aplica</option></select></label>
-          <div role="radiogroup" aria-label={c.nombre} hidden={r.noAplica}>
-            {niveles.map(n => <label key={n.id} className="hf-check" title={n.significado}>
+          <div className="hf-opciones" role="radiogroup" aria-label={c.nombre}>
+            {niveles.map(n => <label key={n.id} className="hf-opcion" title={n.significado}>
               <input type="radio" name={nombre} checked={!r.noAplica && r.valor === n.id} onChange={() => onChange({ ...r, valor: n.id, noAplica: false })} />{n.etiqueta}
             </label>)}
+            <label className="hf-opcion"><input type="radio" name={nombre} checked={r.noAplica} onChange={() => onChange({ ...r, noAplica: true, valor: null })} />No aplica</label>
           </div>
           <p className="hf-ayuda">{respondido ? r.noAplica ? '✓ No aplica · registrado' : '✓ Respondido' : 'Sin responder'}</p>
 

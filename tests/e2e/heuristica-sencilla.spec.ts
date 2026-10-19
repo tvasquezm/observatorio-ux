@@ -9,20 +9,20 @@ test('guía una evaluación desde su creación hasta el informe', async ({ page 
   await expect(page.getByText('Personalizar escala', { exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Comenzar revisión', exact: true }).click();
 
-  const pregunta = page.getByRole('combobox', { name: 'Pregunta que estás revisando', exact: true });
-  await expect(pregunta).toBeVisible();
-  const total = await pregunta.locator('option').count();
+  const preguntas = page.getByRole('navigation', { name: 'Preguntas de la revisión' }).getByRole('button', { name: /^Pregunta \d+:/ });
+  await expect(preguntas.first()).toBeVisible();
+  const total = await preguntas.count();
   await page.getByRole('button', { name: 'Entregar mi evaluación', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('Pregunta 1: elige una respuesta');
   for (let i = 0; i < total; i++) {
-    await pregunta.selectOption(String(i));
-    const aplica = page.getByRole('combobox', { name: '¿Esta pregunta aplica al producto?', exact: true });
-    await expect(aplica).toHaveCount(1);
+    await preguntas.nth(i).click();
+    const opciones = page.getByRole('radiogroup', { name: 'Valoración', exact: true });
+    await expect(opciones).toBeVisible();
     if (i === 0) {
-      await aplica.selectOption('no-aplica');
+      await opciones.getByRole('radio', { name: 'No aplica', exact: true }).check();
       await expect(page.getByRole('textbox', { name: 'Motivo de no aplica', exact: true })).toHaveCount(0);
       await expect(page.getByRole('combobox', { name: 'Valoración', exact: true })).toHaveCount(0);
-    } else await page.getByRole('combobox', { name: 'Valoración', exact: true }).selectOption({ index: 1 });
+    } else await page.getByRole('radiogroup', { name: 'Valoración', exact: true }).getByRole('radio').first().check();
     if (i === 1) {
       await page.getByRole('button', { name: /^Agregar hallazgo para / }).click();
       await page.getByRole('textbox', { name: 'Título del problema', exact: true }).fill('El menú es confuso');
@@ -34,8 +34,8 @@ test('guía una evaluación desde su creación hasta el informe', async ({ page 
   await expect(page.getByRole('heading', { name: /^Acuerdo del equipo ·/ })).toBeVisible();
 
   for (let i = 0; i < total; i++) {
-    await pregunta.selectOption(String(i));
-    await page.getByRole('combobox', { name: 'Valoración', exact: true }).selectOption({ index: 1 });
+    await preguntas.nth(i).click();
+    await page.getByRole('radiogroup', { name: 'Valoración', exact: true }).getByRole('radio').first().check();
     await page.getByRole('textbox', { name: 'Justificación del acuerdo', exact: true }).fill('Comprobado al revisar las pantallas.');
   }
   await page.getByRole('tab', { name: 'Revisar los problemas', exact: true }).click();

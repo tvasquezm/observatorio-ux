@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { copiarMetodologia } from '@observatorio-ux/shared-types';
+import { copiarMetodologia, escalaDe } from '@observatorio-ux/shared-types';
 import type { ConfiguracionFlujo, MetodologiaFlujo, MiembroEquipoFlujo } from '@observatorio-ux/shared-types';
 import { Field } from './campos';
 import { claveDeNombre } from './flujo-utils';
@@ -13,7 +13,7 @@ export function ConfiguracionEditor({ value, onChange, biblioteca, equipo, accio
   const p = value.producto;
   const actual = biblioteca.find(m => m.id === value.metodologia.id || `${m.id}-copia` === value.metodologia.id);
   return <section className="panel hf-config-simple" aria-label="Configuración inicial">
-    <div className="hf-grid">
+    <div className="hf-config-distribucion"><div><h3>¿Qué vas a revisar?</h3><p className="hf-ayuda">Solo necesitas el producto y una metodología.</p><div className="hf-grid">
       <Field label="Producto o sitio"><input id="hf-producto" maxLength={160} required placeholder="Ej.: portal de estudiantes" value={p.nombre} onChange={e => set({ nombre: !value.nombre || value.nombre === p.nombre ? e.target.value : value.nombre, producto: { ...p, nombre: e.target.value, ...(!p.clave || p.clave === claveDeNombre(p.nombre) ? { clave: claveDeNombre(e.target.value) } : {}) } })} /></Field>
       <Field label="Metodología"><select aria-label="Metodología" value={actual?.id ?? ''} onChange={e => { const elegida = biblioteca.find(m => m.id === e.target.value); if (elegida) set({ metodologia: copiarMetodologia(elegida, `${elegida.id}-copia`, elegida.nombre) }); }}>{!actual && <option value="">{value.metodologia.nombre}</option>}{biblioteca.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}</select></Field>
     </div>
@@ -32,6 +32,7 @@ export function ConfiguracionEditor({ value, onChange, biblioteca, equipo, accio
       {(['version', 'dispositivo', 'clave'] as const).map((k, i) => <Field key={k} label={['Versión (opcional)', 'Dispositivo (opcional)', 'Identificador del producto'][i]}><input maxLength={160} value={p[k]} onChange={e => set({ producto: { ...p, [k]: e.target.value } })} /></Field>)}
       {(['tareas', 'exclusiones'] as const).map((k, i) => <Field key={k} label={['Tareas (opcional)', 'Exclusiones (opcional)'][i]}><textarea maxLength={6000} value={value[k]} onChange={e => set({ [k]: e.target.value })} /></Field>)}
     </div></details></details>
+    </div><aside className="hf-config-vista" aria-label="Vista previa de la revisión"><p className="hf-ayuda">Así se responde</p><h3>Una pregunta a la vez</h3><p>Elige una respuesta. Si la pregunta no corresponde, marca «No aplica».</p>{value.metodologia.criterios[0] && <div><strong>{value.metodologia.criterios[0].nombre}</strong><div className="hf-niveles-previos">{escalaDe(value.metodologia, value.metodologia.criterios[0]).niveles.map(n => <span key={n.id}>{n.etiqueta}</span>)}<span>No aplica</span></div></div>}<p className="hf-ayuda">{value.metodologia.criterios.length} preguntas listas para revisar</p></aside></div>
     {acciones && <div className="hf-barra">{acciones}</div>}
   </section>;
 }

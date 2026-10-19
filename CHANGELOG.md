@@ -6,9 +6,9 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
-* **evaluacion-heuristica:** agrega un prototipo local compacto en `/prototipo/heuristica`
-  (solo en desarrollo), con respuestas visibles, mapa de preguntas y resumen del equipo.
-  Simplifica la configuración del módulo, permite comenzar la revisión directamente
+* **evaluacion-heuristica:** simplifica el módulo existente con configuración compacta,
+  respuestas visibles, mapa de preguntas y resumen del equipo.
+  Permite comenzar la revisión directamente
   y deja los datos de contexto como opcionales. «No aplica» completa una pregunta sin
   valoración ni motivo y se reconoce en entrega, progreso, consenso e informes.
 * **navegacion:** la barra lateral comienza abierta y conserva la elección manual

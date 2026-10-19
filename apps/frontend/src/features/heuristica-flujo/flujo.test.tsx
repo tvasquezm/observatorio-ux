@@ -51,8 +51,8 @@ describe('flujo individual', () => {
     api.mockImplementation(async (_p, path, _method, body) => path.endsWith('/trabajo') ? { ...e, revision: 2, trabajos: [{ ...e.trabajos[0], respuestas: body.respuestas }] } : { ...e, revision: 3, trabajos: [{ ...e.trabajos[0], entregadoEn: e.updatedAt }] });
     renderFlow(<Harness initial={e} />);
     for (let i = 0; i < e.configuracion.metodologia.criterios.length; i++) {
-      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Pregunta que estás revisando' }), String(i));
-      await userEvent.selectOptions(screen.getByRole('combobox', { name: '¿Esta pregunta aplica al producto?' }), 'no-aplica');
+      await userEvent.click(screen.getByRole('button', { name: new RegExp(`^Pregunta ${i + 1}:`) }));
+      await userEvent.click(screen.getByRole('radio', { name: 'No aplica' }));
       expect(screen.queryByRole('combobox', { name: 'Valoración' })).toBeNull();
       expect(screen.queryByLabelText('Motivo de no aplica')).toBeNull();
     }
@@ -64,14 +64,40 @@ describe('flujo individual', () => {
     expect(guardado.respuestas.every((r: { noAplica: boolean; valor: string | null; motivo: string }) => r.noAplica && r.valor === null && r.motivo === '')).toBe(true);
     expect(screen.queryByRole('alert')).toBeNull();
   });
-  it('separa aplicabilidad y valoración sin reutilizar una valoración descartada', async () => {
+  it('ofrece respuestas visibles y No aplica dentro de la misma valoración', async () => {
     const e = evaluation(); renderFlow(<Harness initial={e} />);
-    await userEvent.selectOptions(screen.getByLabelText('Valoración'), e.configuracion.metodologia.escala.niveles[0].id);
-    await userEvent.selectOptions(screen.getByLabelText('¿Esta pregunta aplica al producto?'), 'no-aplica');
-    expect(screen.queryByLabelText('Valoración')).toBeNull();
-    await userEvent.selectOptions(screen.getByLabelText('¿Esta pregunta aplica al producto?'), 'aplica');
-    expect(screen.getByLabelText('Valoración')).toHaveValue('');
+    const opciones = screen.getByRole('radiogroup', { name: 'Valoración' });
+    expect(within(opciones).getAllByRole('radio')).toHaveLength(e.configuracion.metodologia.escala.niveles.length + 1);
+    await userEvent.click(within(opciones).getByRole('radio', { name: e.configuracion.metodologia.escala.niveles[0].etiqueta }));
+    await userEvent.click(within(opciones).getByRole('radio', { name: 'No aplica' }));
+    expect(within(opciones).getByRole('radio', { name: 'No aplica' })).toBeChecked();
     expect(screen.queryByLabelText('Motivo de no aplica')).toBeNull();
+    expect(screen.queryByRole('combobox', { name: 'Valoración' })).toBeNull();
+  });
+  it('conserva respuestas al cambiar de pregunta y al consultar el resumen real del equipo', async () => {
+    const e = evaluation(); e.configuracion.metodologia = copiarMetodologia(METODOLOGIAS_HEURISTICAS[0]);
+    e.avanceEquipo = [{ evaluadorId: 'u1', nombre: 'Ana', evaluados: 0, total: 10, entregadoEn: null, guardadoEn: null }];
+    renderFlow(<Harness initial={e} />);
+    await userEvent.click(screen.getByRole('radio', { name: 'No aplica' }));
+    const mapa = screen.getByRole('navigation', { name: 'Preguntas de la revisión' });
+    await userEvent.click(within(mapa).getByRole('button', { name: /^Pregunta 5:/ }));
+    expect(screen.getByText('Pregunta 5 de 10')).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Resumen del equipo' }));
+    expect(screen.getByRole('heading', { name: 'Progreso del equipo' })).toBeVisible();
+    expect(screen.queryByRole('radio')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Mi revisión' }));
+    await userEvent.click(within(mapa).getByRole('button', { name: /^Pregunta 1:/ }));
+    expect(screen.getByRole('radio', { name: 'No aplica' })).toBeChecked();
+  });
+  it.each([true, false])('muestra errores al actualizar el resumen con trabajo propio: %s', async propio => {
+    const e = evaluation();
+    if (!propio) e.trabajos = [];
+    api.mockRejectedValue(new Error('No se pudo actualizar el equipo'));
+    renderFlow(<Harness initial={e} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Resumen del equipo' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Actualizar estado del equipo' }));
+    expect(await screen.findByRole('alert')).toBeVisible();
+    expect(screen.getByRole('alert')).toHaveTextContent('No se pudo actualizar el equipo');
   });
   it('guarda antes de entregar y cierra el trabajo propio', async () => {
     const e = evaluation();
@@ -80,20 +106,20 @@ describe('flujo individual', () => {
       return { ...e, revision: 3, trabajos: [{ ...e.trabajos[0], entregadoEn: e.updatedAt }] };
     });
     renderFlow(<Harness initial={e} />);
-    await userEvent.selectOptions(screen.getByLabelText('Valoración'), e.configuracion.metodologia.escala.niveles[0].id);
+    await userEvent.click(screen.getByRole('radio', { name: e.configuracion.metodologia.escala.niveles[0].etiqueta }));
     await userEvent.click(screen.getByRole('button', { name: 'Entregar mi evaluación' }));
     await screen.findByText('Trabajo entregado. Tus respuestas están cerradas.');
     expect(api.mock.calls.map(c => c[1])).toEqual(['/evaluaciones/e1/trabajo', '/evaluaciones/e1/entregar']);
     expect(api.mock.calls[1][3].revision).toBe(2);
-    expect(screen.getByLabelText('Valoración')).toBeDisabled();
+    expect(screen.getByRole('radio', { name: e.configuracion.metodologia.escala.niveles[0].etiqueta })).toBeDisabled();
   });
   it('admite múltiples problemas por criterio sin confundir ausencia con NA', async () => {
     const e = evaluation(); renderFlow(<Harness initial={e} />);
     const add = screen.getByRole('button', { name: `Agregar hallazgo para ${e.configuracion.metodologia.criterios[0].nombre}` });
     await userEvent.click(add); await userEvent.click(add);
     expect(screen.getAllByLabelText('Título del problema')).toHaveLength(2);
-    expect(screen.getByLabelText('Valoración')).toHaveValue('');
-    expect(screen.getByText(/No registrar problemas no equivale/)).toBeInTheDocument();
+    expect(within(screen.getByRole('radiogroup', { name: 'Valoración' })).getAllByRole('radio').every(r => !(r as HTMLInputElement).checked)).toBe(true);
+    expect(screen.getByText('2 problemas registrados en esta pregunta.')).toBeInTheDocument();
   });
   it('mantiene accesible un problema al quitar su última pregunta relacionada', async () => {
     const e = evaluation(); renderFlow(<Harness initial={e} />);
@@ -104,7 +130,7 @@ describe('flujo individual', () => {
   });
   it('reabre el problema incompleto aunque se haya cerrado manualmente', async () => {
     const e = evaluation(); renderFlow(<Harness initial={e} />);
-    await userEvent.selectOptions(screen.getByLabelText('Valoración'), e.configuracion.metodologia.escala.niveles[0].id);
+    await userEvent.click(screen.getByRole('radio', { name: e.configuracion.metodologia.escala.niveles[0].etiqueta }));
     await userEvent.click(screen.getByRole('button', { name: `Agregar hallazgo para ${e.configuracion.metodologia.criterios[0].nombre}` }));
     const resumen = screen.getByText('Problema 1 sin título');
     const panel = resumen.closest('details')!;
@@ -172,7 +198,7 @@ describe('configuración y consenso', () => {
     const e = evaluation({ fase: 'PENDIENTE_CONSENSO' });
     e.trabajos[0].hallazgos = [{ id: 'origen', criterioIds: [e.configuracion.metodologia.criterios[0].id], titulo: 'Problema original', pantalla: 'Inicio', descripcion: 'Error', recomendacion: 'Mejorar', severidad: 2, prioridad: 'MEDIA', notas: '', evidenciaIds: [] }];
     renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
-    expect(screen.getByLabelText('Valoración')).toHaveValue('');
+    expect(within(screen.getByRole('radiogroup', { name: 'Valoración' })).getAllByRole('radio').every(r => !(r as HTMLInputElement).checked)).toBe(true);
     expect(screen.queryByLabelText('Decisión del consenso')).not.toBeInTheDocument();
     expect(api).not.toHaveBeenCalled();
   });
@@ -237,7 +263,7 @@ describe('historial e informe', () => {
     expect(await screen.findByLabelText('Producto o sitio')).toHaveValue('Portal local');
     fail = false;
     await userEvent.click(screen.getByRole('button', { name: 'Comenzar revisión' }));
-    await screen.findByRole('combobox', { name: 'Pregunta que estás revisando' });
+    await screen.findByRole('navigation', { name: 'Preguntas de la revisión' });
     expect(api).toHaveBeenCalledWith('p1', '/evaluaciones/comenzar', 'POST', expect.objectContaining({ nombre: 'Portal local', objetivo: '', tareas: '', pantallas: '', evaluadorIds: ['u1'] }));
     expect(sessionStorage.getItem('heuristica:nueva:u1:p1')).toBeNull();
     expect(api.mock.calls.some(c => c[1] === '/evaluaciones' && c[2] === 'POST')).toBe(false);
@@ -262,7 +288,7 @@ describe('historial e informe', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Comenzar revisión' }));
     await screen.findByText('No se pudo iniciar');
     await userEvent.click(screen.getByRole('button', { name: 'Comenzar revisión' }));
-    await screen.findByRole('combobox', { name: 'Pregunta que estás revisando' });
+    await screen.findByRole('navigation', { name: 'Preguntas de la revisión' });
     expect(screen.queryByText('Conflicto de revisión')).toBeNull();
   });
   it('informe cuenta solo consenso y no muestra promedio ordinal', () => {
@@ -353,10 +379,10 @@ describe('vista checklist', () => {
     const e = checklistEval(); const [a, b, c] = e.configuracion.metodologia.criterios;
     renderFlow(<Harness initial={e} />);
     await userEvent.click(within(grupo(a.nombre)).getByLabelText('Sí'));
-    await userEvent.selectOptions(screen.getByLabelText('Pregunta que estás revisando'), '2');
+    await userEvent.click(screen.getByRole('button', { name: /^Pregunta 3:/ }));
     await userEvent.click(within(grupo(c.nombre)).getByLabelText('No'));
-    await userEvent.selectOptions(screen.getByLabelText('Pregunta que estás revisando'), '1');
-    await userEvent.selectOptions(within(screen.getByRole('group', { name: b.nombre })).getByLabelText('¿Esta pregunta aplica al producto?'), 'no-aplica');
+    await userEvent.click(screen.getByRole('button', { name: /^Pregunta 2:/ }));
+    await userEvent.click(within(grupo(b.nombre)).getByRole('radio', { name: 'No aplica' }));
     expect(screen.getByText('2 de 2 respondidos · ✓ Categoría completa')).toBeInTheDocument();
     expect(screen.queryByLabelText('Motivo de no aplica')).toBeNull();
     expect(screen.getByText('3 de 3 preguntas respondidas')).toBeInTheDocument();
@@ -369,12 +395,12 @@ describe('vista checklist', () => {
   });
   it('evaluación antigua (3 niveles) o con escalas mixtas conserva la vista actual', () => {
     const { unmount } = renderFlow(<Harness initial={evaluation()} />);
-    expect(screen.queryByRole('radiogroup')).toBeNull();
-    expect(screen.getByLabelText('Valoración')).toBeInTheDocument();
+    expect(screen.getByRole('radiogroup', { name: 'Valoración' })).toBeInTheDocument();
+    expect(screen.getAllByRole('radio')).toHaveLength(4);
     unmount();
     renderFlow(<Harness initial={checklistEval(true)} />);
-    expect(screen.queryByRole('radiogroup')).toBeNull();
     expect(screen.getAllByLabelText('Valoración')).toHaveLength(3);
+    expect(screen.getAllByRole('radio')).toHaveLength(3);
   });
 });
 describe('cumplimiento en el informe', () => {
