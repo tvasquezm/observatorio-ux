@@ -1,6 +1,6 @@
 import { escalaDe } from '@observatorio-ux/shared-types';
 import type { ConfiguracionFlujo, HallazgoFlujo, RespuestaCriterio } from '@observatorio-ux/shared-types';
-import { avancePorCategoria, criterioRespondido, respuestaVacia } from './flujo-utils';
+import { avancePorCategoria, criterioRespondido, respuestaVacia, textoProblemas } from './flujo-utils';
 
 interface Props {
   criterioVisibleId?: string;
@@ -36,8 +36,8 @@ export function ChecklistView({ criterioVisibleId, config, respuestas, hallazgos
           <p className="hf-ayuda">{respondido ? r.noAplica ? '✓ No aplica · registrado' : '✓ Respondido' : 'Sin responder'}</p>
 
           <details><summary>Notas</summary><label className="field">Notas de la valoración<textarea value={r.notas} onChange={e => onChange({ ...r, notas: e.target.value })} /></label>{r.motivo && <p>Nota anterior: {r.motivo}</p>}</details>
-          <p>{hallazgos.filter(h => h.criterioIds.includes(c.id)).length} hallazgos propios en este ítem. No registrar problemas no equivale a no aplica.</p>
-          {editable && <button type="button" className="secondary" onClick={() => onAddHallazgo(c.id)}>Agregar hallazgo para {c.nombre}</button>}
+          <p>{textoProblemas(hallazgos.filter(h => h.criterioIds.includes(c.id)).length, 'este ítem')} Sin problemas no es lo mismo que "No aplica".</p>
+          {editable && <button type="button" className="secondary" onClick={() => onAddHallazgo(c.id)}>Agregar problema para {c.nombre}</button>}
         </fieldset>;
       })}
     </section>;

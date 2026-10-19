@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file. See [commit
   Permite comenzar la revisión directamente
   y deja los datos de contexto como opcionales. «No aplica» completa una pregunta sin
   valoración ni motivo y se reconoce en entrega, progreso, consenso e informes.
+* **evaluacion-heuristica:** las capturas se adjuntan pegándolas con Ctrl+V o arrastrándolas, se validan por contenido antes de subir y muestran el límite real de 4 MB; se suman la cabecera y el proceso de la técnica y se unifica "hallazgo" como "problema".
 * **navegacion:** la barra lateral comienza abierta y conserva la elección manual
   del usuario, sin cerrarse al navegar o pulsar el contenido.
 

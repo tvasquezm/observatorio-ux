@@ -6,6 +6,8 @@ import type { ConfiguracionFlujo, EvaluacionFlujo, MetodologiaFlujo, MiembroEqui
 import type { ProjectOutletContext } from '../../layouts/ProjectDetailLayout';
 import { useAuthStore } from '../auth/store/useAuthStore';
 import { useConfirm } from '../../shared/api/confirm';
+import { TechniquePageHeader } from '../../shared/components/TechniquePageHeader';
+import { TechniqueProcess } from '../../shared/components/TechniqueProcess';
 import { ConfiguracionEditor } from './ConfiguracionEditor';
 import { TrabajoEditor, SaveStatus } from './TrabajoEditor';
 import { ConsensoEditor } from './ConsensoEditor';
@@ -13,6 +15,7 @@ import { InformeView } from './InformeView';
 import { useFlujoDraft } from './useFlujoDraft';
 import { flujoRequest } from './flujo.api';
 import { claveDeNombre, faltantesParaIniciar } from './flujo-utils';
+import { procesoHeuristica } from './heuristica-visual';
 
 function nuevaConfiguracion(m: MetodologiaFlujo, usuarioId: string): ConfiguracionFlujo {
   return { nombre: '', producto: { clave: '', nombre: '', version: '', url: '', dispositivo: '' }, objetivo: '', tareas: '', pantallas: '', exclusiones: '', metodologia: copiarMetodologia(m), evaluadorIds: [usuarioId], lectorIds: [] };
@@ -107,7 +110,6 @@ export function FlujoHeuristicaPage() {
     else if (evaluacion.fase === 'PENDIENTE_CONSENSO') content = evaluacion.coordinadorId === usuarioId || evaluacion.configuracion.evaluadorIds.includes(usuarioId) ? <ConsensoEditor key={`${evaluacion.id}:consenso`} {...common} /> : <><button type="button" className="secondary" onClick={back}>← Evaluaciones</button><p>El equipo está acordando el consenso. El informe estará disponible al consolidar.</p></>;
     else content = <InformeView key={`${evaluacion.id}:informe`} {...common} historial={history.data ?? []} />;
   } else content = <>
-    <div className="page-head"><div><h2>Evaluación heurística</h2><p>Elige una metodología y revisa el producto, una pregunta a la vez.</p></div></div>
     {[history.error, library.error, team.error].filter(Boolean).map((e, i) => <p role="alert" className="hf-error" key={i}>{e?.message}</p>)}
     {(library.isLoading || team.isLoading) && <p role="status">Cargando preguntas y personas…</p>}
     {library.data?.length && team.data ? <PrepararRevision key={proyectoId} proyectoId={proyectoId} biblioteca={library.data} equipo={team.data} onSaved={saved} /> : null}
@@ -118,5 +120,10 @@ export function FlujoHeuristicaPage() {
       <button type="button" className="secondary" onClick={() => setSearch({ anteriores: '1' })}>Evaluaciones anteriores (sesiones)</button>
     </details>
   </>;
-  return <div className="hf fade">{content}</div>;
+  const instrucciones = ['Indica el producto o sitio que vas a revisar y elige una metodología.', 'Responde cada pregunta y anota los problemas que veas, con una captura si ayuda.', 'Entrega tu revisión. Si trabajan en equipo, acuerden las respuestas juntos.', 'Prepara el informe y descárgalo en PDF.'];
+  return <div className="artifact-page hf fade">
+    {!selected && <TechniquePageHeader label="TÉCNICA DE INVESTIGACIÓN" title="Evaluación heurística" description="Revisa un producto con una metodología conocida, una pregunta a la vez." instructions={instrucciones} />}
+    {(!selected || evaluacion) && <TechniqueProcess title="Proceso de la evaluación" compact={!!selected} steps={procesoHeuristica(selected && evaluacion ? evaluacion.fase : null)} />}
+    {content}
+  </div>;
 }

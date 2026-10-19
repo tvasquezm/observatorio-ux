@@ -24,7 +24,7 @@ test('guía una evaluación desde su creación hasta el informe', async ({ page 
       await expect(page.getByRole('combobox', { name: 'Valoración', exact: true })).toHaveCount(0);
     } else await page.getByRole('radiogroup', { name: 'Valoración', exact: true }).getByRole('radio').first().check();
     if (i === 1) {
-      await page.getByRole('button', { name: /^Agregar hallazgo para / }).click();
+      await page.getByRole('button', { name: /^Agregar problema para / }).click();
       await page.getByRole('textbox', { name: 'Título del problema', exact: true }).fill('El menú es confuso');
       await page.getByRole('textbox', { name: 'Descripción del problema', exact: true }).fill('Las opciones no explican a qué sección llevan.');
     }

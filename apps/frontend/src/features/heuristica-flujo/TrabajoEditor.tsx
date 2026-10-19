@@ -7,7 +7,7 @@ import { EvidenciaEditor } from './EvidenciaEditor';
 import { useFlujoDraft } from './useFlujoDraft';
 import { flujoRequest } from './flujo.api';
 import { ChecklistView } from './ChecklistView';
-import { criterioRespondido, esChecklist, hallazgoVacio, pendientesTrabajo, respuestaVacia } from './flujo-utils';
+import { criterioRespondido, esChecklist, hallazgoVacio, pendientesTrabajo, respuestaVacia, textoProblemas } from './flujo-utils';
 
 export function ValoracionEditor({ config, respuesta, onChange }: { config: ConfiguracionFlujo; respuesta: RespuestaCriterio; onChange: (r: RespuestaCriterio) => void }) {
   const criterio = config.metodologia.criterios.find(c => c.id === respuesta.criterioId);
@@ -25,7 +25,7 @@ export function HallazgoEditor({ value, config, onChange }: { value: HallazgoFlu
     <Field label="Descripción del problema"><textarea maxLength={10000} value={value.descripcion} onChange={e => onChange({ ...value, descripcion: e.target.value })} /></Field>
     <details><summary>Contexto y propuesta de mejora (opcional)</summary>
       <Field label="Pantalla / contexto observado"><input maxLength={10000} value={value.pantalla} onChange={e => onChange({ ...value, pantalla: e.target.value })} /></Field>
-      <div className="hf-grid">{(['recomendacion', 'notas'] as const).map((k, i) => <Field key={k} label={['Recomendación de mejora', 'Notas del hallazgo'][i]}><textarea maxLength={10000} value={value[k]} onChange={e => onChange({ ...value, [k]: e.target.value })} /></Field>)}</div>
+      <div className="hf-grid">{(['recomendacion', 'notas'] as const).map((k, i) => <Field key={k} label={['Recomendación de mejora', 'Notas del problema'][i]}><textarea maxLength={10000} value={value[k]} onChange={e => onChange({ ...value, [k]: e.target.value })} /></Field>)}</div>
       <Field label="Prioridad"><select value={value.prioridad} onChange={e => onChange({ ...value, prioridad: e.target.value as HallazgoFlujo['prioridad'] })}>{['BAJA', 'MEDIA', 'ALTA', 'URGENTE'].map(s => <option key={s}>{s}</option>)}</select></Field>
     </details>
     <details><summary>Ver o cambiar preguntas relacionadas</summary><fieldset><legend>Criterios relacionados</legend>{config.metodologia.criterios.map(c => <label key={c.id} className="hf-check"><input type="checkbox" checked={value.criterioIds.includes(c.id)} onChange={e => onChange({ ...value, criterioIds: e.target.checked ? [...value.criterioIds, c.id] : value.criterioIds.filter(id => id !== c.id) })} />{c.nombre}</label>)}</fieldset></details>
@@ -81,15 +81,15 @@ export function TrabajoEditor({ evaluacion, usuarioId, onSaved, onBack }: { eval
         const r = state.draft.respuestas.find(r => r.criterioId === c.id) ?? respuestaVacia(c.id);
         return <fieldset className="hf-pregunta-actual" key={c.id} hidden={c.id !== criterioActual?.id}><legend>{c.nombre}</legend><p>{c.descripcion}</p>
           <ValoracionEditor config={evaluacion.configuracion} respuesta={r} onChange={r => state.setDraft({ ...state.draft, respuestas: [...state.draft.respuestas.filter(x => x.criterioId !== c.id), r] })} />
-          <p>{state.draft.hallazgos.filter(h => h.criterioIds.includes(c.id)).length} problemas registrados en esta pregunta.</p><details><summary>Ver de dónde viene esta pregunta</summary><p className="hf-origin">{c.origen.autor} · {c.origen.version}</p></details>
-          {editable && <button type="button" className="secondary" onClick={() => agregarHallazgo(c.id)}>Agregar hallazgo para {c.nombre}</button>}
+          <p>{textoProblemas(state.draft.hallazgos.filter(h => h.criterioIds.includes(c.id)).length, 'esta pregunta')}</p><details><summary>Ver de dónde viene esta pregunta</summary><p className="hf-origin">{c.origen.autor} &middot; {c.origen.version}</p></details>
+          {editable && <button type="button" className="secondary" onClick={() => agregarHallazgo(c.id)}>Agregar problema para {c.nombre}</button>}
         </fieldset>;
       })}</fieldset>
-      <details ref={problemasRef} className="hf-problemas"><summary>Problemas encontrados · {state.draft.hallazgos.filter(h => !h.criterioIds.length || h.criterioIds.includes(criterioActual?.id ?? '')).length}</summary>{state.draft.hallazgos.map((h, i) => <details key={h.id} name={`hallazgos-${evaluacion.id}`} hidden={h.criterioIds.length > 0 && !h.criterioIds.includes(criterioActual?.id ?? '')} open={h.id === hallazgoAbierto} onToggle={e => { const abierto = e.currentTarget.open; setHallazgoAbierto(actual => abierto ? h.id : actual === h.id ? null : actual); }}><summary>{h.titulo || `Problema ${i + 1} sin título`}</summary><fieldset><legend>Hallazgo {i + 1}: {h.titulo || 'Sin título'}</legend><fieldset disabled={!editable || busy}><legend>Datos del problema</legend><HallazgoEditor value={h} config={evaluacion.configuracion} onChange={update} /></fieldset>
+      <details ref={problemasRef} className="hf-problemas"><summary>Problemas encontrados &middot; {state.draft.hallazgos.filter(h => !h.criterioIds.length || h.criterioIds.includes(criterioActual?.id ?? '')).length}</summary>{state.draft.hallazgos.map((h, i) => <details key={h.id} name={`hallazgos-${evaluacion.id}`} hidden={h.criterioIds.length > 0 && !h.criterioIds.includes(criterioActual?.id ?? '')} open={h.id === hallazgoAbierto} onToggle={e => { const abierto = e.currentTarget.open; setHallazgoAbierto(actual => abierto ? h.id : actual === h.id ? null : actual); }}><summary>{h.titulo || `Problema ${i + 1} sin título`}</summary><fieldset><legend>Problema {i + 1}: {h.titulo || 'Sin título'}</legend><fieldset disabled={!editable || busy}><legend>Datos del problema</legend><HallazgoEditor value={h} config={evaluacion.configuracion} onChange={update} /></fieldset>
         <EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={h.evidenciaIds} editable={editable && !busy} onChange={ids => state.setDraft(prev => ({ ...prev, hallazgos: prev.hallazgos.map(x => x.id === h.id ? { ...x, evidenciaIds: ids } : x) }))} onPendingChange={value => setEvidencePending(prev => prev[h.id] === value ? prev : { ...prev, [h.id]: value })} />
-        {editable && <button type="button" className="secondary" disabled={!!evidencePending[h.id] || busy} onClick={() => state.setDraft({ ...state.draft, hallazgos: state.draft.hallazgos.filter(x => x.id !== h.id) })}>Quitar hallazgo {i + 1}</button>}
+        {editable && <button type="button" className="secondary" disabled={!!evidencePending[h.id] || busy} onClick={() => state.setDraft({ ...state.draft, hallazgos: state.draft.hallazgos.filter(x => x.id !== h.id) })}>Quitar problema {i + 1}</button>}
       </fieldset></details>)}</details></div></div>
-      <footer className="hf-pie-trabajo"><div className="hf-resumen-compacto" aria-label="Resumen de mi revisión"><span>{state.draft.respuestas.filter(r => r.noAplica && r.valor === null).length} no aplican</span><span>{state.draft.hallazgos.length} problemas registrados</span></div>
+      <footer className="hf-pie-trabajo"><div className="hf-resumen-compacto" aria-label="Resumen de mi revisión"><span>{state.draft.respuestas.filter(r => r.noAplica && r.valor === null).length} no aplican</span><span>{state.draft.hallazgos.length === 1 ? '1 problema registrado' : `${state.draft.hallazgos.length} problemas registrados`}</span></div>
       {editable && <><SaveStatus {...state} /><button type="button" className="primary" disabled={state.saving || pending || busy} onClick={async () => {
         setError(''); setMostrarFaltantes(true); const errores = pendientesTrabajo(evaluacion.configuracion, state.draft.respuestas, state.draft.hallazgos);
         if (errores.length) { irAPendiente(); return; }

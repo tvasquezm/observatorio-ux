@@ -115,7 +115,7 @@ describe('flujo individual', () => {
   });
   it('admite múltiples problemas por criterio sin confundir ausencia con NA', async () => {
     const e = evaluation(); renderFlow(<Harness initial={e} />);
-    const add = screen.getByRole('button', { name: `Agregar hallazgo para ${e.configuracion.metodologia.criterios[0].nombre}` });
+    const add = screen.getByRole('button', { name: `Agregar problema para ${e.configuracion.metodologia.criterios[0].nombre}` });
     await userEvent.click(add); await userEvent.click(add);
     expect(screen.getAllByLabelText('Título del problema')).toHaveLength(2);
     expect(within(screen.getByRole('radiogroup', { name: 'Valoración' })).getAllByRole('radio').every(r => !(r as HTMLInputElement).checked)).toBe(true);
@@ -123,15 +123,15 @@ describe('flujo individual', () => {
   });
   it('mantiene accesible un problema al quitar su última pregunta relacionada', async () => {
     const e = evaluation(); renderFlow(<Harness initial={e} />);
-    await userEvent.click(screen.getByRole('button', { name: `Agregar hallazgo para ${e.configuracion.metodologia.criterios[0].nombre}` }));
+    await userEvent.click(screen.getByRole('button', { name: `Agregar problema para ${e.configuracion.metodologia.criterios[0].nombre}` }));
     await userEvent.click(screen.getByRole('checkbox', { name: e.configuracion.metodologia.criterios[0].nombre }));
     expect(screen.getByRole('textbox', { name: 'Título del problema' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Quitar hallazgo 1' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Quitar problema 1' })).toBeInTheDocument();
   });
   it('reabre el problema incompleto aunque se haya cerrado manualmente', async () => {
     const e = evaluation(); renderFlow(<Harness initial={e} />);
     await userEvent.click(screen.getByRole('radio', { name: e.configuracion.metodologia.escala.niveles[0].etiqueta }));
-    await userEvent.click(screen.getByRole('button', { name: `Agregar hallazgo para ${e.configuracion.metodologia.criterios[0].nombre}` }));
+    await userEvent.click(screen.getByRole('button', { name: `Agregar problema para ${e.configuracion.metodologia.criterios[0].nombre}` }));
     const resumen = screen.getByText('Problema 1 sin título');
     const panel = resumen.closest('details')!;
     await userEvent.click(resumen);
@@ -389,9 +389,9 @@ describe('vista checklist', () => {
   });
   it('permite agregar un hallazgo desde un ítem', async () => {
     const e = checklistEval(); renderFlow(<Harness initial={e} />);
-    await userEvent.click(screen.getByRole('button', { name: `Agregar hallazgo para ${e.configuracion.metodologia.criterios[0].nombre}` }));
+    await userEvent.click(screen.getByRole('button', { name: `Agregar problema para ${e.configuracion.metodologia.criterios[0].nombre}` }));
     expect(screen.getAllByLabelText('Título del problema')).toHaveLength(1);
-    expect(screen.getByText(/^1 hallazgos propios en este ítem/)).toBeInTheDocument();
+    expect(screen.getByText(/^1 problema registrado en este ítem\./)).toBeInTheDocument();
   });
   it('evaluación antigua (3 niveles) o con escalas mixtas conserva la vista actual', () => {
     const { unmount } = renderFlow(<Harness initial={evaluation()} />);

@@ -13,6 +13,10 @@ export function pendientesTrabajo(config: ConfiguracionFlujo, respuestas: Respue
   }
   return pendientes;
 }
+/** "Sin problemas", "1 problema" o "n problemas" registrados en `donde` (esta pregunta, este ítem). */
+export function textoProblemas(n: number, donde: string): string {
+  return n === 0 ? `Sin problemas registrados en ${donde}.` : n === 1 ? `1 problema registrado en ${donde}.` : `${n} problemas registrados en ${donde}.`;
+}
 export const respuestaVacia = (criterioId: string): RespuestaCriterio => ({ criterioId, valor: null, noAplica: false, motivo: '', notas: '' });
 export const hallazgoVacio = (criterioId: string): HallazgoFlujo => ({ id: crypto.randomUUID(), criterioIds: [criterioId], titulo: '', pantalla: '', descripcion: '', recomendacion: '', severidad: 2, prioridad: 'MEDIA', notas: '', evidenciaIds: [] });
 
