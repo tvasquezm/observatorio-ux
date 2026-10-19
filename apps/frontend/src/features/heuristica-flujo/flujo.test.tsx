@@ -12,6 +12,7 @@ import { InformeView } from './InformeView';
 import { ConfiguracionEditor } from './ConfiguracionEditor';
 import { FlujoHeuristicaPage } from './FlujoHeuristicaPage';
 import { pendientesTrabajo, textoCumplimiento } from './flujo-utils';
+import { armarRondas } from './rondas';
 import { useAuthStore } from '../auth/store/useAuthStore';
 
 const api = vi.hoisted(() => vi.fn());
@@ -399,6 +400,39 @@ it('distingue todos NA justificados de criterios pendientes', () => {
   const c = config(); expect(pendientesTrabajo(c, [{ criterioId: c.metodologia.criterios[0].id, valor: null, noAplica: true, motivo: 'Fuera de alcance', notas: '' }], [])).toEqual([]);
 });
 
+describe('rondas en la revisión', () => {
+  function larga(): EvaluacionFlujo { const e = evaluation(); e.configuracion.metodologia = copiarMetodologia(METODOLOGIAS_HEURISTICAS[0]); return e; }
+  it('pausa al terminar la ronda, la resume y sigue con la siguiente', async () => {
+    const e = larga(); const rondas = armarRondas(e.configuracion.metodologia.criterios); const n = rondas[0].criterios.length;
+    renderFlow(<Harness initial={e} />);
+    for (let i = 0; i < n - 1; i++) await userEvent.click(screen.getByRole('button', { name: 'Pregunta siguiente' }));
+    expect(screen.getByText(`Pregunta ${n} de ${e.configuracion.metodologia.criterios.length}`)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Pregunta siguiente' }));
+    expect(screen.getByRole('heading', { name: `Terminaste la ronda 1 de ${rondas.length}` })).toBeInTheDocument();
+    expect(screen.getByText(`${n} preguntas pendientes.`)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Seguir con la ronda siguiente' }));
+    expect(screen.queryByRole('heading', { name: /^Terminaste la ronda/ })).toBeNull();
+    expect(screen.getByText(`Pregunta ${n + 1} de ${e.configuracion.metodologia.criterios.length}`)).toBeInTheDocument();
+    expect(screen.getByText(`Ronda 2 de ${rondas.length}`)).toBeInTheDocument();
+  });
+  it('volver a la ronda cierra la pausa sin cambiar de pregunta', async () => {
+    const e = larga(); const n = armarRondas(e.configuracion.metodologia.criterios)[0].criterios.length;
+    renderFlow(<Harness initial={e} />);
+    for (let i = 0; i < n; i++) await userEvent.click(screen.getByRole('button', { name: 'Pregunta siguiente' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Volver a esta ronda' }));
+    expect(screen.getByText(`Pregunta ${n} de ${e.configuracion.metodologia.criterios.length}`)).toBeInTheDocument();
+  });
+  it('la revisión final cuenta lo pendiente y lleva a la primera pregunta sin responder', async () => {
+    const e = larga();
+    renderFlow(<Harness initial={e} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Ver revisión final' }));
+    expect(screen.getByRole('heading', { name: 'Revisión final' })).toBeInTheDocument();
+    expect(screen.getByText(`${e.configuracion.metodologia.criterios.length} preguntas pendientes.`)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Ir a lo pendiente' }));
+    expect(screen.queryByRole('heading', { name: 'Revisión final' })).toBeNull();
+    expect(screen.getByText(`Pregunta 1 de ${e.configuracion.metodologia.criterios.length}`)).toBeInTheDocument();
+  });
+});
 describe('vista checklist', () => {
   function checklistEval(mixta = false): EvaluacionFlujo {
     const base = evaluation();

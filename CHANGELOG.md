@@ -15,6 +15,7 @@ All notable changes to this project will be documented in this file. See [commit
 * **evaluacion-heuristica:** Revisar usa toda la página, con Anterior y Siguiente fijos abajo; la técnica recuerda la revisión abierta y la pregunta al cambiar de pestaña y ofrece "Retomar mi última revisión".
 * **evaluacion-heuristica:** Acordar usa toda la página, con las acciones fijas abajo y los originales junto a las decisiones; al crear una decisión se avisa y se lleva el foco a ella, se explica por qué el botón está inactivo y los botones se ordenan en principal, secundario, ghost y danger.
 * **evaluacion-heuristica:** cada pregunta de Revisar es una tarjeta con atajos de teclado (1 a 5 y N) y avance automático opcional a la siguiente pregunta; el problema se registra en la misma tarjeta.
+* **evaluacion-heuristica:** la revisión se reparte en rondas de hasta 4 preguntas con pausa y resumen al terminar cada una, revisión final con lo pendiente y lista de comprobación por ronda.
 * **navegacion:** la barra lateral comienza abierta y conserva la elección manual
   del usuario, sin cerrarse al navegar o pulsar el contenido.
 

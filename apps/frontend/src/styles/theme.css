@@ -2972,3 +2972,10 @@ div:has(> .project-section > .hf) > .project-heading p { margin:4px 0 0; font-si
 .hf .hf-tarjeta .hf-auto { display:flex; align-items:center; gap:8px; margin:8px 0; font-size:14px; }
 .hf .hf-tarjeta .hf-auto input { width:18px; height:18px; accent-color:var(--primary); }
 @media(max-width:650px) { .hf .hf-tarjeta { padding:12px; } }
+
+/* Revisar: rondas, pausa y revision final. */
+.hf .hf-ronda-titulo { margin:0 0 8px; }
+.hf .hf-rondas > .hf-vistas { margin-bottom:12px; }
+.hf .hf-resumen-ronda { border:1px solid var(--line); border-radius:10px; padding:16px 20px; background:var(--surface); }
+.hf .hf-resumen-ronda ul { margin:8px 0 12px; padding-left:20px; }
+@media(max-width:650px) { .hf .hf-resumen-ronda { padding:12px; } }

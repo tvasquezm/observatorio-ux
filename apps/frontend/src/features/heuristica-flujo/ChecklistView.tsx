@@ -3,7 +3,7 @@ import type { ConfiguracionFlujo, HallazgoFlujo, RespuestaCriterio } from '@obse
 import { avancePorCategoria, criterioRespondido, respuestaVacia, textoProblemas } from './flujo-utils';
 
 interface Props {
-  criterioVisibleId?: string;
+  criteriosVisibles?: string[];
   config: ConfiguracionFlujo;
   respuestas: RespuestaCriterio[];
   hallazgos: HallazgoFlujo[];
@@ -12,11 +12,11 @@ interface Props {
   onAddHallazgo: (criterioId: string) => void;
 }
 
-/** Vista de lista de comprobación: criterios agrupados por categoría con avance "n de N respondidos". */
-export function ChecklistView({ criterioVisibleId, config, respuestas, hallazgos, editable, onChange, onAddHallazgo }: Props) {
+/** Lista de comprobación: criterios agrupados por categoría con avance "n de N respondidos"; `criteriosVisibles` acota a una ronda. */
+export function ChecklistView({ criteriosVisibles, config, respuestas, hallazgos, editable, onChange, onAddHallazgo }: Props) {
   return <>{avancePorCategoria(config, respuestas).map(({ categoria, criterios, respondidos }) => {
     const completa = respondidos === criterios.length;
-    return <section hidden={!!criterioVisibleId && !criterios.some(c => c.id === criterioVisibleId)} key={categoria} className="hf-cat" aria-label={categoria}>
+    return <section hidden={!!criteriosVisibles && !criterios.some(c => criteriosVisibles.includes(c.id))} key={categoria} className="hf-cat" aria-label={categoria}>
       <h3>{categoria}</h3>
       <p className="hf-avance">{respondidos} de {criterios.length} respondidos{completa ? ' · ✓ Categoría completa' : ''}</p>
       {criterios.map(c => {
@@ -24,7 +24,7 @@ export function ChecklistView({ criterioVisibleId, config, respuestas, hallazgos
         const niveles = escalaDe(config.metodologia, c).niveles;
         const respondido = criterioRespondido(config, c, respuestas.find(x => x.criterioId === c.id));
         const nombre = `crit-${c.id}`;
-        return <fieldset hidden={!!criterioVisibleId && c.id !== criterioVisibleId} key={c.id} className="hf-item">
+        return <fieldset hidden={!!criteriosVisibles && !criteriosVisibles.includes(c.id)} key={c.id} className="hf-item">
           <legend>{c.nombre}</legend>
           {c.descripcion && <p>{c.descripcion}</p>}
           <div className="hf-opciones" role="radiogroup" aria-label={c.nombre}>
