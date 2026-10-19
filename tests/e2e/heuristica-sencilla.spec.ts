@@ -12,6 +12,7 @@ test('guía una evaluación desde su creación hasta el informe', async ({ page 
   const preguntas = page.getByRole('navigation', { name: 'Preguntas de la revisión' }).getByRole('button', { name: /^Pregunta \d+:/ });
   await expect(preguntas.first()).toBeVisible();
   const total = await preguntas.count();
+  await page.getByRole('checkbox', { name: 'Pasar sola a la siguiente pregunta', exact: true }).uncheck();
   await page.getByRole('button', { name: 'Entregar mi evaluación', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('Pregunta 1: elige una respuesta');
   for (let i = 0; i < total; i++) {

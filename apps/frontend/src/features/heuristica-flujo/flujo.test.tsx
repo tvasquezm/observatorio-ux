@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -445,7 +445,7 @@ describe('vista checklist', () => {
     expect(screen.getAllByRole('radio')).toHaveLength(4);
     unmount();
     renderFlow(<Harness initial={checklistEval(true)} />);
-    expect(screen.getAllByLabelText('Valoración')).toHaveLength(3);
+    expect(screen.getAllByLabelText('Valoración')).toHaveLength(1);
     expect(screen.getAllByRole('radio')).toHaveLength(3);
   });
 });
@@ -637,5 +637,30 @@ describe('continuidad al revisar', () => {
     expect(screen.getByRole('button', { name: 'Entregar mi evaluación' })).not.toHaveClass('primary');
     await userEvent.click(siguiente);
     expect(screen.getByRole('button', { name: 'Entregar mi evaluación' })).toHaveClass('primary');
+  });
+});
+
+describe('tarjeta de pregunta en Revisar', () => {
+  function dosPreguntas(): EvaluacionFlujo {
+    const e = evaluation();
+    e.configuracion.metodologia.criterios = copiarMetodologia(METODOLOGIAS_HEURISTICAS[0]).criterios.slice(0, 2);
+    return e;
+  }
+  it('muestra el problema dentro de la tarjeta de su pregunta', async () => {
+    const e = evaluation(); renderFlow(<Harness initial={e} />);
+    await userEvent.click(screen.getByRole('button', { name: `Agregar problema para ${e.configuracion.metodologia.criterios[0].nombre}` }));
+    expect(screen.getByLabelText('Título del problema').closest('.hf-tarjeta')).not.toBeNull();
+  });
+  it('avanza sola a la pregunta siguiente, recuerda la pregunta y el interruptor', () => {
+    vi.useFakeTimers();
+    try {
+      renderFlow(<Harness initial={dosPreguntas()} />);
+      fireEvent.click(screen.getByRole('radio', { name: 'Cumple' }));
+      act(() => { vi.advanceTimersByTime(600); });
+      expect(screen.getByText('Pregunta 2 de 2')).toBeInTheDocument();
+      expect(sessionStorage.getItem('heuristica:preg:e1:u1')).toBe('1');
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Pasar sola a la siguiente pregunta' }));
+      expect(sessionStorage.getItem('heuristica:auto:u1')).toBe('0');
+    } finally { vi.useRealTimers(); }
   });
 });

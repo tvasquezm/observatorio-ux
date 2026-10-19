@@ -2966,3 +2966,9 @@ div:has(> .project-section > .hf) > .project-heading p { margin:4px 0 0; font-si
 .hf .hf-aviso:empty { margin:0; }
 .hf .hf-acordar-columnas { display:grid; grid-template-columns:minmax(0,1fr); gap:16px; align-items:start; }
 @media(min-width:1000px) { .hf .hf-acordar-columnas { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+
+/* Revisar: tarjeta de pregunta con atajos y avance automatico. */
+.hf .hf-tarjeta { border:1px solid var(--line); border-radius:10px; padding:16px 20px; background:var(--surface); }
+.hf .hf-tarjeta .hf-auto { display:flex; align-items:center; gap:8px; margin:8px 0; font-size:14px; }
+.hf .hf-tarjeta .hf-auto input { width:18px; height:18px; accent-color:var(--primary); }
+@media(max-width:650px) { .hf .hf-tarjeta { padding:12px; } }
