@@ -2973,6 +2973,17 @@ div:has(> .project-section > .hf) > .project-heading p { margin:4px 0 0; font-si
 .hf .hf-tarjeta .hf-auto input { width:18px; height:18px; accent-color:var(--primary); }
 @media(max-width:650px) { .hf .hf-tarjeta { padding:12px; } }
 
+/* Revisar: pie compacto en una fila; en pantallas bajas no es fijo para no tapar la pregunta. */
+.hf .hf-pie-trabajo { padding:6px 0; gap:6px 12px; }
+.hf .hf-pie-trabajo > .hf-resumen-compacto { flex:0 1 auto; margin:0; order:3; }
+.hf .hf-pie-trabajo > .hf-navegar { order:1; }
+.hf .hf-pie-trabajo > .hf-actions:not(.hf-navegar) { order:2; margin-left:auto; }
+.hf .hf-pie-trabajo > button { order:2; flex:0 0 auto; width:auto; min-height:44px; }
+@media(max-height:820px) {
+  .hf .hf-pie-trabajo { position:static; box-shadow:none; }
+  .hf .hf-revision-distribucion > .hf-preguntas { position:static; max-height:none; overflow:visible; }
+}
+
 /* Revisar: rondas, pausa y revision final. */
 .hf .hf-ronda-titulo { margin:0 0 8px; }
 .hf .hf-rondas > .hf-vistas { margin-bottom:12px; }
