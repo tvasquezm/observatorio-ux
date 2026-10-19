@@ -36,7 +36,10 @@ describe('Informe consolidado PDF', () => {
     expect(contenido).toContain('Sí cumple');
   });
   it('incluye cumplimiento en texto solo si la escala define favorables', () => {
-    const antiguo = JSON.stringify(construirInformeFlujoPdf(evaluacion(), new Map(), new Date()).content);
+    const previo = evaluacion();
+    previo.informe!.configuracion = { ...previo.informe!.configuracion, metodologia: structuredClone(previo.informe!.configuracion.metodologia) };
+    previo.informe!.configuracion.metodologia.escala.niveles.forEach(n => { delete n.favorable; });
+    const antiguo = JSON.stringify(construirInformeFlujoPdf(previo, new Map(), new Date()).content);
     expect(antiguo).not.toContain('cumplen');
     const ev = evaluacion();
     const m = structuredClone(METODOLOGIAS_HEURISTICAS.find(x => x.id === 'hassan-checklist-2003')!);

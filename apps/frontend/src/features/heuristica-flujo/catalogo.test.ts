@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  METODOLOGIAS_HEURISTICAS, copiarMetodologia, combinarMetodologias, resumirEvaluacion,
+  ESCALA_OPERATIVA_HEURISTICA, METODOLOGIAS_HEURISTICAS, copiarMetodologia, combinarMetodologias, resumirEvaluacion,
   comprobarCompatibilidad, detectarDiscrepancias, escalaDe,
   claveEscalaPredefinida, escalaPredefinida, metodologiaVacia, parsearListaCriterios, problemasMetodologia,
   clasificarCriterios, resumirCumplimiento,
@@ -15,6 +15,8 @@ function configuracion(): ConfiguracionFlujo {
     metodologia: copiarMetodologia(METODOLOGIAS_HEURISTICAS[0]), evaluadorIds: ['e1', 'e2'], lectorIds: [],
   };
 }
+/** Deja la escala como la de una evaluación guardada antes de B1: sin niveles favorables. */
+const sinFavorables = (c: ConfiguracionFlujo): ConfiguracionFlujo => { c.metodologia.escala.niveles.forEach(n => { delete n.favorable; }); return c; };
 const vacio = (): ConsensoFlujo => ({ criterios: [], hallazgos: [], aprobadoPor: [] });
 const respuesta = (criterioId: string, valor: string | null = 'cumple', noAplica = false): DecisionCriterio => ({ criterioId, valor, noAplica, motivo: noAplica ? 'Fuera del recorrido' : '', notas: '', justificacion: 'Revisión conjunta' });
 const hallazgo = (id: string, decision: DecisionHallazgo['decision'] = 'ACEPTADO'): DecisionHallazgo => ({
@@ -294,6 +296,16 @@ describe('clasificación y cumplimiento (B1)', () => {
   const checklist = () => copiarMetodologia(METODOLOGIAS_HEURISTICAS.find(m => m.id === 'hassan-checklist-2003')!);
   const configChecklist = (): ConfiguracionFlujo => ({ ...configuracion(), metodologia: checklist() });
   const consensoDe = (...criterios: DecisionCriterio[]): ConsensoFlujo => ({ ...vacio(), criterios });
+  it('la escala operativa marca Cumple favorable y No cumple desfavorable; Parcial queda neutra', () => {
+    expect(ESCALA_OPERATIVA_HEURISTICA.niveles.map(n => n.favorable)).toEqual([true, undefined, false]);
+    const r = resumirCumplimiento(configuracion(), consensoDe(respuesta('nielsen10:1', 'cumple'), respuesta('nielsen10:2', 'parcial'), respuesta('nielsen10:3', 'no_cumple')))!;
+    expect(r.total).toMatchObject({ favorables: 1, desfavorables: 1, neutros: 1, sinEvaluar: 7, proporcion: 0.5 });
+  });
+  it('una escala operativa guardada antes sin favorable sigue reconociéndose', () => {
+    const antigua = JSON.parse(JSON.stringify(ESCALA_OPERATIVA_HEURISTICA));
+    antigua.niveles.forEach((n: { favorable?: boolean }) => { delete n.favorable; });
+    expect(claveEscalaPredefinida(antigua)).toBe(claveEscalaPredefinida(ESCALA_OPERATIVA_HEURISTICA));
+  });
   it('la escala Sí/No marca Sí favorable y No desfavorable; los guardados antes siguen reconociéndose', () => {
     expect(escalaPredefinida('si_no').niveles.map(n => n.favorable)).toEqual([true, false]);
     const antigua = escalaPredefinida('si_no');
@@ -324,13 +336,13 @@ describe('clasificación y cumplimiento (B1)', () => {
     expect(todoNoAplica.total).toMatchObject({ favorables: 0, desfavorables: 0, noAplica: 71, proporcion: null });
   });
   it('evaluación antigua o escala sin niveles favorables no produce cumplimiento', () => {
-    expect(resumirCumplimiento(configuracion(), consensoDe(respuesta('nielsen10:1')))).toBeNull();
-    expect(clasificarCriterios(configuracion(), consensoDe(respuesta('nielsen10:1')))[0].clase).toBe('neutro');
+    expect(resumirCumplimiento(sinFavorables(configuracion()), consensoDe(respuesta('nielsen10:1')))).toBeNull();
+    expect(clasificarCriterios(sinFavorables(configuracion()), consensoDe(respuesta('nielsen10:1')))[0].clase).toBe('neutro');
     const c = configuracion(); c.metodologia.escala = escalaPredefinida('likert_1_5');
     expect(resumirCumplimiento(c, vacio())).toBeNull();
   });
   it('con escalas mixtas solo cuentan los criterios cuya escala efectiva define favorables', () => {
-    const c = configuracion();
+    const c = sinFavorables(configuracion());
     c.metodologia.criterios[0] = { ...c.metodologia.criterios[0], escala: escalaPredefinida('si_no') };
     const r = resumirCumplimiento(c, consensoDe(respuesta('nielsen10:1', 'si'), respuesta('nielsen10:2', 'cumple')))!;
     expect(r.total).toMatchObject({ favorables: 1, desfavorables: 0, neutros: 1, sinEvaluar: 8, proporcion: 1 });

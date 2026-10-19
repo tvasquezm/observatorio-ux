@@ -420,7 +420,10 @@ describe('cumplimiento en el informe', () => {
     expect(screen.getAllByText('1 de 2 cumplen (50 %)')).toHaveLength(2);
   });
   it('no muestra la sección con una escala sin favorables (evaluación antigua)', () => {
-    renderFlow(<InformeView evaluacion={final('actual')} historial={[]} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    const antigua = final('actual');
+    antigua.informe!.configuracion = { ...antigua.informe!.configuracion, metodologia: structuredClone(antigua.informe!.configuracion.metodologia) };
+    antigua.informe!.configuracion.metodologia.escala.niveles.forEach(n => { delete n.favorable; });
+    renderFlow(<InformeView evaluacion={antigua} historial={[]} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
     expect(screen.queryByRole('heading', { name: 'Cumplimiento' })).toBeNull();
   });
   it('textoCumplimiento: sin valorables, y con sin evaluar / no aplica', () => {
