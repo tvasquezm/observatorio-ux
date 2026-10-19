@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { RecorridoSencillo } from './RecorridoSencillo';
 import { NavegadorPreguntas } from './NavegadorPreguntas';
 import { detectarDiscrepancias, escalaDe } from '@observatorio-ux/shared-types';
@@ -19,6 +19,10 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack }: { eva
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [seleccion, setSeleccion] = useState<string[]>([]);
+  const [aviso, setAviso] = useState('');
+  const [nuevaId, setNuevaId] = useState<string | null>(null);
+  const decisiones = useRef<Record<string, HTMLFieldSetElement | null>>({});
+  useEffect(() => { if (!nuevaId) return; decisiones.current[nuevaId]?.focus(); setNuevaId(null); }, [nuevaId]);
   const agenda = detectarDiscrepancias(evaluacion.configuracion, evaluacion.trabajos);
   const checklist = esChecklist(evaluacion.configuracion);
   const originales = evaluacion.trabajos.flatMap(t => t.hallazgos.map(h => ({ ...h, evaluador: t.nombre })));
@@ -40,8 +44,8 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack }: { eva
   return <>
     <button type="button" className="secondary" onClick={async () => { if (await state.confirmLeave()) onBack(); }}>← Evaluaciones</button>
     <div className="page-head"><div><h2>Acuerdo del equipo · {evaluacion.configuracion.nombre}</h2><p>Todos terminaron su revisión. Ahora comparen sus respuestas, decidan juntos y preparen el informe.</p></div></div>
-    <button type="button" className="secondary" disabled={state.saving || busy} onClick={async () => { if (!(await state.confirmLeave())) return; try { await state.reloadRevision(); } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo actualizar'); } }}>Actualizar consenso y confirmaciones</button>
-    <SaveStatus {...state} />
+    <div className="hf-barra"><button type="button" className="ghost" disabled={state.saving || busy} onClick={async () => { if (!(await state.confirmLeave())) return; try { await state.reloadRevision(); } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo actualizar'); } }}>Actualizar consenso y confirmaciones</button>
+    <SaveStatus {...state} /></div>
     <RecorridoSencillo pasos={[{ titulo: 'Acordar las respuestas', ayuda: 'Lean las respuestas de cada persona y elijan una respuesta común. Expliquen por qué están de acuerdo.', contenido: (<>
     <details className="panel"><summary>Ver preguntas donde hubo diferencias</summary>
       {agenda.criterios.length ? <ul>{agenda.criterios.map(c => <li key={c.criterioId}>{evaluacion.configuracion.metodologia.criterios.find(x => x.id === c.criterioId)?.nombre}: {c.motivos.join(' · ')}{checklist && ` Difieren: ${etiquetasDiscrepancia(evaluacion.configuracion, c)}`}</li>)}</ul> : <p>No se detectaron diferencias de valoración. Confirmen de todos modos el acuerdo.</p>}
@@ -51,30 +55,33 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack }: { eva
     <fieldset disabled={busy}><legend>Acuerdo por criterio</legend>{checklist
       ? avancePorCategoria(evaluacion.configuracion, state.draft.criterios).map(g => <section hidden={!g.criterios.some(c => c.id === criterioActual?.id)} key={g.categoria} className="hf-cat" aria-label={g.categoria}><h3>{g.categoria}</h3><p className="hf-avance">{g.respondidos} de {g.criterios.length} con valoración acordada{g.respondidos === g.criterios.length ? ' · ✓ Categoría completa' : ''}</p>{g.criterios.map(bloqueCriterio)}</section>)
       : evaluacion.configuracion.metodologia.criterios.map(bloqueCriterio)}</fieldset>
-    </>) }, { titulo: 'Revisar los problemas', ayuda: 'Seleccionen los problemas encontrados. Pueden unir los repetidos, aceptarlos o descartarlos con una razón. Los originales se conservan.', contenido: (<>
+    </>) }, { titulo: 'Revisar los problemas', ayuda: 'Seleccionen los problemas encontrados. Pueden unir los repetidos, aceptarlos o descartarlos con una razón. Los originales se conservan.', contenido: (<div className="hf-acordar-columnas">
     <section className="panel"><div className="panel-head"><h2>Problemas encontrados por el equipo</h2></div>
       {originales.map(h => <details key={h.id}><summary>{h.evaluador}: {h.titulo} · {cubiertos.has(h.id) ? 'Vinculado a decisión' : 'Pendiente de decisión'}</summary><p>ID de origen: {h.id}</p><p>{h.pantalla}: {h.descripcion}</p><p>Severidad {h.severidad} · Prioridad {h.prioridad}</p><p>Recomendación: {h.recomendacion}</p><p>{h.notas}</p><EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={h.evidenciaIds} editable={false} /></details>)}
       <fieldset disabled={busy}><legend>Seleccionar originales para aceptar, fusionar o descartar</legend>{originales.map(h => <label className="hf-check" key={h.id}><input type="checkbox" checked={seleccion.includes(h.id)} disabled={cubiertos.has(h.id)} onChange={e => setSeleccion(e.target.checked ? [...seleccion, h.id] : seleccion.filter(x => x !== h.id))} />{h.evaluador}: {h.titulo}</label>)}</fieldset>
-      <button type="button" className="secondary" disabled={!seleccion.length || busy} onClick={() => {
+      {!seleccion.length && <p className="hf-ayuda" id="hf-ayuda-crear">{originales.every(h => cubiertos.has(h.id)) ? 'Todos los problemas ya tienen una decisión.' : 'Marca al menos un problema para crear una decisión.'}</p>}
+      <button type="button" className="primary" aria-describedby={seleccion.length ? undefined : 'hf-ayuda-crear'} disabled={!seleccion.length || busy} onClick={() => {
         const sources = originales.filter(x => seleccion.includes(x.id) && !cubiertos.has(x.id));
         if (!sources.length) return;
         const first = sources[0];
-        state.setDraft({ ...state.draft, hallazgos: [...state.draft.hallazgos, { ...hallazgoVacio(first.criterioIds[0]), titulo: first.titulo, pantalla: first.pantalla, descripcion: first.descripcion, recomendacion: first.recomendacion, severidad: first.severidad, prioridad: first.prioridad, criterioIds: [...new Set(sources.flatMap(x => x.criterioIds))], evidenciaIds: [...new Set(sources.flatMap(x => x.evidenciaIds))], origenIds: sources.map(x => x.id), decision: 'PENDIENTE', justificacion: '' }] }); setSeleccion([]);
+        const nueva: DecisionHallazgo = { ...hallazgoVacio(first.criterioIds[0]), titulo: first.titulo, pantalla: first.pantalla, descripcion: first.descripcion, recomendacion: first.recomendacion, severidad: first.severidad, prioridad: first.prioridad, criterioIds: [...new Set(sources.flatMap(x => x.criterioIds))], evidenciaIds: [...new Set(sources.flatMap(x => x.evidenciaIds))], origenIds: sources.map(x => x.id), decision: 'PENDIENTE', justificacion: '' };
+        state.setDraft({ ...state.draft, hallazgos: [...state.draft.hallazgos, nueva] }); setSeleccion([]);
+        setAviso(`Decisión ${state.draft.hallazgos.length + 1} creada con ${sources.length} ${sources.length === 1 ? 'problema' : 'problemas'}. Está en "Decisiones y problemas únicos", más abajo.`); setNuevaId(nueva.id);
       }}>Crear decisión de los originales seleccionados</button>
     </section>
-    <section className="panel"><div className="panel-head"><h2>Decisiones y problemas únicos</h2></div>{state.draft.hallazgos.map((h, i) => <fieldset key={h.id} disabled={busy}><legend>Decisión {i + 1}: {h.titulo}</legend><p>Orígenes preservados: {h.origenIds.join(', ')} · {h.origenIds.length > 1 ? 'Fusión' : 'Hallazgo individual'}</p>
+    <section className="panel"><div className="panel-head"><h2>Decisiones y problemas únicos</h2></div><p role="status" className="hf-aviso">{aviso}</p>{state.draft.hallazgos.map((h, i) => <fieldset key={h.id} disabled={busy} tabIndex={-1} ref={el => { decisiones.current[h.id] = el; }}><legend>Decisión {i + 1}: {h.titulo}</legend><p>Orígenes preservados: {h.origenIds.join(', ')} · {h.origenIds.length > 1 ? 'Fusión' : 'Hallazgo individual'}</p>
       <Field label="Decisión del consenso"><select value={h.decision} onChange={e => update({ ...h, decision: e.target.value as DecisionHallazgo['decision'] })}><option value="PENDIENTE">Pendiente</option><option value="ACEPTADO">Aceptar problema único</option><option value="DESCARTADO">Descartar conservando original</option></select></Field>
       <HallazgoEditor value={h} config={evaluacion.configuracion} onChange={x => update({ ...h, ...x })} />
       <Field label="Justificación de aceptación, fusión o descarte"><textarea value={h.justificacion} onChange={e => update({ ...h, justificacion: e.target.value })} /></Field>
       <EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={h.evidenciaIds} editable={false} />
-      <button type="button" className="secondary" onClick={() => state.setDraft({ ...state.draft, hallazgos: state.draft.hallazgos.filter(x => x.id !== h.id) })}>Reabrir orígenes de decisión {i + 1}</button>
+      <button type="button" className="danger" onClick={() => { setAviso(''); state.setDraft({ ...state.draft, hallazgos: state.draft.hallazgos.filter(x => x.id !== h.id) }); }}>Reabrir orígenes de decisión {i + 1}</button>
     </fieldset>)}</section>
-    </>) }, { titulo: 'Preparar el informe', ayuda: 'Escriban qué recomiendan mejorar. Cada persona debe confirmar el acuerdo antes de que el coordinador prepare el informe.', contenido: (<>
+    </div>) }, { titulo: 'Preparar el informe', ayuda: 'Escriban qué recomiendan mejorar. Cada persona debe confirmar el acuerdo antes de que el coordinador prepare el informe.', contenido: (<>
     <details className="panel"><summary>Agregar lo que funciona bien (opcional)</summary>
       <fieldset disabled={busy}><legend>Lo que funciona bien en el producto</legend>{state.draft.positivos.map((p, i) => <fieldset key={p.id}><legend>Aspecto positivo {i + 1}: {p.titulo || 'Sin título'}</legend>
         <Field label={`Título del aspecto positivo ${i + 1}`}><input maxLength={300} value={p.titulo} onChange={e => state.setDraft({ ...state.draft, positivos: state.draft.positivos.map(x => x.id === p.id ? { ...x, titulo: e.target.value } : x) })} /></Field>
         <Field label={`Descripción del aspecto positivo ${i + 1}`}><textarea maxLength={10000} value={p.descripcion} onChange={e => state.setDraft({ ...state.draft, positivos: state.draft.positivos.map(x => x.id === p.id ? { ...x, descripcion: e.target.value } : x) })} /></Field>
-        <button type="button" className="secondary" onClick={() => state.setDraft({ ...state.draft, positivos: state.draft.positivos.filter(x => x.id !== p.id) })}>Quitar aspecto positivo {i + 1}</button>
+        <button type="button" className="danger" onClick={() => state.setDraft({ ...state.draft, positivos: state.draft.positivos.filter(x => x.id !== p.id) })}>Quitar aspecto positivo {i + 1}</button>
       </fieldset>)}
       <button type="button" className="secondary" disabled={state.draft.positivos.length >= 200} onClick={() => state.setDraft({ ...state.draft, positivos: [...state.draft.positivos, { id: crypto.randomUUID(), titulo: '', descripcion: '' }] })}>Agregar aspecto positivo</button></fieldset>
     </details>
@@ -88,7 +95,7 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack }: { eva
           <Field label={`Descripción de la mejora ${i + 1}`}><textarea maxLength={10000} value={m.descripcion} onChange={e => cambiar({ descripcion: e.target.value })} /></Field>
           <h3>Antes</h3>{lado('antesIds', 'antes')}
           <h3>Después</h3>{lado('despuesIds', 'después')}
-          <button type="button" className="secondary" disabled={subiendoCapturas} onClick={() => state.setDraft(prev => ({ ...prev, mejoras: prev.mejoras.filter(x => x.id !== m.id) }))}>Quitar mejora {i + 1}</button>
+          <button type="button" className="danger" disabled={subiendoCapturas} onClick={() => state.setDraft(prev => ({ ...prev, mejoras: prev.mejoras.filter(x => x.id !== m.id) }))}>Quitar mejora {i + 1}</button>
         </fieldset>;
       })}
       <button type="button" className="secondary" disabled={state.draft.mejoras.length >= 100} onClick={() => state.setDraft(prev => ({ ...prev, mejoras: [...prev.mejoras, { id: crypto.randomUUID(), titulo: '', descripcion: '', antesIds: [], despuesIds: [] }] }))}>Agregar mejora</button></fieldset>

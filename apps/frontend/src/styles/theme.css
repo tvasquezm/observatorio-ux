@@ -2958,3 +2958,11 @@ div:has(> .project-section > .hf) > .project-heading p { margin:4px 0 0; font-si
 .hf .hf-retomar { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 16px; margin:0 0 12px; }
 .hf .hf-retomar > p { margin:0; }
 @media(max-width:650px) { .hf .hf-revision-distribucion > .hf-preguntas { position:static; max-height:none; overflow:visible; } .hf .hf-revision-distribucion > .hf-contenido { padding:12px 0; } }
+
+/* Acordar: barra de acciones fija, originales y decisiones en dos columnas. */
+.hf .hf-diapositivas > .hf-paso-acciones { position:sticky; bottom:0; z-index:5; margin:0; padding:10px 0; background:var(--surface); box-shadow:0 -8px 12px -10px rgba(0,0,0,.3); }
+.hf .hf-diapositivas .hf-contenido { font-size:16px; }
+.hf .hf-aviso { margin:0 0 8px; font-weight:600; }
+.hf .hf-aviso:empty { margin:0; }
+.hf .hf-acordar-columnas { display:grid; grid-template-columns:minmax(0,1fr); gap:16px; align-items:start; }
+@media(min-width:1000px) { .hf .hf-acordar-columnas { grid-template-columns:repeat(2,minmax(0,1fr)); } }

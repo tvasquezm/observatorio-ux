@@ -34,6 +34,11 @@ function final(id: string): EvaluacionFlujo {
   e.informe = { version: 1, configuracion: e.configuracion, consenso: e.consenso, evaluadores: [{ id: 'u1', nombre: 'Ana' }], iniciadoEn: e.iniciadoEn, consolidadoEn: e.updatedAt, finalizadoEn: e.updatedAt };
   return e;
 }
+function consensoConOriginal(): EvaluacionFlujo {
+  const e = evaluation({ fase: 'PENDIENTE_CONSENSO' });
+  e.trabajos[0].hallazgos = [{ id: 'origen', criterioIds: [e.configuracion.metodologia.criterios[0].id], titulo: 'Problema original', pantalla: 'Inicio', descripcion: 'Error', recomendacion: 'Mejorar', severidad: 2, prioridad: 'MEDIA', notas: '', evidenciaIds: [] }];
+  return e;
+}
 function renderFlow(element: React.ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter([{ path: '/', element: <Outlet context={{ proyectoId: 'p1' }} />, children: [{ index: true, element }] }]);
@@ -128,6 +133,14 @@ describe('flujo individual', () => {
     expect(screen.getByRole('textbox', { name: 'Título del problema' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Quitar problema 1' })).toBeInTheDocument();
   });
+  it('jerarquiza los botones de Revisar: agregar secundario, guardar ghost y quitar danger', async () => {
+    const e = evaluation(); renderFlow(<Harness initial={e} />);
+    expect(screen.getAllByRole('button', { name: 'Guardar cambios' })[0]).toHaveClass('ghost');
+    const add = screen.getByRole('button', { name: `Agregar problema para ${e.configuracion.metodologia.criterios[0].nombre}` });
+    expect(add).toHaveClass('secondary');
+    await userEvent.click(add);
+    expect(screen.getByRole('button', { name: 'Quitar problema 1' })).toHaveClass('danger');
+  });
   it('reabre el problema incompleto aunque se haya cerrado manualmente', async () => {
     const e = evaluation(); renderFlow(<Harness initial={e} />);
     await userEvent.click(screen.getByRole('radio', { name: e.configuracion.metodologia.escala.niveles[0].etiqueta }));
@@ -211,6 +224,39 @@ describe('configuración y consenso', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Crear decisión de los originales seleccionados' }));
     expect(screen.getByLabelText('Decisión del consenso')).toHaveValue('PENDIENTE');
     expect(screen.getByText(/Orígenes preservados: origen/)).toBeInTheDocument();
+  });
+  it('avisa y lleva el foco a la decisión nueva al crearla', async () => {
+    const e = consensoConOriginal();
+    renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Revisar los problemas' }));
+    await userEvent.click(screen.getByLabelText('Ana: Problema original'));
+    await userEvent.click(screen.getByRole('button', { name: 'Crear decisión de los originales seleccionados' }));
+    expect(screen.getByText(/Decisión 1 creada con 1 problema/).closest('[role="status"]')).not.toBeNull();
+    await waitFor(() => expect(screen.getByRole('group', { name: /Decisión 1/ })).toHaveFocus());
+  });
+  it('explica por qué no se puede crear una decisión sin selección', async () => {
+    renderFlow(<ConsensoEditor evaluacion={consensoConOriginal()} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Revisar los problemas' }));
+    const crear = screen.getByRole('button', { name: 'Crear decisión de los originales seleccionados' });
+    expect(crear).toBeDisabled();
+    expect(screen.getByText(/Marca al menos un problema/)).toBeInTheDocument();
+    await userEvent.click(screen.getByLabelText('Ana: Problema original'));
+    expect(screen.queryByText(/Marca al menos un problema/)).toBeNull();
+    expect(crear).toBeEnabled();
+  });
+  it('jerarquiza los botones: una acción principal, secundarias, ghost y danger', async () => {
+    renderFlow(<ConsensoEditor evaluacion={consensoConOriginal()} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Actualizar consenso y confirmaciones' })).toHaveClass('ghost');
+    expect(screen.getByRole('button', { name: 'Continuar' })).toHaveClass('primary');
+    await userEvent.click(screen.getByRole('tab', { name: 'Revisar los problemas' }));
+    expect(screen.getByRole('button', { name: 'Anterior' })).toHaveClass('secondary');
+    await userEvent.click(screen.getByLabelText('Ana: Problema original'));
+    const crear = screen.getByRole('button', { name: 'Crear decisión de los originales seleccionados' });
+    expect(crear).toHaveClass('primary');
+    await userEvent.click(crear);
+    expect(screen.getByRole('button', { name: /Reabrir orígenes de decisión 1/ })).toHaveClass('danger');
+    await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
+    expect(screen.getByRole('button', { name: 'Confirmar acuerdo' })).toHaveClass('secondary');
   });
   it('recarga decisiones remotas antes de aprobar desde editor limpio', async () => {
     const e = evaluation({ fase: 'PENDIENTE_CONSENSO' });
