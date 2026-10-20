@@ -148,7 +148,7 @@ function FasesFaltantes({ faltantes }: { faltantes: ProcessStep[] }) {
         onFocus={alEnfocar}
         onBlur={() => setFoco(false)}
       >
-        <Icon name="info" size={16} />
+        <Icon name="info" size={12} />
       </button>
       {visible && (
         <div id={id} className="tv-faltan-cuadro">
