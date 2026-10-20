@@ -704,10 +704,8 @@ button { cursor: pointer; }
 .cs-matrix-legend { margin: 0 0 8px; }
 .cs-progress { position: sticky; top: 0; z-index: 6; display: grid; gap: 6px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
 .cs-progress-row { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; color: var(--ink); font-size: 13px; }
+.cs-workspace > .cs-progress { grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px; }
 .cs-progress-note { color: var(--muted); font-size: 12px; }
-.cs-progress-track { height: 8px; overflow: hidden; border-radius: 999px; background: var(--line); }
-.cs-progress-track > i { display: block; height: 100%; border-radius: inherit; background: var(--teal); transition: width .25s ease; }
-.cs-progress-track > i.complete { background: var(--positive-text); }
 .cs-confirm-backdrop { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 20px; background: rgba(15, 23, 42, .55); }
 .cs-confirm { width: min(100%, 420px); padding: 22px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--ink); box-shadow: 0 24px 60px rgba(0, 0, 0, .35); }
 .cs-confirm h3 { margin: 0 0 8px; font-size: 18px; }
@@ -829,7 +827,8 @@ button { cursor: pointer; }
 .tv-process-opcional { display: inline-block; margin-left: 8px; padding: 1px 8px; border: 1px solid rgba(255, 255, 255, .55); border-radius: 999px; color: #fff; font-size: 11px; font-weight: 800; letter-spacing: .02em; }
 .tv-process-fila { display: flex; align-items: center; gap: 8px; }
 .tv-faltan { position: relative; display: inline-flex; }
-.tv-faltan-boton { display: inline-grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 1px solid var(--mint); border-radius: 999px; background: transparent; color: var(--mint); cursor: pointer; }
+.app .tv-faltan .tv-faltan-boton { position: relative; display: inline-grid; place-items: center; width: 18px; height: 18px; min-width: 0; min-height: 0; padding: 0; line-height: 0; border: 1px solid var(--mint); border-radius: 999px; background: transparent; color: var(--mint); cursor: pointer; }
+.tv-faltan-boton::after { content: ''; position: absolute; inset: -13px; }
 .tv-faltan-boton:hover, .tv-faltan-boton[aria-expanded='true'] { background: color-mix(in srgb, var(--mint) 22%, transparent); }
 .tv-faltan-boton:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .tv-faltan-cuadro { position: absolute; z-index: 20; top: calc(100% + 8px); left: 0; display: grid; gap: 6px; width: min(280px, 78vw); padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow); font-size: 13px; line-height: 1.4; animation: tv-fase-in .2s ease-out both; }
@@ -2225,7 +2224,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .toast-close:hover { background: var(--surface-muted); color: var(--ink); }
 /* Card Sorting dentro del sistema refinado */
 .cs-study-list { gap: 9px; }
-.cs-study-row { border-color: var(--line); border-radius: 13px; background: var(--surface); box-shadow: none; }
+.cs-study-row { border-color: var(--line); border-left: 4px solid var(--mint); border-radius: 13px; background: var(--surface); box-shadow: none; }
 .cs-study-row:hover { border-color: color-mix(in srgb, var(--teal) 38%, var(--line)); background: var(--surface-alt); transform: translateY(-1px); }
 .cs-share-bar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 20px; align-items: end; border-color: var(--teal-line); background: var(--teal-soft); }
 .cs-share-copy { display: grid; min-width: 0; gap: 6px; }
@@ -2682,12 +2681,10 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 /* Card sorting: panel de avance, guía plegable y campos con más contraste */
 .cs-side { display: grid; align-content: start; gap: 16px; min-width: 0; }
 .cs-progress { position: sticky; top: 16px; z-index: 4; }
-.cs-progress-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.cs-progress-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.cs-progress-titulo { display: grid; gap: 2px; min-width: 0; }
 .cs-progress-head h2 { margin: 0; font-size: 16px; }
 .cs-progress-head span { color: var(--muted); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.cs-progress-bar { height: 8px; margin: 12px 0 14px; overflow: hidden; border-radius: 999px; background: var(--surface-muted); }
-.cs-progress-bar i { display: block; height: 100%; border-radius: 999px; background: var(--teal); transition: width .25s ease; }
-.cs-progress.ready .cs-progress-bar i { background: var(--positive-text); }
 .cs-progress-steps { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
 .cs-progress-steps li { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 10px; align-items: start; }
 .cs-progress-mark { display: grid; place-items: center; width: 20px; height: 20px; margin-top: 1px; border: 2px solid var(--line); border-radius: 999px; color: var(--surface); }
@@ -2715,7 +2712,6 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
   .cs-side { display: contents; }
   .cs-progress { top: auto; bottom: 8px; box-shadow: var(--shadow-raised, var(--shadow)); }
   .cs-progress-steps { display: none; }
-  .cs-progress-bar { margin: 10px 0; }
   .cs-progress-status { margin-top: 0; }
 }
 /* Card sorting: entrada con dos modos (de a una / pegar lista) */

@@ -16,6 +16,9 @@ All notable changes to this project will be documented in this file. See [commit
   conducta, relación con el servicio, evidencia, confirmación), con el círculo de avance en vivo, aviso de persona
   completa y Guardar en el último paso; la lista de perfiles se oculta mientras se edita y las tarjetas tienen un
   diseño nuevo con el círculo de avance.
+* **card-sorting:** crear un estudio es ahora un paso a la vez (nombre y tipo, tarjetas, categorías si aplica, preguntas),
+  con la cabecera unificada y las instrucciones plegadas; el avance del estudio y el de la clasificación del
+  participante se muestran como un círculo.
 * **tecnicas:** el avance de las técnicas se muestra como un círculo que se llena y se anima al
   completarse; cuando todos los pasos están hechos, el proceso avisa que la técnica está completa
   y lista para usar. El proceso muestra solo la fase actual ("Fase n de N") y cambia a la siguiente al avanzar. Las fases opcionales se indican como tales, la técnica queda lista sin ellas y un icono muestra cuáles faltan. La evaluación heurística usa el mismo círculo en Revisar y en el progreso del equipo.

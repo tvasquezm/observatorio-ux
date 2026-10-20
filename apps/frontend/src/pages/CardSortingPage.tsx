@@ -27,6 +27,8 @@ import { CardSortingTypePicker } from '../features/card-sorting/components/CardS
 import { CardSortingProgress, type ProgressStep } from '../features/card-sorting/components/CardSortingProgress';
 import { CardSortingEntry } from '../features/card-sorting/components/CardSortingEntry';
 import { ComentariosTecnica } from '../features/comments/components/ComentariosTecnica';
+import { TechniquePageHeader } from '../shared/components/TechniquePageHeader';
+import { PasosTecnica, type PasoTecnica } from '../shared/components/PasosTecnica';
 
 const TYPE_HINTS: Record<TipoCardSorting, string> = {
   ABIERTO: 'Los participantes crean y nombran sus propias categorías. Úsalo para descubrir cómo piensan tus usuarios.',
@@ -195,29 +197,13 @@ export function CardSortingPage() {
     );
   }
 
-  return (
-    <div className="fade">
-      <header className="page-head">
-        <div>
-          <h2>Card Sorting</h2>
-          <p>
-            Crea estudios abiertos, cerrados o híbridos, compártelos con participantes y analiza cada
-            clasificación como evidencia independiente.
-          </p>
-        </div>
-      </header>
-
-      <details className="cs-create-disclosure">
-        <summary>Nuevo estudio</summary>
-      <section className="sort-layout">
-        <article className="panel sort-board">
-          <div className="panel-head">
-            <div>
-              <h2>Configurar tarjetas y categorías</h2>
-            </div>
-          </div>
-
-          <form onSubmit={handleSubmit} className="form-grid cs-study-form">
+  const pasos: PasoTecnica[] = [
+    {
+      id: 'nombre',
+      titulo: 'Nombre y tipo',
+      ayuda: 'Dale un nombre al estudio y elige cómo clasificarán los participantes.',
+      contenido: (
+        <div className="tv-pasos-campos tv-pasos-campos--una">
             <label className="field">
               Nombre del estudio
               <input
@@ -234,6 +220,14 @@ export function CardSortingPage() {
             <CardSortingTypePicker value={type} onChange={setType} />
             <p className="cs-type-hint" data-testid="cs-type-hint">{TYPE_HINTS[type]}</p>
 
+        </div>
+      ),
+    },
+    {
+      id: 'tarjetas',
+      titulo: 'Tarjetas',
+      ayuda: 'Los elementos que los participantes van a ordenar.',
+      contenido: (
             <CardSortingEntry
               error={validationErrors.tarjetas}
               title="Tarjetas"
@@ -262,7 +256,14 @@ export function CardSortingPage() {
               )}
             />
 
-            {type !== 'ABIERTO' && (
+      ),
+    },
+    ...(type !== 'ABIERTO'
+      ? [{
+          id: 'categorias',
+          titulo: 'Categorías',
+          ayuda: 'Las categorías de partida que usarán los participantes.',
+          contenido: (
               <CardSortingEntry
                 error={validationErrors.categorias}
                 title="Categorías predefinidas"
@@ -283,8 +284,14 @@ export function CardSortingPage() {
                 helpLabel="Ayuda: cómo definir las categorías"
                 meta={<InputWarnings info={categoriesInfo} noun="categoría(s)" max={MAX_CATEGORIA} />}
               />
-            )}
-
+          ),
+        }]
+      : []),
+    {
+      id: 'preguntas',
+      titulo: 'Preguntas (opcional)',
+      ayuda: 'Lo que quieres preguntar al participante al enviar. Puedes saltar este paso.',
+      contenido: (
             <CardSortingEntry
               error={validationErrors.preguntas}
               title="Preguntas para el participante (opcional)"
@@ -315,15 +322,41 @@ export function CardSortingPage() {
               )}
             />
 
+      ),
+    },
+  ];
+
+  return (
+    <div className="fade">
+      <TechniquePageHeader
+        label="TÉCNICA DE INVESTIGACIÓN"
+        title="Card Sorting"
+        description="Crea estudios abiertos, cerrados o híbridos, compártelos con participantes y analiza cada clasificación como evidencia independiente."
+      />
+
+      <details className="cs-create-disclosure">
+        <summary>Nuevo estudio</summary>
+      <section className="sort-layout">
+        <article className="panel sort-board">
+          <div className="panel-head">
+            <div>
+              <h2>Configurar tarjetas y categorías</h2>
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit} className="form-grid cs-study-form" noValidate>
+            <PasosTecnica pasos={pasos} acciones={(
+              <button type="submit" className="primary" disabled={createStudy.isPending}>
+                {createStudy.isPending ? 'Creando estudio…' : 'Crear y abrir el workspace →'}
+              </button>
+            )} />
+
             {formError && <p id="cs-configuration-error" role="alert" className="error-text">{formError}</p>}
 
             {createStudy.error && (
               <p role="alert" className="error-text">{createStudy.error.message}</p>
             )}
 
-            <button type="submit" className="primary" disabled={createStudy.isPending}>
-              {createStudy.isPending ? 'Creando estudio…' : 'Crear y abrir el workspace →'}
-            </button>
           </form>
         </article>
 
@@ -333,7 +366,7 @@ export function CardSortingPage() {
       </section>
       </details>
 
-      <details className="panel cs-guide-box technique-instructions" open>
+      <details className="panel cs-guide-box technique-instructions">
         <summary><h2>Cómo hacer un card sorting</h2></summary>
         <p>Prepara las tarjetas, invita a los participantes y revisa los resultados. Abre cada paso para ver sus instrucciones.</p>
         <CardSortingGuide />
