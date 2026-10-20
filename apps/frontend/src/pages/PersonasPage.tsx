@@ -16,6 +16,8 @@ import { useActivePerspective } from '../shared/auth/useActivePerspective';
 import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { useProject } from '../features/projects/hooks/useProjectsQueries';
 import { TechniquePageHeader } from '../shared/components/TechniquePageHeader';
+import { TechniquePage } from '../shared/components/TechniquePage';
+import { TechniqueNewButton } from '../shared/components/TechniqueNewButton';
 import { TechniqueProcess } from '../shared/components/TechniqueProcess';
 import { PasosTecnica } from '../shared/components/PasosTecnica';
 import { useArtifactEditLock } from '../shared/hooks/useArtifactEditLock';
@@ -164,22 +166,33 @@ export function PersonasPage() {
   }
 
   return (
-    <div className="artifact-page personas-page">
+    <TechniquePage
+      className="personas-page"
+      cabecera={
       <TechniquePageHeader
         label="TÉCNICA DE INVESTIGACIÓN"
         title="Personas"
         description="Construye perfiles claros para diseñar con las necesidades reales en mente."
         instructions={['Crea una persona e identifica su contexto y rol.', 'Completa objetivos, necesidades y frustraciones con evidencia de tu investigación.', 'Guarda el perfil y revísalo con tu equipo antes de marcarlo como validado.']}
-        action={puedeEditar ? (
-          <button type="button" className={mostrarForm ? 'secondary' : 'primary'}
+        action={
+          <TechniqueNewButton
+            etiqueta="+ Nueva persona"
+            abierto={mostrarForm}
+            puedeEditar={puedeEditar}
             disabled={isCreating || isUpdating || isDeleting}
-            onClick={async () => { if (mostrarForm) { if (await confirmDiscard()) resetForm(); } else setMostrarForm(true); }}>
-            {mostrarForm ? 'Cancelar' : '+ Nueva persona'}
-          </button>
-        ) : <span className="short-id">Solo lectura</span>}
+            onClick={async () => { if (mostrarForm) { if (await confirmDiscard()) resetForm(); } else setMostrarForm(true); }}
+          />
+        }
       />
-
-      {enFormulario && (
+      }
+      proceso={enFormulario && (
+        <TechniqueProcess
+          title="Proceso de la persona"
+          textoListo="Persona completa: ya puedes guardarla"
+          steps={procesoPersona(contenidoEnVivo)}
+        />
+      )}
+      formulario={enFormulario && (
         <form onSubmit={handleSubmit} className="panel persona-editor" aria-labelledby="persona-editor-title" noValidate>
           <div className="persona-editor-head">
             <div>
@@ -194,11 +207,6 @@ export function PersonasPage() {
               Esta persona está bloqueada por otro usuario. No puedes editarla en este momento.
             </p>
           )}
-          <TechniqueProcess
-            title="Proceso de la persona"
-            textoListo="Persona completa: ya puedes guardarla"
-            steps={procesoPersona(contenidoEnVivo)}
-          />
           <PasosTecnica
             pasos={[
               {
@@ -337,7 +345,7 @@ export function PersonasPage() {
           />
         </form>
       )}
-
+      lista={<>
       {isLoading && <p role="status">Cargando perfiles…</p>}
       {error && <p className="inline-state inline-state--error" role="alert">
         {isListError ? 'No se pudo cargar las personas. ' : ''}{(error as Error).message}
@@ -378,7 +386,8 @@ export function PersonasPage() {
           <p>{puedeEditar ? 'Usa «Nueva persona» para construir el primer perfil del proyecto.' : 'Los perfiles aparecerán aquí cuando el equipo los registre.'}</p>
         </div>
       )}
-      <ComentariosTecnica proyectoId={proyectoId} tecnica="personas" />
-    </div>
+      </>}
+      comentarios={<ComentariosTecnica proyectoId={proyectoId} tecnica="personas" />}
+    />
   );
 }
