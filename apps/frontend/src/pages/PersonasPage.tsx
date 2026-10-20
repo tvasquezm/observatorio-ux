@@ -18,6 +18,9 @@ import { useProject } from '../features/projects/hooks/useProjectsQueries';
 import { TechniquePageHeader } from '../shared/components/TechniquePageHeader';
 import { TechniquePage } from '../shared/components/TechniquePage';
 import { TechniqueNewButton } from '../shared/components/TechniqueNewButton';
+import { TechniqueItemActions } from '../shared/components/TechniqueItemActions';
+import { TechniqueListHead, TechniqueEmpty } from '../shared/components/TechniqueListParts';
+import { Icon } from '../shared/components/ui/Icon';
 import { TechniqueProcess } from '../shared/components/TechniqueProcess';
 import { PasosTecnica } from '../shared/components/PasosTecnica';
 import { useArtifactEditLock } from '../shared/hooks/useArtifactEditLock';
@@ -352,10 +355,7 @@ export function PersonasPage() {
       </p>}
 
       {!enFormulario && personas && personas.length > 0 && (
-        <div className="persona-list-head">
-          <h3>Perfiles del proyecto</h3>
-          <span className="short-id">{personas.length} {personas.length === 1 ? 'perfil' : 'perfiles'}</span>
-        </div>
+        <TechniqueListHead titulo="Perfiles del proyecto" cantidad={personas.length} />
       )}
       {!enFormulario && <div className="persona-profile-grid">
         {personas?.map((p: PersonaArtifact) => (
@@ -363,28 +363,32 @@ export function PersonasPage() {
             key={p.id}
             persona={p}
             acciones={puedeEditar && (
-              <div className="persona-profile-actions">
+              <>
                 {deletingId === p.id && deleteError && <p role="alert" className="error-text">{deleteError.message}</p>}
-                <button type="button" className="secondary" disabled={isDeleting || isPending} onClick={() => handleIniciarEditar(p)}>Editar</button>
-                <button type="button" className="danger" disabled={isDeleting || isPending} onClick={async () => {
-                  if (!(await confirm(`¿Eliminar la persona «${p.contenido.nombreCompleto}» y todas sus versiones? Dejará de aparecer en el proyecto; se conserva el historial de evidencia.`, { confirmLabel: 'Eliminar' }))) return;
-                  resetDelete();
-                  eliminar(p.id, { onSuccess: () => {
-                    if (editandoId === p.id) resetForm();
-                    notify.success(`Persona «${p.contenido.nombreCompleto}» eliminada.`);
-                  } });
-                }}>{isDeleting && deletingId === p.id ? 'Eliminando…' : 'Eliminar'}</button>
-              </div>
+                <TechniqueItemActions
+                  disabled={isDeleting || isPending}
+                  eliminando={isDeleting && deletingId === p.id}
+                  onEditar={() => handleIniciarEditar(p)}
+                  onEliminar={async () => {
+                    if (!(await confirm(`¿Eliminar la persona «${p.contenido.nombreCompleto}» y todas sus versiones? Dejará de aparecer en el proyecto; se conserva el historial de evidencia.`, { confirmLabel: 'Eliminar' }))) return;
+                    resetDelete();
+                    eliminar(p.id, { onSuccess: () => {
+                      if (editandoId === p.id) resetForm();
+                      notify.success(`Persona «${p.contenido.nombreCompleto}» eliminada.`);
+                    } });
+                  }}
+                />
+              </>
             )}
           />
         ))}
       </div>}
       {personas && personas.length === 0 && !isLoading && !mostrarForm && (
-        <div className="empty-state persona-empty">
-          <span className="person-avatar persona-profile-avatar" aria-hidden="true">P</span>
-          <strong>No hay personas todavía</strong>
-          <p>{puedeEditar ? 'Usa «Nueva persona» para construir el primer perfil del proyecto.' : 'Los perfiles aparecerán aquí cuando el equipo los registre.'}</p>
-        </div>
+        <TechniqueEmpty
+          icono={<Icon name="personas" size={28} />}
+          titulo="No hay personas todavía"
+          texto={puedeEditar ? 'Usa «Nueva persona» para construir el primer perfil del proyecto.' : 'Los perfiles aparecerán aquí cuando el equipo los registre.'}
+        />
       )}
       </>}
       comentarios={<ComentariosTecnica proyectoId={proyectoId} tecnica="personas" />}

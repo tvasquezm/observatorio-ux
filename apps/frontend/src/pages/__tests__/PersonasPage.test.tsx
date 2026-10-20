@@ -56,6 +56,27 @@ beforeEach(() => {
 });
 
 describe('Personas — presentación y edición', () => {
+  it('titula la lista con el contador de perfiles', () => {
+    renderPage();
+    const cabecera = screen.getByRole('heading', { name: 'Perfiles del proyecto' }).closest('.technique-list-head')!;
+    expect(cabecera).toHaveTextContent('1');
+  });
+
+  it('muestra el vacío estándar con la invitación a crear si puede editar', () => {
+    state.list.mockReturnValue([]);
+    renderPage();
+    const vacio = screen.getByText('No hay personas todavía').closest('.technique-empty')!;
+    expect(within(vacio as HTMLElement).getByText(/Usa «Nueva persona»/)).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Perfiles del proyecto' })).not.toBeInTheDocument();
+  });
+
+  it('muestra el vacío estándar en modo lectura sin invitar a crear', () => {
+    state.role = 'DOCENTE';
+    state.list.mockReturnValue([]);
+    renderPage();
+    expect(screen.getByText(/Los perfiles aparecerán aquí/)).toBeInTheDocument();
+  });
+
   it('confirma la eliminación del perfil completo y comunica el resultado', async () => {
     renderPage();
     fireEvent.click(screen.getByRole('button', { name: 'Eliminar' }));
