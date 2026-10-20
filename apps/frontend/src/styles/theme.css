@@ -2707,6 +2707,12 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .cs-guide-box[open] > summary::after { transform: rotate(-135deg); }
 .cs-guide-box > summary:focus-visible { outline: 3px solid color-mix(in srgb, var(--teal) 35%, transparent); outline-offset: 4px; border-radius: 6px; }
 .cs-study-form .field :is(input, textarea, select), .cs-add-one input { background: var(--bg); border-color: color-mix(in srgb, var(--muted) 45%, var(--line)); }
+@media (min-width: 1024px) {
+  .cs-study-form { grid-template-columns: minmax(280px, 340px) minmax(0, 1fr); align-items: start; column-gap: 24px; }
+  .cs-study-form > h3 { grid-column: 1 / -1; }
+  .cs-study-form > .tv-process { grid-column: 1; grid-row: 2 / span 3; position: sticky; top: 16px; margin: 0; }
+  .cs-study-form > .tv-pasos, .cs-study-form > p[role='alert'] { grid-column: 2; }
+}
 @media (max-width: 900px) {
   .cs-side { display: contents; }
   .cs-progress { top: auto; bottom: 8px; box-shadow: var(--shadow-raised, var(--shadow)); }
