@@ -23,6 +23,8 @@ import { TechniquePageHeader } from '../shared/components/TechniquePageHeader';
 import { TechniquePage } from '../shared/components/TechniquePage';
 import { TechniqueNewButton } from '../shared/components/TechniqueNewButton';
 import { TechniqueItemActions } from '../shared/components/TechniqueItemActions';
+import { TechniqueListHead, TechniqueEmpty } from '../shared/components/TechniqueListParts';
+import { Icon } from '../shared/components/ui/Icon';
 import { puedeEditarArtefactos } from '../shared/auth/permisos';
 import { useActivePerspective } from '../shared/auth/useActivePerspective';
 import { useAuthStore } from '../features/auth/store/useAuthStore';
@@ -505,9 +507,10 @@ export function MomentosCriticosPage() {
           )}
           {listado && (
             <section className="panel">
-              <div className="panel-head">
-                <h2>Incidentes y acciones</h2>
-                <div className="row-gap">
+              <TechniqueListHead
+                titulo="Incidentes y acciones"
+                cantidad={todos.length}
+                vista={
                   <button
                     className="secondary"
                     type="button"
@@ -516,8 +519,8 @@ export function MomentosCriticosPage() {
                   >
                     {vistaMatriz ? 'Ver Lista' : 'Ver Matriz 3x3'}
                   </button>
-                </div>
-              </div>
+                }
+              />
               {listado && todos.length > 0 && (
                 <div className="mc-filters">
                   <label className="field">
@@ -615,12 +618,11 @@ export function MomentosCriticosPage() {
                 </div>
               )}
               {listado && todos.length === 0 && (
-                <div className="mc-empty">
-                  <h3>Aún no hay momentos críticos</h3>
-                  <p>
-                    Registra el perfil de un usuario y su primer incidente para comenzar a analizar la experiencia.
-                  </p>
-                </div>
+                <TechniqueEmpty
+                  icono={<Icon name="momentos" size={28} />}
+                  titulo="Aún no hay momentos críticos"
+                  texto="Registra el perfil de un usuario y su primer incidente para comenzar a analizar la experiencia."
+                />
               )}
             </section>
           )}

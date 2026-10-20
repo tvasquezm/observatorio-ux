@@ -302,6 +302,21 @@ describe('Momentos críticos', () => {
     expect(screen.queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Eliminar' })).not.toBeInTheDocument();
   });
+  it('titula la lista con contador de incidentes y deja la vista de matriz como control secundario', () => {
+    state.list.mockReturnValue([momento]);
+    renderPage();
+    const cabecera = screen.getByRole('heading', { name: 'Incidentes y acciones' }).closest('.technique-list-head')!;
+    expect(within(cabecera as HTMLElement).getByText('3', { selector: '.short-id' })).toBeInTheDocument();
+    const vista = within(cabecera as HTMLElement).getByRole('button', { name: 'Ver Matriz 3x3' });
+    expect(vista).toHaveClass('secondary');
+    expect(vista.closest('.technique-list-view')).not.toBeNull();
+  });
+  it('muestra el vacío estándar cuando no hay momentos críticos', () => {
+    renderPage();
+    const vacio = screen.getByText('Aún no hay momentos críticos').closest('.technique-empty');
+    expect(vacio).not.toBeNull();
+    expect(within(vacio as HTMLElement).getByText(/Registra el perfil de un usuario/)).toBeInTheDocument();
+  });
   it('mantiene el borrador ante errores de guardado', () => {
     state.error = new Error('Sin conexión');
     abrirNuevo();

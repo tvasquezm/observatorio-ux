@@ -954,7 +954,6 @@ button { cursor: pointer; }
 .mc-matrix-incident summary span { display: block; font-size: 12px; margin-top: 4px; font-weight: 400; }
 .mc-page :is(p, li, h3, h4, strong) { overflow-wrap: anywhere; }
 .mc-page .row-between { flex-wrap: wrap; gap: 12px; }
-.mc-empty { padding: 30px 0; text-align: center; color: var(--muted); }
 :root[data-contrast='high'] :is(.cs-type-option.selected, .cs-chip, .cs-threshold, .cs-card-row, .cs-cat-card, .info-tip-panel) { color: var(--ink); background: var(--surface); border-color: var(--line); }
 @media (max-width: 768px) {
   .cs-results .analytics-kpi { padding: 8px 12px; }
