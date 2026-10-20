@@ -11,7 +11,7 @@ import {
 test('clasifica y consulta resultados sin confundir evaluador y participante', async ({ page }, testInfo) => {
   await loginAsStudent(page);
   await page.goto(`/proyectos/${STUDENT_PROJECT_ID}/card-sorting`);
-  await page.locator('summary').filter({ hasText: 'Nuevo estudio' }).click();
+  await page.getByRole('button', { name: '+ Nuevo Card Sorting', exact: true }).click();
   const nombre = `Card Sorting E2E ${testInfo.project.name}`;
   await page.getByLabel('Nombre del estudio', { exact: true }).fill(nombre);
   await page.getByLabel('Pegar lista de tarjetas', { exact: true }).fill('Biblioteca\nCalendario\nAsignaturas');

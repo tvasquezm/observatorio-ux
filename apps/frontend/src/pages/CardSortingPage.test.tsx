@@ -21,7 +21,7 @@ function renderPage(open = true) {
       </Routes>
     </MemoryRouter>,
   );
-  if (open) fireEvent.click(screen.getByText('Nuevo estudio'));
+  if (open) fireEvent.click(screen.getByRole('button', { name: '+ Nuevo Card Sorting' }));
   return result;
 }
 
@@ -194,18 +194,18 @@ describe('CardSortingPage · preguntas del evaluador', () => {
 describe('CardSortingPage · avance del estudio', () => {
   it('parte sin completar y avanza al escribir nombre y tarjetas', async () => {
     renderPage();
-    expect(screen.getByTestId('cs-progress-count')).toHaveTextContent('1 de 3');
-    expect(screen.getByTestId('cs-progress-status')).toHaveTextContent('Escribe un nombre para el estudio.');
+    expect(screen.getByRole('img', { name: '1 de 3' })).toBeInTheDocument();
+    expect(screen.queryByText('Estudio completo: ya puedes crearlo')).not.toBeInTheDocument();
     await userEvent.type(screen.getByLabelText(/Nombre del estudio/), 'Estudio');
     await pegarTarjetas('A{Enter}B');
-    expect(screen.getByTestId('cs-progress-count')).toHaveTextContent('3 de 3');
-    expect(screen.getByTestId('cs-progress-status')).toHaveTextContent('Listo para crear.');
+    expect(screen.getByRole('img', { name: '3 de 3, completo' })).toBeInTheDocument();
+    expect(screen.getByText('Estudio completo: ya puedes crearlo')).toBeInTheDocument();
   });
 
   it('un estudio cerrado suma el paso de categorías', async () => {
     renderPage();
     await userEvent.click(screen.getByRole('radio', { name: /Cerrado/ }));
-    expect(screen.getByTestId('cs-progress-count')).toHaveTextContent('1 de 4');
+    expect(screen.getByRole('img', { name: '1 de 4' })).toBeInTheDocument();
   });
 
   it('el botón cambia a "De a una": Enter agrega, y quitar la borra', async () => {
@@ -259,15 +259,15 @@ describe('CardSortingPage · pasos', () => {
 });
 
 describe('CardSortingPage · integración de propuestas', () => {
-  it('mantiene la configuración plegada y conserva el borrador al cerrarla', async () => {
+  it('mantiene la configuración cerrada y conserva el borrador al cerrarla', async () => {
     renderPage(false);
-    const summary = screen.getByText('Nuevo estudio');
-    expect(summary.closest('details')).not.toHaveAttribute('open');
-    await userEvent.click(summary);
+    expect(screen.queryByLabelText('Nombre del estudio')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '+ Nuevo Card Sorting' }));
     await userEvent.type(screen.getByLabelText('Nombre del estudio'), 'Borrador');
     await pegarTarjetas('Biblioteca');
-    await userEvent.click(summary);
-    await userEvent.click(summary);
+    await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+    expect(screen.queryByLabelText('Nombre del estudio')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '+ Nuevo Card Sorting' }));
     expect(screen.getByLabelText('Nombre del estudio')).toHaveValue('Borrador');
     expect(screen.getByText('Biblioteca', { selector: '.cs-chip span' })).toBeInTheDocument();
   });

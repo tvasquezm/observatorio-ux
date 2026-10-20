@@ -24,11 +24,11 @@ import {
 } from '../features/card-sorting/card-sorting-input';
 import type { ProjectOutletContext } from '../layouts/ProjectDetailLayout';
 import { CardSortingTypePicker } from '../features/card-sorting/components/CardSortingTypePicker';
-import { CardSortingProgress, type ProgressStep } from '../features/card-sorting/components/CardSortingProgress';
 import { CardSortingEntry } from '../features/card-sorting/components/CardSortingEntry';
 import { ComentariosTecnica } from '../features/comments/components/ComentariosTecnica';
 import { TechniquePageHeader } from '../shared/components/TechniquePageHeader';
 import { PasosTecnica, type PasoTecnica } from '../shared/components/PasosTecnica';
+import { TechniqueProcess, type ProcessStep } from '../shared/components/TechniqueProcess';
 
 const TYPE_HINTS: Record<TipoCardSorting, string> = {
   ABIERTO: 'Los participantes crean y nombran sus propias categorías. Úsalo para descubrir cómo piensan tus usuarios.',
@@ -127,6 +127,7 @@ export function CardSortingPage() {
   const [cardsText, setCardsText] = useState('');
   const [categoriesText, setCategoriesText] = useState('');
   const [questionsText, setQuestionsText] = useState('');
+  const [mostrarForm, setMostrarForm] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const cardsInfo = analizarEntrada(cardsText, MAX_ETIQUETA, AVISO_ETIQUETA);
@@ -146,7 +147,7 @@ export function CardSortingPage() {
   const minCategories = type === 'CERRADO' ? MIN_CATEGORIAS_CERRADO : 1;
   const categoriesOk = categoriesInfo.items.length >= minCategories
     && categoriesInfo.duplicados.length === 0 && categoriesInfo.excedidas.length === 0;
-  const steps: ProgressStep[] = [
+  const steps: ProcessStep[] = [
     { id: 'nombre', label: 'Nombre', detail: name.trim() || 'Sin nombre todavía', done: name.trim().length > 0 },
     { id: 'tipo', label: 'Tipo', detail: TYPE_LABELS[type], done: true },
     {
@@ -168,7 +169,7 @@ export function CardSortingPage() {
       label: 'Preguntas',
       detail: `${questionsInfo.items.length} de ${MAX_PREGUNTAS}`,
       done: questionsInfo.items.length > 0 && questionsInfo.items.length <= MAX_PREGUNTAS,
-      optional: true,
+      opcional: true,
     },
   ];
 
@@ -332,39 +333,41 @@ export function CardSortingPage() {
         label="TÉCNICA DE INVESTIGACIÓN"
         title="Card Sorting"
         description="Crea estudios abiertos, cerrados o híbridos, compártelos con participantes y analiza cada clasificación como evidencia independiente."
+        action={(
+          <button
+            type="button"
+            className={mostrarForm ? 'secondary' : 'primary'}
+            disabled={createStudy.isPending}
+            onClick={() => setMostrarForm((visible) => !visible)}
+          >
+            {mostrarForm ? 'Cancelar' : '+ Nuevo Card Sorting'}
+          </button>
+        )}
       />
 
-      <details className="cs-create-disclosure">
-        <summary>Nuevo estudio</summary>
-      <section className="sort-layout">
-        <article className="panel sort-board">
-          <div className="panel-head">
-            <div>
-              <h2>Configurar tarjetas y categorías</h2>
-            </div>
-          </div>
+      {mostrarForm && (
+        <form onSubmit={handleSubmit} className="entity-card form cs-study-form" noValidate>
+          <h3>Nuevo Card Sorting</h3>
 
-          <form onSubmit={handleSubmit} className="form-grid cs-study-form" noValidate>
-            <PasosTecnica pasos={pasos} acciones={(
-              <button type="submit" className="primary" disabled={createStudy.isPending}>
-                {createStudy.isPending ? 'Creando estudio…' : 'Crear y abrir el workspace →'}
-              </button>
-            )} />
+          <TechniqueProcess
+            title="Proceso del estudio"
+            textoListo="Estudio completo: ya puedes crearlo"
+            steps={steps}
+          />
 
-            {formError && <p id="cs-configuration-error" role="alert" className="error-text">{formError}</p>}
+          <PasosTecnica pasos={pasos} acciones={(
+            <button type="submit" className="primary" disabled={createStudy.isPending}>
+              {createStudy.isPending ? 'Creando estudio…' : 'Crear y abrir el workspace →'}
+            </button>
+          )} />
 
-            {createStudy.error && (
-              <p role="alert" className="error-text">{createStudy.error.message}</p>
-            )}
+          {formError && <p id="cs-configuration-error" role="alert" className="error-text">{formError}</p>}
 
-          </form>
-        </article>
-
-        <div className="cs-side">
-          <CardSortingProgress steps={steps} problem={problem} />
-        </div>
-      </section>
-      </details>
+          {createStudy.error && (
+            <p role="alert" className="error-text">{createStudy.error.message}</p>
+          )}
+        </form>
+      )}
 
       <details className="panel cs-guide-box technique-instructions">
         <summary><h2>Cómo hacer un card sorting</h2></summary>
