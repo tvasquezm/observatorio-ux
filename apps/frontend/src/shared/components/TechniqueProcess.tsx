@@ -25,6 +25,8 @@ export function TechniqueProcess({
   const currentIndex = steps.findIndex((step) => !step.done);
   const listo = steps.length > 0 && done === steps.length;
 
+  const actual = currentIndex >= 0 ? steps[currentIndex] : null;
+
   return (
     <section
       className={`tv-process${compact ? ' tv-process--compact' : ''}${listo ? ' tv-process--listo' : ''}`}
@@ -34,10 +36,14 @@ export function TechniqueProcess({
         <AnilloAvance hecho={done} total={steps.length} tamano={compact ? 44 : 56} />
         <div className="tv-process-titulo">
           <span className="kicker">{title}</span>
-          {currentIndex >= 0 && (
-            <p className="tv-process-ahora">
-              Ahora: <strong>{steps[currentIndex].label}</strong>
-            </p>
+          {actual && (
+            <div key={actual.id} className="tv-process-fase">
+              <p className="tv-process-fase-n">
+                Fase {currentIndex + 1} de {steps.length}
+              </p>
+              <strong className="tv-process-fase-nombre">{actual.label}</strong>
+              {actual.detail && <small className="tv-process-fase-detalle">{actual.detail}</small>}
+            </div>
           )}
           <p className="tv-process-estado" role="status">
             {listo && (
@@ -48,23 +54,13 @@ export function TechniqueProcess({
           </p>
         </div>
       </div>
-      <ol className="tv-process-steps">
+      <ol className="tv-process-steps sr-only">
         {steps.map((step, index) => {
           const state = step.done ? 'done' : index === currentIndex ? 'current' : 'todo';
           return (
-            <li
-              key={step.id}
-              className={`tv-step tv-step--${state}`}
-              aria-current={state === 'current' ? 'step' : undefined}
-            >
-              <span className="tv-step-mark" aria-hidden="true">
-                {step.done ? <Icon name="check" size={13} /> : index + 1}
-              </span>
-              <span className="tv-step-text">
-                <strong>{step.label}</strong>
-                {step.detail && <small>{step.detail}</small>}
-              </span>
-              <span className="sr-only">{step.done ? 'Completo' : 'Pendiente'}</span>
+            <li key={step.id} aria-current={state === 'current' ? 'step' : undefined}>
+              {step.label}
+              {step.detail ? `: ${step.detail}` : ''}. {step.done ? 'Completo' : 'Pendiente'}
             </li>
           );
         })}

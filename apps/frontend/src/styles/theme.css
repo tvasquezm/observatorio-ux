@@ -816,24 +816,17 @@ button { cursor: pointer; }
 .cs-results .cs-kpi-help { display: flex; align-items: center; gap: 6px; }
 /* ---------- Técnicas: visualización (prefijo tv-) ---------- */
 .tv-process { margin: 0 0 16px; padding: 16px 18px 18px; border-radius: 14px; background: linear-gradient(135deg, var(--navy), var(--navy-2)); color: #fff; box-shadow: var(--shadow); }
-.tv-process-head { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+.tv-process-head { display: flex; align-items: center; gap: 14px; }
 .tv-process-titulo { display: grid; gap: 2px; min-width: 0; }
-.tv-process-ahora, .tv-process-estado { margin: 0; color: #fff; font-size: 13px; }
+.tv-process-estado { margin: 0; color: #fff; font-size: 13px; }
 .tv-process-estado:empty { display: none; }
 .tv-process-estado { display: flex; align-items: center; gap: 6px; color: var(--mint); font-weight: 800; }
 .tv-process .kicker { color: var(--mint); }
-.tv-process-steps { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(138px, 1fr); gap: 0; margin: 0; padding: 0 0 2px; overflow-x: auto; list-style: none; }
-.tv-step { position: relative; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 9px; align-items: start; padding-right: 14px; }
-.tv-step:not(:last-child)::after { content: ''; position: absolute; top: 13px; left: 36px; right: 6px; height: 2px; background: rgba(255, 255, 255, .22); }
-.tv-step--done:not(:last-child)::after { background: var(--mint); }
-.tv-step-mark { position: relative; z-index: 1; display: grid; place-items: center; width: 28px; height: 28px; border: 2px solid rgba(255, 255, 255, .45); border-radius: 999px; background: var(--navy-2); color: rgba(255, 255, 255, .85); font-size: 12px; font-weight: 800; }
-.tv-step--done .tv-step-mark { border-color: var(--mint); background: var(--mint); color: var(--navy); }
-.tv-step--current .tv-step-mark { border-color: #fff; background: #fff; color: var(--navy); box-shadow: 0 0 0 4px rgba(255, 255, 255, .2); }
-.tv-step-text { display: grid; gap: 2px; min-width: 0; }
-.tv-step-text strong { color: #fff; font-size: 12px; line-height: 1.3; }
-.tv-step-text small { color: rgba(255, 255, 255, .78); font-size: 12px; line-height: 1.35; }
-.tv-step--todo .tv-step-text strong { color: rgba(255, 255, 255, .8); }
-.tv-process:not(.tv-process--compact) .tv-step:not(.tv-step--current) .tv-step-text small { display: none; }
+.tv-process-fase { display: grid; gap: 2px; min-width: 0; animation: tv-fase-in .3s ease-out both; }
+.tv-process-fase-n { margin: 0; color: rgba(255, 255, 255, .78); font-size: 12px; font-weight: 700; letter-spacing: .02em; }
+.tv-process-fase-nombre { color: #fff; font-size: 18px; line-height: 1.25; }
+.tv-process-fase-detalle { color: rgba(255, 255, 255, .85); font-size: 13px; line-height: 1.4; }
+@keyframes tv-fase-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .tv-process--listo { box-shadow: var(--shadow), inset 0 0 0 1px color-mix(in srgb, var(--mint) 60%, transparent); }
 .tv-anillo { position: relative; display: inline-grid; flex: none; place-items: center; color: var(--ink); }
 .tv-anillo svg { display: block; width: 100%; height: 100%; }
@@ -1823,9 +1816,7 @@ button { cursor: pointer; }
 }
 /* ---------- Técnicas: ficha de Persona (prefijo tv-) ---------- */
 .tv-process--compact { padding: 14px 16px; }
-.tv-process--compact .tv-process-steps { grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px 14px; overflow: visible; }
-.tv-process--compact .tv-step { padding-right: 0; }
-.tv-process--compact .tv-step::after { display: none; }
+.tv-process--compact .tv-process-fase-nombre { font-size: 16px; }
 .tv-avatar--lg { width: 56px; height: 56px; border-radius: 14px; font-size: 20px; }
 .tv-persona { display: grid; gap: 16px; }
 .tv-persona-head { display: flex; align-items: center; gap: 14px; }
@@ -2498,7 +2489,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .personas-page > .technique-instructions > ol { margin: 6px 0 10px; font-size: 14px; line-height: 1.6; }
 .persona-profile-identity p, .persona-profile-about, .persona-detail-grid :is(dt, dd), .persona-profile .text-muted-xs { font-size: 14px; }
 .persona-profile-details .tv-process { border: 1px solid var(--line); border-radius: 8px; background: var(--surface-alt); color: var(--ink); box-shadow: none; }
-.persona-profile-details .tv-process :is(.kicker, .tv-process-ahora, .tv-step-text strong) { color: var(--ink); font-size: 13px; }
+.persona-profile-details .tv-process :is(.kicker, .tv-process-fase-n, .tv-process-fase-nombre) { color: var(--ink); font-size: 13px; }
 .persona-profile-details .tv-process .tv-anillo { color: var(--ink); }
 .persona-profile-details .tv-process .tv-anillo-pista { stroke: var(--line); }
 .persona-profile-details .tv-process .tv-anillo-arco { stroke: var(--teal); }
@@ -2506,10 +2497,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .persona-profile-details .tv-process .tv-anillo-check { stroke: var(--positive-text); }
 .persona-profile-details .tv-process--listo { border-color: var(--positive-text); background: color-mix(in srgb, var(--mint) 16%, var(--surface)); }
 .persona-profile-details .tv-process-estado { color: var(--positive-text); }
-.persona-profile-details .tv-step-text small { color: var(--muted); font-size: 13px; line-height: 1.5; }
-.persona-profile-details .tv-step-mark { border-color: var(--line); background: var(--surface); color: var(--muted); }
-.persona-profile-details .tv-step--done .tv-step-mark { border-color: var(--teal); background: var(--teal-soft); color: var(--teal); }
-.persona-profile-details .tv-step--current .tv-step-mark { border-color: var(--teal); color: var(--ink); box-shadow: none; }
+.persona-profile-details .tv-process .tv-process-fase-detalle { color: var(--muted); line-height: 1.5; }
 .project-breadcrumb :is(a, span) { overflow-wrap: anywhere; }
 .project-section :is(h1, h2), #project-title { scroll-margin-top: 20px; }
 .project-section :is(h1, h2):focus-visible, #project-title:focus-visible,

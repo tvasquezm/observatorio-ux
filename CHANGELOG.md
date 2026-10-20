@@ -14,7 +14,7 @@ All notable changes to this project will be documented in this file. See [commit
   plegadas y la lista y el resumen se ocultan mientras se edita.
 * **tecnicas:** el avance de las técnicas se muestra como un círculo que se llena y se anima al
   completarse; cuando todos los pasos están hechos, el proceso avisa que la técnica está completa
-  y lista para usar. La evaluación heurística usa el mismo círculo en Revisar y en el progreso del equipo.
+  y lista para usar. El proceso muestra solo la fase actual ("Fase n de N") y cambia a la siguiente al avanzar. La evaluación heurística usa el mismo círculo en Revisar y en el progreso del equipo.
 * **evaluacion-heuristica:** simplifica el módulo existente con configuración compacta,
   respuestas visibles, mapa de preguntas y resumen del equipo.
   Permite comenzar la revisión directamente
