@@ -27,9 +27,10 @@ export function TechniqueProcess({
 }: Props) {
   const obligatorios = steps.filter((step) => !step.opcional);
   const hechos = obligatorios.filter((step) => step.done).length;
-  const currentIndex = steps.findIndex((step) => !step.done);
+  const obligatoriaPendiente = steps.findIndex((step) => !step.done && !step.opcional);
+  const currentIndex = obligatoriaPendiente >= 0 ? obligatoriaPendiente : steps.findIndex((step) => !step.done);
   const listo = steps.length > 0 && hechos === obligatorios.length;
-  const faltantes = steps.filter((step) => step.opcional && !step.done);
+  const faltantes = steps.filter((step) => !step.done);
 
   const actual = currentIndex >= 0 ? steps[currentIndex] : null;
 
@@ -63,7 +64,7 @@ export function TechniqueProcess({
                 </>
               )}
             </p>
-            {listo && faltantes.length > 0 && <FasesFaltantes faltantes={faltantes} />}
+            {faltantes.length > 0 && <FasesFaltantes faltantes={faltantes} />}
           </div>
         </div>
       </div>
@@ -90,6 +91,9 @@ function FasesFaltantes({ faltantes }: { faltantes: ProcessStep[] }) {
   const [encima, setEncima] = useState(false);
   const [foco, setFoco] = useState(false);
   const visible = abierto || encima || foco;
+  const uno = faltantes.length === 1;
+  const todasOpcionales = faltantes.every((fase) => fase.opcional);
+  const nombreBoton = `Faltan ${faltantes.length} ${uno ? 'fase' : 'fases'}${todasOpcionales ? (uno ? ' opcional' : ' opcionales') : ''}`;
 
   useEffect(() => {
     if (!visible) return;
@@ -139,7 +143,7 @@ function FasesFaltantes({ faltantes }: { faltantes: ProcessStep[] }) {
         className="tv-faltan-boton"
         aria-expanded={visible}
         aria-controls={id}
-        aria-label={`Faltan ${faltantes.length} ${faltantes.length === 1 ? 'fase opcional' : 'fases opcionales'}`}
+        aria-label={nombreBoton}
         onClick={alternar}
         onFocus={alEnfocar}
         onBlur={() => setFoco(false)}
@@ -148,11 +152,16 @@ function FasesFaltantes({ faltantes }: { faltantes: ProcessStep[] }) {
       </button>
       {visible && (
         <div id={id} className="tv-faltan-cuadro">
-          <strong>Fases opcionales que faltan</strong>
+          <strong>Fases que faltan</strong>
           <ul>
             {faltantes.map((fase) => (
               <li key={fase.id}>
-                <span>{fase.label}</span>
+                <span>
+                  {fase.label}
+                  <em className={`tv-faltan-marca${fase.opcional ? '' : ' tv-faltan-marca--obligatoria'}`}>
+                    {fase.opcional ? 'Opcional' : 'Obligatoria'}
+                  </em>
+                </span>
                 {fase.detail && <small>{fase.detail}</small>}
               </li>
             ))}

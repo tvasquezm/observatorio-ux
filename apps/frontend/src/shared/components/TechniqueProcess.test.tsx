@@ -75,28 +75,43 @@ describe('TechniqueProcess', () => {
     it('no marca opcional una fase obligatoria', () => {
       render(<TechniqueProcess steps={steps} />);
       expect(screen.queryByText('Opcional')).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /Faltan/ })).not.toBeInTheDocument();
+    });
+
+    it('prioriza la fase obligatoria pendiente sobre una opcional anterior', () => {
+      render(<TechniqueProcess steps={conOpcionales.map((s) => (s.id === 'c' ? { ...s, done: false } : s))} />);
+      expect(screen.getByText('Fase 3 de 4')).toBeInTheDocument();
+      expect(screen.queryByText('Opcional')).not.toBeInTheDocument();
+      expect(screen.getByRole('img', { name: '1 de 2' })).toBeInTheDocument();
+    });
+
+    it('ofrece el cuadro con la técnica sin terminar y distingue obligatorias de opcionales', () => {
+      render(<TechniqueProcess steps={conOpcionales.map((s) => (s.id === 'c' ? { ...s, done: false } : s))} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Faltan 3 fases' }));
+      const cuadro = screen.getByText('Fases que faltan').parentElement!;
+      expect(cuadro).toHaveTextContent('FasesObligatoria');
+      expect(cuadro).toHaveTextContent('ObjetivoOpcional');
+      expect(cuadro).toHaveTextContent('EvidenciaOpcional');
     });
 
     it('muestra al tocar un cuadro con las fases opcionales que faltan y se cierra', () => {
       render(<TechniqueProcess steps={conOpcionales} />);
       const boton = screen.getByRole('button', { name: 'Faltan 2 fases opcionales' });
       expect(boton).toHaveAttribute('aria-expanded', 'false');
-      expect(screen.queryByText('Fases opcionales que faltan')).not.toBeInTheDocument();
+      expect(screen.queryByText('Fases que faltan')).not.toBeInTheDocument();
       fireEvent.click(boton);
       expect(boton).toHaveAttribute('aria-expanded', 'true');
-      const cuadro = screen.getByText('Fases opcionales que faltan').parentElement!;
+      const cuadro = screen.getByText('Fases que faltan').parentElement!;
       expect(cuadro).toHaveTextContent('Objetivo');
       expect(cuadro).toHaveTextContent('Evidencia');
       expect(cuadro).not.toHaveTextContent('Perfil');
       fireEvent.keyDown(document, { key: 'Escape' });
-      expect(screen.queryByText('Fases opcionales que faltan')).not.toBeInTheDocument();
+      expect(screen.queryByText('Fases que faltan')).not.toBeInTheDocument();
       fireEvent.click(boton);
       fireEvent.click(boton);
-      expect(screen.queryByText('Fases opcionales que faltan')).not.toBeInTheDocument();
+      expect(screen.queryByText('Fases que faltan')).not.toBeInTheDocument();
       fireEvent.click(boton);
       fireEvent.pointerDown(document.body);
-      expect(screen.queryByText('Fases opcionales que faltan')).not.toBeInTheDocument();
+      expect(screen.queryByText('Fases que faltan')).not.toBeInTheDocument();
     });
 
     it('lo muestra al pasar el mouse y lo oculta al salir', () => {
@@ -108,18 +123,14 @@ describe('TechniqueProcess', () => {
         fireEvent(contenedor, evento);
       };
       puntero('pointerover');
-      expect(screen.getByText('Fases opcionales que faltan')).toBeInTheDocument();
+      expect(screen.getByText('Fases que faltan')).toBeInTheDocument();
       puntero('pointerout');
-      expect(screen.queryByText('Fases opcionales que faltan')).not.toBeInTheDocument();
+      expect(screen.queryByText('Fases que faltan')).not.toBeInTheDocument();
     });
 
-    it('no ofrece el cuadro si la técnica aún no está lista o no falta nada', () => {
-      const { rerender } = render(
-        <TechniqueProcess steps={conOpcionales.map((s) => (s.id === 'c' ? { ...s, done: false } : s))} />,
-      );
-      expect(screen.queryByRole('button', { name: /Faltan/ })).not.toBeInTheDocument();
-      rerender(<TechniqueProcess steps={conOpcionales.map((s) => ({ ...s, done: true }))} />);
-      expect(screen.queryByRole('button', { name: /Faltan/ })).not.toBeInTheDocument();
+    it('no ofrece el cuadro cuando no falta ninguna fase', () => {
+      render(<TechniqueProcess steps={conOpcionales.map((s) => ({ ...s, done: true }))} />);
+      expect(screen.queryByRole('button', { name: /Falta/ })).not.toBeInTheDocument();
     });
   });
 
