@@ -147,8 +147,8 @@ limitación de origen.
 
 - ✅ `/api/projects/*` y `/api/projects/:proyectoId/artifacts/*` — **inglés**,
   consolidado (el alias en español se eliminó).
-- ✅ `/api/projects/:proyectoId/evaluacion-heuristica/sesiones/*` — **inglés**,
-  unificado con el resto de la API.
+- ✅ `/api/projects/:proyectoId/evaluacion-heuristica/evaluaciones/*` — flujo nuevo de la
+  evaluación heurística (las rutas antiguas `/sesiones/*` y `/analytics` se eliminaron).
 
 ## 7. Estilo — `theme.css`
 

@@ -6,6 +6,9 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **evaluacion-heuristica:** se elimina del front la evaluación heurística antigua (pantalla de sesiones, hallazgos
+  y capturas) y el botón «Evaluaciones anteriores». Los reportes PDF y la analítica del proyecto ahora leen las
+  evaluaciones del flujo nuevo: cuentan solo los problemas acordados de la versión más reciente de cada evaluación.
 * **evaluacion-heuristica:** se elimina del backend la evaluación heurística antigua (sesiones): rutas
   `/evaluacion-heuristica/sesiones/*` y `/evaluacion-heuristica/analytics`, con su servicio, controladores y tests. La única
   evaluación heurística es el flujo nuevo. Los datos antiguos no se borran de la base de datos.

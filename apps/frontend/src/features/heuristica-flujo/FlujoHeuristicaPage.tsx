@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useBlocker, useOutletContext, useSearchParams } from 'react-router-dom';
+import { useBlocker, useOutletContext } from 'react-router-dom';
 import { copiarMetodologia } from '@observatorio-ux/shared-types';
 import type { ConfiguracionFlujo, EvaluacionFlujo, MetodologiaFlujo, MiembroEquipoFlujo } from '@observatorio-ux/shared-types';
 import type { ProjectOutletContext } from '../../layouts/ProjectDetailLayout';
@@ -83,7 +83,6 @@ function ConfiguracionSesion({ evaluacion, usuarioId, biblioteca, equipo, onSave
 export function FlujoHeuristicaPage() {
   const { proyectoId } = useOutletContext<ProjectOutletContext>();
   const usuarioId = useAuthStore(s => s.user?.id ?? '');
-  const [, setSearch] = useSearchParams();
   const client = useQueryClient();
   const claveSel = `heuristica:sel:${usuarioId}:${proyectoId}`;
   const [selected, setSeleccionado] = useState<string | null>(() => leerSesion(claveSel));
@@ -122,7 +121,6 @@ export function FlujoHeuristicaPage() {
       <label className="field">Buscar producto<input value={producto} onChange={e => setProducto(e.target.value)} /></label>
       <div className="hf-table"><table><thead><tr><th>Revisión</th><th>Estado</th><th>Acción</th></tr></thead><tbody>{(history.data ?? []).filter(e => `${e.configuracion.producto.nombre} ${e.configuracion.nombre}`.toLocaleLowerCase().includes(producto.toLocaleLowerCase())).map(e => <tr key={e.id}><td>{e.configuracion.nombre || e.configuracion.producto.nombre}</td><td>{({ BORRADOR: 'Por preparar', EN_EVALUACION: 'En revisión', PENDIENTE_CONSENSO: 'Acuerdo del equipo', CONSOLIDADA: 'Informe preparado', FINALIZADA: 'Terminada' })[e.fase]}</td><td><button type="button" className="secondary" onClick={() => setSelected(e.id)}>Abrir {e.configuracion.nombre || 'revisión'}</button></td></tr>)}</tbody></table></div>
       {history.data?.length === 0 && <p>Aún no hay revisiones guardadas.</p>}
-      <button type="button" className="secondary" onClick={() => setSearch({ anteriores: '1' })}>Evaluaciones anteriores (sesiones)</button>
     </details>
   </>;
   const instrucciones = ['Indica el producto o sitio que vas a revisar y elige una metodología.', 'Responde cada pregunta y anota los problemas que veas, con una captura si ayuda.', 'Entrega tu revisión. Si trabajan en equipo, acuerden las respuestas juntos.', 'Prepara el informe y descárgalo en PDF.'];
