@@ -4,9 +4,9 @@ import { createMemoryRouter, Outlet, RouterProvider } from 'react-router-dom';
 import { JourneyMapPage } from '../JourneyMapPage';
 import type { JourneyMapContenido } from '../../features/journey-map/api/journey-map.api';
 
-const state = vi.hoisted(() => ({ create: vi.fn() }));
+const state = vi.hoisted(() => ({ create: vi.fn(), list: vi.fn() }));
 vi.mock('../../features/journey-map/hooks/useJourneyMapQueries', () => ({
-  useJourneys: () => ({ data: [], isLoading: false, isError: false, error: null }),
+  useJourneys: () => ({ data: state.list(), isLoading: false, isError: false, error: null }),
   useCreateJourney: () => ({ mutate: state.create, isPending: false, error: null }),
 }));
 vi.mock('../../features/auth/store/useAuthStore', () => ({
@@ -17,6 +17,7 @@ vi.mock('../../features/projects/hooks/useProjectsQueries', () => ({ useProject:
 
 beforeEach(() => {
   vi.clearAllMocks();
+  state.list.mockReturnValue([]);
   state.create.mockImplementation((_payload: JourneyMapContenido, options: { onSuccess: () => void }) => options.onSuccess());
 });
 
@@ -82,5 +83,46 @@ describe('Journey Map — creación', () => {
     fireEvent.change(screen.getByLabelText('Nombre del perfil de usuario'), { target: { value: 'Ana' } });
     fireEvent.change(screen.getByLabelText('Rol del usuario'), { target: { value: 'Solicitante' } });
     expect(screen.getByRole('img', { name: '2 de 4' })).toBeInTheDocument();
+  });
+});
+
+const FASE = { nombre: 'Descubrimiento', actividades: [], touchpoints: [], pensamientos: [], emocion: 'Neutral', dificultades: [], ganancias: [], oportunidades: [] };
+const journey = {
+  id: 'j1', version: 1,
+  contenido: {
+    perfilUsuario: { id: 'u1', nombre: 'Ana Pérez', rol: 'Solicitante' },
+    objetivo: 'Renovar un préstamo', eventoInicio: 'Recibe un aviso', evidencia: [],
+    fases: [FASE, { ...FASE, nombre: 'Consideración' }, { ...FASE, nombre: 'Decisión' }],
+  },
+} as never;
+
+describe('Journey Map — esqueleto estándar', () => {
+  it('pone el botón primario de nuevo en la cabecera y no repite el título', () => {
+    mostrar();
+    const nuevo = screen.getByRole('button', { name: '+ Nuevo Journey Map' });
+    expect(nuevo).toHaveClass('primary');
+    expect(nuevo.closest('.page-head')).not.toBeNull();
+    expect(nuevo.closest('.panel-head')).toBeNull();
+    expect(screen.getAllByRole('heading', { name: 'Journey Maps' })).toHaveLength(1);
+    expect(screen.queryByText('Artefactos versionados')).toBeNull();
+  });
+
+  it('con el formulario abierto el botón pasa a Cancelar secundario y el proceso queda a nivel de página', () => {
+    mostrar();
+    fireEvent.click(screen.getByRole('button', { name: '+ Nuevo Journey Map' }));
+    const cancelar = screen.getByRole('button', { name: 'Cancelar' });
+    expect(cancelar).toHaveClass('secondary');
+    expect(cancelar.closest('.page-head')).not.toBeNull();
+    const proceso = screen.getByRole('region', { name: 'Proceso del Journey Map' });
+    expect(proceso.closest('form')).toBeNull();
+    expect(screen.getAllByRole('region', { name: 'Proceso del Journey Map' })).toHaveLength(1);
+  });
+
+  it('oculta la lista mientras el formulario está abierto', () => {
+    state.list.mockReturnValue([journey]);
+    mostrar();
+    expect(screen.getByText('Ana Pérez')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '+ Nuevo Journey Map' }));
+    expect(screen.queryByText('Ana Pérez')).toBeNull();
   });
 });
