@@ -20,7 +20,7 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
   const nombreCriterio = (id: string) => config.metodologia.criterios.find(c => c.id === id)?.nombre ?? id;
   const valorCriterio = (r: typeof consenso.criterios[number]) => {
     const criterio = config.metodologia.criterios.find(c => c.id === r.criterioId);
-    return r.noAplica ? `No aplica: ${r.motivo}` : (criterio ? escalaDe(config.metodologia, criterio) : config.metodologia.escala).niveles.find(n => n.id === r.valor)?.etiqueta ?? 'Pendiente';
+    return r.noAplica ? `No aplica${r.motivo ? `: ${r.motivo}` : ''}` : (criterio ? escalaDe(config.metodologia, criterio) : config.metodologia.escala).niveles.find(n => n.id === r.valor)?.etiqueta ?? 'Pendiente';
   };
   const escalasPropias = [...new Map(config.metodologia.criterios.filter(c => c.escala).map(c => [JSON.stringify(c.escala), c.escala!] as const)).values()];
   const imagenes: Record<string, string> = {};
@@ -67,7 +67,7 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
         table(['Respuesta', 'Significado', 'Valor'], e.niveles.map(n => [n.etiqueta, n.significado, n.valor ?? 'Sin puntaje']), [100, '*', 70]),
       ]),
       titulo('Cobertura y resultados'),
-      table(['Criterios evaluados', 'No aplica justificado', 'Pendientes', 'Problemas únicos'], [[resumen.evaluados, resumen.noAplica, resumen.pendientes, resumen.totalHallazgos]]),
+      table(['Criterios evaluados', 'No aplica', 'Pendientes', 'Problemas únicos'], [[resumen.evaluados, resumen.noAplica, resumen.pendientes, resumen.totalHallazgos]]),
       table([resumen.porEscala.length ? 'Valoración (escala de la metodología)' : 'Valoración del criterio', 'Cantidad'], resumen.porCategoria.map(n => [n.etiqueta, n.count]), ['*', 90]),
       ...resumen.porEscala.map(g => table([`Valoración (escala propia: ${g.fuente})`, 'Cantidad'], g.distribucion.map(n => [n.etiqueta, n.count]), ['*', 90])),
       table(['Severidad del problema', 'Cantidad'], SEVERIDADES.map(n => [`${n.valor} · ${n.etiqueta}`, resumen.porSeveridad[n.valor]]), ['*', 90]),
