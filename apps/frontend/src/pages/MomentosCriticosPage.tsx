@@ -221,7 +221,6 @@ export function MomentosCriticosPage() {
           'Impacto: alto si impide completar una tarea, medio si la dificulta y bajo si causa una molestia menor. Frecuencia: alta si ocurre habitualmente, media si se repite ocasionalmente y baja si es excepcional. Sustenta estos niveles con tu evidencia.',
           'La prioridad orientativa de problemas multiplica impacto y frecuencia (1 a 3): alta desde 6, media entre 3 y 4, baja entre 1 y 2. Las experiencias positivas se muestran como oportunidades de refuerzo. Esta escala no sustituye el análisis cualitativo.',
         ]}
-        instructionsInitiallyOpen={false}
       />
       {listado && (
         <TechniqueProcess
