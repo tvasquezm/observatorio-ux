@@ -84,6 +84,13 @@ function abrirNuevo() {
   renderPage();
   fireEvent.click(screen.getByRole('button', { name: '+ Nuevo momento crítico' }));
 }
+function siguiente(veces: number) {
+  for (let i = 0; i < veces; i++) fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+}
+function llenarPerfil() {
+  fireEvent.change(screen.getByLabelText('Nombre del perfil de usuario'), { target: { value: 'Ana' } });
+  fireEvent.change(screen.getByLabelText('Rol'), { target: { value: 'Compradora' } });
+}
 beforeEach(() => {
   vi.clearAllMocks();
   state.role = 'ESTUDIANTE';
@@ -97,12 +104,13 @@ beforeEach(() => {
 describe('Momentos críticos', () => {
   it('valida todos los campos con el mismo contrato que la API y conserva el borrador', () => {
     abrirNuevo();
-    fireEvent.change(screen.getByLabelText('Nombre del perfil de usuario'), { target: { value: '  ' } });
+    llenarPerfil();
     fireEvent.change(screen.getByLabelText('Nombre del incidente 1'), { target: { value: 'Pago' } });
+    siguiente(4);
     fireEvent.click(screen.getByRole('button', { name: 'Guardar momento crítico' }));
     expect(state.create).not.toHaveBeenCalled();
     expect(screen.getByRole('alert')).toHaveTextContent(/descripción.*vacía/i);
-    expect(screen.getByLabelText('Nombre del perfil de usuario')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText('Descripción incidente 1')).toHaveAttribute('aria-invalid', 'true');
     expect(screen.getByLabelText('Nombre del incidente 1')).toHaveValue('Pago');
     const completo = MomentosCriticosSchema.parse(contenido);
     for (const campo of ['nombre', 'descripcion', 'causa', 'accionesSugeridas'] as const) {
@@ -120,6 +128,7 @@ describe('Momentos críticos', () => {
     state.list.mockReturnValue([momento]);
     renderPage();
     fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+    siguiente(4);
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Actualizar momento crítico' })).not.toBeDisabled(),
     );
@@ -161,6 +170,7 @@ describe('Momentos críticos', () => {
   });
   it('no permite quitar el último incidente y mantiene alineadas sus acciones', () => {
     abrirNuevo();
+    siguiente(1);
     expect(screen.getByRole('button', { name: 'Quitar incidente' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: '+ Agregar incidente' }));
     fireEvent.change(screen.getByLabelText('Acciones sugeridas incidente 2'), {
@@ -209,6 +219,36 @@ describe('Momentos críticos', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
     await waitFor(() => expect(screen.queryByLabelText('Nombre del incidente 1')).not.toBeInTheDocument());
     expect(state.release).toHaveBeenCalled();
+  });
+  it('no permite guardar sin nombre y rol del perfil y explica el motivo', () => {
+    abrirNuevo();
+    siguiente(4);
+    expect(screen.getByRole('button', { name: 'Guardar momento crítico' })).toBeDisabled();
+    expect(screen.getByText(/Falta el nombre y el rol del perfil/)).toBeInTheDocument();
+    llenarPerfil();
+    expect(screen.getByRole('button', { name: 'Guardar momento crítico' })).not.toBeDisabled();
+    expect(screen.queryByText(/Falta el nombre y el rol del perfil/)).not.toBeInTheDocument();
+  });
+  it('avisa que el momento crítico está listo solo cuando todos los pasos están completos', () => {
+    abrirNuevo();
+    expect(screen.getByRole('img', { name: '0 de 5' })).toBeInTheDocument();
+    expect(screen.queryByText('Momento crítico completo: ya puedes guardarlo')).not.toBeInTheDocument();
+    llenarPerfil();
+    fireEvent.change(screen.getByLabelText('Nombre del incidente 1'), { target: { value: 'Pago' } });
+    fireEvent.change(screen.getByLabelText('Descripción incidente 1'), { target: { value: 'No avanza' } });
+    fireEvent.change(screen.getByLabelText('Causa incidente 1'), { target: { value: 'Botón oculto' } });
+    expect(screen.queryByText('Momento crítico completo: ya puedes guardarlo')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Acciones sugeridas incidente 1'), { target: { value: 'Mostrar el botón' } });
+    expect(screen.getByRole('img', { name: '5 de 5, completo' })).toBeInTheDocument();
+    expect(screen.getByText('Momento crítico completo: ya puedes guardarlo')).toBeInTheDocument();
+  });
+  it('mientras el formulario está abierto oculta la lista y el resumen', () => {
+    state.list.mockReturnValue([momento]);
+    renderPage();
+    expect(screen.getByRole('region', { name: 'Resumen de incidentes' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '+ Nuevo momento crítico' }));
+    expect(screen.queryByRole('region', { name: 'Resumen de incidentes' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Ver causa y acciones')).not.toBeInTheDocument();
   });
   it('mantiene el borrador ante errores de guardado', () => {
     state.error = new Error('Sin conexión');

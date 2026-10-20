@@ -27,6 +27,7 @@ import { useProject } from '../features/projects/hooks/useProjectsQueries';
 import { useArtifactEditLock } from '../shared/hooks/useArtifactEditLock';
 import { useUnsavedChanges } from '../shared/hooks/useUnsavedChanges';
 import { TechniqueProcess } from '../shared/components/TechniqueProcess';
+import { PasosTecnica } from '../shared/components/PasosTecnica';
 import {
   IncidentMeters,
   MomentosDistribucion,
@@ -181,6 +182,33 @@ export function MomentosCriticosPage() {
       .includes(busqueda.trim().toLocaleLowerCase('es'));
   const filtrados = todos.filter((inc) => coincide(inc, inc.perfilNombre));
   const error = listError ?? createError ?? updateError ?? deleteError;
+  const enFormulario = puedeEditar && mostrarForm;
+  const listado = !isLoading && !isListError && !enFormulario;
+  const perfilCompleto = form.perfilUsuario.nombre.trim() !== '' && form.perfilUsuario.rol.trim() !== '';
+  const incidentesEnVivo = form.incidentes
+    .map((inc, i) => ({
+      ...inc,
+      accionesSugeridas: (accionesInputs[i] ?? '')
+        .split(/\r?\n/)
+        .map((s) => s.trim())
+        .filter(Boolean),
+    }))
+    .filter((inc) => inc.nombre.trim() !== '' && inc.descripcion.trim() !== '');
+  const campos = (contenido: React.ReactNode) => (
+    <fieldset disabled={disabled} className="readonly-fieldset">
+      {contenido}
+    </fieldset>
+  );
+  const porIncidente = (render: (inc: IncidenteCritico, i: number) => React.ReactNode) =>
+    form.incidentes.map((inc, i) => (
+      <div key={i} className="mini-card mc-incident-form">
+        <h5>
+          Incidente {i + 1}
+          {inc.nombre.trim() ? `: ${inc.nombre.trim()}` : ''}
+        </h5>
+        {render(inc, i)}
+      </div>
+    ));
 
   return (
     <div className="artifact-page mc-page">
@@ -188,28 +216,21 @@ export function MomentosCriticosPage() {
         label="TÉCNICA DE INVESTIGACIÓN"
         title="Momentos críticos"
         description="Documenta lo que ocurre, comprende sus causas y decide qué mejorar o reforzar."
+        instructions={[
+          'Describe una situación concreta observada o relatada por un usuario: identifica su perfil, qué ocurrió, la causa y una acción. Si la causa es una hipótesis, indícalo expresamente.',
+          'Impacto: alto si impide completar una tarea, medio si la dificulta y bajo si causa una molestia menor. Frecuencia: alta si ocurre habitualmente, media si se repite ocasionalmente y baja si es excepcional. Sustenta estos niveles con tu evidencia.',
+          'La prioridad orientativa de problemas multiplica impacto y frecuencia (1 a 3): alta desde 6, media entre 3 y 4, baja entre 1 y 2. Las experiencias positivas se muestran como oportunidades de refuerzo. Esta escala no sustituye el análisis cualitativo.',
+        ]}
+        instructionsInitiallyOpen={false}
       />
-      {!isLoading && !isListError && (
-        <TechniqueProcess title="Proceso de momentos críticos" steps={procesoMomentos(momentos.length, todos)} />
+      {listado && (
+        <TechniqueProcess
+          title="Proceso de momentos críticos"
+          textoListo="Momentos críticos completos y listos para usar"
+          steps={procesoMomentos(momentos.length, todos)}
+        />
       )}
-      <details className="panel mc-guide technique-instructions" open>
-        <summary>Cómo registrar y priorizar un momento crítico</summary>
-        <p>
-          Describe una situación concreta observada o relatada por un usuario. Identifica su perfil, qué
-          ocurrió, la causa y una acción. Si la causa es una hipótesis, indícalo expresamente.
-        </p>
-        <p>
-          Impacto: alto si impide completar una tarea, medio si la dificulta y bajo si causa una molestia
-          menor. Frecuencia: alta si ocurre habitualmente, media si se repite ocasionalmente y baja si es
-          excepcional. Sustenta estos niveles con tu evidencia.
-        </p>
-        <p>
-          La prioridad orientativa de problemas multiplica impacto y frecuencia (1 a 3): alta desde 6, media
-          entre 3 y 4, baja entre 1 y 2. Las experiencias positivas se muestran como oportunidades de
-          refuerzo. Esta escala no sustituye el análisis cualitativo.
-        </p>
-      </details>
-      {!isLoading && !isListError && (
+      {listado && (
         <section className="analytics-kpis mc-stats" aria-label="Resumen de incidentes">
           <article className="analytics-kpi">
             <span>Incidentes registrados</span>
@@ -227,7 +248,7 @@ export function MomentosCriticosPage() {
           </article>
         </section>
       )}
-      {!isLoading && !isListError && <MomentosDistribucion incidentes={todos} />}
+      {listado && <MomentosDistribucion incidentes={todos} />}
       <section className="panel">
         <div className="panel-head">
           <h2>Incidentes y acciones</h2>
@@ -252,7 +273,7 @@ export function MomentosCriticosPage() {
             )}
           </div>
         </div>
-        {puedeEditar && mostrarForm && (
+        {enFormulario && (
           <form onSubmit={handleSubmit} className="entity-card form mc-form" noValidate>
             <h3>{editando ? 'Editar Momento Crítico' : 'Nuevo Momento Crítico'}</h3>
             {lockPending && <p role="status">Obteniendo permiso de edición…</p>}
@@ -275,146 +296,201 @@ export function MomentosCriticosPage() {
                 </ul>
               </div>
             )}
-            <fieldset disabled={disabled} className="readonly-fieldset">
-              <legend>Perfil de usuario</legend>
-              <div className="form-grid-2">
-                <label className="field">
-                  Nombre del perfil de usuario
-                  <input
-                    {...fieldError('perfilUsuario.nombre')}
-                    value={form.perfilUsuario.nombre}
-                    onChange={(e) =>
-                      setForm({ ...form, perfilUsuario: { ...form.perfilUsuario, nombre: e.target.value } })
-                    }
-                    required
-                  />
-                </label>
-                <label className="field">
-                  Rol
-                  <input
-                    {...fieldError('perfilUsuario.rol')}
-                    placeholder="Ej. Compradora frecuente"
-                    value={form.perfilUsuario.rol}
-                    onChange={(e) =>
-                      setForm({ ...form, perfilUsuario: { ...form.perfilUsuario, rol: e.target.value } })
-                    }
-                    required
-                  />
-                </label>
-              </div>
-              {form.incidentes.map((inc, i) => (
-                <section key={i} className="mini-card mc-incident-form" aria-label={`Incidente ${i + 1}`}>
-                  <div className="row-between">
-                    <h4>Incidente {i + 1}</h4>
-                    <button
-                      type="button"
-                      className="link-btn link-btn--warn"
-                      disabled={form.incidentes.length <= 1}
-                      onClick={() => {
-                        if (form.incidentes.length <= 1) return;
-                        setForm(removeIncidente(form, i));
-                        setAccionesInputs(accionesInputs.filter((_, index) => index !== i));
-                      }}
-                    >
-                      Quitar incidente
-                    </button>
-                  </div>
-                  <label className="field">
-                    Nombre del incidente {i + 1}
-                    <input
-                      {...fieldError(`incidentes.${i}.nombre`)}
-                      value={inc.nombre}
-                      onChange={(e) => actualizarIncidente(i, 'nombre', e.target.value)}
-                      required
-                    />
-                  </label>
-                  <label className="field">
-                    Descripción incidente {i + 1}
-                    <textarea
-                      {...fieldError(`incidentes.${i}.descripcion`)}
-                      placeholder="Qué ocurrió, en qué tarea y qué evidencia lo sustenta"
-                      value={inc.descripcion}
-                      onChange={(e) => actualizarIncidente(i, 'descripcion', e.target.value)}
-                      required
-                    />
-                  </label>
-                  <div className="form-grid-3">
-                    <label className="field">
-                      Tipo incidente {i + 1}
-                      <select
-                        value={inc.tipo}
-                        onChange={(e) => actualizarIncidente(i, 'tipo', e.target.value)}
-                      >
-                        <option>Negativo</option>
-                        <option>Positivo</option>
-                      </select>
-                    </label>
-                    <label className="field">
-                      Impacto incidente {i + 1}
-                      <select
-                        value={inc.impacto}
-                        onChange={(e) => actualizarIncidente(i, 'impacto', e.target.value)}
-                      >
-                        <option>Alto</option>
-                        <option>Medio</option>
-                        <option>Bajo</option>
-                      </select>
-                    </label>
-                    <label className="field">
-                      Frecuencia incidente {i + 1}
-                      <select
-                        value={inc.frecuencia}
-                        onChange={(e) => actualizarIncidente(i, 'frecuencia', e.target.value)}
-                      >
-                        <option>Alta</option>
-                        <option>Media</option>
-                        <option>Baja</option>
-                      </select>
-                    </label>
-                  </div>
-                  <label className="field">
-                    Causa incidente {i + 1}
-                    <textarea
-                      {...fieldError(`incidentes.${i}.causa`)}
-                      placeholder="Causa observada o hipótesis por validar"
-                      value={inc.causa}
-                      onChange={(e) => actualizarIncidente(i, 'causa', e.target.value)}
-                      required
-                    />
-                  </label>
-                  <label className="field">
-                    Acciones sugeridas incidente {i + 1}
-                    <textarea
-                      {...fieldError(`incidentes.${i}.accionesSugeridas`)}
-                      placeholder="Una acción por línea; puedes usar comas dentro de una acción"
-                      value={accionesInputs[i]}
-                      onChange={(e) => actualizarIncidente(i, 'accionesSugeridas', e.target.value)}
-                      required
-                    />
-                  </label>
-                  <small>Una acción concreta por línea.</small>
-                </section>
-              ))}
-              <div className="row-gap">
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() => {
-                    setForm(addIncidente(form, incidenteVacio()));
-                    setAccionesInputs([...accionesInputs, '']);
-                  }}
-                >
-                  + Agregar incidente
-                </button>
-                <button type="submit" className="primary">
-                  {isSaving
-                    ? 'Guardando…'
-                    : editando
-                      ? 'Actualizar momento crítico'
-                      : 'Guardar momento crítico'}
-                </button>
-              </div>
-            </fieldset>
+            <TechniqueProcess
+              title="Proceso de momentos críticos"
+              textoListo="Momento crítico completo: ya puedes guardarlo"
+              steps={procesoMomentos(perfilCompleto ? 1 : 0, incidentesEnVivo)}
+            />
+            <PasosTecnica
+              pasos={[
+                {
+                  id: 'perfil',
+                  titulo: 'Perfil de usuario',
+                  ayuda: 'Define a quién le ocurrió la situación.',
+                  contenido: campos(
+                    <div className="tv-pasos-campos">
+                      <label className="field">
+                        Nombre del perfil de usuario
+                        <input
+                          {...fieldError('perfilUsuario.nombre')}
+                          value={form.perfilUsuario.nombre}
+                          onChange={(e) =>
+                            setForm({ ...form, perfilUsuario: { ...form.perfilUsuario, nombre: e.target.value } })
+                          }
+                          required
+                        />
+                      </label>
+                      <label className="field">
+                        Rol
+                        <input
+                          {...fieldError('perfilUsuario.rol')}
+                          placeholder="Ej. Compradora frecuente"
+                          value={form.perfilUsuario.rol}
+                          onChange={(e) =>
+                            setForm({ ...form, perfilUsuario: { ...form.perfilUsuario, rol: e.target.value } })
+                          }
+                          required
+                        />
+                      </label>
+                    </div>,
+                  ),
+                },
+                {
+                  id: 'incidentes',
+                  titulo: 'Incidentes',
+                  ayuda: 'Describe qué ocurrió, en qué tarea y con qué evidencia. Puedes registrar varios incidentes.',
+                  contenido: campos(
+                    <>
+                      {form.incidentes.map((inc, i) => (
+                        <section key={i} className="mini-card mc-incident-form" aria-label={`Incidente ${i + 1}`}>
+                          <div className="row-between">
+                            <h4>Incidente {i + 1}</h4>
+                            <button
+                              type="button"
+                              className="link-btn link-btn--warn"
+                              disabled={form.incidentes.length <= 1}
+                              onClick={() => {
+                                if (form.incidentes.length <= 1) return;
+                                setForm(removeIncidente(form, i));
+                                setAccionesInputs(accionesInputs.filter((_, index) => index !== i));
+                              }}
+                            >
+                              Quitar incidente
+                            </button>
+                          </div>
+                          <label className="field">
+                            Nombre del incidente {i + 1}
+                            <input
+                              {...fieldError(`incidentes.${i}.nombre`)}
+                              value={inc.nombre}
+                              onChange={(e) => actualizarIncidente(i, 'nombre', e.target.value)}
+                              required
+                            />
+                          </label>
+                          <label className="field">
+                            Descripción incidente {i + 1}
+                            <textarea
+                              {...fieldError(`incidentes.${i}.descripcion`)}
+                              placeholder="Qué ocurrió, en qué tarea y qué evidencia lo sustenta"
+                              value={inc.descripcion}
+                              onChange={(e) => actualizarIncidente(i, 'descripcion', e.target.value)}
+                              required
+                            />
+                          </label>
+                        </section>
+                      ))}
+                      <div className="row-gap">
+                        <button
+                          type="button"
+                          className="secondary"
+                          onClick={() => {
+                            setForm(addIncidente(form, incidenteVacio()));
+                            setAccionesInputs([...accionesInputs, '']);
+                          }}
+                        >
+                          + Agregar incidente
+                        </button>
+                      </div>
+                    </>,
+                  ),
+                },
+                {
+                  id: 'causas',
+                  titulo: 'Causas',
+                  ayuda: 'Explica por qué ocurrió. Si es una hipótesis, indícalo.',
+                  contenido: campos(
+                    porIncidente((inc, i) => (
+                      <label className="field">
+                        Causa incidente {i + 1}
+                        <textarea
+                          {...fieldError(`incidentes.${i}.causa`)}
+                          placeholder="Causa observada o hipótesis por validar"
+                          value={inc.causa}
+                          onChange={(e) => actualizarIncidente(i, 'causa', e.target.value)}
+                          required
+                        />
+                      </label>
+                    )),
+                  ),
+                },
+                {
+                  id: 'valoracion',
+                  titulo: 'Impacto y frecuencia',
+                  ayuda:
+                    'Impacto: alto si impide completar una tarea, medio si la dificulta, bajo si es una molestia menor. Frecuencia: alta si es habitual, media si es ocasional, baja si es excepcional.',
+                  contenido: campos(
+                    porIncidente((inc, i) => (
+                      <div className="form-grid-3">
+                        <label className="field">
+                          Tipo incidente {i + 1}
+                          <select value={inc.tipo} onChange={(e) => actualizarIncidente(i, 'tipo', e.target.value)}>
+                            <option>Negativo</option>
+                            <option>Positivo</option>
+                          </select>
+                        </label>
+                        <label className="field">
+                          Impacto incidente {i + 1}
+                          <select
+                            value={inc.impacto}
+                            onChange={(e) => actualizarIncidente(i, 'impacto', e.target.value)}
+                          >
+                            <option>Alto</option>
+                            <option>Medio</option>
+                            <option>Bajo</option>
+                          </select>
+                        </label>
+                        <label className="field">
+                          Frecuencia incidente {i + 1}
+                          <select
+                            value={inc.frecuencia}
+                            onChange={(e) => actualizarIncidente(i, 'frecuencia', e.target.value)}
+                          >
+                            <option>Alta</option>
+                            <option>Media</option>
+                            <option>Baja</option>
+                          </select>
+                        </label>
+                      </div>
+                    )),
+                  ),
+                },
+                {
+                  id: 'acciones',
+                  titulo: 'Acciones sugeridas',
+                  ayuda: 'Propone qué mejorar o reforzar. Una acción concreta por línea.',
+                  contenido: campos(
+                    porIncidente((_inc, i) => (
+                      <label className="field">
+                        Acciones sugeridas incidente {i + 1}
+                        <textarea
+                          {...fieldError(`incidentes.${i}.accionesSugeridas`)}
+                          placeholder="Una acción por línea; puedes usar comas dentro de una acción"
+                          value={accionesInputs[i] ?? ''}
+                          onChange={(e) => actualizarIncidente(i, 'accionesSugeridas', e.target.value)}
+                          required
+                        />
+                      </label>
+                    )),
+                  ),
+                },
+              ]}
+              acciones={
+                <>
+                  {!perfilCompleto && (
+                    <span className="tv-pasos-motivo" role="status">
+                      Falta el nombre y el rol del perfil (paso 1).
+                    </span>
+                  )}
+                  <button type="submit" className="primary" disabled={disabled || !perfilCompleto}>
+                    {isSaving
+                      ? 'Guardando…'
+                      : editando
+                        ? 'Actualizar momento crítico'
+                        : 'Guardar momento crítico'}
+                  </button>
+                </>
+              }
+            />
           </form>
         )}
         {isLoading && <p role="status">Cargando momentos críticos…</p>}
@@ -424,7 +500,7 @@ export function MomentosCriticosPage() {
             {(error as Error).message}
           </p>
         )}
-        {!isLoading && !isListError && todos.length > 0 && (
+        {listado && todos.length > 0 && (
           <div className="mc-filters">
             <label className="field">
               Buscar incidentes
@@ -448,13 +524,13 @@ export function MomentosCriticosPage() {
             </p>
           </div>
         )}
-        {!isLoading && !isListError && todos.length > 0 && filtrados.length === 0 && (
+        {listado && todos.length > 0 && filtrados.length === 0 && (
           <p>No hay incidentes que coincidan con estos filtros.</p>
         )}
-        {!isLoading && !isListError && vistaMatriz && todos.length > 0 && (
+        {listado && vistaMatriz && todos.length > 0 && (
           <MomentosMatrix incidentes={filtrados} />
         )}
-        {!isLoading && !isListError && !vistaMatriz && (
+        {listado && !vistaMatriz && (
           <div className="list-stack">
             {momentos.map((m) => {
               const incidentes = m.contenido.incidentes
@@ -533,7 +609,7 @@ export function MomentosCriticosPage() {
             })}
           </div>
         )}
-        {!isLoading && !isListError && todos.length === 0 && (
+        {listado && todos.length === 0 && (
           <div className="mc-empty">
             <h3>Aún no hay momentos críticos</h3>
             <p>

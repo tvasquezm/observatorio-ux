@@ -930,6 +930,8 @@ button { cursor: pointer; }
 .mc-form textarea { min-height: 86px; resize: vertical; }
 .mc-form [aria-invalid='true'] { border: 2px solid var(--danger-text); }
 .mc-incident-form { margin: 16px 0; display: grid; gap: 14px; }
+.mc-form .tv-pasos-panel > .mc-incident-form { margin: 0; }
+.mc-form .mc-incident-form h5 { margin: 0; font-size: 14px; }
 .mc-filters { display: grid; grid-template-columns: minmax(0, 1fr) minmax(160px, .4fr) auto; align-items: end; gap: 16px; margin: 20px 0; }
 .mc-filters :is(input, select) { width: 100%; min-height: 44px; }
 .mc-profile h3, .mc-incident h4 { margin: 0; }
