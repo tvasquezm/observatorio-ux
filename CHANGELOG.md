@@ -6,6 +6,9 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **evaluacion-heuristica:** se elimina del backend la evaluación heurística antigua (sesiones): rutas
+  `/evaluacion-heuristica/sesiones/*` y `/evaluacion-heuristica/analytics`, con su servicio, controladores y tests. La única
+  evaluación heurística es el flujo nuevo. Los datos antiguos no se borran de la base de datos.
 * **journey-map:** crear un Journey Map es ahora un paso a la vez (perfil, objetivo, fases, emociones y dolor,
   oportunidades, evidencia), con el círculo de avance en vivo, Anterior y Siguiente siempre visibles y Guardar
   en el último paso; las instrucciones empiezan plegadas.
