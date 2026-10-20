@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { TechniqueProcess, type ProcessStep } from './TechniqueProcess';
 
 const steps: ProcessStep[] = [
@@ -48,6 +48,79 @@ describe('TechniqueProcess', () => {
   it('permite un texto propio al estar lista', () => {
     render(<TechniqueProcess steps={steps.map((step) => ({ ...step, done: true }))} textoListo="Persona lista" />);
     expect(screen.getByRole('status')).toHaveTextContent('Persona lista');
+  });
+
+  describe('fases opcionales', () => {
+    const conOpcionales: ProcessStep[] = [
+      { id: 'a', label: 'Perfil', done: true },
+      { id: 'b', label: 'Objetivo', detail: 'Sin definir', done: false, opcional: true },
+      { id: 'c', label: 'Fases', done: true },
+      { id: 'd', label: 'Evidencia', detail: 'Sin evidencia', done: false, opcional: true },
+    ];
+
+    it('queda lista con solo los pasos obligatorios y el círculo cuenta solo esos', () => {
+      render(<TechniqueProcess steps={conOpcionales} />);
+      expect(screen.getByRole('img', { name: '2 de 2, completo' })).toBeInTheDocument();
+      expect(screen.getByRole('status')).toHaveTextContent('Técnica completa y lista para usar');
+      expect(screen.getByRole('region')).toHaveClass('tv-process--listo');
+    });
+
+    it('indica que la fase actual es opcional', () => {
+      render(<TechniqueProcess steps={conOpcionales} />);
+      expect(screen.getByText('Fase 2 de 4')).toBeInTheDocument();
+      expect(screen.getByText('Opcional')).toBeInTheDocument();
+      expect(screen.getByText('Puedes cerrar la técnica sin esta fase.')).toBeInTheDocument();
+    });
+
+    it('no marca opcional una fase obligatoria', () => {
+      render(<TechniqueProcess steps={steps} />);
+      expect(screen.queryByText('Opcional')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Faltan/ })).not.toBeInTheDocument();
+    });
+
+    it('muestra al tocar un cuadro con las fases opcionales que faltan y se cierra', () => {
+      render(<TechniqueProcess steps={conOpcionales} />);
+      const boton = screen.getByRole('button', { name: 'Faltan 2 fases opcionales' });
+      expect(boton).toHaveAttribute('aria-expanded', 'false');
+      expect(screen.queryByText('Fases opcionales que faltan')).not.toBeInTheDocument();
+      fireEvent.click(boton);
+      expect(boton).toHaveAttribute('aria-expanded', 'true');
+      const cuadro = screen.getByText('Fases opcionales que faltan').parentElement!;
+      expect(cuadro).toHaveTextContent('Objetivo');
+      expect(cuadro).toHaveTextContent('Evidencia');
+      expect(cuadro).not.toHaveTextContent('Perfil');
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(screen.queryByText('Fases opcionales que faltan')).not.toBeInTheDocument();
+      fireEvent.click(boton);
+      fireEvent.click(boton);
+      expect(screen.queryByText('Fases opcionales que faltan')).not.toBeInTheDocument();
+      fireEvent.click(boton);
+      fireEvent.pointerDown(document.body);
+      expect(screen.queryByText('Fases opcionales que faltan')).not.toBeInTheDocument();
+    });
+
+    it('lo muestra al pasar el mouse y lo oculta al salir', () => {
+      render(<TechniqueProcess steps={conOpcionales} />);
+      const contenedor = screen.getByRole('button', { name: /Faltan/ }).parentElement!;
+      const puntero = (tipo: string) => {
+        const evento = new Event(tipo, { bubbles: true });
+        Object.defineProperty(evento, 'pointerType', { value: 'mouse' });
+        fireEvent(contenedor, evento);
+      };
+      puntero('pointerover');
+      expect(screen.getByText('Fases opcionales que faltan')).toBeInTheDocument();
+      puntero('pointerout');
+      expect(screen.queryByText('Fases opcionales que faltan')).not.toBeInTheDocument();
+    });
+
+    it('no ofrece el cuadro si la técnica aún no está lista o no falta nada', () => {
+      const { rerender } = render(
+        <TechniqueProcess steps={conOpcionales.map((s) => (s.id === 'c' ? { ...s, done: false } : s))} />,
+      );
+      expect(screen.queryByRole('button', { name: /Faltan/ })).not.toBeInTheDocument();
+      rerender(<TechniqueProcess steps={conOpcionales.map((s) => ({ ...s, done: true }))} />);
+      expect(screen.queryByRole('button', { name: /Faltan/ })).not.toBeInTheDocument();
+    });
   });
 
   it('aplica la variante compacta', () => {

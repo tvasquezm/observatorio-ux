@@ -16,6 +16,15 @@ describe('persona-visual', () => {
     expect(procesoPersona(persona).map((paso) => paso.done)).toEqual([true, true, true, true, true, true]);
   });
 
+  it('marca como opcionales la relación, la evidencia y la confirmación', () => {
+    const persona = PersonaSchema.parse({ nombreCompleto: 'Ana' });
+    expect(procesoPersona(persona).filter((paso) => paso.opcional).map((paso) => paso.id)).toEqual([
+      'relacion',
+      'evidencia',
+      'validacion',
+    ]);
+  });
+
   it('marca pendientes los pasos sin datos y acepta edad 0', () => {
     const persona = PersonaSchema.parse({ nombreCompleto: 'Ana', edad: 0 });
     expect(procesoPersona(persona).map((paso) => paso.done)).toEqual([true, false, false, false, false, false]);

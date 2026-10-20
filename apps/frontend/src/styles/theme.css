@@ -826,6 +826,22 @@ button { cursor: pointer; }
 .tv-process-fase-n { margin: 0; color: rgba(255, 255, 255, .78); font-size: 12px; font-weight: 700; letter-spacing: .02em; }
 .tv-process-fase-nombre { color: #fff; font-size: 18px; line-height: 1.25; }
 .tv-process-fase-detalle { color: rgba(255, 255, 255, .85); font-size: 13px; line-height: 1.4; }
+.tv-process-opcional { display: inline-block; margin-left: 8px; padding: 1px 8px; border: 1px solid rgba(255, 255, 255, .55); border-radius: 999px; color: #fff; font-size: 11px; font-weight: 800; letter-spacing: .02em; }
+.tv-process-fila { display: flex; align-items: center; gap: 8px; }
+.tv-faltan { position: relative; display: inline-flex; }
+.tv-faltan-boton { display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 1px solid var(--mint); border-radius: 999px; background: transparent; color: var(--mint); cursor: pointer; }
+.tv-faltan-boton:hover, .tv-faltan-boton[aria-expanded='true'] { background: color-mix(in srgb, var(--mint) 22%, transparent); }
+.tv-faltan-boton:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.tv-faltan-cuadro { position: absolute; z-index: 20; top: calc(100% + 8px); left: 0; display: grid; gap: 6px; width: min(280px, 78vw); padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow); font-size: 13px; line-height: 1.4; animation: tv-fase-in .2s ease-out both; }
+.tv-faltan-cuadro strong { color: var(--ink); }
+.tv-faltan-cuadro ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.tv-faltan-cuadro li { display: grid; gap: 1px; }
+.tv-faltan-cuadro li > span { font-weight: 700; }
+.tv-faltan-cuadro small { color: var(--muted); font-size: 12px; }
+.persona-profile-details .tv-process-opcional { border-color: var(--line); color: var(--ink); }
+.persona-profile-details .tv-faltan-boton { border-color: var(--positive-text); color: var(--positive-text); }
+:root[data-contrast='high'] .tv-faltan-cuadro { border: 2px solid var(--ink); }
+:root[data-contrast='high'] .tv-process-opcional { border-width: 2px; }
 @keyframes tv-fase-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .tv-process--listo { box-shadow: var(--shadow), inset 0 0 0 1px color-mix(in srgb, var(--mint) 60%, transparent); }
 .tv-anillo { position: relative; display: inline-grid; flex: none; place-items: center; color: var(--ink); }

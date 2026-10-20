@@ -78,9 +78,9 @@ describe('Journey Map — creación', () => {
   it('el anillo de avance sube al completar el perfil', () => {
     mostrar();
     fireEvent.click(screen.getByRole('button', { name: '+ Nuevo Journey Map' }));
-    expect(screen.getByRole('img', { name: '1 de 6' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: '1 de 4' })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Nombre del perfil de usuario'), { target: { value: 'Ana' } });
     fireEvent.change(screen.getByLabelText('Rol del usuario'), { target: { value: 'Solicitante' } });
-    expect(screen.getByRole('img', { name: '2 de 6' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: '2 de 4' })).toBeInTheDocument();
   });
 });
