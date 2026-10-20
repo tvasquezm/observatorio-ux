@@ -12,6 +12,10 @@ All notable changes to this project will be documented in this file. See [commit
 * **momentos-criticos:** registrar un momento crítico es ahora un paso a la vez (perfil, incidentes, causas, impacto y
   frecuencia, acciones), con el círculo de avance en vivo y Guardar en el último paso; las instrucciones empiezan
   plegadas y la lista y el resumen se ocultan mientras se edita.
+* **personas:** crear o editar una persona es ahora un paso a la vez (identidad, objetivos y necesidades, frustraciones y
+  conducta, relación con el servicio, evidencia, confirmación), con el círculo de avance en vivo, aviso de persona
+  completa y Guardar en el último paso; la lista de perfiles se oculta mientras se edita y las tarjetas tienen un
+  diseño nuevo con el círculo de avance.
 * **tecnicas:** el avance de las técnicas se muestra como un círculo que se llena y se anima al
   completarse; cuando todos los pasos están hechos, el proceso avisa que la técnica está completa
   y lista para usar. El proceso muestra solo la fase actual ("Fase n de N") y cambia a la siguiente al avanzar. Las fases opcionales se indican como tales, la técnica queda lista sin ellas y un icono muestra cuáles faltan. La evaluación heurística usa el mismo círculo en Revisar y en el progreso del equipo.
