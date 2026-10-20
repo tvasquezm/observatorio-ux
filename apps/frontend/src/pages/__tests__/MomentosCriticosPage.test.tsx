@@ -12,6 +12,7 @@ const state = vi.hoisted(() => ({
   update: vi.fn(),
   acquire: vi.fn(),
   release: vi.fn(),
+  remove: vi.fn(),
   confirm: vi.fn(),
   lockLost: false,
   error: null as Error | null,
@@ -20,7 +21,7 @@ vi.mock('../../features/momentos-criticos/hooks/useMomentosCriticosQueries', () 
   useCriticalMoments: () => ({ data: state.list(), isLoading: false, isError: false, error: null }),
   useCreateCriticalMoment: () => ({ mutate: state.create, isPending: false, error: state.error }),
   useUpdateCriticalMoment: () => ({ mutate: state.update, isPending: false, error: null }),
-  useDeleteCriticalMoment: () => ({ mutate: vi.fn(), isPending: false, error: null }),
+  useDeleteCriticalMoment: () => ({ mutate: state.remove, isPending: false, error: null }),
 }));
 vi.mock('../../features/auth/store/useAuthStore', () => ({
   useAuthStore: (selector: (s: unknown) => unknown) => selector({ user: { id: 'u1', rol: state.role } }),
@@ -249,6 +250,57 @@ describe('Momentos críticos', () => {
     fireEvent.click(screen.getByRole('button', { name: '+ Nuevo momento crítico' }));
     expect(screen.queryByRole('region', { name: 'Resumen de incidentes' })).not.toBeInTheDocument();
     expect(screen.queryByText('Ver causa y acciones')).not.toBeInTheDocument();
+  });
+  it('pone el botón de nuevo en la cabecera y mantiene una sola instancia del proceso', () => {
+    state.list.mockReturnValue([momento]);
+    renderPage();
+    const nuevo = screen.getByRole('button', { name: '+ Nuevo momento crítico' });
+    expect(nuevo.closest('.page-head')).not.toBeNull();
+    expect(nuevo.closest('.panel-head')).toBeNull();
+    expect(screen.getAllByRole('region', { name: 'Proceso de momentos críticos' })).toHaveLength(1);
+    fireEvent.click(nuevo);
+    expect(screen.getByRole('button', { name: 'Cancelar' }).closest('.page-head')).not.toBeNull();
+    expect(screen.getAllByRole('region', { name: 'Proceso de momentos críticos' })).toHaveLength(1);
+  });
+  it('indica solo lectura en la cabecera cuando no puede editar', () => {
+    state.role = 'DOCENTE';
+    state.list.mockReturnValue([momento]);
+    renderPage();
+    expect(screen.getByText('Solo lectura')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '+ Nuevo momento crítico' })).not.toBeInTheDocument();
+  });
+  it('ofrece Editar secundario y Eliminar de peligro, en ese orden, sin enlaces de texto', () => {
+    state.list.mockReturnValue([momento]);
+    renderPage();
+    const card = screen.getByRole('article', { name: 'Ana' });
+    const editar = within(card).getByRole('button', { name: 'Editar' });
+    const eliminar = within(card).getByRole('button', { name: 'Eliminar' });
+    expect(editar).toHaveClass('secondary');
+    expect(eliminar).toHaveClass('danger');
+    expect(editar.compareDocumentPosition(eliminar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(card.querySelector('.link-btn')).toBeNull();
+    expect(editar.closest('.technique-item-actions')).not.toBeNull();
+  });
+  it('pide confirmación antes de eliminar y no elimina si se cancela', async () => {
+    state.list.mockReturnValue([momento]);
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar' }));
+    await waitFor(() => expect(state.confirm).toHaveBeenCalledWith('¿Estás seguro de eliminar este momento crítico?'));
+    expect(state.remove).not.toHaveBeenCalled();
+  });
+  it('elimina cuando se confirma', async () => {
+    state.list.mockReturnValue([momento]);
+    state.confirm.mockResolvedValue(true);
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar' }));
+    await waitFor(() => expect(state.remove).toHaveBeenCalledWith('a1'));
+  });
+  it('no muestra acciones de elemento sin permiso de edición', () => {
+    state.role = 'DOCENTE';
+    state.list.mockReturnValue([momento]);
+    renderPage();
+    expect(screen.queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Eliminar' })).not.toBeInTheDocument();
   });
   it('mantiene el borrador ante errores de guardado', () => {
     state.error = new Error('Sin conexión');
