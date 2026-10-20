@@ -6,6 +6,9 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **journey-map:** crear un Journey Map es ahora un paso a la vez (perfil, objetivo, fases, emociones y dolor,
+  oportunidades, evidencia), con el círculo de avance en vivo, Anterior y Siguiente siempre visibles y Guardar
+  en el último paso; las instrucciones empiezan plegadas.
 * **tecnicas:** el avance de las técnicas se muestra como un círculo que se llena y se anima al
   completarse; cuando todos los pasos están hechos, el proceso avisa que la técnica está completa
   y lista para usar. La evaluación heurística usa el mismo círculo en Revisar y en el progreso del equipo.

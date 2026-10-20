@@ -15,11 +15,14 @@ import { useActivePerspective } from '../shared/auth/useActivePerspective';
 import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { useProject } from '../features/projects/hooks/useProjectsQueries';
 import { TechniquePageHeader } from '../shared/components/TechniquePageHeader';
+import { TechniqueProcess } from '../shared/components/TechniqueProcess';
+import { PasosTecnica } from '../shared/components/PasosTecnica';
 import { useUnsavedChanges } from '../shared/hooks/useUnsavedChanges';
 import {
   JourneyEmotionStrip,
   JourneyVisual,
 } from '../features/journey-map/components/JourneyVisual';
+import { procesoJourney } from '../features/journey-map/journey-visual';
 import { ComentariosTecnica } from '../features/comments/components/ComentariosTecnica';
 
 const CAMPOS_LISTA: (keyof Phase)[] = [
@@ -40,7 +43,18 @@ const ETIQUETAS_CAMPOS: Record<string, string> = {
   oportunidades: 'Oportunidades de mejora',
 };
 
+const CAMPOS_FASES: (keyof Phase)[] = ['actividades', 'touchpoints', 'pensamientos'];
+const CAMPOS_DOLOR: (keyof Phase)[] = ['dificultades', 'ganancias'];
+const CAMPOS_OPORTUNIDADES: (keyof Phase)[] = ['oportunidades'];
+
 const MIN_FASES = 3;
+
+function separarPorComas(valor: string): string[] {
+  return valor
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
 
 function faseVacia(nombre: string): Phase {
   return {
@@ -209,10 +223,7 @@ export function JourneyMapPage() {
       },
       objetivo: form.objetivo?.trim() || undefined,
       eventoInicio: form.eventoInicio?.trim() || undefined,
-      evidencia: evidenciaInput
-        .split(',')
-        .map((item) => item.trim())
-        .filter(Boolean),
+      evidencia: separarPorComas(evidenciaInput),
       fases: form.fases.map((fase, index) => ({
         ...fase,
         nombre: fase.nombre.trim(),
@@ -249,6 +260,21 @@ export function JourneyMapPage() {
   }
 
   const isPending = isCreating;
+  const perfilCompleto =
+    form.perfilUsuario.nombre.trim() !== '' && form.perfilUsuario.rol.trim() !== '';
+
+  function camposDeFase(index: number, campos: (keyof Phase)[]) {
+    return campos.map((campo) => (
+      <input
+        key={campo}
+        placeholder={`${ETIQUETAS_CAMPOS[campo]} (separados por coma)`}
+        aria-label={`${ETIQUETAS_CAMPOS[campo]} fase ${index + 1}`}
+        value={listInputs[index]?.[campo] ?? ''}
+        onChange={(e) => actualizarLista(index, campo, e.target.value)}
+        className="input-sm"
+      />
+    ));
+  }
 
   return (
     <div className="artifact-page">
@@ -257,6 +283,7 @@ export function JourneyMapPage() {
         title="Journey Maps"
         description="Representa el recorrido de una persona usuaria para identificar actividades, emociones, dificultades y oportunidades de mejora."
         instructions={['Define la persona usuaria, su objetivo y el evento que inicia el recorrido.', 'Describe cada fase con actividades, puntos de contacto, pensamientos y emociones.', 'Identifica dificultades y oportunidades a partir de evidencia. Guarda el mapa para revisarlo con tu equipo.']}
+        instructionsInitiallyOpen={false}
         action={<span className="status-pill">Artefactos versionados</span>}
       />
 
@@ -279,193 +306,236 @@ export function JourneyMapPage() {
         </div>
 
         {puedeEditar && mostrarForm && (
-          <form onSubmit={handleSubmit} className="entity-card form">
+          <form onSubmit={handleSubmit} className="entity-card form" noValidate>
             <h3>Nuevo Journey Map</h3>
 
-            <fieldset>
-              <div
-                style={{
-                  gridColumn: '1 / -1',
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                  gap: '12px',
-                }}
-              >
-                <input
-                  placeholder="Nombre del perfil de usuario *"
-                  aria-label="Nombre del perfil de usuario"
-                  value={form.perfilUsuario.nombre}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      perfilUsuario: {
-                        ...form.perfilUsuario,
-                        nombre: e.target.value,
-                      },
-                    })
-                  }
-                  required
-                  className="input-sm"
-                />
+            <TechniqueProcess
+              title="Proceso del Journey Map"
+              textoListo="Journey Map completo: ya puedes guardarlo"
+              steps={procesoJourney({ ...form, evidencia: separarPorComas(evidenciaInput) })}
+            />
 
-                <input
-                  placeholder="Rol del usuario *"
-                  aria-label="Rol del usuario"
-                  value={form.perfilUsuario.rol}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      perfilUsuario: {
-                        ...form.perfilUsuario,
-                        rol: e.target.value,
-                      },
-                    })
-                  }
-                  required
-                  className="input-sm"
-                />
-              </div>
-
-              <div
-                style={{
-                  gridColumn: '1 / -1',
-                  display: 'grid',
-                  gap: '12px',
-                  marginTop: '8px',
-                }}
-              >
-                <textarea
-                  placeholder="Objetivo del recorrido: ¿qué busca lograr la persona?"
-                  aria-label="Objetivo del recorrido"
-                  value={form.objetivo ?? ''}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      objetivo: e.target.value,
-                    })
-                  }
-                  className="textarea-sm"
-                />
-
-                <textarea
-                  placeholder="Evento de inicio: ¿qué situación da comienzo al recorrido?"
-                  aria-label="Evento de inicio"
-                  value={form.eventoInicio ?? ''}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      eventoInicio: e.target.value,
-                    })
-                  }
-                  className="textarea-sm"
-                />
-              </div>
-
-              {form.fases.map((fase, index) => (
-                <div
-                  key={index}
-                  className="entity-card"
-                  style={{
-                    gridColumn: '1 / -1',
-                  }}
-                >
-                  <div className="row-between">
-                    <h3>Fase {index + 1}</h3>
-
-                    {form.fases.length > MIN_FASES && (
-                      <button
-                        type="button"
-                        className="link-btn link-btn--delete"
-                        onClick={() => eliminarFase(index)}
-                      >
-                        Eliminar fase
-                      </button>
-                    )}
-                  </div>
-
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                      gap: '12px',
-                    }}
-                  >
-                    <input
-                      placeholder="Nombre de la fase"
-                      aria-label={`Nombre de la fase ${index + 1}`}
-                      value={fase.nombre}
-                      onChange={(e) =>
-                        actualizarFase(index, {
-                          nombre: e.target.value,
-                        })
-                      }
-                      className="input-sm"
-                      style={{ gridColumn: '1 / -1' }}
-                    />
-
-                    {CAMPOS_LISTA.map((campo) => (
+            <PasosTecnica
+              pasos={[
+                {
+                  id: 'perfil',
+                  titulo: 'Perfil de usuario',
+                  ayuda: 'Define quién recorre el camino.',
+                  contenido: (
+                    <div className="tv-pasos-campos">
                       <input
-                        key={campo}
-                        placeholder={`${ETIQUETAS_CAMPOS[campo]} (separados por coma)`}
-                        aria-label={`${ETIQUETAS_CAMPOS[campo]} fase ${index + 1}`}
-                        value={listInputs[index]?.[campo] ?? ''}
+                        placeholder="Nombre del perfil de usuario *"
+                        aria-label="Nombre del perfil de usuario"
+                        value={form.perfilUsuario.nombre}
                         onChange={(e) =>
-                          actualizarLista(index, campo, e.target.value)
+                          setForm({
+                            ...form,
+                            perfilUsuario: {
+                              ...form.perfilUsuario,
+                              nombre: e.target.value,
+                            },
+                          })
                         }
+                        required
                         className="input-sm"
                       />
-                    ))}
 
-                    <select
-                      aria-label={`Emoción fase ${index + 1}`}
-                      value={fase.emocion}
-                      onChange={(e) =>
-                        actualizarFase(index, {
-                          emocion: e.target.value as Phase['emocion'],
-                        })
-                      }
-                      className="input-sm"
-                    >
-                      <option value="Positiva">Emoción: positiva</option>
-                      <option value="Neutral">Emoción: neutral</option>
-                      <option value="Negativa">Emoción: negativa</option>
-                    </select>
-                  </div>
-                </div>
-              ))}
+                      <input
+                        placeholder="Rol del usuario *"
+                        aria-label="Rol del usuario"
+                        value={form.perfilUsuario.rol}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            perfilUsuario: {
+                              ...form.perfilUsuario,
+                              rol: e.target.value,
+                            },
+                          })
+                        }
+                        required
+                        className="input-sm"
+                      />
+                    </div>
+                  ),
+                },
+                {
+                  id: 'objetivo',
+                  titulo: 'Objetivo y evento de inicio',
+                  ayuda: 'Cuenta qué busca lograr la persona y qué situación da comienzo al recorrido.',
+                  contenido: (
+                    <div className="tv-pasos-campos tv-pasos-campos--una">
+                      <textarea
+                        placeholder="Objetivo del recorrido: ¿qué busca lograr la persona?"
+                        aria-label="Objetivo del recorrido"
+                        value={form.objetivo ?? ''}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            objetivo: e.target.value,
+                          })
+                        }
+                        className="textarea-sm"
+                      />
 
-              <button
-                type="button"
-                className="secondary"
-                onClick={agregarFase}
-                style={{ gridColumn: '1 / -1', width: 'fit-content' }}
-              >
-                + Agregar fase
-              </button>
+                      <textarea
+                        placeholder="Evento de inicio: ¿qué situación da comienzo al recorrido?"
+                        aria-label="Evento de inicio"
+                        value={form.eventoInicio ?? ''}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            eventoInicio: e.target.value,
+                          })
+                        }
+                        className="textarea-sm"
+                      />
+                    </div>
+                  ),
+                },
+                {
+                  id: 'fases',
+                  titulo: 'Fases del recorrido',
+                  ayuda: 'Nombra cada fase y anota lo que la persona hace, dónde interactúa y qué piensa. Separa los elementos con coma.',
+                  contenido: (
+                    <>
+                      {form.fases.map((fase, index) => (
+                        <div key={index} className="entity-card">
+                          <div className="row-between">
+                            <h5>Fase {index + 1}</h5>
 
-              <textarea
-                placeholder="Evidencia: fuentes, entrevistas, observaciones u otros antecedentes que sustentan el Journey Map (separados por coma)."
-                aria-label="Evidencia"
-                value={evidenciaInput}
-                onChange={(e) => setEvidenciaInput(e.target.value)}
-                className="textarea-sm"
-                style={{
-                  gridColumn: '1 / -1',
-                  width: '100%',
-                  minHeight: '120px',
-                  boxSizing: 'border-box',
-                }}
-              />
+                            {form.fases.length > MIN_FASES && (
+                              <button
+                                type="button"
+                                className="link-btn link-btn--delete"
+                                onClick={() => eliminarFase(index)}
+                              >
+                                Eliminar fase
+                              </button>
+                            )}
+                          </div>
 
-              <button
-                type="submit"
-                className="primary"
-                disabled={isPending}
-                style={{ gridColumn: '1 / -1', width: 'fit-content' }}
-              >
-                {isPending ? 'Guardando…' : 'Guardar Journey Map'}
-              </button>
-            </fieldset>
+                          <div className="tv-pasos-campos">
+                            <input
+                              placeholder="Nombre de la fase"
+                              aria-label={`Nombre de la fase ${index + 1}`}
+                              value={fase.nombre}
+                              onChange={(e) =>
+                                actualizarFase(index, {
+                                  nombre: e.target.value,
+                                })
+                              }
+                              className="input-sm"
+                              style={{ gridColumn: '1 / -1' }}
+                            />
+
+                            {camposDeFase(index, CAMPOS_FASES)}
+                          </div>
+                        </div>
+                      ))}
+
+                      <button type="button" className="secondary" onClick={agregarFase}>
+                        + Agregar fase
+                      </button>
+                    </>
+                  ),
+                },
+                {
+                  id: 'dolor',
+                  titulo: 'Emociones y puntos de dolor',
+                  ayuda: 'Indica cómo se siente la persona en cada fase y qué le cuesta o le resulta bien.',
+                  contenido: (
+                    <>
+                      {form.fases.map((fase, index) => (
+                        <div key={index} className="entity-card">
+                          <h5>
+                            Fase {index + 1}
+                            {fase.nombre.trim() ? `: ${fase.nombre.trim()}` : ''}
+                          </h5>
+
+                          <div className="tv-pasos-campos">
+                            <select
+                              aria-label={`Emoción fase ${index + 1}`}
+                              value={fase.emocion}
+                              onChange={(e) =>
+                                actualizarFase(index, {
+                                  emocion: e.target.value as Phase['emocion'],
+                                })
+                              }
+                              className="input-sm"
+                              style={{ gridColumn: '1 / -1' }}
+                            >
+                              <option value="Positiva">Emoción: positiva</option>
+                              <option value="Neutral">Emoción: neutral</option>
+                              <option value="Negativa">Emoción: negativa</option>
+                            </select>
+
+                            {camposDeFase(index, CAMPOS_DOLOR)}
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  ),
+                },
+                {
+                  id: 'oportunidades',
+                  titulo: 'Oportunidades de mejora',
+                  ayuda: 'Propón qué se podría mejorar en cada fase a partir de lo que encontraste.',
+                  contenido: (
+                    <>
+                      {form.fases.map((fase, index) => (
+                        <div key={index} className="entity-card">
+                          <h5>
+                            Fase {index + 1}
+                            {fase.nombre.trim() ? `: ${fase.nombre.trim()}` : ''}
+                          </h5>
+
+                          <div className="tv-pasos-campos tv-pasos-campos--una">
+                            {camposDeFase(index, CAMPOS_OPORTUNIDADES)}
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  ),
+                },
+                {
+                  id: 'evidencia',
+                  titulo: 'Evidencia',
+                  ayuda: 'Anota las fuentes que sustentan el mapa. Al terminar, guárdalo para revisarlo con tu equipo.',
+                  contenido: (
+                    <textarea
+                      placeholder="Evidencia: fuentes, entrevistas, observaciones u otros antecedentes que sustentan el Journey Map (separados por coma)."
+                      aria-label="Evidencia"
+                      value={evidenciaInput}
+                      onChange={(e) => setEvidenciaInput(e.target.value)}
+                      className="textarea-sm"
+                      style={{
+                        width: '100%',
+                        minHeight: '120px',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                  ),
+                },
+              ]}
+              acciones={
+                <>
+                  {!perfilCompleto && (
+                    <span className="tv-pasos-motivo" role="status">
+                      Falta el nombre y el rol de la persona (paso 1).
+                    </span>
+                  )}
+
+                  <button
+                    type="submit"
+                    className="primary"
+                    disabled={isPending || !perfilCompleto}
+                  >
+                    {isPending ? 'Guardando…' : 'Guardar Journey Map'}
+                  </button>
+                </>
+              }
+            />
           </form>
         )}
 

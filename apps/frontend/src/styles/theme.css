@@ -854,6 +854,22 @@ button { cursor: pointer; }
 :root[data-contrast='high'] .tv-anillo-arco { stroke: var(--ink); stroke-width: 7; }
 :root[data-contrast='high'] .tv-process .tv-anillo-pista { stroke: #fff; }
 :root[data-contrast='high'] .tv-process .tv-anillo-arco { stroke: #fff; }
+.tv-pasos { display: grid; gap: 12px; }
+.tv-pasos-cabecera { display: grid; gap: 2px; }
+.tv-pasos-titulo { margin: 0; color: var(--ink); font-size: 16px; }
+.tv-pasos-titulo:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+.tv-pasos-ayuda { margin: 0; color: var(--muted); font-size: 14px; }
+.tv-pasos-panel { display: grid; gap: 10px; }
+.tv-pasos-panel[hidden] { display: none; }
+.tv-pasos-panel h5 { margin: 0; font-size: 14px; }
+.tv-pasos-campos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.tv-pasos-campos--una { grid-template-columns: minmax(0, 1fr); }
+.tv-pasos-barra { position: sticky; bottom: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px 12px; padding: 10px 0; border-top: 1px solid var(--line); background: var(--surface); box-shadow: 0 -8px 12px -10px rgba(0, 0, 0, .3); }
+.tv-pasos-motivo { flex: 1 1 auto; margin-right: auto; color: var(--muted); font-size: 13px; }
+@media (max-width: 600px) {
+  .tv-pasos-campos { grid-template-columns: minmax(0, 1fr); }
+  .tv-pasos-barra > button { flex: 1 1 0; min-height: 44px; }
+}
 .tv-journey { display: grid; gap: 16px; }
 .tv-journey-head { display: flex; align-items: center; gap: 14px; }
 .tv-avatar { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 12px; background: var(--navy); color: var(--mint); font: 700 17px/1 Georgia, serif; }
