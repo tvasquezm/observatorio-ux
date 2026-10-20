@@ -126,3 +126,34 @@ describe('Journey Map — esqueleto estándar', () => {
     expect(screen.queryByText('Ana Pérez')).toBeNull();
   });
 });
+
+describe('Journey Map: lista estándar', () => {
+  it('muestra el título con contador y Consultar secundario en la cabecera de la tarjeta', () => {
+    state.list.mockReturnValue([journey]);
+    mostrar();
+    expect(screen.getByRole('heading', { name: 'Journey Maps del proyecto' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Journey Maps del proyecto' }).closest('.technique-list-head')?.textContent).toContain('1');
+    const consultar = screen.getByRole('button', { name: 'Consultar' });
+    expect(consultar).toHaveClass('secondary');
+    expect(consultar.closest('.technique-item-actions')).not.toBeNull();
+    expect(screen.queryByRole('button', { name: 'Editar' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Eliminar' })).toBeNull();
+  });
+
+  it('Consultar abre el detalle y cambia a Cerrar', () => {
+    state.list.mockReturnValue([journey]);
+    mostrar();
+    fireEvent.click(screen.getByRole('button', { name: 'Consultar' }));
+    expect(screen.getByRole('heading', { name: 'Detalle del Journey Map' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar' }));
+    expect(screen.queryByRole('heading', { name: 'Detalle del Journey Map' })).toBeNull();
+  });
+
+  it('sin Journey Maps muestra el vacío estándar y no el encabezado de lista', () => {
+    mostrar();
+    expect(screen.getByText('No hay Journey Maps todavía')).toBeInTheDocument();
+    expect(screen.getByText('No hay Journey Maps todavía').closest('.technique-empty')).not.toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Journey Maps del proyecto' })).toBeNull();
+  });
+});
+

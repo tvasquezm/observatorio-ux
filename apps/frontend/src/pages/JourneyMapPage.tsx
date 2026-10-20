@@ -17,6 +17,9 @@ import { useProject } from '../features/projects/hooks/useProjectsQueries';
 import { TechniquePageHeader } from '../shared/components/TechniquePageHeader';
 import { TechniquePage } from '../shared/components/TechniquePage';
 import { TechniqueNewButton } from '../shared/components/TechniqueNewButton';
+import { TechniqueItemActions } from '../shared/components/TechniqueItemActions';
+import { TechniqueListHead, TechniqueEmpty } from '../shared/components/TechniqueListParts';
+import { Icon } from '../shared/components/ui/Icon';
 import { TechniqueProcess } from '../shared/components/TechniqueProcess';
 import { PasosTecnica } from '../shared/components/PasosTecnica';
 import { useUnsavedChanges } from '../shared/hooks/useUnsavedChanges';
@@ -544,6 +547,10 @@ export function JourneyMapPage() {
       lista={
         !mostrarForm && (
           <>
+          {journeyMaps && journeyMaps.length > 0 && (
+            <TechniqueListHead titulo="Journey Maps del proyecto" cantidad={journeyMaps.length} />
+          )}
+
           {isLoading && <p>Cargando…</p>}
 
           {error && (
@@ -567,19 +574,14 @@ export function JourneyMapPage() {
                     </small>
                   </div>
 
-                  <button
-                    type="button"
-                    className="secondary"
-                    onClick={() =>
+                  <TechniqueItemActions
+                    consultando={journeyConsultado?.id === journey.id}
+                    onConsultar={() =>
                       setJourneyConsultado(
                         journeyConsultado?.id === journey.id ? null : journey,
                       )
                     }
-                  >
-                    {journeyConsultado?.id === journey.id
-                      ? 'Cerrar'
-                      : 'Consultar'}
-                  </button>
+                  />
                 </div>
 
                 {journey.contenido.objetivo && (
@@ -603,10 +605,15 @@ export function JourneyMapPage() {
               </div>
             ))}
 
-            {journeyMaps &&
-              journeyMaps.length === 0 &&
-              !isLoading && <p>No hay Journey Maps todavía.</p>}
           </div>
+
+          {journeyMaps && journeyMaps.length === 0 && !isLoading && (
+            <TechniqueEmpty
+              icono={<Icon name="journey" size={28} />}
+              titulo="No hay Journey Maps todavía"
+              texto={puedeEditar ? 'Usa + Nuevo Journey Map para registrar el primer recorrido del proyecto.' : 'Los Journey Maps aparecerán aquí cuando el equipo los registre.'}
+            />
+          )}
           </>
         )
       }
