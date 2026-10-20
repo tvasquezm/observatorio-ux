@@ -5,9 +5,10 @@ import { MemoryRouter, Outlet, Route, Routes } from 'react-router-dom';
 import { CardSortingPage } from './CardSortingPage';
 
 const mutate = vi.hoisted(() => vi.fn());
+const estudios = vi.hoisted(() => ({ lista: [] as unknown[] }));
 
 vi.mock('../features/card-sorting/hooks/useCardSortingQueries', () => ({
-  useCardSortingEstudiosByProyecto: () => ({ data: [], isLoading: false }),
+  useCardSortingEstudiosByProyecto: () => ({ data: estudios.lista, isLoading: false }),
   useCreateCardSortingSession: () => ({ mutate, isPending: false, error: null }),
 }));
 
@@ -18,6 +19,7 @@ function renderPage(open = true) {
         <Route element={<Outlet context={{ proyectoId: '11111111-1111-4111-8111-111111111111' }} />}>
           <Route path="/p" element={<CardSortingPage />} />
         </Route>
+        <Route path="/proyectos/:pid/card-sorting/:sid" element={<p>Workspace abierto</p>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -44,11 +46,15 @@ async function agregarUna(etiqueta: string, texto: string) {
 }
 
 describe('CardSortingPage · guía', () => {
-  it('muestra la guía de 8 pasos junto al formulario', () => {
-    renderPage();
-    expect(screen.getByRole('heading', { name: 'Cómo hacer un card sorting' })).toBeInTheDocument();
-      expect(screen.getByRole('heading', { name: 'Cómo hacer un card sorting' })).toBeVisible();
+  it('muestra la guía de 8 pasos en las instrucciones de la cabecera, colapsada', () => {
+    renderPage(false);
+    const resumen = screen.getByText('Cómo trabajar con Card Sorting');
+    const detalle = resumen.closest('details')!;
+    expect(detalle).not.toHaveAttribute('open');
+    expect(detalle.closest('.page-head')).toBeNull();
     expect(screen.getByText('Extraer conclusiones')).toBeInTheDocument();
+    fireEvent.click(resumen);
+    expect(screen.getByText('Extraer conclusiones')).toBeVisible();
   });
 
   it('explica cuándo usar abierto o cerrado según el tipo elegido', async () => {
@@ -280,5 +286,65 @@ describe('CardSortingPage · integración de propuestas', () => {
     expect(screen.getByLabelText('Nombre del estudio')).toHaveAttribute('aria-invalid', 'true');
     expect(screen.getByLabelText('Nombre del estudio')).toHaveAttribute('aria-describedby', 'cs-configuration-error');
     expect(screen.getByRole('alert')).toBeInTheDocument();
+  });
+});
+
+const ESTUDIO = {
+  id: 's1', nombre: 'Portal estudiantil', tipoCardSorting: 'ABIERTO', cardsDefinidas: ['A', 'B'],
+  respuestasCount: 3, cerrado: false, createdAt: '2026-10-01T10:00:00.000Z',
+};
+
+describe('CardSortingPage: esqueleto estándar', () => {
+  it('pone el primario en la cabecera y el proceso a nivel de página, fuera del formulario', () => {
+    renderPage(false);
+    const nuevo = screen.getByRole('button', { name: '+ Nuevo Card Sorting' });
+    expect(nuevo).toHaveClass('primary');
+    expect(nuevo.closest('.page-head')).not.toBeNull();
+    expect(screen.queryByRole('region', { name: 'Proceso del estudio' })).toBeNull();
+    fireEvent.click(nuevo);
+    expect(screen.getByRole('button', { name: 'Cancelar' })).toHaveClass('secondary');
+    const proceso = screen.getByRole('region', { name: 'Proceso del estudio' });
+    expect(proceso.closest('form')).toBeNull();
+  });
+
+  it('oculta la lista con el formulario abierto', () => {
+    estudios.lista = [ESTUDIO];
+    renderPage(false);
+    expect(screen.getByText('Portal estudiantil')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '+ Nuevo Card Sorting' }));
+    expect(screen.queryByText('Portal estudiantil')).toBeNull();
+    estudios.lista = [];
+  });
+});
+
+describe('CardSortingPage: lista estándar', () => {
+  it('muestra título con contador y Abrir secundario en las acciones de la fila', () => {
+    estudios.lista = [ESTUDIO];
+    renderPage(false);
+    const titulo = screen.getByRole('heading', { name: 'Continuar un Card Sorting' });
+    expect(titulo.closest('.technique-list-head')?.textContent).toContain('1');
+    const abrir = screen.getByRole('button', { name: 'Abrir' });
+    expect(abrir).toHaveClass('secondary');
+    expect(abrir.closest('.technique-item-actions')).not.toBeNull();
+    estudios.lista = [];
+  });
+
+  it('Abrir y el clic en la fila llevan al workspace', async () => {
+    estudios.lista = [ESTUDIO];
+    const { unmount } = renderPage(false);
+    await userEvent.click(screen.getByRole('button', { name: 'Abrir' }));
+    expect(screen.getByText('Workspace abierto')).toBeInTheDocument();
+    unmount();
+    renderPage(false);
+    await userEvent.click(screen.getByText('Portal estudiantil'));
+    expect(screen.getByText('Workspace abierto')).toBeInTheDocument();
+    estudios.lista = [];
+  });
+
+  it('sin estudios muestra el vacío estándar y no el encabezado de lista', () => {
+    renderPage(false);
+    const vacio = screen.getByText('Todavía no hay estudios de Card Sorting');
+    expect(vacio.closest('.technique-empty')).not.toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Continuar un Card Sorting' })).toBeNull();
   });
 });

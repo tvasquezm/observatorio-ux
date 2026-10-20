@@ -27,6 +27,11 @@ import { CardSortingTypePicker } from '../features/card-sorting/components/CardS
 import { CardSortingEntry } from '../features/card-sorting/components/CardSortingEntry';
 import { ComentariosTecnica } from '../features/comments/components/ComentariosTecnica';
 import { TechniquePageHeader } from '../shared/components/TechniquePageHeader';
+import { TechniquePage } from '../shared/components/TechniquePage';
+import { TechniqueNewButton } from '../shared/components/TechniqueNewButton';
+import { TechniqueItemActions } from '../shared/components/TechniqueItemActions';
+import { TechniqueListHead, TechniqueEmpty } from '../shared/components/TechniqueListParts';
+import { Icon } from '../shared/components/ui/Icon';
 import { PasosTecnica, type PasoTecnica } from '../shared/components/PasosTecnica';
 import { TechniqueProcess, type ProcessStep } from '../shared/components/TechniqueProcess';
 
@@ -328,32 +333,39 @@ export function CardSortingPage() {
   ];
 
   return (
-    <div className="fade">
-      <TechniquePageHeader
-        label="TÉCNICA DE INVESTIGACIÓN"
-        title="Card Sorting"
-        description="Crea estudios abiertos, cerrados o híbridos, compártelos con participantes y analiza cada clasificación como evidencia independiente."
-        action={(
-          <button
-            type="button"
-            className={mostrarForm ? 'secondary' : 'primary'}
-            disabled={createStudy.isPending}
-            onClick={() => setMostrarForm((visible) => !visible)}
-          >
-            {mostrarForm ? 'Cancelar' : '+ Nuevo Card Sorting'}
-          </button>
-        )}
-      />
-
-      {mostrarForm && (
+    <TechniquePage
+      cabecera={
+        <TechniquePageHeader
+          label="TÉCNICA DE INVESTIGACIÓN"
+          title="Card Sorting"
+          description="Crea estudios abiertos, cerrados o híbridos, compártelos con participantes y analiza cada clasificación como evidencia independiente."
+          instructions={(
+            <>
+              <p>Prepara las tarjetas, invita a los participantes y revisa los resultados. Abre cada paso para ver sus instrucciones.</p>
+              <CardSortingGuide />
+            </>
+          )}
+          action={(
+            <TechniqueNewButton
+              etiqueta="+ Nuevo Card Sorting"
+              abierto={mostrarForm}
+              puedeEditar
+              disabled={createStudy.isPending}
+              onClick={() => setMostrarForm((visible) => !visible)}
+            />
+          )}
+        />
+      }
+      proceso={mostrarForm && (
+        <TechniqueProcess
+          title="Proceso del estudio"
+          textoListo="Estudio completo: ya puedes crearlo"
+          steps={steps}
+        />
+      )}
+      formulario={mostrarForm && (
         <form onSubmit={handleSubmit} className="entity-card form cs-study-form" noValidate>
           <h3>Nuevo Card Sorting</h3>
-
-          <TechniqueProcess
-            title="Proceso del estudio"
-            textoListo="Estudio completo: ya puedes crearlo"
-            steps={steps}
-          />
 
           <PasosTecnica pasos={pasos} acciones={(
             <button type="submit" className="primary" disabled={createStudy.isPending}>
@@ -368,53 +380,49 @@ export function CardSortingPage() {
           )}
         </form>
       )}
+      lista={!mostrarForm && (
+        <>
+          {!loadingStudies && studies.length > 0 && (
+            <TechniqueListHead titulo="Continuar un Card Sorting" cantidad={studies.length} />
+          )}
 
-      <details className="panel cs-guide-box technique-instructions">
-        <summary><h2>Cómo hacer un card sorting</h2></summary>
-        <p>Prepara las tarjetas, invita a los participantes y revisa los resultados. Abre cada paso para ver sus instrucciones.</p>
-        <CardSortingGuide />
-      </details>
-
-      <section className="panel mt-16">
-        <div className="panel-head">
-          <div>
-            <h2>Continuar un Card Sorting</h2>
-          </div>
-          <span className="count">{studies.length}</span>
-        </div>
-
-        {loadingStudies ? (
-          <p className="text-muted-sm">Cargando estudios…</p>
-        ) : studies.length === 0 ? (
-          <p className="text-muted-sm">Todavía no hay estudios de Card Sorting.</p>
-        ) : (
-          <div className="cs-study-list">
-            {studies.map((study) => (
-              <button
-                key={study.id}
-                type="button"
-                className="cs-study-row"
-                onClick={() => navigate(`/proyectos/${proyectoId}/card-sorting/${study.id}`)}
-              >
-                <span>
-                  <strong>{study.nombre}</strong>
-                  <small>
-                    {TYPE_LABELS[study.tipoCardSorting ?? 'ABIERTO']} ·{' '}
-                    {study.cardsDefinidas.length} tarjetas · {study.respuestasCount ?? 0}{' '}
-                    {(study.respuestasCount ?? 0) === 1 ? 'respuesta' : 'respuestas'}
-                  </small>
-                </span>
-                <span className={`cs-status${study.cerrado ? ' closed' : ''}`}>
-                  {study.cerrado ? 'Cerrado' : 'Recibiendo respuestas'}
-                </span>
-                <time dateTime={study.createdAt}>{formatDate(study.createdAt)}</time>
-                <span aria-hidden="true">→</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </section>
-      <ComentariosTecnica proyectoId={proyectoId} tecnica="card-sorting" />
-    </div>
+          {loadingStudies ? (
+            <p className="text-muted-sm">Cargando estudios…</p>
+          ) : studies.length === 0 ? (
+            <TechniqueEmpty
+              icono={<Icon name="card-sorting" size={28} />}
+              titulo="Todavía no hay estudios de Card Sorting"
+              texto="Usa + Nuevo Card Sorting para crear el primer estudio del proyecto."
+            />
+          ) : (
+            <div className="cs-study-list">
+              {studies.map((study) => {
+                const abrir = () => navigate(`/proyectos/${proyectoId}/card-sorting/${study.id}`);
+                return (
+                  <div key={study.id} className="cs-study-row" onClick={abrir}>
+                    <span>
+                      <strong>{study.nombre}</strong>
+                      <small>
+                        {TYPE_LABELS[study.tipoCardSorting ?? 'ABIERTO']} ·{' '}
+                        {study.cardsDefinidas.length} tarjetas · {study.respuestasCount ?? 0}{' '}
+                        {(study.respuestasCount ?? 0) === 1 ? 'respuesta' : 'respuestas'}
+                      </small>
+                    </span>
+                    <span className={`cs-status${study.cerrado ? ' closed' : ''}`}>
+                      {study.cerrado ? 'Cerrado' : 'Recibiendo respuestas'}
+                    </span>
+                    <time dateTime={study.createdAt}>{formatDate(study.createdAt)}</time>
+                    <div onClick={(event) => event.stopPropagation()}>
+                      <TechniqueItemActions etiquetaConsultar="Abrir" onConsultar={abrir} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+      comentarios={<ComentariosTecnica proyectoId={proyectoId} tecnica="card-sorting" />}
+    />
   );
 }

@@ -411,7 +411,7 @@ export function JourneyMapPage() {
                               {form.fases.length > MIN_FASES && (
                                 <button
                                   type="button"
-                                  className="link-btn link-btn--delete"
+                                  className="danger"
                                   onClick={() => eliminarFase(index)}
                                 >
                                   Eliminar fase

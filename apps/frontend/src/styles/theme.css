@@ -655,7 +655,7 @@ button { cursor: pointer; }
 .cs-flow-list li > span { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 999px; background: color-mix(in srgb, var(--teal) 12%, var(--surface)); color: var(--teal); font-size: 12px; font-weight: 850; }
 .cs-flow-list p { margin: 4px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
 .cs-study-list { display: grid; gap: 8px; }
-.cs-study-row { display: grid; grid-template-columns: minmax(220px, 1fr) auto auto 18px; gap: 16px; align-items: center; width: 100%; padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); text-align: left; transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease; }
+.cs-study-row { display: grid; grid-template-columns: minmax(220px, 1fr) auto auto auto; gap: 16px; align-items: center; width: 100%; padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); text-align: left; cursor: pointer; transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease; }
 .cs-study-row:hover { border-color: color-mix(in srgb, var(--teal) 45%, var(--line)); box-shadow: var(--shadow); transform: translateY(-1px); }
 .cs-study-row:focus-visible, .cs-sort-card:focus-visible, .cs-analysis-tab:focus-visible, .cs-move-button:focus-visible { outline: 3px solid color-mix(in srgb, var(--teal) 35%, transparent); outline-offset: 2px; }
 .cs-study-row > span:first-child { display: grid; gap: 4px; }
@@ -2683,18 +2683,12 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .cs-progress-text small { overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .cs-progress-status { margin: 14px 0 0; padding: 10px 12px; border-radius: 10px; background: var(--surface-alt); color: var(--ink-soft); font-size: 12px; font-weight: 600; line-height: 1.45; }
 .cs-progress.ready .cs-progress-status { background: color-mix(in srgb, var(--mint) 16%, var(--surface)); color: var(--positive-text); }
-.cs-guide-box > summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; list-style: none; cursor: pointer; }
 .app :is(button, a, input, textarea, select, summary):focus-visible { outline: 3px solid var(--teal); outline-offset: 3px; }
 .app .side :is(a, button):focus-visible { outline-color: #fff; }
 :root[data-contrast='high'] .app :is(.metric p, .tech-card p, .tech-card small, .project-row small) { color: var(--ink); }
 @media (min-width: 481px) and (max-width: 1100px) {
   .tech-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-.cs-guide-box > summary::-webkit-details-marker { display: none; }
-.cs-guide-box > summary h2 { margin: 0; font-size: 16px; }
-.cs-guide-box > summary::after { content: ''; flex: none; width: 8px; height: 8px; margin-right: 4px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); transition: transform .15s ease; }
-.cs-guide-box[open] > summary::after { transform: rotate(-135deg); }
-.cs-guide-box > summary:focus-visible { outline: 3px solid color-mix(in srgb, var(--teal) 35%, transparent); outline-offset: 4px; border-radius: 6px; }
 .cs-study-form .field :is(input, textarea, select), .cs-add-one input { background: var(--bg); border-color: color-mix(in srgb, var(--muted) 45%, var(--line)); }
 @media (min-width: 1024px) {
   .cs-study-form { grid-template-columns: minmax(280px, 340px) minmax(0, 1fr); align-items: start; column-gap: 24px; }
@@ -2994,6 +2988,10 @@ div:has(> .project-section > .hf) > .project-heading p { margin:4px 0 0; font-si
 .hf .hf-pie-trabajo > .hf-navegar button { min-height:44px; min-width:150px; }
 .hf .hf-retomar { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 16px; margin:0 0 12px; }
 .hf .hf-retomar > p { margin:0; }
+.hf .hf-revisiones { display: grid; gap: 9px; margin-top: 12px; }
+.hf .hf-revision-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.hf .hf-revision-row > span { display: grid; gap: 4px; }
+.hf .hf-revision-row small { color: var(--muted); font-size: 12px; }
 @media(max-width:650px) { .hf .hf-revision-distribucion > .hf-preguntas { position:static; max-height:none; overflow:visible; } .hf .hf-revision-distribucion > .hf-contenido { padding:12px 0; } }
 
 /* Acordar: barra de acciones fija, originales y decisiones en dos columnas. */

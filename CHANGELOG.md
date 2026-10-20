@@ -6,6 +6,11 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **tecnicas:** las 5 técnicas (Personas, Journey Map, Momentos críticos, Card Sorting y Evaluación heurística) muestran
+  sus partes en el mismo orden (cabecera, instrucciones, proceso, resumen, formulario, lista, comentarios), con `+ Nuevo`
+  arriba a la derecha y las acciones de cada elemento (Consultar, Editar, Eliminar) en el mismo lugar con tres niveles de
+  botón: primario, secundario y peligro. La lista se oculta mientras el formulario está abierto y los estados vacíos
+  son iguales en todas.
 * **evaluacion-heuristica:** se elimina del front la evaluación heurística antigua (pantalla de sesiones, hallazgos
   y capturas) y el botón «Evaluaciones anteriores». Los reportes PDF y la analítica del proyecto ahora leen las
   evaluaciones del flujo nuevo: cuentan solo los problemas acordados de la versión más reciente de cada evaluación.
