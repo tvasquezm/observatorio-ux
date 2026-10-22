@@ -87,7 +87,7 @@ export function HallazgoForm({
     <form onSubmit={handleSubmit} className="hx-form" noValidate aria-label={modo === 'crear' ? 'Nuevo hallazgo' : 'Editar hallazgo'}>
       <div className="form-grid-2">
         <label className="field">
-          Heurística vulnerada
+          Pregunta relacionada
           <select
             value={valores.heuristicaId}
             onChange={(e) => set('heuristicaId', e.target.value as HallazgoFormValues['heuristicaId'])}
@@ -119,7 +119,7 @@ export function HallazgoForm({
 
       <div className="form-grid-2">
         <label className="field">
-          Título del hallazgo
+          Nombre del problema
           <input
             value={valores.titulo}
             onChange={(e) => set('titulo', e.target.value)}

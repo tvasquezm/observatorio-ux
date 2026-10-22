@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { EvidenciaEditor } from './EvidenciaEditor';
 
 const api = vi.hoisted(() => ({ cargarEvidencia: vi.fn(), subirEvidenciaFlujo: vi.fn(), guardarAnotaciones: vi.fn() }));
 vi.mock('./evidencia.api', () => api);
+const PNG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0];
+const png = (name = 'a.png') => new File([new Uint8Array(PNG)], name, { type: 'image/png' });
 const meta = { id: 'cap1', evaluacionId: 'ev1', autorId: 'u1', mimeType: 'image/png', tamano: 5, anotaciones: [], revision: 0, createdAt: '2026-10-09' };
 function abrir(editable = true, onPendingChange = vi.fn()) {
   return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
@@ -72,7 +74,7 @@ describe('EvidenciaEditor', () => {
     </QueryClientProvider>);
     await screen.findByAltText('Captura de evidencia');
     expect(screen.queryByRole('button', { name: 'Agregar anotación' })).not.toBeInTheDocument();
-    await userEvent.upload(screen.getByLabelText(/Adjuntar captura antes de la mejora 1/), new File(['png'], 'a.png', { type: 'image/png' }));
+    await userEvent.upload(screen.getByLabelText(/Adjuntar captura antes de la mejora 1/), png());
     await waitFor(() => expect(onChange).toHaveBeenCalledWith(['cap1', 'cap2']));
     await userEvent.click(screen.getByRole('button', { name: 'Quitar captura antes de la mejora 1' }));
     expect(onChange).toHaveBeenLastCalledWith([]);
@@ -83,5 +85,62 @@ describe('EvidenciaEditor', () => {
     </QueryClientProvider>);
     await screen.findByAltText('Captura de evidencia');
     expect(screen.getByLabelText(/Adjuntar captura/)).toBeDisabled();
+  });
+  function abrirVacio(props: { max?: number; editable?: boolean; onChange?: (ids: string[]) => void } = {}) {
+    const onChange = props.onChange ?? vi.fn();
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <EvidenciaEditor proyectoId="p1" evaluacionId="ev1" evidenciaIds={[]} editable={props.editable ?? true} sinAnotar max={props.max} onChange={onChange} />
+    </QueryClientProvider>);
+    return { onChange, zona: () => screen.getByRole('group', { name: /Zona de capturas/ }) };
+  }
+  it('indica el límite real de tamaño y las formas de adjuntar', () => {
+    abrirVacio();
+    expect(screen.getByText(/Máximo 4 MB por imagen/)).toBeInTheDocument();
+    expect(screen.getByText(/arrastrar la imagen aquí o pegarla con Ctrl\+V/)).toBeInTheDocument();
+  });
+  it('sube una captura pegada y no hace nada si solo se pega texto', async () => {
+    api.subirEvidenciaFlujo.mockResolvedValue({ ...meta, id: 'cap2' });
+    const { onChange, zona } = abrirVacio();
+    fireEvent.paste(zona(), { clipboardData: { files: [] } });
+    expect(api.subirEvidenciaFlujo).not.toHaveBeenCalled();
+    fireEvent.paste(zona(), { clipboardData: { files: [png('image.png')] } });
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith(['cap2']));
+  });
+  it('sube en serie las capturas soltadas y respeta el cupo', async () => {
+    api.subirEvidenciaFlujo.mockResolvedValueOnce({ ...meta, id: 'a' }).mockResolvedValueOnce({ ...meta, id: 'b' });
+    const { onChange, zona } = abrirVacio({ max: 2 });
+    fireEvent.drop(zona(), { dataTransfer: { files: [png('1.png'), png('2.png'), png('3.png')] } });
+    await screen.findByText('Máximo 2 capturas en este problema.');
+    expect(api.subirEvidenciaFlujo).toHaveBeenCalledTimes(2);
+    expect(onChange).toHaveBeenLastCalledWith(['a', 'b']);
+  });
+  it('rechaza SVG y archivos disfrazados sin subirlos', async () => {
+    const { zona } = abrirVacio();
+    fireEvent.drop(zona(), { dataTransfer: { files: [new File(['<svg></svg>'], 'a.svg', { type: 'image/svg+xml' })] } });
+    expect(await screen.findByRole('alert')).toHaveTextContent(/SVG/);
+    fireEvent.drop(zona(), { dataTransfer: { files: [new File(['<script>x</script>'], 'a.png', { type: 'image/png' })] } });
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/Formato no permitido/));
+    expect(api.subirEvidenciaFlujo).not.toHaveBeenCalled();
+  });
+  it('ignora una segunda subida mientras hay una en curso', async () => {
+    let terminar: (v: unknown) => void = () => {};
+    api.subirEvidenciaFlujo.mockImplementation(() => new Promise(resolve => { terminar = resolve; }));
+    const { zona } = abrirVacio();
+    fireEvent.paste(zona(), { clipboardData: { files: [png()] } });
+    await waitFor(() => expect(api.subirEvidenciaFlujo).toHaveBeenCalledTimes(1));
+    fireEvent.paste(zona(), { clipboardData: { files: [png()] } });
+    fireEvent.drop(zona(), { dataTransfer: { files: [png()] } });
+    terminar({ ...meta, id: 'cap9' });
+    await waitFor(() => expect(screen.queryByText(/Subiendo captura/)).not.toBeInTheDocument());
+    expect(api.subirEvidenciaFlujo).toHaveBeenCalledTimes(1);
+  });
+  it('en solo lectura no acepta pegar ni soltar', () => {
+    const { onChange } = abrirVacio({ editable: false });
+    expect(screen.queryByRole('group', { name: /Zona de capturas/ })).not.toBeInTheDocument();
+    const raiz = document.body.firstElementChild!.firstElementChild!;
+    fireEvent.paste(raiz, { clipboardData: { files: [png()] } });
+    fireEvent.drop(raiz, { dataTransfer: { files: [png()] } });
+    expect(api.subirEvidenciaFlujo).not.toHaveBeenCalled();
+    expect(onChange).not.toHaveBeenCalled();
   });
 });

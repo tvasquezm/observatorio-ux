@@ -64,7 +64,7 @@ export function EvaluacionHeuristicaPage() {
   return (
     <>
       {search.get('anteriores') === '1'
-        ? <><button type="button" className="text-button" onClick={() => setSearch({})}>← Nuevo flujo de evaluación</button><EvaluacionHeuristicaLegacyPage /></>
+        ? <><button type="button" className="text-button" onClick={() => setSearch({})}>← Volver a evaluaciones</button><EvaluacionHeuristicaLegacyPage /></>
         : <FlujoHeuristicaPage />}
       <ComentariosTecnica proyectoId={proyectoId} tecnica="evaluacion-heuristica" />
     </>
@@ -208,7 +208,7 @@ export function EvaluacionHeuristicaLegacyPage() {
       <div className="fade">
         <div className="page-head">
           <div>
-            <h2>Hallazgos heurísticos</h2>
+            <h2>Problemas encontrados</h2>
             <p>Registra problemas de usabilidad según las 10 heurísticas de Nielsen, con evidencia, severidad y una recomendación accionable.</p>
           </div>
         </div>

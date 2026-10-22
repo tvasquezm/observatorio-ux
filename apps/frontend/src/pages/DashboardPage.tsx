@@ -14,7 +14,7 @@ const TECHNIQUES = [
   { to: 'journey-map', label: 'Journey Map', icon: '⌁', desc: 'Acciones, emociones y oportunidades por etapa', cls: 'c4' },
   { to: 'momentos-criticos', label: 'Momentos críticos', icon: '✚', desc: 'Impacto, frecuencia y priorización cualitativa', cls: 'c5' },
   { to: 'card-sorting', label: 'Card Sorting', icon: '▦', desc: 'Agrupaciones, categorías y nivel de consenso', cls: 'c1' },
-  { to: 'evaluacion-heuristica', label: 'Evaluación heurística', icon: '✦', desc: 'Severidad, evidencia y recomendaciones accionables', cls: 'c3' },
+  { to: 'evaluacion-heuristica', label: 'Evaluación heurística', icon: '✦', desc: 'Revisa un sitio con preguntas y anota qué mejorar', cls: 'c3' },
 ] as const;
 
 function fechaHoy() {
