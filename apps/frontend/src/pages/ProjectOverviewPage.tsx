@@ -8,7 +8,7 @@ const TECHNIQUES = [
   { to: 'journey-map', icon: '⌁', title: 'Journey Map', description: 'Visualiza el recorrido, emociones y oportunidades.', color: 'green' },
   { to: 'momentos-criticos', icon: '✚', title: 'Momentos críticos', description: 'Prioriza incidentes según impacto y frecuencia.', color: 'orange' },
   { to: 'card-sorting', icon: '▦', title: 'Card Sorting', description: 'Ordena contenidos y valida la arquitectura.', color: 'purple' },
-  { to: 'evaluacion-heuristica', icon: '✦', title: 'Evaluación heurística', description: 'Registra hallazgos, evidencia y recomendaciones.', color: 'red' },
+  { to: 'evaluacion-heuristica', icon: '✦', title: 'Evaluación heurística', description: 'Revisa un sitio con preguntas y anota qué mejorar.', color: 'red' },
 ];
 
 export function ProjectOverviewPage() {

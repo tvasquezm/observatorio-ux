@@ -1,10 +1,12 @@
 import { useEffect, useId, useRef, useState } from 'react';
+import type { ClipboardEvent, DragEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { EVIDENCIA_MAX_MB } from '@observatorio-ux/shared-types';
 import type { AnotacionEvidencia, EvidenciaFlujo } from '@observatorio-ux/shared-types';
 import { useAuthStore } from '../auth/store/useAuthStore';
-import { validarArchivoEvidencia } from '../evaluacion-heuristica/heuristica-utils';
 import { comprimirImagen } from '../../shared/utils/comprimir-imagen';
 import { cargarEvidencia, guardarAnotaciones, subirEvidenciaFlujo } from './evidencia.api';
+import { normalizarTipoEvidencia, validarImagenEvidencia } from './evidencia-validar';
 
 interface Props {
   proyectoId: string; evaluacionId: string; evidenciaIds: string[]; editable: boolean;
@@ -118,25 +120,50 @@ function Captura({ id, onPendingChange, ...props }: Omit<Props, 'evidenciaIds' |
 
 export function EvidenciaEditor({ proyectoId, evaluacionId, evidenciaIds, editable, onChange, onPendingChange, sinAnotar = false, max = 50, etiqueta }: Props) {
   const [subiendo, setSubiendo] = useState(false);
+  const [arrastrando, setArrastrando] = useState(false);
   const [error, setError] = useState('');
   const [pendientes, setPendientes] = useState<Record<string, boolean>>({});
   const pendingRef = useRef(onPendingChange); pendingRef.current = onPendingChange;
   const idsRef = useRef(evidenciaIds); idsRef.current = evidenciaIds;
   const changeRef = useRef(onChange); changeRef.current = onChange;
+  const ocupado = useRef(false);
   const pending = subiendo || evidenciaIds.some(id => pendientes[id]);
+  const puedeSubir = editable && !!onChange;
   useEffect(() => { pendingRef.current?.(pending); }, [pending]);
   useEffect(() => () => pendingRef.current?.(false), []);
-  async function subir(original: File) {
-    setSubiendo(true);
+  /** Única entrada de subida (selector, pegar y arrastrar): con guardia, en serie y hasta el cupo. */
+  async function subirArchivos(archivos: File[]) {
+    if (!puedeSubir || ocupado.current || !archivos.length) return;
+    ocupado.current = true; setSubiendo(true); setError('');
+    let ids = idsRef.current;
     try {
-      const archivo = await comprimirImagen(original);
-      const problema = validarArchivoEvidencia(archivo); setError(problema ?? ''); if (problema) return;
-      const e = await subirEvidenciaFlujo(proyectoId, evaluacionId, archivo); changeRef.current?.([...idsRef.current, e.id]);
-    } catch (e) { setError(mensaje(e)); } finally { setSubiendo(false); }
+      for (const original of archivos) {
+        if (ids.length >= max) { setError(`Máximo ${max} capturas en este problema.`); break; }
+        const formato = await validarImagenEvidencia(original, { omitirTamano: true });
+        if (formato) { setError(formato); break; }
+        const archivo = await comprimirImagen(await normalizarTipoEvidencia(original));
+        const problema = await validarImagenEvidencia(archivo);
+        if (problema) { setError(problema); break; }
+        const e = await subirEvidenciaFlujo(proyectoId, evaluacionId, archivo);
+        ids = [...ids, e.id]; changeRef.current?.(ids);
+      }
+    } catch (e) { setError(mensaje(e)); } finally { ocupado.current = false; setSubiendo(false); }
   }
-  return <div>
-    {editable && onChange && <label className="field">Adjuntar captura{etiqueta ? ` ${etiqueta}` : ''}<input type="file" accept="image/png,image/jpeg,image/webp" disabled={subiendo || evidenciaIds.length >= max} onChange={e => { const archivo = e.target.files?.[0]; e.target.value = ''; if (archivo) void subir(archivo); }} /><small>PNG, JPEG o WebP. Máximo 2 MB por imagen.</small></label>}
+  function pegar(e: ClipboardEvent<HTMLDivElement>) {
+    const archivos = Array.from(e.clipboardData?.files ?? []);
+    if (!puedeSubir || !archivos.length) return;
+    e.preventDefault(); void subirArchivos(archivos);
+  }
+  function soltar(e: DragEvent<HTMLDivElement>) {
+    if (!puedeSubir) return;
+    e.preventDefault(); setArrastrando(false); void subirArchivos(Array.from(e.dataTransfer?.files ?? []));
+  }
+  return <div role={puedeSubir ? 'group' : undefined} aria-label={puedeSubir ? 'Zona de capturas: arrastra o pega una imagen' : undefined} tabIndex={puedeSubir ? 0 : undefined}
+    style={arrastrando ? { outline: '2px dashed var(--primary)', outlineOffset: 4 } : undefined}
+    onPaste={pegar} onDragOver={e => { if (puedeSubir) { e.preventDefault(); setArrastrando(true); } }}
+    onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setArrastrando(false); }} onDrop={soltar}>
+    {puedeSubir && <label className="field">Adjuntar captura{etiqueta ? ` ${etiqueta}` : ''}<input type="file" accept="image/png,image/jpeg,image/webp" disabled={subiendo || evidenciaIds.length >= max} onChange={e => { const archivo = e.target.files?.[0]; e.target.value = ''; if (archivo) void subirArchivos([archivo]); }} /><small>PNG, JPEG o WebP. Máximo {EVIDENCIA_MAX_MB} MB por imagen. También puedes arrastrar la imagen aquí o pegarla con Ctrl+V después de hacer clic en esta zona.</small></label>}
     {subiendo && <p role="status">Subiendo captura…</p>}{error && <p role="alert">{error}</p>}
-    {evidenciaIds.map(id => <div key={id}><Captura proyectoId={proyectoId} evaluacionId={evaluacionId} id={id} editable={editable && !sinAnotar} onPendingChange={v => setPendientes(p => p[id] === v ? p : { ...p, [id]: v })} />{editable && onChange && <button type="button" className="text-button" disabled={subiendo || pendientes[id]} onClick={() => onChange(evidenciaIds.filter(n => n !== id))}>{etiqueta ? `Quitar captura ${etiqueta}` : 'Quitar captura del hallazgo'}</button>}</div>)}
+    {evidenciaIds.map(id => <div key={id}><Captura proyectoId={proyectoId} evaluacionId={evaluacionId} id={id} editable={editable && !sinAnotar} onPendingChange={v => setPendientes(p => p[id] === v ? p : { ...p, [id]: v })} />{editable && onChange && <button type="button" className="text-button" disabled={subiendo || pendientes[id]} onClick={() => onChange(evidenciaIds.filter(n => n !== id))}>{etiqueta ? `Quitar captura ${etiqueta}` : 'Quitar captura del problema'}</button>}</div>)}
   </div>;
 }

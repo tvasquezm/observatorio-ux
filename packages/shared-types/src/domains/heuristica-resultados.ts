@@ -42,7 +42,7 @@ export function resumirEvaluacion(configuracion: ConfiguracionFlujo, consenso: C
     if (respuestas.length !== 1) continue;
     const respuesta = respuestas[0];
     if (respuesta.noAplica) {
-      if (respuesta.valor === null && respuesta.motivo.trim()) noAplica++;
+      if (respuesta.valor === null) noAplica++;
       continue;
     }
     const nivel = escalaDe(configuracion.metodologia, criterio).niveles.find(n => n.id === respuesta.valor);
@@ -130,7 +130,7 @@ export type ClaseCriterio = 'favorable' | 'desfavorable' | 'neutro' | 'sin_evalu
 export interface ClasificacionCriterio { criterioId: string; categoria: string; clase: ClaseCriterio }
 /**
  * Clasifica cada criterio del consenso según la escala efectiva del criterio.
- * Mismas reglas que `resumirEvaluacion`: decisión ausente o ambigua, valor desconocido o "no aplica" sin motivo = sin evaluar.
+ * Mismas reglas que `resumirEvaluacion`: decisión ausente o ambigua, valor desconocido o "no aplica" con valor = sin evaluar.
  * Un nivel sin `favorable` es neutro; la favorabilidad nunca se deduce del sentido ni de los valores.
  */
 export function clasificarCriterios(configuracion: ConfiguracionFlujo, consenso: ConsensoFlujo): ClasificacionCriterio[] {
@@ -139,7 +139,7 @@ export function clasificarCriterios(configuracion: ConfiguracionFlujo, consenso:
     const respuestas = consenso.criterios.filter(r => r.criterioId === criterio.id);
     if (respuestas.length !== 1) return { ...base, clase: 'sin_evaluar' as const };
     const respuesta = respuestas[0];
-    if (respuesta.noAplica) return { ...base, clase: respuesta.valor === null && respuesta.motivo.trim() ? 'no_aplica' as const : 'sin_evaluar' as const };
+    if (respuesta.noAplica) return { ...base, clase: respuesta.valor === null ? 'no_aplica' as const : 'sin_evaluar' as const };
     const nivel = escalaDe(configuracion.metodologia, criterio).niveles.find(n => n.id === respuesta.valor);
     if (!nivel) return { ...base, clase: 'sin_evaluar' as const };
     return { ...base, clase: nivel.favorable === true ? 'favorable' as const : nivel.favorable === false ? 'desfavorable' as const : 'neutro' as const };
