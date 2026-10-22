@@ -34,7 +34,9 @@ export function AppLayout() {
     return savedTheme === 'dark' || (savedTheme === null && window.matchMedia('(prefers-color-scheme: dark)').matches);
   });
   const [exportOpen, setExportOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() =>
+    window.localStorage.getItem('observatorio-ux-sidebar-collapsed') === 'true',
+  );
   const [highContrast, setHighContrast] = useState(() =>
     window.localStorage.getItem('observatorio-ux-contrast') === 'high',
   );
@@ -42,14 +44,8 @@ export function AppLayout() {
   const preferencesRef = useRef<HTMLDialogElement>(null);
   const sidebarRef = useRef<HTMLElement>(null);
 
-  useEffect(() => { setSidebarCollapsed(true); }, [location.key]);
   useEffect(() => {
-    if (sidebarCollapsed) return;
-    const closeOutside = (event: PointerEvent) => {
-      if (event.target instanceof Node && !sidebarRef.current?.contains(event.target)) setSidebarCollapsed(true);
-    };
-    document.addEventListener('pointerdown', closeOutside);
-    return () => document.removeEventListener('pointerdown', closeOutside);
+    window.localStorage.setItem('observatorio-ux-sidebar-collapsed', String(sidebarCollapsed));
   }, [sidebarCollapsed]);
   const activeRole = user ? resolvePerspective(user.rol, perspectiveRole) : null;
   const visibleNavItems = NAV_ITEMS.filter((item) => {
@@ -137,7 +133,6 @@ export function AppLayout() {
               end={item.end}
               aria-label={item.label}
               title={sidebarCollapsed ? item.label : undefined}
-              onClick={() => setSidebarCollapsed(true)}
               className={({ isActive }) => `nav-btn${isActive ? ' active' : ''}`}
             >
               <span className="nav-icon" aria-hidden="true">{item.icon}</span>

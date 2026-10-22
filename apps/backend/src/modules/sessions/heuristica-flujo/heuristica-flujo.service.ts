@@ -29,7 +29,7 @@ export function filtrarEvaluacion(e: EvaluacionFlujo, user: AuthenticatedUser): 
   const copia = structuredClone(e);
   const participante = e.coordinadorId === user.id || e.configuracion.evaluadorIds.includes(user.id);
   if (participante) copia.avanceEquipo = e.trabajos.map(t => ({ evaluadorId: t.evaluadorId, nombre: t.nombre, entregadoEn: t.entregadoEn, guardadoEn: t.guardadoEn,
-    evaluados: t.respuestas.filter(r => r.noAplica ? !!r.motivo.trim() : r.valor !== null).length, total: e.configuracion.metodologia.criterios.length }));
+    evaluados: t.respuestas.filter(r => r.noAplica ? r.valor === null : r.valor !== null).length, total: e.configuracion.metodologia.criterios.length }));
   if (!participante) {
     delete copia.avanceEquipo;
     copia.trabajos = [];
@@ -92,7 +92,12 @@ export class HeuristicaFlujoService {
       const original = METODOLOGIAS_HEURISTICAS.find(m => m.id === c.metodologia.id);
       if (!original || !isDeepStrictEqual(json(original), json(c.metodologia))) throw new BadRequestException('El catálogo original es inmutable; crea una copia para personalizarlo.');
     }
-    if (completa && [c.nombre, c.producto.clave, c.producto.nombre, c.producto.version, c.producto.dispositivo, c.objetivo, c.tareas, c.pantallas].some(v => !v.trim())) throw new BadRequestException('Completa producto, objetivo, tareas y pantallas antes de iniciar.');
+    if (completa) {
+      if (!c.nombre.trim()) throw new BadRequestException('Escribe el nombre de la evaluación.');
+      if (!c.producto.nombre.trim()) throw new BadRequestException('Escribe el nombre del producto.');
+      if (!c.producto.clave.trim()) throw new BadRequestException('Escribe la clave del producto.');
+    }
+    return miembros;
   }
 
   async crear(proyectoId: string, body: unknown, user: AuthenticatedUser) {
@@ -100,6 +105,22 @@ export class HeuristicaFlujoService {
     const configuracion = validar(configuracionSchema, body);
     await this.validarConfiguracion(proyectoId, configuracion, user);
     const creada = await this.prisma.evaluacionHeuristicaCompleta.create({ data: { proyectoId, coordinadorId: user.id, configuracion: json(configuracion), trabajos: [], consenso: json(consensoVacio()) } });
+    return filtrarEvaluacion(leer(creada), user);
+  }
+
+  private crearTrabajos(c: ConfiguracionFlujo, miembros: { id: string; nombre: string }[]): TrabajoFlujo[] {
+    return c.evaluadorIds.map(evaluadorId => ({ evaluadorId, nombre: miembros.find(m => m.id === evaluadorId)!.nombre,
+      respuestas: [], hallazgos: [], entregadoEn: null, guardadoEn: null }));
+  }
+
+  async comenzar(proyectoId: string, body: unknown, user: AuthenticatedUser) {
+    await this.projectAccess.assertAccess(proyectoId, user);
+    const configuracion = validar(configuracionSchema, body);
+    const miembros = await this.validarConfiguracion(proyectoId, configuracion, user, true);
+    const creada = await this.prisma.evaluacionHeuristicaCompleta.create({ data: {
+      proyectoId, coordinadorId: user.id, configuracion: json(configuracion),
+      fase: 'EN_EVALUACION', iniciadoEn: new Date(), trabajos: json(this.crearTrabajos(configuracion, miembros)), consenso: json(consensoVacio()),
+    } });
     return filtrarEvaluacion(leer(creada), user);
   }
 
@@ -172,10 +193,8 @@ export class HeuristicaFlujoService {
     const b = validar(revisionSchema, body);
     return this.bloqueada(proyectoId, id, user, b.revision, async (e, tx) => {
       this.coordinador(e, user); this.fase(e, 'BORRADOR');
-      await this.validarConfiguracion(proyectoId, e.configuracion, user, true);
-      const miembros = await this.equipo(proyectoId, user);
-      e.trabajos = e.configuracion.evaluadorIds.map(evaluadorId => ({ evaluadorId, nombre: miembros.find(m => m.id === evaluadorId)!.nombre,
-        respuestas: [], hallazgos: [], entregadoEn: null, guardadoEn: null }));
+      const miembros = await this.validarConfiguracion(proyectoId, e.configuracion, user, true);
+      e.trabajos = this.crearTrabajos(e.configuracion, miembros);
       e.fase = 'EN_EVALUACION'; e.iniciadoEn = new Date().toISOString();
       return this.persistir(e, tx, user);
     });
@@ -186,13 +205,20 @@ export class HeuristicaFlujoService {
     // El valor debe pertenecer a la escala efectiva del criterio (propia o la de la metodología).
     const valorValido = (r: RespuestaCriterio) => { const c = criterios.find(x => x.id === r.criterioId); return !!c && (r.valor === null || escalaDe(e.configuracion.metodologia, c).niveles.some(n => n.id === r.valor)); };
     if (respuestas.some(r => !valorValido(r) || (r.noAplica && r.valor !== null))) throw new BadRequestException('Respuesta con criterio/valor inválido o NA valorado.');
-    if (completas && (respuestas.length !== criterios.length || respuestas.some(r => r.noAplica ? !r.motivo.trim() : r.valor === null))) throw new BadRequestException('Valora todos los criterios o justifica cada no aplica.');
+    if (completas) for (const criterio of criterios) {
+      const respuesta = respuestas.find(r => r.criterioId === criterio.id);
+      if (!respuesta || !respuesta.noAplica && respuesta.valor === null) throw new BadRequestException(`Evalúa el criterio «${criterio.nombre}».`);
+    }
   }
 
   private async validarHallazgos(e: EvaluacionFlujo, hallazgos: HallazgoFlujo[], tx: Prisma.TransactionClient, autorId: string | null, completos: boolean) {
     const criterios = e.configuracion.metodologia.criterios;
     if (hallazgos.some(h => h.criterioIds.some(id => !criterios.some(c => c.id === id)))) throw new BadRequestException('Hallazgo con criterio desconocido.');
-    if (completos && hallazgos.some(h => !h.criterioIds.length || [h.titulo, h.pantalla, h.descripcion, h.recomendacion].some(v => !v.trim()))) throw new BadRequestException('Completa criterio, título, pantalla, descripción y recomendación de cada hallazgo.');
+    if (completos) for (const h of hallazgos) {
+      if (!h.titulo.trim()) throw new BadRequestException('Escribe el título de cada hallazgo.');
+      if (!h.criterioIds.length) throw new BadRequestException(`Selecciona un criterio para el hallazgo «${h.titulo}».`);
+      if (!h.descripcion.trim()) throw new BadRequestException(`Describe el hallazgo «${h.titulo}».`);
+    }
     const ids = [...new Set(hallazgos.flatMap(h => h.evidenciaIds))];
     if (ids.length) {
       const evidencias = await tx.evidenciaHeuristicaCompleta.findMany({ where: { id: { in: ids }, evaluacionId: e.id, ...(autorId ? { autorId } : {}) }, select: { id: true } });
@@ -227,7 +253,7 @@ export class HeuristicaFlujoService {
   private async validarConsenso(e: EvaluacionFlujo, tx: Prisma.TransactionClient, completo: boolean) {
     if (!e.trabajos.length || e.trabajos.some(t => !t.entregadoEn)) throw new ConflictException('Faltan entregas independientes.');
     this.validarRespuestas(e, e.consenso.criterios, completo);
-    if (completo && e.consenso.criterios.some(c => !c.justificacion.trim())) throw new BadRequestException('Justifica cada decisión de criterio.');
+    if (completo && e.consenso.criterios.some(c => !c.noAplica && !c.justificacion.trim())) throw new BadRequestException('Justifica cada decisión de criterio.');
     const originales = e.trabajos.flatMap(t => t.hallazgos);
     const referencias = e.consenso.hallazgos.flatMap(h => h.origenIds);
     if (new Set(referencias).size !== referencias.length || referencias.some(id => !originales.some(h => h.id === id))) throw new BadRequestException('Cada hallazgo original debe aparecer una sola vez.');

@@ -76,7 +76,6 @@ describe('Barra lateral', () => {
     auth.role = 'ADMIN';
     render(<MemoryRouter><AppLayout /></MemoryRouter>);
     await waitFor(() => expect(document.getElementById('main-content')).toHaveFocus());
-    await userEvent.click(screen.getByRole('button', { name: 'Expandir barra lateral' }));
     const toggle = screen.getByRole('button', { name: 'Minimizar barra lateral' });
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
     toggle.focus();
@@ -93,28 +92,46 @@ describe('Barra lateral', () => {
   it('conserva las restricciones de acceso al minimizar', () => {
     auth.role = 'ESTUDIANTE';
     render(<MemoryRouter><AppLayout /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Minimizar barra lateral' }));
     expect(screen.getByRole('button', { name: 'Expandir barra lateral' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Administración' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Salas' })).toHaveAttribute('href', '/salas');
     expect(screen.getByRole('link', { name: 'Proyectos' })).toHaveAttribute('href', '/proyectos');
   });
 
-  it('entra colapsada y se cierra al navegar, incluso al seleccionar la sección actual', () => {
+  it('entra abierta y permanece abierta al navegar y usar el contenido', () => {
     render(<MemoryRouter><AppLayout /></MemoryRouter>);
     const side = screen.getByRole('complementary', { name: 'Navegación principal' }).parentElement;
-    expect(side).toHaveClass('side-collapsed');
-    fireEvent.click(screen.getByRole('button', { name: 'Expandir barra lateral' }));
     expect(side).not.toHaveClass('side-collapsed');
     fireEvent.click(document.querySelector('#sidebar-navigation a[href="/"]')!);
-    expect(side).toHaveClass('side-collapsed');
-    fireEvent.click(screen.getByRole('button', { name: 'Expandir barra lateral' }));
+    expect(side).not.toHaveClass('side-collapsed');
     fireEvent.click(screen.getByRole('link', { name: 'Proyectos' }));
-    expect(side).toHaveClass('side-collapsed');
-    fireEvent.click(screen.getByRole('button', { name: 'Expandir barra lateral' }));
+    expect(side).not.toHaveClass('side-collapsed');
     fireEvent.pointerDown(document.getElementById('main-content')!);
-    expect(side).toHaveClass('side-collapsed');
+    expect(side).not.toHaveClass('side-collapsed');
+    expect(screen.getByRole('button', { name: 'Minimizar barra lateral' })).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('conserva la elección manual al navegar y volver a cargar el layout', () => {
+    const mount = () => render(<MemoryRouter><AppLayout /></MemoryRouter>);
+    mount();
+    fireEvent.click(screen.getByRole('button', { name: 'Minimizar barra lateral' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Proyectos' }));
+    expect(screen.getByRole('button', { name: 'Expandir barra lateral' })).toHaveAttribute('aria-expanded', 'false');
+    cleanup();
+    mount();
+    expect(screen.getByRole('button', { name: 'Expandir barra lateral' })).toHaveAttribute('aria-expanded', 'false');
     fireEvent.click(screen.getByRole('button', { name: 'Expandir barra lateral' }));
+    cleanup();
+    mount();
+    expect(screen.getByRole('button', { name: 'Minimizar barra lateral' })).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('permite cerrarla explícitamente con Escape y devuelve el foco al control', () => {
+    render(<MemoryRouter><AppLayout /></MemoryRouter>);
     fireEvent.keyDown(screen.getByRole('button', { name: 'Minimizar barra lateral' }), { key: 'Escape' });
-    expect(screen.getByRole('button', { name: 'Expandir barra lateral' })).toHaveFocus();
+    const toggle = screen.getByRole('button', { name: 'Expandir barra lateral' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(toggle).toHaveFocus();
   });
 });

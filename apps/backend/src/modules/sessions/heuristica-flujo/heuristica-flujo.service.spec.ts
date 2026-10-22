@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { EVIDENCIA_MAX_BYTES, METODOLOGIAS_HEURISTICAS } from '@observatorio-ux/shared-types';
+import { EVIDENCIA_MAX_BYTES, METODOLOGIAS_HEURISTICAS, resumirCumplimiento, resumirEvaluacion } from '@observatorio-ux/shared-types';
 import type { ConfiguracionFlujo, EvaluacionFlujo, HallazgoFlujo } from '@observatorio-ux/shared-types';
 import type { AuthenticatedUser } from '../../auth/types/authenticated-user.interface.js';
 import { Prisma, type EvaluacionHeuristicaCompleta } from '../../../generated/prisma/client.js';
@@ -78,6 +78,143 @@ function decisiones(e: EvaluacionFlujo) {
 }
 
 describe('Flujo heurístico: privacidad, transiciones y consenso', () => {
+  const configuracionMinima = (cantidad = 1) => {
+    const c = configuracion(cantidad);
+    c.producto.version = ''; c.producto.dispositivo = ''; c.objetivo = ''; c.tareas = ''; c.pantallas = '';
+    return c;
+  };
+
+  it.each([1, 5])('comienza con %i evaluadores en una sola escritura y sin alcance opcional', async cantidad => {
+    const { service, prisma, filas } = preparar();
+    const e = await service.comenzar('p', configuracionMinima(cantidad), coordinador);
+    expect(e).toMatchObject({ fase: 'EN_EVALUACION', revision: 0, configuracion: configuracionMinima(cantidad) });
+    expect(e.iniciadoEn).toBeTruthy();
+    expect(e.avanceEquipo).toHaveLength(cantidad);
+    expect(e.trabajos).toEqual([]);
+    expect(filas.size).toBe(1);
+    expect(prisma.evaluacionHeuristicaCompleta.create).toHaveBeenCalledTimes(1);
+    expect(prisma.evaluacionHeuristicaCompleta.update).not.toHaveBeenCalled();
+    const propia = await service.obtener('p', e.id, experto);
+    expect(propia.trabajos).toEqual([{ evaluadorId: 'e1', nombre: 'e1', respuestas: [], hallazgos: [], entregadoEn: null, guardadoEn: null }]);
+    await expect(service.obtener('p', e.id, lector)).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('el inicio antiguo también acepta los campos opcionales vacíos', async () => {
+    const { service } = preparar();
+    const e = await service.crear('p', configuracionMinima(), coordinador);
+    expect((await service.iniciar('p', e.id, { revision: e.revision }, coordinador)).fase).toBe('EN_EVALUACION');
+  });
+
+  it.each([
+    ['nombre', 'Escribe el nombre de la evaluación.'],
+    ['producto.nombre', 'Escribe el nombre del producto.'],
+    ['producto.clave', 'Escribe la clave del producto.'],
+  ])('explica el campo obligatorio %s antes de guardar', async (campo, mensaje) => {
+    const { service, filas, prisma } = preparar();
+    const c = configuracionMinima();
+    if (campo === 'nombre') c.nombre = ' ';
+    else c.producto[campo === 'producto.nombre' ? 'nombre' : 'clave'] = ' ';
+    await expect(service.comenzar('p', c, coordinador)).rejects.toThrow(mensaje);
+    expect(filas.size).toBe(0);
+    expect(prisma.evaluacionHeuristicaCompleta.create).not.toHaveBeenCalled();
+  });
+
+  it('no deja borrador si falla el inicio ni permite miembros o acceso ajenos', async () => {
+    const { service, filas, prisma, acceso } = preparar();
+    await expect(service.comenzar('p', { ...configuracionMinima(), evaluadorIds: ['intruso'] }, coordinador)).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.evaluacionHeuristicaCompleta.create).not.toHaveBeenCalled();
+    acceso.assertAccess.mockRejectedValueOnce(new ForbiddenException());
+    await expect(service.comenzar('p', configuracionMinima(), coordinador)).rejects.toBeInstanceOf(ForbiddenException);
+    prisma.evaluacionHeuristicaCompleta.create.mockRejectedValueOnce(new Error('Sin conexión'));
+    await expect(service.comenzar('p', configuracionMinima(), coordinador)).rejects.toThrow('Sin conexión');
+    expect(filas.size).toBe(0);
+  });
+
+  it('entrega y consolida un hallazgo sin pantalla, recomendación ni notas, con aprobación explícita', async () => {
+    const { service } = preparar();
+    let e = await service.crear('p', configuracion(), coordinador);
+    e = await service.iniciar('p', e.id, { revision: e.revision }, coordinador);
+    const respuestas = e.configuracion.metodologia.criterios.map(c => ({ criterioId: c.id, valor: 'cumple', noAplica: false, motivo: '', notas: '' }));
+    e = await service.guardarTrabajo('p', e.id, { revision: e.revision, respuestas, hallazgos: [{ ...hallazgo('simple'), pantalla: '', recomendacion: '', notas: '' }] }, experto);
+    e = await service.entregar('p', e.id, { revision: e.revision }, experto);
+    e = await service.guardarConsenso('p', e.id, decisiones(e), coordinador);
+    await expect(service.consolidar('p', e.id, { revision: e.revision }, coordinador)).rejects.toBeInstanceOf(ConflictException);
+    e = await service.aprobar('p', e.id, { revision: e.revision }, experto);
+    e = await service.consolidar('p', e.id, { revision: e.revision }, coordinador);
+    expect(e.informe!.consenso.hallazgos[0]).toMatchObject({ id: 'simple', pantalla: '', recomendacion: '', notas: '' });
+  });
+
+  it.each([
+    [{ criterioIds: [] }, 'Selecciona un criterio para el hallazgo «Problema».'],
+    [{ titulo: ' ' }, 'Escribe el título de cada hallazgo.'],
+    [{ descripcion: ' ' }, 'Describe el hallazgo «Problema».'],
+  ])('explica qué falta en el hallazgo: %j', async (cambios, mensaje) => {
+    const { service } = preparar();
+    let e = await service.crear('p', configuracion(), coordinador);
+    e = await service.iniciar('p', e.id, { revision: e.revision }, coordinador);
+    const respuestas = e.configuracion.metodologia.criterios.map(c => ({ criterioId: c.id, valor: null, noAplica: true, motivo: 'Fuera del contexto', notas: '' }));
+    e = await service.guardarTrabajo('p', e.id, { revision: e.revision, respuestas, hallazgos: [{ ...hallazgo('h'), ...cambios }] }, experto);
+    await expect(service.entregar('p', e.id, { revision: e.revision }, experto)).rejects.toThrow(mensaje);
+  });
+
+  it('identifica el criterio pendiente', async () => {
+    const { service } = preparar();
+    let e = await service.crear('p', configuracion(), coordinador);
+    e = await service.iniciar('p', e.id, { revision: e.revision }, coordinador);
+    const primero = e.configuracion.metodologia.criterios[0];
+    await expect(service.entregar('p', e.id, { revision: e.revision }, experto)).rejects.toThrow(`Evalúa el criterio «${primero.nombre}».`);
+  });
+
+  it.each([1, 5])('finaliza %i evaluadores con todos los criterios No aplica sin motivo ni justificación adicional', async cantidad => {
+    const { service } = preparar();
+    const c = configuracion(cantidad);
+    c.metodologia = structuredClone(METODOLOGIAS_HEURISTICAS.find(m => m.id === 'hassan-checklist-2003')!);
+    let e = await service.comenzar('p', c, coordinador);
+    const respuestas = c.metodologia.criterios.map(c => ({ criterioId: c.id, valor: null, noAplica: true, motivo: '', notas: '' }));
+    for (const evaluadorId of c.evaluadorIds) {
+      e = await service.guardarTrabajo('p', e.id, { revision: e.revision, respuestas, hallazgos: [] }, usuario(evaluadorId));
+      expect(e.avanceEquipo!.find(t => t.evaluadorId === evaluadorId)!.evaluados).toBe(respuestas.length);
+      e = await service.entregar('p', e.id, { revision: e.revision }, usuario(evaluadorId));
+    }
+    e = await service.guardarConsenso('p', e.id, { revision: e.revision, criterios: respuestas.map(r => ({ ...r, justificacion: '' })), hallazgos: [] }, coordinador);
+    await expect(service.consolidar('p', e.id, { revision: e.revision }, coordinador)).rejects.toBeInstanceOf(ConflictException);
+    for (const evaluadorId of c.evaluadorIds) e = await service.aprobar('p', e.id, { revision: e.revision }, usuario(evaluadorId));
+    e = await service.consolidar('p', e.id, { revision: e.revision }, coordinador);
+    e = await service.finalizar('p', e.id, { revision: e.revision }, coordinador);
+    expect(e.fase).toBe('FINALIZADA');
+    expect(e.informe!.consenso.criterios.every(r => r.noAplica && r.motivo === '' && r.justificacion === '')).toBe(true);
+    expect(resumirEvaluacion(c, e.informe!.consenso)).toMatchObject({ evaluados: 0, pendientes: 0, noAplica: respuestas.length, denominador: 0, indice: null });
+    expect(resumirCumplimiento(c, e.informe!.consenso)!.total).toEqual({ favorables: 0, desfavorables: 0, neutros: 0, sinEvaluar: 0, noAplica: respuestas.length, proporcion: null });
+  });
+
+  it('mantiene la justificación del consenso para criterios valorados y rechaza No aplica con valor', async () => {
+    const { service } = preparar();
+    let e = await service.comenzar('p', configuracion(), coordinador);
+    const respuestas = e.configuracion.metodologia.criterios.map(c => ({ criterioId: c.id, valor: 'cumple', noAplica: false, motivo: '', notas: '' }));
+    await expect(service.guardarTrabajo('p', e.id, { revision: e.revision, respuestas: [{ ...respuestas[0], noAplica: true }], hallazgos: [] }, experto)).rejects.toBeInstanceOf(BadRequestException);
+    e = await service.guardarTrabajo('p', e.id, { revision: e.revision, respuestas, hallazgos: [] }, experto);
+    e = await service.entregar('p', e.id, { revision: e.revision }, experto);
+    await expect(service.guardarConsenso('p', e.id, { revision: e.revision, criterios: [{ ...respuestas[0], noAplica: true, justificacion: '' }], hallazgos: [] }, coordinador)).rejects.toBeInstanceOf(BadRequestException);
+    e = await service.guardarConsenso('p', e.id, { revision: e.revision, criterios: respuestas.map(r => ({ ...r, justificacion: '' })), hallazgos: [] }, coordinador);
+    await expect(service.aprobar('p', e.id, { revision: e.revision }, experto)).rejects.toThrow('Justifica cada decisión de criterio.');
+  });
+
+  it('excluye No aplica sin motivo del índice numérico y conserva como pendientes los NA con valor', () => {
+    const c = configuracion();
+    c.metodologia = { ...c.metodologia, protegida: false, criterios: c.metodologia.criterios.slice(0, 2), escala: { tipo: 'numerica', sentido: 'mayor_mejor', fuente: 'Prueba', formula: 'media_ponderada', niveles: [{ id: 'alto', etiqueta: 'Alto', significado: 'Cumple', valor: 4, favorable: true }] } };
+    c.metodologia.criterios[0].peso = 2;
+    c.metodologia.criterios[1].peso = 7;
+    const criterios = c.metodologia.criterios.map(c => ({ criterioId: c.id, valor: null as string | null, noAplica: true, motivo: '', notas: '', justificacion: '' }));
+    const consenso = { criterios, hallazgos: [], aprobadoPor: [] };
+    expect(resumirEvaluacion(c, consenso)).toMatchObject({ evaluados: 0, pendientes: 0, noAplica: 2, indice: null, denominador: 0 });
+    criterios[0] = { ...criterios[0], noAplica: false, valor: 'alto' };
+    expect(resumirEvaluacion(c, consenso)).toMatchObject({ evaluados: 1, pendientes: 0, noAplica: 1, indice: 4, denominador: 2 });
+    expect(resumirCumplimiento(c, consenso)!.total).toMatchObject({ favorables: 1, sinEvaluar: 0, noAplica: 1, proporcion: 1 });
+    criterios[1].valor = 'alto';
+    expect(resumirEvaluacion(c, consenso)).toMatchObject({ pendientes: 1, noAplica: 0, indice: 4, denominador: 2 });
+    expect(resumirCumplimiento(c, consenso)!.total).toMatchObject({ sinEvaluar: 1, noAplica: 0 });
+  });
+
   it.each([1,5])('cierra %i expertos NA solamente con aprobación explícita e informe independiente', async cantidad => {
     const { service, filas } = preparar();
     let e = await entregarTodos(service, cantidad);
@@ -110,12 +247,12 @@ describe('Flujo heurístico: privacidad, transiciones y consenso', () => {
     expect(acceso.assertAccess).toHaveBeenCalledWith('otro-proyecto', coordinador);
   });
 
-  it('rechaza entrega pendiente, NA sin motivo y valores no definidos; conserva borrador', async () => {
+  it('rechaza entrega pendiente y valores no definidos; conserva borrador', async () => {
     const { service, filas } = preparar();
     let e = await service.crear('p', configuracion(), coordinador);
     e = await service.iniciar('p', e.id, { revision: e.revision }, coordinador);
     await expect(service.entregar('p', e.id, { revision: e.revision }, experto)).rejects.toBeInstanceOf(BadRequestException);
-    const respuestas = e.configuracion.metodologia.criterios.map(c => ({ criterioId: c.id, valor: null, noAplica: true, motivo: '', notas: 'Borrador' }));
+    const respuestas = e.configuracion.metodologia.criterios.map(c => ({ criterioId: c.id, valor: null, noAplica: false, motivo: '', notas: 'Borrador' }));
     e = await service.guardarTrabajo('p', e.id, { revision: e.revision, respuestas, hallazgos: [] }, experto);
     await expect(service.entregar('p', e.id, { revision: e.revision }, experto)).rejects.toBeInstanceOf(BadRequestException);
     await expect(service.guardarTrabajo('p', e.id, { revision: e.revision, respuestas: [{ ...respuestas[0], noAplica: false, valor: 'inventado' }], hallazgos: [] }, experto)).rejects.toBeInstanceOf(BadRequestException);
