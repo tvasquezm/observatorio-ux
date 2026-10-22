@@ -7,14 +7,11 @@ import type { ProjectOutletContext } from '../../layouts/ProjectDetailLayout';
 import { useAuthStore } from '../auth/store/useAuthStore';
 import { useConfirm } from '../../shared/api/confirm';
 import { TechniquePageHeader } from '../../shared/components/TechniquePageHeader';
-<<<<<<< HEAD
 import { TechniquePage } from '../../shared/components/TechniquePage';
 import { TechniqueNewButton } from '../../shared/components/TechniqueNewButton';
 import { TechniqueItemActions } from '../../shared/components/TechniqueItemActions';
 import { TechniqueListHead, TechniqueEmpty } from '../../shared/components/TechniqueListParts';
 import { Icon } from '../../shared/components/ui/Icon';
-=======
->>>>>>> origin/main
 import { TechniqueProcess } from '../../shared/components/TechniqueProcess';
 import { ConfiguracionEditor } from './ConfiguracionEditor';
 import { TrabajoEditor, SaveStatus } from './TrabajoEditor';
@@ -71,11 +68,7 @@ function ConfiguracionSesion({ evaluacion, usuarioId, biblioteca, equipo, onSave
   const state = useFlujoDraft(evaluacion, usuarioId, 'configuracion', evaluacion.configuracion, onSaved);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-<<<<<<< HEAD
   return <><button type="button" className="secondary" onClick={async () => { if (await state.confirmLeave()) onBack(); }}>Volver</button><h2>Continuar revisión guardada</h2>
-=======
-  return <><button type="button" className="secondary" onClick={async () => { if (await state.confirmLeave()) onBack(); }}>← Mis revisiones</button><h2>Continuar revisión guardada</h2>
->>>>>>> origin/main
     <form noValidate onSubmit={async e => {
       e.preventDefault(); setError(''); const faltan = faltantesParaIniciar(state.draft);
       if (faltan.length) { setError(`Para comenzar, completa: ${faltan.join(', ')}.`); const producto = e.currentTarget.querySelector<HTMLInputElement>('#hf-producto'); if (!producto?.value.trim()) producto?.focus(); return; }
@@ -98,12 +91,8 @@ export function FlujoHeuristicaPage() {
   const client = useQueryClient();
   const claveSel = `heuristica:sel:${usuarioId}:${proyectoId}`;
   const [selected, setSeleccionado] = useState<string | null>(() => leerSesion(claveSel));
-<<<<<<< HEAD
   const [nueva, setNueva] = useState(false);
   const setSelected = (id: string | null) => { setSeleccionado(id); setNueva(false); guardarSesion(claveSel, id); };
-=======
-  const setSelected = (id: string | null) => { setSeleccionado(id); guardarSesion(claveSel, id); };
->>>>>>> origin/main
   const [producto, setProducto] = useState('');
   useEffect(() => { setSeleccionado(leerSesion(claveSel)); }, [claveSel]);
   const key = ['heuristica-flujo', proyectoId, usuarioId];
@@ -122,21 +111,13 @@ export function FlujoHeuristicaPage() {
   const back = () => setSelected(null);
   let content;
   if (selected && active.isLoading) content = <p role="status">Cargando evaluación…</p>;
-<<<<<<< HEAD
   else if (selected && active.error) content = <><button type="button" className="secondary" onClick={back}>Volver</button><p role="alert" className="hf-error">{active.error.message}</p><button type="button" className="secondary" onClick={() => void active.refetch()}>Reintentar</button></>;
   else if (evaluacion && selected) {
     const common = { evaluacion, usuarioId, onSaved: saved, onBack: back };
     if (evaluacion.fase === 'BORRADOR') content = evaluacion.coordinadorId === usuarioId && library.data && team.data ? <ConfiguracionSesion key={`${evaluacion.id}:configuracion`} {...common} biblioteca={library.data} equipo={team.data} /> : <><button type="button" className="secondary" onClick={back}>Volver</button><p>El coordinador está configurando la evaluación.</p></>;
-=======
-  else if (selected && active.error) content = <><button type="button" className="secondary" onClick={back}>← Evaluaciones</button><p role="alert" className="hf-error">{active.error.message}</p><button type="button" className="secondary" onClick={() => void active.refetch()}>Reintentar</button></>;
-  else if (evaluacion && selected) {
-    const common = { evaluacion, usuarioId, onSaved: saved, onBack: back };
-    if (evaluacion.fase === 'BORRADOR') content = evaluacion.coordinadorId === usuarioId && library.data && team.data ? <ConfiguracionSesion key={`${evaluacion.id}:configuracion`} {...common} biblioteca={library.data} equipo={team.data} /> : <><button type="button" className="secondary" onClick={back}>← Evaluaciones</button><p>El coordinador está configurando la evaluación.</p></>;
->>>>>>> origin/main
     else if (evaluacion.fase === 'EN_EVALUACION') content = <TrabajoEditor key={`${evaluacion.id}:trabajo`} {...common} />;
     else if (evaluacion.fase === 'PENDIENTE_CONSENSO') content = evaluacion.coordinadorId === usuarioId || evaluacion.configuracion.evaluadorIds.includes(usuarioId) ? <ConsensoEditor key={`${evaluacion.id}:consenso`} {...common} /> : <><button type="button" className="secondary" onClick={back}>Volver</button><p>El equipo está acordando el consenso. El informe estará disponible al consolidar.</p></>;
     else content = <InformeView key={`${evaluacion.id}:informe`} {...common} historial={history.data ?? []} />;
-<<<<<<< HEAD
   } else content = null;
   const avisos = <>
     {[history.error, library.error, team.error].filter(Boolean).map((e, i) => <p role="alert" className="hf-error" key={i}>{e?.message}</p>)}
@@ -171,24 +152,4 @@ export function FlujoHeuristicaPage() {
       {history.data?.length === 0 && <TechniqueEmpty icono={<Icon name="heuristica" size={28} />} titulo="Aún no hay revisiones guardadas" texto="Usa + Nueva evaluación para comenzar la primera revisión del producto." />}
     </>}
   />;
-=======
-  } else content = <>
-    {pendiente && <div className="hf-retomar panel" role="region" aria-label="Revisión sin terminar"><p>Tienes una revisión sin terminar: <strong>{pendiente.configuracion.nombre || pendiente.configuracion.producto.nombre}</strong> ({etapaPendiente[pendiente.fase]}).</p><button type="button" className="secondary" onClick={() => setSelected(pendiente.id)}>Retomar mi última revisión</button></div>}
-    {[history.error, library.error, team.error].filter(Boolean).map((e, i) => <p role="alert" className="hf-error" key={i}>{e?.message}</p>)}
-    {(library.isLoading || team.isLoading) && <p role="status">Cargando preguntas y personas…</p>}
-    {library.data?.length && team.data ? <PrepararRevision key={proyectoId} proyectoId={proyectoId} biblioteca={library.data} equipo={team.data} onSaved={saved} /> : null}
-    <details className="panel"><summary>Mis revisiones · {history.data?.length ?? 0}</summary>
-      <label className="field">Buscar producto<input value={producto} onChange={e => setProducto(e.target.value)} /></label>
-      <div className="hf-table"><table><thead><tr><th>Revisión</th><th>Estado</th><th>Acción</th></tr></thead><tbody>{(history.data ?? []).filter(e => `${e.configuracion.producto.nombre} ${e.configuracion.nombre}`.toLocaleLowerCase().includes(producto.toLocaleLowerCase())).map(e => <tr key={e.id}><td>{e.configuracion.nombre || e.configuracion.producto.nombre}</td><td>{({ BORRADOR: 'Por preparar', EN_EVALUACION: 'En revisión', PENDIENTE_CONSENSO: 'Acuerdo del equipo', CONSOLIDADA: 'Informe preparado', FINALIZADA: 'Terminada' })[e.fase]}</td><td><button type="button" className="secondary" onClick={() => setSelected(e.id)}>Abrir {e.configuracion.nombre || 'revisión'}</button></td></tr>)}</tbody></table></div>
-      {history.data?.length === 0 && <p>Aún no hay revisiones guardadas.</p>}
-      <button type="button" className="secondary" onClick={() => setSearch({ anteriores: '1' })}>Evaluaciones anteriores (sesiones)</button>
-    </details>
-  </>;
-  const instrucciones = ['Indica el producto o sitio que vas a revisar y elige una metodología.', 'Responde cada pregunta y anota los problemas que veas, con una captura si ayuda.', 'Entrega tu revisión. Si trabajan en equipo, acuerden las respuestas juntos.', 'Prepara el informe y descárgalo en PDF.'];
-  return <div className="artifact-page hf fade">
-    {!selected && <TechniquePageHeader label="TÉCNICA DE INVESTIGACIÓN" title="Evaluación heurística" description="Revisa un producto con una metodología conocida, una pregunta a la vez." instructions={instrucciones} />}
-    {(!selected || evaluacion) && <TechniqueProcess title="Proceso de la evaluación" compact={!!selected} steps={procesoHeuristica(selected && evaluacion ? evaluacion.fase : null)} />}
-    {content}
-  </div>;
->>>>>>> origin/main
 }
