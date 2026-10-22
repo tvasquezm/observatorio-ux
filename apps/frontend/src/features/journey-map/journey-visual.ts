@@ -47,6 +47,7 @@ export function procesoJourney(contenido: JourneyMapContenido): ProcessStep[] {
     },
     {
       id: 'objetivo',
+      opcional: true,
       label: 'Objetivo y evento de inicio',
       detail: objetivo?.trim() || eventoInicio?.trim() ? 'Definidos' : 'Sin definir',
       done: Boolean(objetivo?.trim() || eventoInicio?.trim()),
@@ -71,6 +72,7 @@ export function procesoJourney(contenido: JourneyMapContenido): ProcessStep[] {
     },
     {
       id: 'evidencia',
+      opcional: true,
       label: 'Evidencia',
       detail: evidencia.length > 0 ? `${evidencia.length} ${evidencia.length === 1 ? 'fuente' : 'fuentes'}` : 'Sin evidencia',
       done: evidencia.length > 0,

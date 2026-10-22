@@ -53,7 +53,7 @@ export function JourneyVisual({ contenido }: { contenido: JourneyMapContenido })
 
   return (
     <div className="tv-journey">
-      <TechniqueProcess title="Proceso del Journey Map" steps={procesoJourney(contenido)} />
+      <TechniqueProcess title="Proceso del Journey Map" textoListo="Journey Map completo y listo para usar" steps={procesoJourney(contenido)} />
 
       <div className="tv-journey-head">
         <span className="tv-avatar" aria-hidden="true">{iniciales(perfilUsuario.nombre)}</span>

@@ -24,3 +24,8 @@ export function detectarMimeImagen(buf: Uint8Array): MimeImagen | null {
   }
   return null;
 }
+
+export interface ArchivoSubido {
+  buffer: Buffer;
+  size: number;
+}

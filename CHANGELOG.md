@@ -6,6 +6,33 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **tecnicas:** las 5 técnicas (Personas, Journey Map, Momentos críticos, Card Sorting y Evaluación heurística) muestran
+  sus partes en el mismo orden (cabecera, instrucciones, proceso, resumen, formulario, lista, comentarios), con `+ Nuevo`
+  arriba a la derecha y las acciones de cada elemento (Consultar, Editar, Eliminar) en el mismo lugar con tres niveles de
+  botón: primario, secundario y peligro. La lista se oculta mientras el formulario está abierto y los estados vacíos
+  son iguales en todas.
+* **evaluacion-heuristica:** se elimina del front la evaluación heurística antigua (pantalla de sesiones, hallazgos
+  y capturas) y el botón «Evaluaciones anteriores». Los reportes PDF y la analítica del proyecto ahora leen las
+  evaluaciones del flujo nuevo: cuentan solo los problemas acordados de la versión más reciente de cada evaluación.
+* **evaluacion-heuristica:** se elimina del backend la evaluación heurística antigua (sesiones): rutas
+  `/evaluacion-heuristica/sesiones/*` y `/evaluacion-heuristica/analytics`, con su servicio, controladores y tests. La única
+  evaluación heurística es el flujo nuevo. Los datos antiguos no se borran de la base de datos.
+* **journey-map:** crear un Journey Map es ahora un paso a la vez (perfil, objetivo, fases, emociones y dolor,
+  oportunidades, evidencia), con el círculo de avance en vivo, Anterior y Siguiente siempre visibles y Guardar
+  en el último paso; las instrucciones empiezan plegadas.
+* **momentos-criticos:** registrar un momento crítico es ahora un paso a la vez (perfil, incidentes, causas, impacto y
+  frecuencia, acciones), con el círculo de avance en vivo y Guardar en el último paso; las instrucciones empiezan
+  plegadas y la lista y el resumen se ocultan mientras se edita.
+* **personas:** crear o editar una persona es ahora un paso a la vez (identidad, objetivos y necesidades, frustraciones y
+  conducta, relación con el servicio, evidencia, confirmación), con el círculo de avance en vivo, aviso de persona
+  completa y Guardar en el último paso; la lista de perfiles se oculta mientras se edita y las tarjetas tienen un
+  diseño nuevo con el círculo de avance.
+* **card-sorting:** crear un estudio es ahora un paso a la vez (nombre y tipo, tarjetas, categorías si aplica, preguntas),
+  con la cabecera unificada y las instrucciones plegadas; el avance del estudio y el de la clasificación del
+  participante se muestran como un círculo.
+* **tecnicas:** el avance de las técnicas se muestra como un círculo que se llena y se anima al
+  completarse; cuando todos los pasos están hechos, el proceso avisa que la técnica está completa
+  y lista para usar. El proceso muestra solo la fase actual ("Fase n de N") y cambia a la siguiente al avanzar. Las fases opcionales se indican como tales, la técnica queda lista sin ellas y un icono muestra cuáles faltan. La evaluación heurística usa el mismo círculo en Revisar y en el progreso del equipo.
 * **evaluacion-heuristica:** simplifica el módulo existente con configuración compacta,
   respuestas visibles, mapa de preguntas y resumen del equipo.
   Permite comenzar la revisión directamente

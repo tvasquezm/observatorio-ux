@@ -1,6 +1,4 @@
 // packages/shared-types/src/domains/evaluacion-heuristica.ts
-import { z } from 'zod';
-import { BaseMetadataSchema, createBasePayloadSchema } from '../common/base-payload.schema';
 
 // ---------------------------------------------------------------------------
 // Catálogo: las 10 heurísticas de usabilidad de Nielsen. Única fuente de
@@ -55,46 +53,3 @@ export const EVIDENCIA_MIME_PERMITIDOS = ['image/png', 'image/jpeg', 'image/webp
 export const EVIDENCIA_MAX_BYTES = 4 * 1024 * 1024;
 export const EVIDENCIA_MAX_MB = EVIDENCIA_MAX_BYTES / (1024 * 1024);
 export const EVIDENCIA_MAX_POR_SESION = 50;
-
-// ---------------------------------------------------------------------------
-// Hallazgo. `titulo`, `pantalla`, `evidenciaUrl`, `evidenciaArchivoId`,
-// `responsable` y `actualizadoEn` pueden faltar en hallazgos legados.
-// ---------------------------------------------------------------------------
-export const ResponsableSchema = z.object({
-  id: z.string().uuid(),
-  nombre: z.string().min(1),
-});
-
-export const HallazgoSchema = z.object({
-  id: z.string().uuid(),
-  heuristicaId: z.enum(HEURISTICA_IDS),
-  severidad: z.number().int().min(0).max(4),
-  titulo: z.string().trim().min(3, 'El título debe tener al menos 3 caracteres').max(120),
-  pantalla: z.string().trim().min(1, 'Indica la pantalla o elemento evaluado').max(200),
-  descripcion: z.string().trim().min(10, 'La descripción debe tener al menos 10 caracteres').max(2000),
-  evidencia: z.string().trim().min(1, 'Describe la evidencia').max(1000),
-  evidenciaUrl: z.string().url('Debe ser una URL válida').max(500).nullable().optional(),
-  evidenciaArchivoId: z.string().uuid().nullable().optional(),
-  recomendacion: z.string().trim().min(1, 'Propón una recomendación').max(1000),
-  responsable: ResponsableSchema,
-  registradoEn: z.string(),
-  actualizadoEn: z.string().optional(),
-});
-
-export const EvaluacionHeuristicaPayloadSchema = z.object({
-  hallazgos: z.array(HallazgoSchema),
-});
-
-// 1. Esquema Completo (Para la validación estricta en POST /finalizar)
-export const EvaluacionHeuristicaSchema = createBasePayloadSchema(EvaluacionHeuristicaPayloadSchema);
-
-// 2. Esquema Parcial (Para autoguardado en PATCH y React-Hook-Form)
-//
-// zod v4 eliminó `.deepPartial()` (existía en v3). Se arma a mano:
-export const EvaluacionHeuristicaPartialSchema = BaseMetadataSchema.partial().extend({
-  hallazgos: z.array(HallazgoSchema.partial()).optional(),
-});
-
-export type Responsable = z.infer<typeof ResponsableSchema>;
-export type Hallazgo = z.infer<typeof HallazgoSchema>;
-export type EvaluacionHeuristica = z.infer<typeof EvaluacionHeuristicaSchema>;
