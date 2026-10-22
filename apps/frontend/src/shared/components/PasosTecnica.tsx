@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { Fragment, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 export interface PasoTecnica {
@@ -41,8 +41,10 @@ export function PasosTecnica({ pasos, acciones }: Props) {
         <button type="button" className="secondary" disabled={indice === 0} onClick={() => ir(indice - 1)}>
           Anterior
         </button>
-        {ultimo ? acciones : (
-          <button type="button" className="primary" onClick={() => ir(indice + 1)}>
+        {/* Con key distinta React no reutiliza el mismo <button>: si lo reutilizara, al pasar a
+            type="submit" durante el clic de Siguiente el navegador enviaría el formulario. */}
+        {ultimo ? <Fragment key="acciones">{acciones}</Fragment> : (
+          <button key="siguiente" type="button" className="primary" onClick={() => ir(indice + 1)}>
             Siguiente
           </button>
         )}

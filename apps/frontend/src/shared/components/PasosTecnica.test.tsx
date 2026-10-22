@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { FormEvent } from 'react';
 import { PasosTecnica } from './PasosTecnica';
 
 const pasos = [
@@ -39,5 +40,20 @@ describe('PasosTecnica', () => {
     expect(screen.getByRole('heading', { name: 'Paso 3 de 3: Evidencia' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Guardar' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Siguiente' })).toBeNull();
+  });
+
+  it('no envía el formulario al pasar al último paso, solo al pulsar la acción final', async () => {
+    const onSubmit = vi.fn((e: FormEvent) => e.preventDefault());
+    render(
+      <form onSubmit={onSubmit}>
+        <PasosTecnica pasos={pasos} acciones={<button type="submit">Guardar</button>} />
+      </form>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+    expect(screen.getByRole('heading', { name: 'Paso 3 de 3: Evidencia' })).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+    expect(onSubmit).toHaveBeenCalledTimes(1);
   });
 });
