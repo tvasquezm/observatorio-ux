@@ -3,9 +3,9 @@ import type { CriterioFlujo, EscalaFlujo, MetodologiaFlujo, OrigenCriterio } fro
 export const ESCALA_OPERATIVA_HEURISTICA: EscalaFlujo = {
   tipo: 'categorica', sentido: 'sin_orden', fuente: 'Escala operativa de la plataforma',
   niveles: [
-    { id: 'cumple', etiqueta: 'Cumple', significado: 'La evidencia del alcance revisado satisface el criterio.' },
+    { id: 'cumple', etiqueta: 'Cumple', significado: 'La evidencia del alcance revisado satisface el criterio.', favorable: true },
     { id: 'parcial', etiqueta: 'Parcial', significado: 'La evidencia satisface solo parte del criterio; describir la limitación.' },
-    { id: 'no_cumple', etiqueta: 'No cumple', significado: 'La evidencia muestra incumplimiento; documentar el problema.' },
+    { id: 'no_cumple', etiqueta: 'No cumple', significado: 'La evidencia muestra incumplimiento; documentar el problema.', favorable: false },
   ],
 };
 

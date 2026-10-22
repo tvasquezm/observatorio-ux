@@ -111,7 +111,7 @@ describe('EvaluacionHeuristicaPage', () => {
     api.subirEvidencia.mockReturnValue(new Promise<{ id: string }>(resolve => { finish = resolve; }));
     renderPage();
     await abrirPrimeraSesion();
-    const title = screen.getByLabelText(/título del hallazgo/i);
+    const title = screen.getByLabelText(/nombre del problema/i);
     await userEvent.type(title, 'Título inicial');
     await userEvent.upload(screen.getByLabelText(/captura de pantalla/i), new File(['png'], 'captura.png', { type: 'image/png' }));
     await userEvent.clear(title);
@@ -124,14 +124,14 @@ describe('EvaluacionHeuristicaPage', () => {
   it('confirma antes de abandonar un borrador y permite conservarlo o descartarlo', async () => {
     renderPage();
     await abrirPrimeraSesion();
-    await userEvent.type(screen.getByLabelText(/título del hallazgo/i), 'Borrador pendiente');
+    await userEvent.type(screen.getByLabelText(/nombre del problema/i), 'Borrador pendiente');
     confirmar.mockResolvedValueOnce(false);
     await userEvent.click(screen.getByRole('button', { name: '← Evaluaciones' }));
     expect(confirmar).toHaveBeenCalled();
-    expect(screen.getByLabelText(/título del hallazgo/i)).toHaveValue('Borrador pendiente');
+    expect(screen.getByLabelText(/nombre del problema/i)).toHaveValue('Borrador pendiente');
     await userEvent.click(screen.getByRole('button', { name: '← Evaluaciones' }));
     await abrirPrimeraSesion();
-    expect(screen.getByLabelText(/título del hallazgo/i)).toHaveValue('');
+    expect(screen.getByLabelText(/nombre del problema/i)).toHaveValue('');
   });
 
   it('conserva una edición al cancelar el descarte', async () => {
@@ -140,16 +140,16 @@ describe('EvaluacionHeuristicaPage', () => {
     await abrirPrimeraSesion();
     await userEvent.click(screen.getByRole('button', { name: /editar hallazgo: grave/i }));
     const form = screen.getByRole('form', { name: 'Editar hallazgo' });
-    await userEvent.type(within(form).getByLabelText(/título del hallazgo/i), ' modificado');
+    await userEvent.type(within(form).getByLabelText(/nombre del problema/i), ' modificado');
     confirmar.mockResolvedValueOnce(false);
     await userEvent.click(within(form).getByRole('button', { name: 'Cancelar' }));
-    expect(within(screen.getByRole('form', { name: 'Editar hallazgo' })).getByLabelText(/título del hallazgo/i)).toHaveValue('Grave modificado');
+    expect(within(screen.getByRole('form', { name: 'Editar hallazgo' })).getByLabelText(/nombre del problema/i)).toHaveValue('Grave modificado');
   });
 
   it('no finaliza la sesión cuando se decide conservar el borrador', async () => {
     renderPage();
     await abrirPrimeraSesion();
-    await userEvent.type(screen.getByLabelText(/título del hallazgo/i), 'Borrador pendiente');
+    await userEvent.type(screen.getByLabelText(/nombre del problema/i), 'Borrador pendiente');
     confirmar.mockResolvedValueOnce(false);
     await userEvent.click(screen.getByRole('button', { name: /finalizar evaluación/i }));
     expect(confirmar).toHaveBeenCalledWith(expect.stringContaining('sin guardar'), expect.any(Object));
@@ -222,8 +222,8 @@ describe('EvaluacionHeuristicaPage', () => {
     await abrirPrimeraSesion();
     const form = screen.getByRole('form', { name: 'Nuevo hallazgo' });
     const q = within(form);
-    await userEvent.selectOptions(q.getByLabelText(/heurística vulnerada/i), 'H4');
-    await userEvent.type(q.getByLabelText(/título del hallazgo/i), 'Botón sin etiqueta');
+    await userEvent.selectOptions(q.getByLabelText(/pregunta relacionada/i), 'H4');
+    await userEvent.type(q.getByLabelText(/nombre del problema/i), 'Botón sin etiqueta');
     await userEvent.type(q.getByLabelText(/pantalla o elemento/i), 'Inscripción');
     await userEvent.type(q.getByLabelText(/descripción del problema/i), 'El botón de envío no tiene texto visible.');
     await userEvent.type(q.getByLabelText(/observación/i), 'Solo se ve un ícono.');
