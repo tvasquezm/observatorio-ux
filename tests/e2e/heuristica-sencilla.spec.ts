@@ -4,7 +4,10 @@ import { PROJECT_ID, expectNoPageOverflow, loginAsProfessor } from './helpers';
 test('guía una evaluación desde su creación hasta el informe', async ({ page }, testInfo) => {
   await loginAsProfessor(page);
   await page.goto(`/proyectos/${PROJECT_ID}/evaluacion-heuristica`);
+<<<<<<< HEAD
   await page.getByRole('button', { name: '+ Nueva evaluación', exact: true }).click();
+=======
+>>>>>>> origin/main
   await page.getByLabel('Producto o sitio', { exact: true }).fill(`Portal ${testInfo.project.name} ${Date.now()}`);
   await expect(page.getByRole('combobox', { name: 'Metodología', exact: true })).toBeVisible();
   await expect(page.getByText('Personalizar escala', { exact: true })).toHaveCount(0);

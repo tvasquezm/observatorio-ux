@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+<<<<<<< HEAD
 * **tecnicas:** las 5 técnicas (Personas, Journey Map, Momentos críticos, Card Sorting y Evaluación heurística) muestran
   sus partes en el mismo orden (cabecera, instrucciones, proceso, resumen, formulario, lista, comentarios), con `+ Nuevo`
   arriba a la derecha y las acciones de cada elemento (Consultar, Editar, Eliminar) en el mismo lugar con tres niveles de
@@ -33,6 +34,8 @@ All notable changes to this project will be documented in this file. See [commit
 * **tecnicas:** el avance de las técnicas se muestra como un círculo que se llena y se anima al
   completarse; cuando todos los pasos están hechos, el proceso avisa que la técnica está completa
   y lista para usar. El proceso muestra solo la fase actual ("Fase n de N") y cambia a la siguiente al avanzar. Las fases opcionales se indican como tales, la técnica queda lista sin ellas y un icono muestra cuáles faltan. La evaluación heurística usa el mismo círculo en Revisar y en el progreso del equipo.
+=======
+>>>>>>> origin/main
 * **evaluacion-heuristica:** simplifica el módulo existente con configuración compacta,
   respuestas visibles, mapa de preguntas y resumen del equipo.
   Permite comenzar la revisión directamente

@@ -283,7 +283,10 @@ describe('historial e informe', () => {
   it('explica en español el dato mínimo que falta y enfoca el producto', async () => {
     api.mockImplementation(async (_p, path) => path === '/metodologias' ? [config().metodologia] : path === '/equipo' ? [{ id: 'u1', nombre: 'Ana', rol: 'ESTUDIANTE' }] : []);
     renderFlow(<FlujoHeuristicaPage />);
+<<<<<<< HEAD
     await userEvent.click(await screen.findByRole('button', { name: '+ Nueva evaluación' }));
+=======
+>>>>>>> origin/main
     const producto = await screen.findByLabelText('Producto o sitio');
     await userEvent.click(screen.getByRole('button', { name: 'Comenzar revisión' }));
     expect(screen.getByRole('alert')).toHaveTextContent('producto o sitio');
@@ -293,7 +296,10 @@ describe('historial e informe', () => {
     const vacia = { ...config().metodologia, criterios: [] };
     api.mockImplementation(async (_p, path) => path === '/metodologias' ? [vacia] : path === '/equipo' ? [{ id: 'u1', nombre: 'Ana', rol: 'ESTUDIANTE' }] : []);
     renderFlow(<FlujoHeuristicaPage />);
+<<<<<<< HEAD
     await userEvent.click(await screen.findByRole('button', { name: '+ Nueva evaluación' }));
+=======
+>>>>>>> origin/main
     await userEvent.type(await screen.findByLabelText('Producto o sitio'), 'Portal');
     await userEvent.click(screen.getByRole('button', { name: 'Comenzar revisión' }));
     expect(screen.getByRole('alert')).toHaveTextContent('una metodología con preguntas');
@@ -308,13 +314,19 @@ describe('historial e informe', () => {
       return path === '/metodologias' ? [config().metodologia] : path === '/equipo' ? [{ id: 'u1', nombre: 'Ana', rol: 'ESTUDIANTE' }] : [];
     });
     const first = renderFlow(<FlujoHeuristicaPage />);
+<<<<<<< HEAD
     await userEvent.click(await screen.findByRole('button', { name: '+ Nueva evaluación' }));
+=======
+>>>>>>> origin/main
     await userEvent.type(await screen.findByLabelText('Producto o sitio'), 'Portal local');
     await userEvent.click(screen.getByRole('button', { name: 'Comenzar revisión' }));
     await screen.findByText('Sin conexión al comenzar');
     first.unmount();
     renderFlow(<FlujoHeuristicaPage />);
+<<<<<<< HEAD
     await userEvent.click(await screen.findByRole('button', { name: '+ Nueva evaluación' }));
+=======
+>>>>>>> origin/main
     expect(await screen.findByLabelText('Producto o sitio')).toHaveValue('Portal local');
     fail = false;
     await userEvent.click(screen.getByRole('button', { name: 'Comenzar revisión' }));
@@ -339,7 +351,11 @@ describe('historial e informe', () => {
       return [];
     });
     renderFlow(<FlujoHeuristicaPage />);
+<<<<<<< HEAD
     await userEvent.click(await screen.findByRole('button', { name: 'Abrir' }));
+=======
+    await userEvent.click(await screen.findByRole('button', { name: 'Abrir revisión' }));
+>>>>>>> origin/main
     await userEvent.click(screen.getByRole('button', { name: 'Comenzar revisión' }));
     await screen.findByText('No se pudo iniciar');
     await userEvent.click(screen.getByRole('button', { name: 'Comenzar revisión' }));
@@ -636,13 +652,22 @@ describe('continuidad al revisar', () => {
   it('no ofrece retomar si todas las revisiones están finalizadas o no hay ninguna', async () => {
     responder([final('f1')]);
     const primera = renderFlow(<FlujoHeuristicaPage />);
+<<<<<<< HEAD
     await screen.findByRole('button', { name: '+ Nueva evaluación' });
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Mis revisiones' }).closest('.technique-list-head')).toHaveTextContent('1'));
+=======
+    await screen.findByRole('button', { name: 'Evaluaciones anteriores (sesiones)' });
+    await waitFor(() => expect(screen.getByText(/Mis revisiones .+ 1/)).toBeInTheDocument());
+>>>>>>> origin/main
     expect(screen.queryByRole('button', { name: 'Retomar mi última revisión' })).toBeNull();
     primera.unmount();
     responder([]);
     renderFlow(<FlujoHeuristicaPage />);
+<<<<<<< HEAD
     await screen.findByRole('button', { name: '+ Nueva evaluación' });
+=======
+    await screen.findByRole('button', { name: 'Evaluaciones anteriores (sesiones)' });
+>>>>>>> origin/main
     expect(screen.queryByRole('button', { name: 'Retomar mi última revisión' })).toBeNull();
   });
   it('al volver a la técnica conserva la revisión abierta y Evaluaciones la olvida', async () => {
@@ -654,11 +679,19 @@ describe('continuidad al revisar', () => {
     primera.unmount();
     const segunda = renderFlow(<FlujoHeuristicaPage />);
     await screen.findByRole('navigation', { name: 'Preguntas de la revisión' });
+<<<<<<< HEAD
     await userEvent.click(screen.getByRole('button', { name: 'Volver' }));
     await screen.findByRole('button', { name: '+ Nueva evaluación' });
     segunda.unmount();
     renderFlow(<FlujoHeuristicaPage />);
     await screen.findByRole('button', { name: '+ Nueva evaluación' });
+=======
+    await userEvent.click(screen.getByRole('button', { name: /Evaluaciones/ }));
+    await screen.findByRole('button', { name: 'Evaluaciones anteriores (sesiones)' });
+    segunda.unmount();
+    renderFlow(<FlujoHeuristicaPage />);
+    await screen.findByRole('button', { name: 'Evaluaciones anteriores (sesiones)' });
+>>>>>>> origin/main
     expect(screen.queryByRole('navigation', { name: 'Preguntas de la revisión' })).toBeNull();
   });
   it('recuerda la pregunta en la que estabas al volver', async () => {
@@ -707,6 +740,7 @@ describe('tarjeta de pregunta en Revisar', () => {
     } finally { vi.useRealTimers(); }
   });
 });
+<<<<<<< HEAD
 
 describe('esqueleto estándar', () => {
   const equipo = [{ id: 'u1', nombre: 'Ana', rol: 'ESTUDIANTE' }];
@@ -731,3 +765,5 @@ describe('esqueleto estándar', () => {
     expect(resumen.closest('details')).not.toHaveAttribute('open');
   });
 });
+=======
+>>>>>>> origin/main
