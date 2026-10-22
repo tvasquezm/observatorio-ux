@@ -6,20 +6,24 @@ import type { ConfiguracionFlujo, EvaluacionFlujo, MetodologiaFlujo, MiembroEqui
 import type { ProjectOutletContext } from '../../layouts/ProjectDetailLayout';
 import { useAuthStore } from '../auth/store/useAuthStore';
 import { useConfirm } from '../../shared/api/confirm';
+import { TechniquePageHeader } from '../../shared/components/TechniquePageHeader';
+import { TechniqueProcess } from '../../shared/components/TechniqueProcess';
 import { ConfiguracionEditor } from './ConfiguracionEditor';
 import { TrabajoEditor, SaveStatus } from './TrabajoEditor';
 import { ConsensoEditor } from './ConsensoEditor';
 import { InformeView } from './InformeView';
 import { useFlujoDraft } from './useFlujoDraft';
 import { flujoRequest } from './flujo.api';
+import { claveDeNombre, faltantesParaIniciar, guardarSesion, leerSesion } from './flujo-utils';
+import { procesoHeuristica } from './heuristica-visual';
 
-function nuevaConfiguracion(m: MetodologiaFlujo): ConfiguracionFlujo {
-  return { nombre: '', producto: { clave: '', nombre: '', version: '', url: '', dispositivo: '' }, objetivo: '', tareas: '', pantallas: '', exclusiones: '', metodologia: copiarMetodologia(m), evaluadorIds: [], lectorIds: [] };
+function nuevaConfiguracion(m: MetodologiaFlujo, usuarioId: string): ConfiguracionFlujo {
+  return { nombre: '', producto: { clave: '', nombre: '', version: '', url: '', dispositivo: '' }, objetivo: '', tareas: '', pantallas: '', exclusiones: '', metodologia: copiarMetodologia(m), evaluadorIds: [usuarioId], lectorIds: [] };
 }
-function NuevaEvaluacion({ proyectoId, biblioteca, equipo, onSaved, onCancel, onSaveMethod, onUpdateMethod, onDeleteMethod }: { proyectoId: string; biblioteca: MetodologiaFlujo[]; equipo: MiembroEquipoFlujo[]; onSaved: (e: EvaluacionFlujo) => void; onCancel: () => void; onSaveMethod: (m: MetodologiaFlujo) => Promise<void>; onUpdateMethod: (m: MetodologiaFlujo) => Promise<void>; onDeleteMethod: (id: string) => Promise<void> }) {
+function PrepararRevision({ proyectoId, biblioteca, equipo, onSaved }: { proyectoId: string; biblioteca: MetodologiaFlujo[]; equipo: MiembroEquipoFlujo[]; onSaved: (e: EvaluacionFlujo) => void }) {
   const usuarioId = useAuthStore(s => s.user?.id ?? '');
   const key = `heuristica:nueva:${usuarioId}:${proyectoId}`;
-  const initial = useRef(nuevaConfiguracion(biblioteca[0]));
+  const initial = useRef(nuevaConfiguracion(biblioteca[0], usuarioId));
   const [value, setValue] = useState<ConfiguracionFlujo>(() => {
     try { const raw = sessionStorage.getItem(key); if (!raw) return initial.current; const parsed = JSON.parse(raw); return parsed && typeof parsed.nombre === 'string' && parsed.producto && parsed.metodologia?.criterios && parsed.metodologia?.escala?.niveles && Array.isArray(parsed.evaluadorIds) && Array.isArray(parsed.lectorIds) ? parsed as ConfiguracionFlujo : initial.current; } catch { return initial.current; }
   });
@@ -31,7 +35,7 @@ function NuevaEvaluacion({ proyectoId, biblioteca, equipo, onSaved, onCancel, on
   const blocker = useBlocker(dirty || busy);
   useEffect(() => {
     if (blocker.state !== 'blocked') return;
-    void confirm('El borrador nuevo se conserva en esta pestaña. ¿Salir de la pantalla?').then(ok => { if (ok) blocker.proceed(); else blocker.reset(); });
+    void confirm('Tus datos se conservan en esta pestaña. ¿Salir de la revisión?').then(ok => { if (ok) blocker.proceed(); else blocker.reset(); });
   }, [blocker, confirm]);
   useEffect(() => {
     if (!dirty && !busy) return;
@@ -39,24 +43,41 @@ function NuevaEvaluacion({ proyectoId, biblioteca, equipo, onSaved, onCancel, on
     window.addEventListener('beforeunload', listener);
     return () => window.removeEventListener('beforeunload', listener);
   }, [dirty, busy]);
-  useEffect(() => { try { if (dirty) sessionStorage.setItem(key, JSON.stringify(value)); else sessionStorage.removeItem(key); setLocalError(''); } catch { setLocalError('No se pudo conservar el borrador local. Guarda antes de cerrar.'); } }, [key, value, dirty]);
-  const sinCriterios = value.metodologia.criterios.length === 0;
-  const clearDraft = () => { try { sessionStorage.removeItem(key); } catch { /* El navegador también bloqueó el guardado local. */ } };
-  return <><button type="button" className="secondary" disabled={busy} onClick={async () => { if (dirty && !(await confirm('¿Cancelar y descartar el borrador nuevo?'))) return; clearDraft(); onCancel(); }}>← Cancelar nueva evaluación</button>
-    <p role="status">{localError || (dirty ? 'Borrador local conservado en esta pestaña; se recupera al retomar Nueva evaluación.' : 'Completa la configuración para guardar el borrador.')}</p>
-    <h2>Nueva evaluación heurística</h2><ConfiguracionEditor value={value} onChange={setValue} biblioteca={biblioteca} equipo={equipo} onSaveMethod={onSaveMethod} onUpdateMethod={onUpdateMethod} onDeleteMethod={onDeleteMethod} />
-    <div className="hf-barra">{sinCriterios && <p className="hf-ayuda">Agrega al menos un criterio para guardar.</p>}
-    <button type="button" className="primary" disabled={busy || sinCriterios} onClick={async () => { setBusy(true); setError(''); try { const result = await flujoRequest<EvaluacionFlujo>(proyectoId, '/evaluaciones', 'POST', value); clearDraft(); onSaved(result); } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo crear'); } finally { setBusy(false); } }}>Guardar borrador de evaluación</button>{error && <p role="alert" className="hf-error">{error}</p>}</div>
-  </>;
+  useEffect(() => { try { if (dirty) sessionStorage.setItem(key, JSON.stringify(value)); else sessionStorage.removeItem(key); setLocalError(''); } catch { setLocalError('No se pudo conservar lo escrito en esta pestaña. Comienza la revisión antes de cerrar.'); } }, [key, value, dirty]);
+  return <form noValidate onSubmit={async e => {
+    e.preventDefault(); setError('');
+    const faltan = faltantesParaIniciar(value);
+    if (faltan.length) { setError(`Para comenzar, completa: ${faltan.join(', ')}.`); const producto = e.currentTarget.querySelector<HTMLInputElement>('#hf-producto'); if (!producto?.value.trim()) producto?.focus(); return; }
+    setBusy(true);
+    try {
+      const config = { ...value, nombre: value.nombre.trim() || value.producto.nombre.trim(), producto: { ...value.producto, clave: value.producto.clave.trim() || claveDeNombre(value.producto.nombre) || crypto.randomUUID() } };
+      const result = await flujoRequest<EvaluacionFlujo>(proyectoId, '/evaluaciones/comenzar', 'POST', config);
+      try { sessionStorage.removeItem(key); } catch { /* El navegador también bloqueó el guardado local. */ }
+      onSaved(result);
+    } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo comenzar. Tus datos siguen aquí; vuelve a intentarlo.'); } finally { setBusy(false); }
+  }}><fieldset disabled={busy} className="hf-sin-marco"><legend className="sr-only">Preparar revisión</legend><ConfiguracionEditor value={value} onChange={setValue} biblioteca={biblioteca} equipo={equipo} acciones={<button type="submit" className="primary">{busy ? 'Comenzando…' : 'Comenzar revisión'}</button>} /></fieldset>
+    {localError && <p role="status">{localError}</p>}{error && <p role="alert" className="hf-error">{error}</p>}
+  </form>;
 }
-function ConfiguracionSesion({ evaluacion, usuarioId, biblioteca, equipo, onSaved, onBack, onSaveMethod, onUpdateMethod, onDeleteMethod }: { evaluacion: EvaluacionFlujo; usuarioId: string; biblioteca: MetodologiaFlujo[]; equipo: MiembroEquipoFlujo[]; onSaved: (e: EvaluacionFlujo) => void; onBack: () => void; onSaveMethod: (m: MetodologiaFlujo) => Promise<void>; onUpdateMethod: (m: MetodologiaFlujo) => Promise<void>; onDeleteMethod: (id: string) => Promise<void> }) {
+function ConfiguracionSesion({ evaluacion, usuarioId, biblioteca, equipo, onSaved, onBack }: { evaluacion: EvaluacionFlujo; usuarioId: string; biblioteca: MetodologiaFlujo[]; equipo: MiembroEquipoFlujo[]; onSaved: (e: EvaluacionFlujo) => void; onBack: () => void }) {
   const state = useFlujoDraft(evaluacion, usuarioId, 'configuracion', evaluacion.configuracion, onSaved);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  return <><button type="button" className="secondary" onClick={async () => { if (await state.confirmLeave()) onBack(); }}>← Evaluaciones</button><div className="page-head"><div><h2>{state.draft.nombre || 'Borrador de evaluación'}</h2><p>Configura el alcance antes de iniciar. Iniciar fija una copia versionada del método y la escala.</p></div><span className="badge">BORRADOR</span></div>
-    <fieldset disabled={busy}><legend>Configuración del borrador</legend><ConfiguracionEditor value={state.draft} onChange={state.setDraft} biblioteca={biblioteca} equipo={equipo} onSaveMethod={onSaveMethod} onUpdateMethod={onUpdateMethod} onDeleteMethod={onDeleteMethod} /></fieldset>
-    <div className="hf-barra"><SaveStatus {...state} />
-    <button type="button" className="primary" disabled={busy || state.saving} onClick={async () => { setBusy(true); setError(''); try { await state.save(); onSaved(await flujoRequest<EvaluacionFlujo>(evaluacion.proyectoId, `/evaluaciones/${evaluacion.id}/iniciar`, 'POST', { revision: state.getRevision() })); } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo iniciar'); } finally { setBusy(false); } }}>Iniciar con configuración fija</button>{error && <p role="alert" className="hf-error">{error}</p>}</div>
+  return <><button type="button" className="secondary" onClick={async () => { if (await state.confirmLeave()) onBack(); }}>← Mis revisiones</button><h2>Continuar revisión guardada</h2>
+    <form noValidate onSubmit={async e => {
+      e.preventDefault(); setError(''); const faltan = faltantesParaIniciar(state.draft);
+      if (faltan.length) { setError(`Para comenzar, completa: ${faltan.join(', ')}.`); const producto = e.currentTarget.querySelector<HTMLInputElement>('#hf-producto'); if (!producto?.value.trim()) producto?.focus(); return; }
+      setBusy(true); try {
+        await state.save();
+        const config = { ...state.draft, nombre: state.draft.nombre.trim() || state.draft.producto.nombre.trim(), producto: { ...state.draft.producto, clave: state.draft.producto.clave.trim() || claveDeNombre(state.draft.producto.nombre) || crypto.randomUUID() } };
+        let revision = state.getRevision();
+        if (config.nombre !== state.draft.nombre || config.producto.clave !== state.draft.producto.clave) {
+          const normalizada = await flujoRequest<EvaluacionFlujo>(evaluacion.proyectoId, `/evaluaciones/${evaluacion.id}/configuracion`, 'PATCH', { revision, configuracion: config });
+          revision = normalizada.revision; onSaved(normalizada);
+        }
+        onSaved(await flujoRequest<EvaluacionFlujo>(evaluacion.proyectoId, `/evaluaciones/${evaluacion.id}/iniciar`, 'POST', { revision }));
+      } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo comenzar. Vuelve a intentarlo.'); } finally { setBusy(false); }
+    }}><fieldset disabled={busy} className="hf-sin-marco"><legend className="sr-only">Datos de la revisión</legend><ConfiguracionEditor value={state.draft} onChange={state.setDraft} biblioteca={biblioteca} equipo={equipo} acciones={<><SaveStatus {...state} /><button type="submit" className="primary" disabled={busy || state.saving}>Comenzar revisión</button></>} /></fieldset></form>{error && <p role="alert" className="hf-error">{error}</p>}
   </>;
 }
 export function FlujoHeuristicaPage() {
@@ -64,10 +85,11 @@ export function FlujoHeuristicaPage() {
   const usuarioId = useAuthStore(s => s.user?.id ?? '');
   const [, setSearch] = useSearchParams();
   const client = useQueryClient();
-  const [selected, setSelected] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
+  const claveSel = `heuristica:sel:${usuarioId}:${proyectoId}`;
+  const [selected, setSeleccionado] = useState<string | null>(() => leerSesion(claveSel));
+  const setSelected = (id: string | null) => { setSeleccionado(id); guardarSesion(claveSel, id); };
   const [producto, setProducto] = useState('');
-  useEffect(() => { setSelected(null); setCreating(false); }, [proyectoId, usuarioId]);
+  useEffect(() => { setSeleccionado(leerSesion(claveSel)); }, [claveSel]);
   const key = ['heuristica-flujo', proyectoId, usuarioId];
   const history = useQuery({ queryKey: [...key, 'evaluaciones'], queryFn: () => flujoRequest<EvaluacionFlujo[]>(proyectoId, '/evaluaciones') });
   const library = useQuery({ queryKey: [...key, 'metodologias'], queryFn: () => flujoRequest<MetodologiaFlujo[]>(proyectoId, '/metodologias') });
@@ -76,55 +98,37 @@ export function FlujoHeuristicaPage() {
   function saved(e: EvaluacionFlujo) {
     client.setQueryData([...key, 'evaluacion', e.id], e);
     void client.invalidateQueries({ queryKey: [...key, 'evaluaciones'] });
-    setSelected(e.id); setCreating(false);
-  }
-  async function saveMethod(m: MetodologiaFlujo) {
-    await flujoRequest<MetodologiaFlujo>(proyectoId, '/metodologias', 'POST', m);
-    await client.invalidateQueries({ queryKey: [...key, 'metodologias'] });
-  }
-  async function updateMethod(m: MetodologiaFlujo) {
-    await flujoRequest<MetodologiaFlujo>(proyectoId, `/metodologias/${encodeURIComponent(m.id)}`, 'PATCH', m);
-    await client.invalidateQueries({ queryKey: [...key, 'metodologias'] });
-  }
-  async function deleteMethod(id: string) {
-    await flujoRequest<void>(proyectoId, `/metodologias/${encodeURIComponent(id)}`, 'DELETE');
-    await client.invalidateQueries({ queryKey: [...key, 'metodologias'] });
+    setSelected(e.id);
   }
   const evaluacion = active.data;
+  const pendiente = [...(history.data ?? [])].filter(e => e.fase !== 'FINALIZADA').sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))[0];
+  const etapaPendiente = { BORRADOR: 'por preparar', EN_EVALUACION: 'en revisión', PENDIENTE_CONSENSO: 'en acuerdo del equipo', CONSOLIDADA: 'con informe por finalizar', FINALIZADA: 'terminada' } as const;
   const back = () => setSelected(null);
-  const guide = (
-    <details className="panel technique-instructions" open>
-      <summary>Cómo realizar una evaluación heurística</summary>
-      <ol>
-        <li><strong>Configura:</strong> define el producto, alcance, metodología y expertos. Guarda el borrador e inicia la evaluación.</li>
-        <li><strong>Evalúa individualmente:</strong> valora criterios y registra hallazgos con evidencia. Guarda y entrega tu evaluación.</li>
-        <li><strong>Acuerden el consenso:</strong> con todas las entregas, revisen diferencias y justifiquen decisiones. Cada experto aprueba el acuerdo.</li>
-        <li><strong>Consolida y finaliza:</strong> el coordinador consolida y fija el informe. Descarga el PDF o crea una revisión para comparar mejoras.</li>
-      </ol>
-    </details>
-  );
   let content;
-  if (creating && library.data?.length && team.data) content = <NuevaEvaluacion key={proyectoId} proyectoId={proyectoId} biblioteca={library.data} equipo={team.data} onSaved={saved} onCancel={() => setCreating(false)} onSaveMethod={saveMethod} onUpdateMethod={updateMethod} onDeleteMethod={deleteMethod} />;
-  else if (selected && active.isLoading) content = <p role="status">Cargando evaluación…</p>;
+  if (selected && active.isLoading) content = <p role="status">Cargando evaluación…</p>;
   else if (selected && active.error) content = <><button type="button" className="secondary" onClick={back}>← Evaluaciones</button><p role="alert" className="hf-error">{active.error.message}</p><button type="button" className="secondary" onClick={() => void active.refetch()}>Reintentar</button></>;
   else if (evaluacion && selected) {
     const common = { evaluacion, usuarioId, onSaved: saved, onBack: back };
-    if (evaluacion.fase === 'BORRADOR') content = evaluacion.coordinadorId === usuarioId && library.data && team.data ? <ConfiguracionSesion key={`${evaluacion.id}:configuracion`} {...common} biblioteca={library.data} equipo={team.data} onSaveMethod={saveMethod} onUpdateMethod={updateMethod} onDeleteMethod={deleteMethod} /> : <><button type="button" className="secondary" onClick={back}>← Evaluaciones</button><p>El coordinador está configurando la evaluación.</p></>;
+    if (evaluacion.fase === 'BORRADOR') content = evaluacion.coordinadorId === usuarioId && library.data && team.data ? <ConfiguracionSesion key={`${evaluacion.id}:configuracion`} {...common} biblioteca={library.data} equipo={team.data} /> : <><button type="button" className="secondary" onClick={back}>← Evaluaciones</button><p>El coordinador está configurando la evaluación.</p></>;
     else if (evaluacion.fase === 'EN_EVALUACION') content = <TrabajoEditor key={`${evaluacion.id}:trabajo`} {...common} />;
     else if (evaluacion.fase === 'PENDIENTE_CONSENSO') content = evaluacion.coordinadorId === usuarioId || evaluacion.configuracion.evaluadorIds.includes(usuarioId) ? <ConsensoEditor key={`${evaluacion.id}:consenso`} {...common} /> : <><button type="button" className="secondary" onClick={back}>← Evaluaciones</button><p>El equipo está acordando el consenso. El informe estará disponible al consolidar.</p></>;
     else content = <InformeView key={`${evaluacion.id}:informe`} {...common} historial={history.data ?? []} />;
   } else content = <>
-    <div className="page-head"><div><h2>Evaluación heurística</h2><p>Define el producto y alcance, reúne valoraciones independientes y acuerda un informe reproducible.</p></div></div>
-    <div className="hf-actions"><button type="button" className="primary" disabled={!library.data?.length || !team.data} onClick={() => setCreating(true)}>Nueva evaluación completa</button><button type="button" className="secondary" onClick={() => setSearch({ anteriores: '1' })}>Evaluaciones anteriores (sesiones)</button></div>
-    {guide}
+    {pendiente && <div className="hf-retomar panel" role="region" aria-label="Revisión sin terminar"><p>Tienes una revisión sin terminar: <strong>{pendiente.configuracion.nombre || pendiente.configuracion.producto.nombre}</strong> ({etapaPendiente[pendiente.fase]}).</p><button type="button" className="secondary" onClick={() => setSelected(pendiente.id)}>Retomar mi última revisión</button></div>}
     {[history.error, library.error, team.error].filter(Boolean).map((e, i) => <p role="alert" className="hf-error" key={i}>{e?.message}</p>)}
-    {(history.isLoading || library.isLoading || team.isLoading) && <p role="status">Cargando biblioteca, equipo e historial…</p>}
-    <section className="panel"><div className="panel-head"><h2>Historial por producto y alcance</h2></div><label className="field">Filtrar producto<input value={producto} onChange={e => setProducto(e.target.value)} /></label>
-      <div className="hf-table"><table><thead><tr><th>Evaluación / producto</th><th>Alcance / versión</th><th>Estado</th><th>Acción</th></tr></thead><tbody>{(history.data ?? []).filter(e => `${e.configuracion.producto.nombre} ${e.configuracion.producto.clave}`.toLocaleLowerCase().includes(producto.toLocaleLowerCase())).map(e => <tr key={e.id}><td>{e.configuracion.nombre}<br />{e.configuracion.producto.nombre} · {e.configuracion.producto.clave}</td><td>{e.configuracion.pantallas}<br />{e.configuracion.producto.version} · revisión {e.version}</td><td>{e.fase}</td><td><button type="button" className="secondary" onClick={() => setSelected(e.id)}>Abrir {e.configuracion.nombre || 'borrador'}</button></td></tr>)}</tbody></table></div>{history.data?.length === 0 && <p>Todavía no hay evaluaciones del nuevo flujo.</p>}
-    </section>
+    {(library.isLoading || team.isLoading) && <p role="status">Cargando preguntas y personas…</p>}
+    {library.data?.length && team.data ? <PrepararRevision key={proyectoId} proyectoId={proyectoId} biblioteca={library.data} equipo={team.data} onSaved={saved} /> : null}
+    <details className="panel"><summary>Mis revisiones · {history.data?.length ?? 0}</summary>
+      <label className="field">Buscar producto<input value={producto} onChange={e => setProducto(e.target.value)} /></label>
+      <div className="hf-table"><table><thead><tr><th>Revisión</th><th>Estado</th><th>Acción</th></tr></thead><tbody>{(history.data ?? []).filter(e => `${e.configuracion.producto.nombre} ${e.configuracion.nombre}`.toLocaleLowerCase().includes(producto.toLocaleLowerCase())).map(e => <tr key={e.id}><td>{e.configuracion.nombre || e.configuracion.producto.nombre}</td><td>{({ BORRADOR: 'Por preparar', EN_EVALUACION: 'En revisión', PENDIENTE_CONSENSO: 'Acuerdo del equipo', CONSOLIDADA: 'Informe preparado', FINALIZADA: 'Terminada' })[e.fase]}</td><td><button type="button" className="secondary" onClick={() => setSelected(e.id)}>Abrir {e.configuracion.nombre || 'revisión'}</button></td></tr>)}</tbody></table></div>
+      {history.data?.length === 0 && <p>Aún no hay revisiones guardadas.</p>}
+      <button type="button" className="secondary" onClick={() => setSearch({ anteriores: '1' })}>Evaluaciones anteriores (sesiones)</button>
+    </details>
   </>;
-  return <div className="hf fade">{selected || creating ? guide : null}
-
+  const instrucciones = ['Indica el producto o sitio que vas a revisar y elige una metodología.', 'Responde cada pregunta y anota los problemas que veas, con una captura si ayuda.', 'Entrega tu revisión. Si trabajan en equipo, acuerden las respuestas juntos.', 'Prepara el informe y descárgalo en PDF.'];
+  return <div className="artifact-page hf fade">
+    {!selected && <TechniquePageHeader label="TÉCNICA DE INVESTIGACIÓN" title="Evaluación heurística" description="Revisa un producto con una metodología conocida, una pregunta a la vez." instructions={instrucciones} />}
+    {(!selected || evaluacion) && <TechniqueProcess title="Proceso de la evaluación" compact={!!selected} steps={procesoHeuristica(selected && evaluacion ? evaluacion.fase : null)} />}
     {content}
   </div>;
 }
