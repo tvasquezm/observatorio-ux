@@ -1,75 +1,30 @@
 // apps/frontend/src/pages/EvaluacionHeuristicaPage.tsx
 //
-// Módulo de evaluación heurística: registra hallazgos con heurística de
-// Nielsen, severidad 0-4, evidencia (texto, enlace, captura), recomendación
-// y responsable (lo fija el servidor). Priorizados por severidad.
+// Módulo de evaluación heurística: el flujo completo (preparar, evaluar,
+// consensuar e informar) más los comentarios de la técnica.
 
-import { useMemo, useState } from 'react';
-import { useOutletContext, useSearchParams } from 'react-router-dom';
+import { useOutletContext } from 'react-router-dom';
 import { FlujoHeuristicaPage } from '../features/heuristica-flujo/FlujoHeuristicaPage';
-import { HEURISTICAS_NIELSEN, SEVERIDADES } from '@observatorio-ux/shared-types';
 import type { ProjectOutletContext } from '../layouts/ProjectDetailLayout';
-import { useConfirm } from '../shared/api/confirm';
-import { notify } from '../shared/api/toast';
-import { useUnsavedChanges } from '../shared/hooks/useUnsavedChanges';
-import {
-  EvaluacionHeuristicaApiError,
-  type HallazgoHeuristica,
-} from '../features/evaluacion-heuristica/api/evaluacion-heuristica.api';
-import {
-  useActualizarHallazgo,
-  useCrearSesionHeuristica,
-  useEliminarHallazgo,
-  useFinalizarSesionHeuristica,
-  useRegistrarHallazgo,
-  useSesionHeuristica,
-  useSesionesHeuristicas,
-} from '../features/evaluacion-heuristica/hooks/useEvaluacionHeuristicaQueries';
-import {
-  FILTROS_INICIALES,
-  conteoPorSeveridad,
-  filtrarYOrdenar,
-  formDesdeHallazgo,
-  etiquetaHeuristica,
-  formVacio,
-  nombreSesion,
-  type ErroresForm,
-  type FiltrosHallazgos,
-  type HallazgoFormValues,
-} from '../features/evaluacion-heuristica/heuristica-utils';
-import { resumirSesion } from '../features/evaluacion-heuristica/heuristica-resumen';
-import { HallazgoCard } from '../features/evaluacion-heuristica/components/HallazgoCard';
-import { HallazgoForm } from '../features/evaluacion-heuristica/components/HallazgoForm';
-import { SesionesHeuristicas } from '../features/evaluacion-heuristica/components/SesionesHeuristicas';
-import { SeveridadBadge } from '../features/evaluacion-heuristica/components/SeveridadBadge';
 import { ComentariosTecnica } from '../features/comments/components/ComentariosTecnica';
-
-const CAMPOS_FORM = new Set<string>(Object.keys(formVacio()));
-
-function mensajeDe(err: unknown, porDefecto: string) {
-  return err instanceof Error && err.message ? err.message : porDefecto;
-}
-
-/** 400 del ValidationPipe → errores por campo para marcar el input exacto. */
-function erroresDeServidor(err: unknown): ErroresForm {
-  if (!(err instanceof EvaluacionHeuristicaApiError) || !err.details) return {};
-  const e: ErroresForm = {};
-  for (const d of err.details) if (CAMPOS_FORM.has(d.campo)) e[d.campo as keyof HallazgoFormValues] = d.mensaje;
-  return e;
-}
 
 export function EvaluacionHeuristicaPage() {
   const { proyectoId } = useOutletContext<ProjectOutletContext>();
-  const [search, setSearch] = useSearchParams();
   return (
     <>
+<<<<<<< HEAD
+      <FlujoHeuristicaPage />
+=======
       {search.get('anteriores') === '1'
         ? <><button type="button" className="text-button" onClick={() => setSearch({})}>← Volver a evaluaciones</button><EvaluacionHeuristicaLegacyPage /></>
         : <FlujoHeuristicaPage />}
+>>>>>>> origin/main
       <ComentariosTecnica proyectoId={proyectoId} tecnica="evaluacion-heuristica" />
     </>
   );
 }
+<<<<<<< HEAD
+=======
 
 export function EvaluacionHeuristicaLegacyPage() {
   const { proyectoId } = useOutletContext<ProjectOutletContext>();
@@ -412,3 +367,4 @@ export function EvaluacionHeuristicaLegacyPage() {
     </div>
   );
 }
+>>>>>>> origin/main

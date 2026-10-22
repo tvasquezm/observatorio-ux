@@ -42,7 +42,11 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack }: { eva
       </fieldset>;
     };
   return <>
+<<<<<<< HEAD
+    <button type="button" className="secondary" onClick={async () => { if (await state.confirmLeave()) onBack(); }}>Volver</button>
+=======
     <button type="button" className="secondary" onClick={async () => { if (await state.confirmLeave()) onBack(); }}>← Evaluaciones</button>
+>>>>>>> origin/main
     <div className="page-head"><div><h2>Acuerdo del equipo · {evaluacion.configuracion.nombre}</h2><p>Todos terminaron su revisión. Ahora comparen sus respuestas, decidan juntos y preparen el informe.</p></div></div>
     <div className="hf-barra"><button type="button" className="ghost" disabled={state.saving || busy} onClick={async () => { if (!(await state.confirmLeave())) return; try { await state.reloadRevision(); } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo actualizar'); } }}>Actualizar consenso y confirmaciones</button>
     <SaveStatus {...state} /></div>
