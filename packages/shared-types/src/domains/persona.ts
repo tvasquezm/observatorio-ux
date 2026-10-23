@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { URL_MAX_LARGO, normalizarUrlProducto } from './url-segura';
 
 /**
  * Schema de validación para el contenido de un artefacto de tipo PERSONA.
@@ -28,7 +29,8 @@ export const PersonaSchema = z.object({
     .describe('Ocupación, profesión o cargo de la persona.'),
   fotografiaUrl: z
     .string()
-    .url('Debe ser una URL válida.')
+    .max(URL_MAX_LARGO)
+    .refine(v => normalizarUrlProducto(v) !== null, 'Debe ser una URL http o https válida.')
     .optional(),
   acercaDe: z
     .string()

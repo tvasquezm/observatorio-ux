@@ -1,4 +1,4 @@
-import { escalaDe } from '@observatorio-ux/shared-types';
+import { escalaDe, normalizarUrlProducto } from '@observatorio-ux/shared-types';
 import type { ConfiguracionFlujo, CriterioFlujo, CumplimientoGrupo, DiscrepanciasFlujo, HallazgoFlujo, RespuestaCriterio } from '@observatorio-ux/shared-types';
 
 export function pendientesTrabajo(config: ConfiguracionFlujo, respuestas: RespuestaCriterio[], hallazgos: HallazgoFlujo[]) {
@@ -64,5 +64,5 @@ export function etiquetasDiscrepancia(config: ConfiguracionFlujo, d: Discrepanci
 export const claveDeNombre = (nombre: string) => nombre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 200);
 /** Minimum data needed by the student view; descriptive fields are optional. */
 export function faltantesParaIniciar(c: ConfiguracionFlujo): string[] {
-  return [!c.producto.nombre.trim() && 'producto o sitio', !c.metodologia.criterios.length && 'una metodología con preguntas', !c.evaluadorIds.length && 'al menos una persona en «Personas que revisarán»', !!c.producto.url && (!/^https?:\/\//i.test(c.producto.url) || !URL.canParse(c.producto.url)) && 'una URL válida que comience con http:// o https:// (o déjala vacía)'].filter((v): v is string => !!v);
+  return [!c.producto.nombre.trim() && 'producto o sitio', !c.metodologia.criterios.length && 'una metodología con preguntas', !c.evaluadorIds.length && 'al menos una persona en «Personas que revisarán»', !!c.producto.url.trim() && !normalizarUrlProducto(c.producto.url) && 'una dirección web válida, por ejemplo miweb.cl (o déjala vacía)'].filter((v): v is string => !!v);
 }

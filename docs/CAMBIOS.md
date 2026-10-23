@@ -3,6 +3,16 @@
 Todo acá parte de TUS archivos reales que subiste, con ediciones mínimas
 y quirúrgicas. No hay archivos inventados desde cero salvo los indicados.
 
+## Fase 1: URL sin http y validación segura (23-10-2026)
+
+- `packages/shared-types/src/domains/url-segura.ts` (nuevo) e `index.ts`: `normalizarUrlProducto` y `esUrlSegura`. Solo http/https, antepone `https://` si falta, sin dependencia del tipo global `URL` (el paquete no tiene DOM ni `@types/node`).
+- `packages/shared-types/src/domains/persona.ts`: `fotografiaUrl` usa la validación segura en lugar de `.url()`, que aceptaba cualquier esquema.
+- `apps/backend/src/modules/sessions/heuristica-flujo/heuristica-flujo.schemas.ts`: `producto.url` se normaliza y revalida en el servidor.
+- `apps/frontend/src/features/heuristica-flujo/{flujo-utils.ts,ConfiguracionEditor.tsx,campos.tsx}` y `apps/frontend/src/pages/PersonasPage.tsx`: campos `type="text"` con `inputMode="url"`, normalizan al salir del campo y al enviar; `Fuente` genera el enlace solo con URL segura.
+- `PersonaCard.tsx` no cambia: muestra `fotografiaUrl` como texto, sin `href` ni `src`.
+- Pruebas: `apps/frontend/src/features/heuristica-flujo/url-segura.test.ts` (nuevo) y un caso nuevo en `heuristica-flujo.schemas.spec.ts`.
+- Seguridad: sin hallazgos que corregir (ver `PLAN_APROBADO.md`, seccion 8).
+
 ## Integración de Card Sorting y Momentos Críticos (05-10-2026)
 
 - `features/card-sorting/`, `pages/CardSortingPage.tsx` y sus pruebas: integran la entrada guiada, las vistas y exportaciones de Tomás con validación compartida y desplegables; corrigen el recálculo de agrupaciones según el umbral.

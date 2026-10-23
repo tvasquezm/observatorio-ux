@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
+import { normalizarUrlProducto } from '@observatorio-ux/shared-types';
 import type { ProjectOutletContext } from '../layouts/ProjectDetailLayout';
 import {
   useCreatePersona,
@@ -130,7 +131,8 @@ export function PersonasPage() {
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!nombreCompleto) return;
-    const payload = contenidoEnVivo;
+    const foto = contenidoEnVivo.fotografiaUrl?.trim();
+    const payload = { ...contenidoEnVivo, fotografiaUrl: foto ? (normalizarUrlProducto(foto) ?? foto) : undefined };
 
     if (editandoId) {
       const idAEditar = editandoId;
@@ -248,8 +250,9 @@ export function PersonasPage() {
                     {renderListFields(['hobbies', 'habilidades'])}
                     <label className="field persona-field-wide">
                       URL de fotografía
-                      <input type="url" value={form.fotografiaUrl ?? ''} placeholder="https://…"
-                        onChange={(e) => setForm({ ...form, fotografiaUrl: e.target.value || undefined })} />
+                      <input type="text" inputMode="url" value={form.fotografiaUrl ?? ''} placeholder="miweb.cl/foto"
+                        onChange={(e) => setForm({ ...form, fotografiaUrl: e.target.value || undefined })}
+                        onBlur={(e) => { const url = normalizarUrlProducto(e.target.value); if (url && url !== form.fotografiaUrl) setForm({ ...form, fotografiaUrl: url }); }} />
                     </label>
                   </div>,
                 ),

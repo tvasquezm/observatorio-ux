@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { z } from 'zod';
+import { normalizarUrlProducto } from '@observatorio-ux/shared-types';
 
 const texto = z.string().max(10000);
 const identificador = z.string().min(1).max(150);
@@ -23,7 +24,7 @@ export const metodologiaSchema = z.strictObject({
 });
 export const configuracionSchema = z.strictObject({
   nombre: z.string().max(200),
-  producto: z.strictObject({ clave: z.string().max(200), nombre: z.string().max(200), version: z.string().max(200), url: z.string().max(2000).refine(v => !v || /^https?:\/\//i.test(v) && URL.canParse(v), 'URL HTTP(S) inválida'), dispositivo: z.string().max(200) }),
+  producto: z.strictObject({ clave: z.string().max(200), nombre: z.string().max(200), version: z.string().max(200), url: z.string().max(2000).transform((v, ctx) => { if (!v.trim()) return ''; const url = normalizarUrlProducto(v); if (!url) { ctx.addIssue({ code: 'custom', message: 'URL HTTP(S) inválida' }); return z.NEVER; } return url; }), dispositivo: z.string().max(200) }),
   objetivo: texto, tareas: texto, pantallas: texto, exclusiones: texto, metodologia: metodologiaSchema,
   evaluadorIds: ids(5).min(1), lectorIds: ids(100),
 });

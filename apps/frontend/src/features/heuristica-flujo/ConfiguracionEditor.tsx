@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { copiarMetodologia, escalaDe } from '@observatorio-ux/shared-types';
+import { copiarMetodologia, escalaDe, normalizarUrlProducto } from '@observatorio-ux/shared-types';
 import type { ConfiguracionFlujo, MetodologiaFlujo, MiembroEquipoFlujo } from '@observatorio-ux/shared-types';
 import { Field } from './campos';
 import { claveDeNombre } from './flujo-utils';
@@ -25,7 +25,7 @@ export function ConfiguracionEditor({ value, onChange, biblioteca, equipo, accio
     </details>
     <details><summary>Agregar contexto (opcional)</summary><div className="hf-grid">
       <Field label="Nombre de la revisión (opcional)"><input maxLength={160} value={value.nombre} onChange={e => set({ nombre: e.target.value })} /></Field>
-      <Field label="URL (opcional)"><input type="url" maxLength={1000} value={p.url} onChange={e => set({ producto: { ...p, url: e.target.value } })} /></Field>
+      <Field label="URL (opcional)"><input type="text" inputMode="url" maxLength={1000} placeholder="miweb.cl" value={p.url} onChange={e => set({ producto: { ...p, url: e.target.value } })} onBlur={e => { const url = normalizarUrlProducto(e.target.value); if (url && url !== p.url) set({ producto: { ...p, url } }); }} /></Field>
       <Field label="Objetivo (opcional)"><textarea maxLength={6000} value={value.objetivo} onChange={e => set({ objetivo: e.target.value })} /></Field>
       <Field label="Pantallas incluidas (opcional)"><textarea maxLength={6000} value={value.pantallas} onChange={e => set({ pantallas: e.target.value })} /></Field>
     </div><details><summary>Otros datos del producto (opcional)</summary><div className="hf-grid">

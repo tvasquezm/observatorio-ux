@@ -6,6 +6,11 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **url-segura:** los campos de dirección web (URL del producto en Evaluación heurística y URL de fotografía en
+  Personas) aceptan la dirección sin `http`: `miweb.cl` se guarda como `https://miweb.cl`. Solo se admiten
+  `http` y `https`; se rechazan `javascript:`, `data:`, `file:`, `ftp:`, `//host`, credenciales en la URL, hosts sin
+  punto (salvo `localhost`) y más de 2000 caracteres. El servidor vuelve a validar y normaliza, y el enlace de la
+  fuente en el informe solo se genera con una URL segura (`rel="noopener noreferrer"`).
 * **tecnicas:** las 5 técnicas (Personas, Journey Map, Momentos críticos, Card Sorting y Evaluación heurística) muestran
   sus partes en el mismo orden (cabecera, instrucciones, proceso, resumen, formulario, lista, comentarios), con `+ Nuevo`
   arriba a la derecha y las acciones de cada elemento (Consultar, Editar, Eliminar) en el mismo lugar con tres niveles de
