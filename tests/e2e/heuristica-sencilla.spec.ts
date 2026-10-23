@@ -15,6 +15,7 @@ test('guía una evaluación desde su creación hasta el informe', async ({ page 
   const total = await preguntas.count();
   await page.getByRole('button', { name: 'Entregar mi evaluación', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('Pregunta 1: elige una respuesta');
+  await page.getByRole('button', { name: 'Ver todo', exact: true }).click();
   const filas = page.getByRole('row').filter({ has: page.getByRole('radio') });
   await expect(filas).toHaveCount(total);
   for (let i = 0; i < total; i++) {

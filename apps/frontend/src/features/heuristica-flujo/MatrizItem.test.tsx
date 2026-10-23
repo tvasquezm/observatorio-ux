@@ -37,12 +37,17 @@ describe('MatrizItem', () => {
     expect(screen.getAllByRole('rowheader')).toHaveLength(71);
     expect(within(screen.getAllByRole('table')[0]).getAllByRole('columnheader').map(c => c.textContent)).toEqual(expect.arrayContaining([expect.stringContaining('Sí'), expect.stringContaining('No')]));
   });
-  it('Nielsen sin enunciados: una sola tabla con la frase de cada pregunta', () => {
+  it('Nielsen: título y enunciado arriba de cada ítem; por grupo 4 preguntas y en Ver todo 10 tablas con 39 filas', async () => {
     const m = metodo('nielsen10');
     render(<Harness m={m} />);
+    expect(screen.getByRole('heading', { name: 'Estado visible' })).toBeInTheDocument();
+    expect(screen.getByText(m.enunciados!['Estado visible'])).toBeInTheDocument();
     expect(screen.getAllByRole('table')).toHaveLength(1);
-    expect(screen.getByRole('rowheader', { name: /Estado visible/ })).toBeInTheDocument();
-    expect(screen.getAllByRole('rowheader').length).toBe(10);
+    expect(screen.getAllByRole('rowheader')).toHaveLength(4);
+    await userEvent.click(screen.getByRole('button', { name: 'Ver todo' }));
+    expect(screen.getAllByRole('table')).toHaveLength(10);
+    expect(screen.getAllByRole('rowheader')).toHaveLength(39);
+    expect(screen.getAllByRole('heading', { level: 3 })).toHaveLength(10);
   });
   it('enunciado y título siempre visibles; "Por grupo" muestra un ítem y "Ver todo" todos', async () => {
     const m = metodo('nielsen10');

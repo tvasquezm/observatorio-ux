@@ -57,13 +57,14 @@ describe('flujo individual', () => {
     const e = evaluation(); e.configuracion.metodologia = copiarMetodologia(METODOLOGIAS_HEURISTICAS[0]);
     api.mockImplementation(async (_p, path, _method, body) => path.endsWith('/trabajo') ? { ...e, revision: 2, trabajos: [{ ...e.trabajos[0], respuestas: body.respuestas }] } : { ...e, revision: 3, trabajos: [{ ...e.trabajos[0], entregadoEn: e.updatedAt }] });
     renderFlow(<Harness initial={e} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Ver todo' }));
     for (const r of screen.getAllByRole('radio', { name: 'No aplica' })) await userEvent.click(r);
     expect(screen.queryByLabelText('Motivo de no aplica')).toBeNull();
-    expect(screen.getByText('10 de 10 preguntas respondidas')).toBeInTheDocument();
+    expect(screen.getByText('39 de 39 preguntas respondidas')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Entregar mi evaluación' }));
     await screen.findByText('Trabajo entregado. Tus respuestas están cerradas.');
     const guardado = api.mock.calls.find(c => c[1].endsWith('/trabajo'))![3];
-    expect(guardado.respuestas).toHaveLength(10);
+    expect(guardado.respuestas).toHaveLength(39);
     expect(guardado.respuestas.every((r: { noAplica: boolean; valor: string | null; motivo: string }) => r.noAplica && r.valor === null && r.motivo === '')).toBe(true);
     expect(screen.queryByRole('alert')).toBeNull();
   });
@@ -78,7 +79,7 @@ describe('flujo individual', () => {
   });
   it('conserva respuestas al cambiar de pregunta y al consultar el resumen real del equipo', async () => {
     const e = evaluation(); e.configuracion.metodologia = copiarMetodologia(METODOLOGIAS_HEURISTICAS[0]);
-    e.avanceEquipo = [{ evaluadorId: 'u1', nombre: 'Ana', evaluados: 0, total: 10, entregadoEn: null, guardadoEn: null }];
+    e.avanceEquipo = [{ evaluadorId: 'u1', nombre: 'Ana', evaluados: 0, total: 39, entregadoEn: null, guardadoEn: null }];
     renderFlow(<Harness initial={e} />);
     await userEvent.click(screen.getAllByRole('radio', { name: 'No aplica' })[0]);
     const mapa = screen.getByRole('navigation', { name: 'Preguntas de la revisión' });
