@@ -3065,6 +3065,7 @@ div:has(> .project-section > .hf) > .project-heading p { margin:4px 0 0; font-si
 .technique-item-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
 .technique-empty { margin-top: 8px; }
 .technique-empty > svg { color: var(--teal); }
+.technique-form-anchor { scroll-margin-top: 88px; }
 @media (max-width: 600px) {
   .technique-list-view, .technique-list-view > button { width: 100%; }
   .technique-item-actions { justify-content: flex-start; }

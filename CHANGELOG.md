@@ -6,6 +6,11 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **tecnicas:** al abrir un formulario (`+ Nuevo`, Editar o abrir una evaluación) la página baja hasta él y deja el
+  foco en su título, en las 5 técnicas. Respeta `prefers-reduced-motion` y no se mueve al cargar la página.
+* **evaluacion-heuristica:** nuevo selector "Escala de respuesta" al crear o editar el borrador de una revisión: la de la
+  metodología, Cumple/Parcial/No cumple, Sí/No, 1 a 5 o severidad 0 a 4 de Nielsen, con vista previa de los niveles.
+  Se aplica a todas las preguntas y reemplaza las escalas propias de cada criterio.
 * **url-segura:** los campos de dirección web (URL del producto en Evaluación heurística y URL de fotografía en
   Personas) aceptan la dirección sin `http`: `miweb.cl` se guarda como `https://miweb.cl`. Solo se admiten
   `http` y `https`; se rechazan `javascript:`, `data:`, `file:`, `ftp:`, `//host`, credenciales en la URL, hosts sin

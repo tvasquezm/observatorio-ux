@@ -39,3 +39,28 @@ describe('configuración breve para estudiantes', () => {
     expect(actual.metodologia.protegida).toBe(false);
   });
 });
+
+describe('escala de respuesta de la revisión', () => {
+  const selector = () => screen.getByRole('combobox', { name: 'Escala de respuesta' });
+  it('parte con la escala de la metodología y muestra sus niveles', () => {
+    render(<Editor />);
+    expect(selector()).toHaveValue('metodologia');
+    expect(screen.getByLabelText('Niveles de la escala elegida')).toHaveTextContent(actual.metodologia.escala.niveles[0].etiqueta);
+  });
+  it.each([['si_no', ['Sí', 'No']], ['likert_1_5', ['No cumple', 'Cumple totalmente']], ['nielsen_0_4', ['Sin problema', 'Catastrófico']], ['operativa', ['Cumple', 'No cumple']]])('aplica %s a toda la revisión y limpia escalas propias', async (opcion, etiquetas) => {
+    render(<Editor />);
+    await userEvent.selectOptions(selector(), opcion);
+    expect(actual.metodologia.criterios.every(c => c.escala === undefined)).toBe(true);
+    const textos = actual.metodologia.escala.niveles.map(n => n.etiqueta);
+    for (const e of etiquetas) expect(textos.some(t => t.includes(e))).toBe(true);
+    // la primera metodología ya usa la escala operativa: ahí el selector marca "La de la metodología"
+    expect(selector()).toHaveValue(opcion === 'operativa' ? 'metodologia' : opcion);
+  });
+  it('vuelve a la escala de la metodología', async () => {
+    render(<Editor />);
+    const original = structuredClone(actual.metodologia.escala);
+    await userEvent.selectOptions(selector(), 'likert_1_5');
+    await userEvent.selectOptions(selector(), 'metodologia');
+    expect(actual.metodologia.escala).toEqual(original);
+  });
+});

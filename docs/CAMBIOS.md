@@ -3,6 +3,14 @@
 Todo acá parte de TUS archivos reales que subiste, con ediciones mínimas
 y quirúrgicas. No hay archivos inventados desde cero salvo los indicados.
 
+## Fase 2: formulario visible y escala de respuesta (23-10-2026)
+
+- `apps/frontend/src/shared/components/TechniquePage.tsx`: el slot `formulario` se envuelve en `div.technique-form-anchor` solo cuando hay formulario; al pasar de ausente a presente (nunca en el primer montaje) hace `scrollIntoView` (`auto` con reduced-motion, si no `smooth`) y enfoca el primer `h2` o `h3`, o el ancla si aún no existe.
+- `apps/frontend/src/styles/theme.css`: `scroll-margin-top: 88px` para la barra fija de 64px.
+- `apps/frontend/src/features/heuristica-flujo/ConfiguracionEditor.tsx`: selector de escala; lo usan también el alta y el borrador. Elegir una escala reemplaza la de la metodología y quita las escalas propias de los criterios; volver a "La de la metodología" restaura la copia del catálogo.
+- Pruebas: `TechniqueLayout.test.tsx`, `ConfiguracionEditor.test.tsx` y `tests/e2e/formulario-visible.spec.ts` (nuevo).
+- Límite conocido: pasar de una persona a otra con el formulario ya abierto no baja (no hay transición ausente a presente).
+
 ## Fase 1: URL sin http y validación segura (23-10-2026)
 
 - `packages/shared-types/src/domains/url-segura.ts` (nuevo) e `index.ts`: `normalizarUrlProducto` y `esUrlSegura`. Solo http/https, antepone `https://` si falta, sin dependencia del tipo global `URL` (el paquete no tiene DOM ni `@types/node`).
