@@ -3070,3 +3070,27 @@ div:has(> .project-section > .hf) > .project-heading p { margin:4px 0 0; font-si
   .technique-list-view, .technique-list-view > button { width: 100%; }
   .technique-item-actions { justify-content: flex-start; }
 }
+.hf .hf-enunciado { margin: 4px 0 8px; color: var(--muted); }
+.hf .hf-tabla-wrap { overflow-x: auto; margin: 8px 0 16px; }
+.hf .hf-matriz { width: 100%; border-collapse: collapse; }
+.hf .hf-matriz th, .hf .hf-matriz td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; text-align: center; }
+.hf .hf-matriz thead th small { display: block; font-weight: 400; font-size: 12px; color: var(--muted); }
+.hf .hf-matriz tbody th[scope="row"] { text-align: left; font-weight: 500; min-width: 220px; }
+.hf .hf-matriz .hf-enunciado-fila { display: block; font-weight: 400; color: var(--muted); }
+.hf .hf-matriz td.hf-acciones-fila { text-align: left; min-width: 200px; }
+.hf .hf-matriz td.hf-acciones-fila > * { margin: 0 6px 6px 0; }
+.hf .hf-celda { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; min-height: 32px; }
+.hf .hf-celda input[type=radio] { width: 18px; height: 18px; accent-color: var(--primary); }
+.hf .hf-celda-txt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+.hf .hf-marca { font-size: 13px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface-alt); color: var(--muted); }
+.hf .hf-marca-guardado { border-color: #1a7f37; color: #1a7f37; }
+.hf .hf-marca-error { border-color: #b42318; color: #b42318; }
+.hf .hf-matriz-barra { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin: 8px 0; }
+@media (max-width: 650px) {
+  .hf .hf-matriz, .hf .hf-matriz thead, .hf .hf-matriz tbody, .hf .hf-matriz tr, .hf .hf-matriz th, .hf .hf-matriz td { display: block; }
+  .hf .hf-matriz thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
+  .hf .hf-matriz tbody tr { padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .hf .hf-matriz th, .hf .hf-matriz td { border: 0; text-align: left; padding: 4px 0; }
+  .hf .hf-matriz .hf-celda { min-height: 44px; width: 100%; }
+  .hf .hf-celda-txt { position: static; width: auto; height: auto; clip: auto; white-space: normal; }
+}

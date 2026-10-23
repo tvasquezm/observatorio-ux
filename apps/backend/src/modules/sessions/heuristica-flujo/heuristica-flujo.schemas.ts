@@ -21,6 +21,7 @@ const criterio = z.strictObject({ id: identificador, nombre: texto.min(1), descr
 export const metodologiaSchema = z.strictObject({
   id: identificador, nombre: texto.min(1), autor: texto.min(1), fuente: texto.min(1), version: texto.min(1), tipo: texto.min(1), ambito: texto,
   criterios: z.array(criterio).min(1).max(500).refine(v => unico(v.map(c => c.id)), 'Criterios repetidos'), escala, protegida: z.boolean(),
+  enunciados: z.record(texto.min(1).max(300), texto.max(2000)).refine(v => Object.keys(v).length <= 500, 'Demasiados enunciados').optional(),
 });
 export const configuracionSchema = z.strictObject({
   nombre: z.string().max(200),
