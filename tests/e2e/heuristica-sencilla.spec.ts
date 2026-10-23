@@ -13,20 +13,18 @@ test('guía una evaluación desde su creación hasta el informe', async ({ page 
   const preguntas = page.getByRole('navigation', { name: 'Preguntas de la revisión' }).getByRole('button', { name: /^Pregunta \d+:/ });
   await expect(preguntas.first()).toBeVisible();
   const total = await preguntas.count();
-  await page.getByRole('checkbox', { name: 'Pasar sola a la siguiente pregunta', exact: true }).uncheck();
   await page.getByRole('button', { name: 'Entregar mi evaluación', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('Pregunta 1: elige una respuesta');
+  const filas = page.getByRole('row').filter({ has: page.getByRole('radio') });
+  await expect(filas).toHaveCount(total);
   for (let i = 0; i < total; i++) {
-    await preguntas.nth(i).click();
-    const opciones = page.getByRole('radiogroup', { name: 'Valoración', exact: true });
-    await expect(opciones).toBeVisible();
+    const fila = filas.nth(i);
     if (i === 0) {
-      await opciones.getByRole('radio', { name: 'No aplica', exact: true }).check();
+      await fila.getByRole('radio', { name: 'No aplica', exact: true }).check();
       await expect(page.getByRole('textbox', { name: 'Motivo de no aplica', exact: true })).toHaveCount(0);
-      await expect(page.getByRole('combobox', { name: 'Valoración', exact: true })).toHaveCount(0);
-    } else await page.getByRole('radiogroup', { name: 'Valoración', exact: true }).getByRole('radio').first().check();
+    } else await fila.getByRole('radio').first().check();
     if (i === 1) {
-      await page.getByRole('button', { name: /^Agregar problema para / }).click();
+      await fila.getByRole('button', { name: /^Agregar problema/ }).click();
       await page.getByRole('textbox', { name: 'Título del problema', exact: true }).fill('El menú es confuso');
       await page.getByRole('textbox', { name: 'Descripción del problema', exact: true }).fill('Las opciones no explican a qué sección llevan.');
     }
