@@ -7,8 +7,7 @@ import { Prisma, type EvaluacionHeuristicaCompleta, type EvidenciaHeuristicaComp
 import { PrismaService } from '../../../core/database/prisma.service.js';
 import { ProjectAccessService } from '../../../core/access/project-access.service.js';
 import type { AuthenticatedUser } from '../../auth/types/authenticated-user.interface.js';
-import type { ArchivoSubido } from '../evaluacion-heuristica/heuristica-evidencia.service.js';
-import { detectarMimeImagen } from '../evaluacion-heuristica/evidencia.util.js';
+import { detectarMimeImagen, type ArchivoSubido } from './evidencia.util.js';
 import { anotacionesSchema, comparacionSchema, configuracionBodySchema, configuracionSchema, consensoSchema, metodologiaSchema, revisionSchema, trabajoSchema, validar } from './heuristica-flujo.schemas.js';
 
 const json = (v: unknown) => JSON.parse(JSON.stringify(v)) as Prisma.InputJsonValue;

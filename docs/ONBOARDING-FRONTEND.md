@@ -147,8 +147,8 @@ limitación de origen.
 
 - ✅ `/api/projects/*` y `/api/projects/:proyectoId/artifacts/*` — **inglés**,
   consolidado (el alias en español se eliminó).
-- ✅ `/api/projects/:proyectoId/evaluacion-heuristica/sesiones/*` — **inglés**,
-  unificado con el resto de la API.
+- ✅ `/api/projects/:proyectoId/evaluacion-heuristica/evaluaciones/*` — flujo nuevo de la
+  evaluación heurística (las rutas antiguas `/sesiones/*` y `/analytics` se eliminaron).
 
 ## 7. Estilo — `theme.css`
 
@@ -159,6 +159,43 @@ Variables clave: `--navy`, `--teal`, `--mint`, `--ink`, `--muted`, `--bg`,
 `.nav-btn`, `.field`. Antes de escribir CSS nuevo, revisar si ya existe una
 clase para eso — el objetivo es que toda página nueva se vea consistente
 con el mockup sin reinventar estilos sueltos por página.
+
+### Orden estándar de una técnica
+
+Las 5 técnicas (Personas, Journey Map, Momentos críticos, Card Sorting y Evaluación
+heurística) muestran sus partes en el mismo orden. Lo fija `TechniquePage`
+(`shared/components/TechniquePage.tsx`) mediante slots con nombre: una página no puede
+reordenarlos y los slots vacíos no se pintan.
+
+```
++--------------------------------------------------------+
+| ETIQUETA                           [ + Nuevo X ]       | 1 cabecera (TechniquePageHeader + TechniqueNewButton)
+| Título                         (o [Cancelar] secundario|
+| Descripción                     o "Solo lectura")      |
++--------------------------------------------------------+
+| > Cómo trabajar con X (siempre colapsado)              | 2 instrucciones (dentro de la cabecera)
++--------------------------------------------------------+
+| Proceso: anillo | Fase n de N                          | 3 proceso (TechniqueProcess, nivel página)
++--------------------------------------------------------+
+| KPI | KPI | KPI                  (opcional)            | 4 resumen
++--------------------------------------------------------+
+| Formulario: Paso n de N (oculta la lista)              | 5 formulario
++--------------------------------------------------------+
+| Título de la lista (n)           [Vista] secundario    | 6 lista (TechniqueListHead)
+| Título / meta        [Consultar][Editar][Eliminar]     |   acciones (TechniqueItemActions)
+| Vacío estándar: icono + título + frase                 |   vacío (TechniqueEmpty)
++--------------------------------------------------------+
+| Comentarios de la técnica                              | 7 siempre al final
++--------------------------------------------------------+
+```
+
+Jerarquía de botones, la misma en todas las técnicas:
+
+- **Primario** (relleno, uno por zona): `+ Nuevo X` en la cabecera; `Siguiente` y `Guardar` o `Crear` en la barra del formulario.
+- **Secundario** (contorno): `Consultar`, `Abrir`, `Editar`, `Anterior`, `Cancelar`, `Volver` y los controles de vista. `+ Nuevo X` pasa a `Cancelar` cuando el formulario está abierto.
+- **Peligro** (contorno rojo): `Eliminar`, siempre el último a la derecha.
+
+No se usan `link-btn--edit` ni `link-btn--delete` en las técnicas. El alto táctil se mantiene en 44px (`docs/UX_UI_IMPROVEMENTS.md`).
 
 ## 8. Pendientes conocidos para quien siga
 

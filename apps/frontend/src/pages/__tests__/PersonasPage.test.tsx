@@ -43,6 +43,10 @@ function renderPage() {
   }])} /></>);
 }
 
+function irAlUltimoPaso(veces: number) {
+  for (let i = 0; i < veces; i += 1) fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   state.role = 'ESTUDIANTE';
@@ -52,6 +56,27 @@ beforeEach(() => {
 });
 
 describe('Personas — presentación y edición', () => {
+  it('titula la lista con el contador de perfiles', () => {
+    renderPage();
+    const cabecera = screen.getByRole('heading', { name: 'Perfiles del proyecto' }).closest('.technique-list-head')!;
+    expect(cabecera).toHaveTextContent('1');
+  });
+
+  it('muestra el vacío estándar con la invitación a crear si puede editar', () => {
+    state.list.mockReturnValue([]);
+    renderPage();
+    const vacio = screen.getByText('No hay personas todavía').closest('.technique-empty')!;
+    expect(within(vacio as HTMLElement).getByText(/Usa «Nueva persona»/)).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Perfiles del proyecto' })).not.toBeInTheDocument();
+  });
+
+  it('muestra el vacío estándar en modo lectura sin invitar a crear', () => {
+    state.role = 'DOCENTE';
+    state.list.mockReturnValue([]);
+    renderPage();
+    expect(screen.getByText(/Los perfiles aparecerán aquí/)).toBeInTheDocument();
+  });
+
   it('confirma la eliminación del perfil completo y comunica el resultado', async () => {
     renderPage();
     fireEvent.click(screen.getByRole('button', { name: 'Eliminar' }));
@@ -75,21 +100,45 @@ describe('Personas — presentación y edición', () => {
     expect(screen.getByRole('button', { name: 'Eliminando…' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Editar' })).toBeDisabled();
   });
-  it('agrupa los campos con etiquetas persistentes y conserva el contenido al guardar', async () => {
+  it('recorre los 6 pasos, conserva lo escrito y guarda solo en el último', async () => {
     renderPage();
     fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
-    for (const name of ['Identidad y contexto personal', 'Necesidades y comportamiento',
-      'Relación con el servicio', 'Evidencia y validación']) {
-      expect(await screen.findByRole('region', { name })).toBeInTheDocument();
-    }
+    expect(await screen.findByRole('heading', { name: 'Paso 1 de 6: Identidad' })).toBeInTheDocument();
     expect(screen.getByLabelText('Nombre completo')).toHaveValue('Ana Pérez');
-    fireEvent.change(screen.getByLabelText('Evidencia que sustenta el perfil'), { target: { value: 'Entrevista 1, Observación' } });
+    expect(screen.queryByRole('article')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Actualizar persona' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+    fireEvent.change(screen.getByLabelText('Objetivos'), { target: { value: 'Resolver sus trámites, Ahorrar tiempo' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Anterior' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+    expect(screen.getByLabelText('Objetivos')).toHaveValue('Resolver sus trámites, Ahorrar tiempo');
+    irAlUltimoPaso(4);
+    expect(screen.getByRole('heading', { name: 'Paso 6 de 6: Confirmación del perfil (opcional)' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Actualizar persona' }));
     expect(state.update).toHaveBeenCalledWith(expect.objectContaining({
       artefactoId: 'a1', expectedVersion: 2,
       contenido: expect.objectContaining({ nombreCompleto: 'Ana Pérez', rolEnServicio: 'Solicitante',
-        objetivos: ['Resolver sus trámites'], evidencia: ['Entrevista 1', 'Observación'], estadoValidacion: 'VALIDADA' }),
+        objetivos: ['Resolver sus trámites', 'Ahorrar tiempo'], evidencia: ['Entrevista 1'], estadoValidacion: 'VALIDADA' }),
     }), expect.any(Object));
+  });
+
+  it('avisa que la persona está lista cuando las fases obligatorias están hechas', async () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+    await screen.findByRole('heading', { name: 'Paso 1 de 6: Identidad' });
+    expect(screen.queryByText('Persona completa: ya puedes guardarla')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Frustraciones / barreras'), { target: { value: 'Menú confuso' } });
+    expect(screen.getByText('Persona completa: ya puedes guardarla')).toBeInTheDocument();
+  });
+
+  it('no deja guardar sin nombre y explica el motivo', async () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+    await screen.findByRole('heading', { name: 'Paso 1 de 6: Identidad' });
+    fireEvent.change(screen.getByLabelText('Nombre completo'), { target: { value: '' } });
+    irAlUltimoPaso(5);
+    expect(screen.getByText('Falta el nombre completo (paso 1).')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Actualizar persona' })).toBeDisabled();
   });
 
   it('permite leer el perfil completo sin otorgar edición ni adquirir un lock al DOCENTE', () => {
@@ -111,6 +160,7 @@ describe('Personas — presentación y edición', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
     expect(await screen.findByText(/No puedes editarla/)).toBeInTheDocument();
     expect(screen.getByLabelText('Nombre completo')).toBeDisabled();
+    irAlUltimoPaso(5);
     expect(screen.getByRole('button', { name: 'Actualizar persona' })).toBeDisabled();
   });
 });
