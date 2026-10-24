@@ -3,6 +3,16 @@
 Todo acá parte de TUS archivos reales que subiste, con ediciones mínimas
 y quirúrgicas. No hay archivos inventados desde cero salvo los indicados.
 
+## Fase 4: acuerdo del equipo sobre la tabla (23-10-2026)
+
+- `packages/shared-types/src/domains/heuristica-resultados.ts`: `acuerdoDifiere`, `origenHallazgo` y `MAX_HALLAZGOS_NUEVOS_EQUIPO` (50), compartidos por frontend y backend. El origen de un hallazgo no se guarda: se deriva de `origenIds`.
+- `apps/backend/src/modules/sessions/heuristica-flujo/heuristica-flujo.service.ts`: al confirmar, la justificacion de una pregunta solo es obligatoria si la respuesta acordada difiere de alguna individual (No aplica mantiene su regla). Los hallazgos nuevos del equipo (sin `origenIds`) exigen titulo, descripcion, decision no pendiente y justificacion; los originales siguen exigiendo cobertura completa.
+- `apps/backend/src/modules/sessions/heuristica-flujo/heuristica-flujo.schemas.ts`: maximo 50 hallazgos nuevos por consenso; largos iguales a los del resto de hallazgos.
+- `apps/frontend/src/features/heuristica-flujo/MatrizItem.tsx`: `modo="equipo"` con las respuestas de cada evaluador en solo lectura, Coinciden/Difieren, filtro Solo diferencias y comentario del equipo obligatorio solo si difiere.
+- `apps/frontend/src/features/heuristica-flujo/ConsensoEditor.tsx`: usa la tabla en lugar de la agenda y del navegador por pregunta; precarga la respuesta comun si todos coinciden; encabezado de progreso; boton "Agregar hallazgo nuevo del equipo".
+- `apps/frontend/src/features/heuristica-flujo/{flujo-utils.ts,InformeView.tsx,informe-pdf.ts}` y `apps/frontend/src/styles/theme.css`: `precargarConsenso`, etiqueta "Nuevo del equipo" en informe y PDF (texto plano), estilos de la fila de equipo.
+- Pruebas: `heuristica-flujo.service.spec.ts` (8 bloques nuevos), `MatrizItem.test.tsx`, `flujo.test.tsx`, `informe-pdf.test.ts` y `tests/e2e/heuristica-sencilla.spec.ts` (consenso con la tabla).
+
 ## Fase 2: formulario visible y escala de respuesta (23-10-2026)
 
 - `apps/frontend/src/shared/components/TechniquePage.tsx`: el slot `formulario` se envuelve en `div.technique-form-anchor` solo cuando hay formulario; al pasar de ausente a presente (nunca en el primer montaje) hace `scrollIntoView` (`auto` con reduced-motion, si no `smooth`) y enfoca el primer `h2` o `h3`, o el ancla si aún no existe.

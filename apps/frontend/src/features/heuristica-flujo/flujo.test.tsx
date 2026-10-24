@@ -11,7 +11,7 @@ import { ConsensoEditor } from './ConsensoEditor';
 import { InformeView } from './InformeView';
 import { ConfiguracionEditor } from './ConfiguracionEditor';
 import { FlujoHeuristicaPage } from './FlujoHeuristicaPage';
-import { pendientesTrabajo, textoCumplimiento } from './flujo-utils';
+import { pendientesTrabajo, precargarConsenso, textoCumplimiento } from './flujo-utils';
 import { useAuthStore } from '../auth/store/useAuthStore';
 
 const api = vi.hoisted(() => vi.fn());
@@ -212,7 +212,7 @@ describe('configuración y consenso', () => {
     const e = evaluation({ fase: 'PENDIENTE_CONSENSO' });
     e.trabajos[0].hallazgos = [{ id: 'origen', criterioIds: [e.configuracion.metodologia.criterios[0].id], titulo: 'Problema original', pantalla: 'Inicio', descripcion: 'Error', recomendacion: 'Mejorar', severidad: 2, prioridad: 'MEDIA', notas: '', evidenciaIds: [] }];
     renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
-    expect(within(screen.getByRole('radiogroup', { name: 'Valoración' })).getAllByRole('radio').every(r => !(r as HTMLInputElement).checked)).toBe(true);
+    expect(screen.getAllByRole('radio').every(r => !(r as HTMLInputElement).checked)).toBe(true);
     expect(screen.queryByLabelText('Decisión del consenso')).not.toBeInTheDocument();
     expect(api).not.toHaveBeenCalled();
   });
@@ -265,7 +265,8 @@ describe('configuración y consenso', () => {
     api.mockResolvedValue(fresh);
     function Editor() { const [v, setV] = useState(e); return <ConsensoEditor evaluacion={v} usuarioId="u1" onSaved={setV} onBack={vi.fn()} />; }
     renderFlow(<Editor />); await userEvent.click(screen.getByRole('button', { name: 'Actualizar consenso y confirmaciones' }));
-    await waitFor(() => expect(screen.getByLabelText('Notas de la valoración')).toHaveValue('Acuerdo remoto'));
+    await userEvent.click(await screen.findByRole('button', { name: /^Comentario guardado/ }));
+    expect(screen.getByLabelText(/^Comentario del equipo de /)).toHaveValue('Revisión conjunta');
   });
 });
 
@@ -494,18 +495,90 @@ describe('consenso con checklist', () => {
     const trabajo = (evaluadorId: string, nombre: string, valor: string) => ({ evaluadorId, nombre, respuestas: resp(valor), hallazgos: [], entregadoEn: '2026-10-09T12:00:00Z', guardadoEn: '2026-10-09T12:00:00Z' });
     return { ...base, configuracion: { ...base.configuracion, metodologia: m, evaluadorIds: ['u1', 'u2'] }, trabajos: [trabajo('u1', 'Ana', 'si'), trabajo('u2', 'Beto', 'no')] };
   }
-  it('agrupa por categoría y dice en texto qué respuestas difieren', () => {
-    const e = consensoEval();
-    renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
-    expect(screen.getByRole('region', { name: 'Generales' })).toBeInTheDocument();
-    expect(screen.queryByRole('region', { name: 'Identidad e información' })).toBeNull();
-    expect(screen.getByText('0 de 2 con valoración acordada')).toBeInTheDocument();
-    expect(screen.getAllByText(/Difieren: Sí \/ No/)).toHaveLength(3);
+  it('muestra un ítem por categoría y dice en texto qué respondió cada persona', () => {
+    renderFlow(<ConsensoEditor evaluacion={consensoEval()} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.getAllByRole('heading', { level: 3 }).map(h => h.textContent)).toEqual(['Generales', 'Identidad e información']);
+    expect(screen.getByText('0 de 2 acordadas')).toBeInTheDocument();
+    expect(screen.getAllByText('Difieren')).toHaveLength(3);
+    expect(screen.getAllByText('Ana: Sí')).toHaveLength(3);
+    expect(screen.getAllByText('Beto: No')).toHaveLength(3);
   });
-  it('con escalas mixtas conserva la vista plana', () => {
+  it('con escalas mixtas separa una tabla por escala y no muestra la lista de diferencias antigua', () => {
     renderFlow(<ConsensoEditor evaluacion={consensoEval(true)} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
-    expect(screen.queryByRole('region', { name: 'Generales' })).toBeNull();
+    expect(screen.getAllByRole('table')).toHaveLength(2);
     expect(screen.queryByText(/Difieren:/)).toBeNull();
+  });
+});
+
+describe('consenso en equipo sobre la tabla', () => {
+  function equipoEval(valorBeto: string, aprobadoPor: string[] = []): EvaluacionFlujo {
+    const e = evaluation({ fase: 'PENDIENTE_CONSENSO' });
+    e.configuracion.evaluadorIds = ['u1', 'u2'];
+    const cid = e.configuracion.metodologia.criterios[0].id;
+    const resp = (valor: string) => [{ criterioId: cid, valor, noAplica: false, motivo: '', notas: '' }];
+    const trabajo = (evaluadorId: string, nombre: string, valor: string) => ({ evaluadorId, nombre, respuestas: resp(valor), hallazgos: [], entregadoEn: '2026-10-09T12:00:00Z', guardadoEn: '2026-10-09T12:00:00Z' });
+    e.trabajos = [trabajo('u1', 'Ana', 'cumple'), trabajo('u2', 'Beto', valorBeto)];
+    e.consenso.aprobadoPor = aprobadoPor;
+    return e;
+  }
+  it('precarga la respuesta común cuando todos coinciden y la autoguarda', async () => {
+    const e = equipoEval('cumple');
+    api.mockResolvedValue({ ...e, revision: 2 });
+    renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.getByRole('radio', { name: 'Cumple' })).toBeChecked();
+    expect(screen.getByText('Coinciden')).toBeInTheDocument();
+    expect(screen.getByText('1 de 1 preguntas acordadas')).toBeInTheDocument();
+    await waitFor(() => expect(api).toHaveBeenCalledWith('p1', '/evaluaciones/e1/consenso', 'PATCH', expect.objectContaining({ criterios: [expect.objectContaining({ valor: 'cumple', noAplica: false, justificacion: '' })] })), { timeout: 3000 });
+  });
+  it('si difieren deja la respuesta común vacía y exige el comentario del equipo', async () => {
+    renderFlow(<ConsensoEditor evaluacion={equipoEval('no_cumple')} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.getAllByRole('radio').every(r => !(r as HTMLInputElement).checked)).toBe(true);
+    expect(screen.getByText('Difieren')).toBeInTheDocument();
+    expect(screen.getByText('0 de 1 preguntas acordadas')).toBeInTheDocument();
+    expect(screen.getByText('Ana: Cumple')).toBeInTheDocument();
+    expect(screen.getByText('Beto: No cumple')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('radio', { name: 'Cumple' }));
+    expect(screen.getByText('Falta el comentario del equipo')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /^Comentario del equipo de / }));
+    expect(screen.getByText(/^Obligatorio:/)).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText(/^Comentario del equipo de /), 'Se acordó tras revisar el flujo');
+    expect(screen.queryByText('Falta el comentario del equipo')).toBeNull();
+  });
+  it('muestra quiénes confirmaron el acuerdo', () => {
+    const { unmount } = renderFlow(<ConsensoEditor evaluacion={equipoEval('no_cumple')} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.getByText('Confirmaron 0 de 2 evaluadores.')).toBeInTheDocument();
+    unmount();
+    renderFlow(<ConsensoEditor evaluacion={equipoEval('no_cumple', ['u2'])} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.getByText('Confirmaron 1 de 2 evaluadores: Beto.')).toBeInTheDocument();
+  });
+  it('agrega un hallazgo nuevo del equipo, lo rotula y permite quitarlo', async () => {
+    renderFlow(<ConsensoEditor evaluacion={equipoEval('no_cumple')} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Revisar los problemas' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Agregar hallazgo nuevo del equipo' }));
+    expect(screen.getByText('Nuevo del equipo')).toBeInTheDocument();
+    expect(screen.getByLabelText('Decisión del consenso')).toHaveValue('PENDIENTE');
+    await waitFor(() => expect(screen.getByRole('group', { name: /Decisión 1/ })).toHaveFocus());
+    await userEvent.click(screen.getByRole('button', { name: 'Quitar hallazgo nuevo del equipo 1' }));
+    expect(screen.queryByLabelText('Decisión del consenso')).toBeNull();
+  });
+  it('desactiva el botón al llegar al tope de hallazgos nuevos', async () => {
+    const e = equipoEval('cumple');
+    e.consenso.hallazgos = Array.from({ length: 50 }, (_, i) => ({ id: `n${i}`, criterioIds: [], titulo: `Nuevo ${i}`, pantalla: '', descripcion: '', recomendacion: '', severidad: 2 as const, prioridad: 'MEDIA' as const, notas: '', evidenciaIds: [], origenIds: [], decision: 'PENDIENTE' as const, justificacion: '' }));
+    renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Revisar los problemas' }));
+    expect(screen.getByRole('button', { name: 'Agregar hallazgo nuevo del equipo' })).toBeDisabled();
+  });
+  it('el informe rotula el hallazgo sin origen individual como Nuevo del equipo', () => {
+    const e = final('equipo'); e.consenso.hallazgos[0].origenIds = []; e.informe!.consenso = e.consenso;
+    renderFlow(<InformeView evaluacion={e} historial={[]} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.getByText(/Origen: Nuevo del equipo/)).toBeInTheDocument();
+  });
+  it('precargarConsenso respeta lo ya acordado y devuelve el mismo arreglo si no hay nada que cargar', () => {
+    const e = equipoEval('cumple'); const cid = e.configuracion.metodologia.criterios[0].id;
+    const acordado = [{ criterioId: cid, valor: 'no_cumple', noAplica: false, motivo: '', notas: '', justificacion: 'x' }];
+    expect(precargarConsenso(e.configuracion, e.trabajos, acordado)).toBe(acordado);
+    expect(precargarConsenso(e.configuracion, equipoEval('no_cumple').trabajos, [])).toEqual([]);
+    expect(precargarConsenso(e.configuracion, e.trabajos, [])).toEqual([expect.objectContaining({ criterioId: cid, valor: 'cumple', justificacion: '' })]);
   });
 });
 

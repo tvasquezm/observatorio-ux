@@ -1,5 +1,5 @@
-import { escalaDe, normalizarUrlProducto } from '@observatorio-ux/shared-types';
-import type { ConfiguracionFlujo, CriterioFlujo, CumplimientoGrupo, DiscrepanciasFlujo, HallazgoFlujo, RespuestaCriterio } from '@observatorio-ux/shared-types';
+import { acuerdoDifiere, escalaDe, normalizarUrlProducto } from '@observatorio-ux/shared-types';
+import type { ConfiguracionFlujo, CriterioFlujo, CumplimientoGrupo, DecisionCriterio, DiscrepanciasFlujo, HallazgoFlujo, RespuestaCriterio, TrabajoFlujo } from '@observatorio-ux/shared-types';
 
 export function pendientesTrabajo(config: ConfiguracionFlujo, respuestas: RespuestaCriterio[], hallazgos: HallazgoFlujo[]) {
   const pendientes = config.metodologia.criterios.flatMap((c, i) => {
@@ -65,4 +65,20 @@ export const claveDeNombre = (nombre: string) => nombre.normalize('NFD').replace
 /** Minimum data needed by the student view; descriptive fields are optional. */
 export function faltantesParaIniciar(c: ConfiguracionFlujo): string[] {
   return [!c.producto.nombre.trim() && 'producto o sitio', !c.metodologia.criterios.length && 'una metodología con preguntas', !c.evaluadorIds.length && 'al menos una persona en «Personas que revisarán»', !!c.producto.url.trim() && !normalizarUrlProducto(c.producto.url) && 'una dirección web válida, por ejemplo miweb.cl (o déjala vacía)'].filter((v): v is string => !!v);
+}
+
+/** Respuesta común de las preguntas donde todos los evaluadores coinciden y el consenso aún no tiene respuesta. Si no hay nada que precargar devuelve el mismo arreglo. */
+export function precargarConsenso(config: ConfiguracionFlujo, trabajos: TrabajoFlujo[], criterios: DecisionCriterio[]): DecisionCriterio[] {
+  const nuevos: DecisionCriterio[] = [];
+  for (const c of config.metodologia.criterios) {
+    const actual = criterios.find(x => x.criterioId === c.id);
+    if (actual && (actual.noAplica || actual.valor !== null)) continue;
+    const propias = trabajos.map(t => t.respuestas.find(r => r.criterioId === c.id));
+    const primera = propias[0];
+    if (!primera || (!primera.noAplica && primera.valor === null) || acuerdoDifiere(primera, propias)) continue;
+    nuevos.push({ ...respuestaVacia(c.id), valor: primera.valor, noAplica: primera.noAplica, justificacion: actual?.justificacion ?? '' });
+  }
+  if (!nuevos.length) return criterios;
+  const ids = new Set(nuevos.map(n => n.criterioId));
+  return [...criterios.filter(x => !ids.has(x.criterioId)), ...nuevos];
 }

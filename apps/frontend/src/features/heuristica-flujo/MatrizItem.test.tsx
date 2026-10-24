@@ -3,9 +3,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { copiarMetodologia, escalaPredefinida, METODOLOGIAS_HEURISTICAS } from '@observatorio-ux/shared-types';
-import type { ConfiguracionFlujo, MetodologiaFlujo, RespuestaCriterio } from '@observatorio-ux/shared-types';
+import type { ConfiguracionFlujo, DecisionCriterio, MetodologiaFlujo, RespuestaCriterio } from '@observatorio-ux/shared-types';
 import { MatrizItem } from './MatrizItem';
-import type { EstadoGuardado } from './MatrizItem';
+import type { EstadoGuardado, IndividualEquipo } from './MatrizItem';
 
 const metodo = (id: string) => copiarMetodologia(METODOLOGIAS_HEURISTICAS.find(m => m.id === id)!);
 const configDe = (m: MetodologiaFlujo): ConfiguracionFlujo => ({ nombre: 'R', producto: { clave: 'p', nombre: 'P', version: '1', url: '', dispositivo: 'web' }, objetivo: '', tareas: '', pantallas: '', exclusiones: '', metodologia: m, evaluadorIds: [], lectorIds: [] });
@@ -109,5 +109,59 @@ describe('MatrizItem', () => {
     render(<Harness m={metodo('nielsen10')} editable={false} />);
     expect(screen.getAllByRole('radio').every(r => (r as HTMLInputElement).disabled)).toBe(true);
     expect(screen.queryByRole('button', { name: /^Agregar problema/ })).toBeNull();
+  });
+});
+
+describe('MatrizItem en modo equipo', () => {
+  const dos = () => { const m = copiarMetodologia(METODOLOGIAS_HEURISTICAS[0]); m.criterios = m.criterios.slice(0, 2); return m; };
+  const resp = (criterioId: string, valor: string, notas = ''): RespuestaCriterio => ({ criterioId, valor, noAplica: false, motivo: '', notas });
+  const individuales = (m: MetodologiaFlujo, valorBeto: string, notasBeto = ''): IndividualEquipo[] => [
+    { evaluadorId: 'u1', nombre: 'Ana', respuestas: m.criterios.map(c => resp(c.id, 'cumple')) },
+    { evaluadorId: 'u2', nombre: 'Beto', respuestas: [resp(m.criterios[0].id, 'cumple'), resp(m.criterios[1].id, valorBeto, notasBeto)] },
+  ];
+  function Equipo({ m, ind }: { m: MetodologiaFlujo; ind: IndividualEquipo[] }) {
+    const [rs, setRs] = useState<DecisionCriterio[]>([]);
+    return <MatrizItem criterios={m.criterios} config={configDe(m)} respuestas={rs} modo="equipo" individuales={ind} guardado={{ dirty: true, saving: false, error: '' }}
+      onChange={r => setRs(p => [...p.filter(x => x.criterioId !== r.criterioId), { ...r, justificacion: r.justificacion ?? '' }])} />;
+  }
+  const filasConRadios = () => screen.getAllByRole('row').filter(r => within(r).queryAllByRole('radio').length > 0);
+
+  it('muestra la respuesta de cada persona con su nombre y marca Coinciden o Difieren', () => {
+    const m = dos();
+    render(<Equipo m={m} ind={individuales(m, 'no_cumple')} />);
+    expect(screen.getAllByText('Ana: Cumple')).toHaveLength(2);
+    expect(screen.getByText('Beto: No cumple')).toBeInTheDocument();
+    expect(screen.getAllByText('Coinciden')).toHaveLength(1);
+    expect(screen.getAllByText('Difieren')).toHaveLength(1);
+  });
+  it('Solo diferencias deja únicamente las preguntas donde difieren y Ver todo las devuelve', async () => {
+    const m = dos();
+    render(<Equipo m={m} ind={individuales(m, 'no_cumple')} />);
+    expect(filasConRadios()).toHaveLength(2);
+    await userEvent.click(screen.getByRole('button', { name: 'Solo diferencias' }));
+    expect(filasConRadios()).toHaveLength(1);
+    await userEvent.click(screen.getByRole('button', { name: 'Ver todo' }));
+    expect(filasConRadios()).toHaveLength(2);
+  });
+  it('avisa cuando no hay diferencias que mostrar', async () => {
+    const m = dos();
+    render(<Equipo m={m} ind={individuales(m, 'cumple')} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Solo diferencias' }));
+    expect(screen.getByRole('status')).toHaveTextContent('coinciden en todas las preguntas');
+  });
+  it('el comentario del equipo es obligatorio solo si la respuesta acordada difiere, y trae los comentarios individuales', async () => {
+    const m = dos();
+    render(<Equipo m={m} ind={individuales(m, 'no_cumple', 'Muy confuso')} />);
+    await userEvent.click(within(filasConRadios()[0]).getByRole('radio', { name: 'Cumple' }));
+    expect(screen.queryByText('Falta el comentario del equipo')).toBeNull();
+    await userEvent.click(within(filasConRadios()[1]).getByRole('radio', { name: 'Cumple' }));
+    expect(screen.getByText('Falta el comentario del equipo')).toBeInTheDocument();
+    await userEvent.click(screen.getAllByRole('button', { name: /^Comentario del equipo de / })[1]);
+    expect(screen.getByText('Comentario individual de Beto: Muy confuso')).toBeInTheDocument();
+    expect(screen.getByText(/^Obligatorio:/)).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText(/^Comentario del equipo de /), 'Acordado');
+    expect(screen.queryByText('Falta el comentario del equipo')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: /^Listo/ }));
+    expect(screen.getByRole('button', { name: /^Comentario agregado, pendiente de guardar/ })).toBeInTheDocument();
   });
 });

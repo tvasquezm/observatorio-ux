@@ -1,5 +1,5 @@
 import type { AnotacionEvidencia, EvaluacionFlujo } from '@observatorio-ux/shared-types';
-import { escalaDe, resumirCumplimiento, resumirEvaluacion, SEVERIDADES } from '@observatorio-ux/shared-types';
+import { escalaDe, origenHallazgo, resumirCumplimiento, resumirEvaluacion, SEVERIDADES } from '@observatorio-ux/shared-types';
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces';
 import { brandChrome, cargarPdfMake, date, INK, MUTED, table, TEAL, type ReportBrand } from '../../shared/utils/pdf';
 import { cargarEvidencia } from './evidencia.api';
@@ -35,7 +35,7 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
     campo('Prioridad', h.prioridad), campo('Pantalla o tarea', h.pantalla), campo('Criterios', h.criterioIds.map(nombreCriterio).join('; ')),
     campo('Problema', h.descripcion), campo('Recomendación', h.recomendacion), campo('Justificación del acuerdo', h.justificacion),
     ...(h.notas ? [campo('Notas', h.notas)] : []),
-    campo('Hallazgos individuales de origen', h.origenIds.join(', ')),
+    campo(origenHallazgo(h) === 'equipo' ? 'Origen' : 'Hallazgos individuales de origen', origenHallazgo(h) === 'equipo' ? 'Nuevo del equipo' : h.origenIds.join(', ')),
     ...h.evidenciaIds.map(id => capturas.get(id) ? { image: `evidencia-${id}`, fit: [460, 310], margin: [0, 6, 0, 6] } as Content : { text: `Captura ${id} disponible en la aplicación (no incluida en este PDF).`, color: MUTED, italics: true } as Content),
   ]);
   const imagenEvidencia = (id: string): Content => capturas.get(id) ? { image: `evidencia-${id}`, fit: [460, 310], margin: [0, 6, 0, 6] } : { text: `Captura ${id} disponible en la aplicación (no incluida en este PDF).`, color: MUTED, italics: true };
@@ -81,7 +81,7 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
       ...(mejoras.length ? [titulo('Mejoras antes/después'), ...detalleMejoras] : []),
       ...(conclusion ? [titulo('Conclusión y recomendaciones finales'), { text: conclusion } as Content] : []),
       titulo('Decisiones de revisión'),
-      table(['Problema', 'Decisión', 'Orígenes', 'Motivo'], consenso.hallazgos.map(h => [h.titulo, h.decision === 'ACEPTADO' ? 'Aceptado / fusionado' : 'Descartado', h.origenIds.join(', '), h.justificacion]), ['*', 90, 90, '*']),
+      table(['Problema', 'Decisión', 'Orígenes', 'Motivo'], consenso.hallazgos.map(h => [h.titulo, h.decision === 'ACEPTADO' ? 'Aceptado / fusionado' : 'Descartado', origenHallazgo(h) === 'equipo' ? 'Nuevo del equipo' : h.origenIds.join(', '), h.justificacion]), ['*', 90, 90, '*']),
       campo('Aprobación explícita', informe.evaluadores.filter(e => consenso.aprobadoPor.includes(e.id)).map(e => e.nombre).join(', ')),
     ],
     styles: { eyebrow: { fontSize: 9, bold: true, color: TEAL } },

@@ -6,6 +6,16 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **evaluacion-heuristica:** el acuerdo del equipo (consenso) usa la misma tabla de preguntas: cada fila muestra lo que
+  respondio cada evaluador con su nombre y la marca "Coinciden" o "Difieren", precarga la respuesta comun si todos
+  coinciden y tiene el filtro "Solo diferencias". El encabezado indica "N de M preguntas acordadas" y quienes
+  confirmaron. El comentario del equipo (justificacion) es por pregunta, con marca de guardado.
+* **evaluacion-heuristica:** el equipo puede agregar hallazgos nuevos durante el consenso (maximo 50). Salen en el
+  informe y en el PDF como "Nuevo del equipo"; el servidor deriva el origen (sin hallazgos individuales de origen =
+  equipo) y exige descripcion, decision y justificacion.
+* **evaluacion-heuristica:** al confirmar el consenso, la justificacion de una pregunta solo es obligatoria si la
+  respuesta acordada difiere de alguna respuesta individual; "No aplica" sigue sin exigirla.
+
 * **tecnicas:** al abrir un formulario (`+ Nuevo`, Editar o abrir una evaluación) la página baja hasta él y deja el
   foco en su título, en las 5 técnicas. Respeta `prefers-reduced-motion` y no se mueve al cargar la página.
 * **evaluacion-heuristica:** nuevo selector "Escala de respuesta" al crear o editar el borrador de una revisión: la de la

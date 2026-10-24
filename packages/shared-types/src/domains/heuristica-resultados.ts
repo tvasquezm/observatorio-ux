@@ -1,5 +1,5 @@
 import { escalaDe } from './heuristica-flujo';
-import type { ConfiguracionFlujo, ConsensoFlujo, EscalaFlujo, TrabajoFlujo } from './heuristica-flujo';
+import type { ConfiguracionFlujo, ConsensoFlujo, DecisionHallazgo, EscalaFlujo, RespuestaCriterio, TrabajoFlujo } from './heuristica-flujo';
 
 /** Distribución de los criterios que usan una escala propia (distinta de la de la metodología). */
 export interface DistribucionEscalaPropia {
@@ -124,6 +124,20 @@ export function detectarDiscrepancias(configuracion: ConfiguracionFlujo, trabajo
   // La semejanza textual no demuestra correspondencia: se revisan todos los originales.
   const hallazgos = trabajos.flatMap(t => t.hallazgos.map(h => ({ evaluadorId: t.evaluadorId, hallazgoId: h.id, criterioIds: [...h.criterioIds], titulo: h.titulo })));
   return { criterios, hallazgos };
+}
+
+/** Tope de hallazgos nuevos del equipo (sin origen en los trabajos individuales) por consenso. */
+export const MAX_HALLAZGOS_NUEVOS_EQUIPO = 50;
+
+type RespuestaComparable = Pick<RespuestaCriterio, 'valor' | 'noAplica'>;
+/** La respuesta acordada difiere si alguna individual no es idéntica en aplicabilidad y valor; una respuesta individual ausente cuenta como diferencia. */
+export function acuerdoDifiere(acordada: RespuestaComparable, individuales: Array<RespuestaComparable | undefined>): boolean {
+  return individuales.some(o => !o || o.noAplica !== acordada.noAplica || o.valor !== acordada.valor);
+}
+
+/** El origen se deriva de `origenIds`; nunca lo envía el cliente. Vacío = lo agregó el equipo en el consenso. */
+export function origenHallazgo(h: Pick<DecisionHallazgo, 'origenIds'>): 'equipo' | 'evaluador' {
+  return h.origenIds.length ? 'evaluador' : 'equipo';
 }
 
 export type ClaseCriterio = 'favorable' | 'desfavorable' | 'neutro' | 'sin_evaluar' | 'no_aplica';

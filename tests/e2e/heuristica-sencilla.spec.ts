@@ -34,11 +34,12 @@ test('guía una evaluación desde su creación hasta el informe', async ({ page 
   await page.getByRole('button', { name: 'Entregar mi evaluación', exact: true }).click();
   await expect(page.getByRole('heading', { name: /^Acuerdo del equipo ·/ })).toBeVisible();
 
-  for (let i = 0; i < total; i++) {
-    await preguntas.nth(i).click();
-    await page.getByRole('radiogroup', { name: 'Valoración', exact: true }).getByRole('radio').first().check();
-    await page.getByRole('textbox', { name: 'Justificación del acuerdo', exact: true }).fill('Comprobado al revisar las pantallas.');
-  }
+  await expect(page.getByText(`${total} de ${total} preguntas acordadas`, { exact: true })).toBeVisible();
+  await expect(page.getByRole('row').filter({ has: page.getByRole('radio') })).toHaveCount(total);
+  await page.getByRole('button', { name: 'Solo diferencias', exact: true }).click();
+  await expect(page.getByText('Las respuestas individuales coinciden en todas las preguntas.', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Ver todo', exact: true }).click();
+  await expect(page.getByRole('row').filter({ has: page.getByRole('radio') })).toHaveCount(total);
   await page.getByRole('tab', { name: 'Revisar los problemas', exact: true }).click();
   await page.getByRole('checkbox', { name: /El menú es confuso/ }).check();
   await page.getByRole('button', { name: 'Crear decisión de los originales seleccionados', exact: true }).click();

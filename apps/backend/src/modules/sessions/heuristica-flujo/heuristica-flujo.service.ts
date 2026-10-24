@@ -1,8 +1,8 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, UnsupportedMediaTypeException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
-import { METODOLOGIAS_HEURISTICAS, comprobarCompatibilidad, escalaDe, EVIDENCIA_MAX_BYTES, EVIDENCIA_MAX_MB } from '@observatorio-ux/shared-types';
-import type { ConfiguracionFlujo, ConsensoFlujo, EvaluacionFlujo, EvidenciaFlujo, HallazgoFlujo, InformeFlujo, RespuestaCriterio, TrabajoFlujo } from '@observatorio-ux/shared-types';
+import { METODOLOGIAS_HEURISTICAS, acuerdoDifiere, comprobarCompatibilidad, escalaDe, EVIDENCIA_MAX_BYTES, EVIDENCIA_MAX_MB, origenHallazgo } from '@observatorio-ux/shared-types';
+import type { ConfiguracionFlujo, ConsensoFlujo, DecisionCriterio, EvaluacionFlujo, EvidenciaFlujo, HallazgoFlujo, InformeFlujo, RespuestaCriterio, TrabajoFlujo } from '@observatorio-ux/shared-types';
 import { Prisma, type EvaluacionHeuristicaCompleta, type EvidenciaHeuristicaCompleta } from '../../../generated/prisma/client.js';
 import { PrismaService } from '../../../core/database/prisma.service.js';
 import { ProjectAccessService } from '../../../core/access/project-access.service.js';
@@ -252,11 +252,15 @@ export class HeuristicaFlujoService {
   private async validarConsenso(e: EvaluacionFlujo, tx: Prisma.TransactionClient, completo: boolean) {
     if (!e.trabajos.length || e.trabajos.some(t => !t.entregadoEn)) throw new ConflictException('Faltan entregas independientes.');
     this.validarRespuestas(e, e.consenso.criterios, completo);
-    if (completo && e.consenso.criterios.some(c => !c.noAplica && !c.justificacion.trim())) throw new BadRequestException('Justifica cada decisión de criterio.');
+    // La justificación solo es obligatoria si la respuesta acordada difiere de alguna individual; el servidor calcula la coincidencia.
+    const difiere = (c: DecisionCriterio) => acuerdoDifiere(c, e.trabajos.map(t => t.respuestas.find(r => r.criterioId === c.criterioId)));
+    if (completo && e.consenso.criterios.some(c => !c.noAplica && difiere(c) && !c.justificacion.trim())) throw new BadRequestException('Justifica cada decisión de criterio que difiere de alguna respuesta individual.');
     const originales = e.trabajos.flatMap(t => t.hallazgos);
     const referencias = e.consenso.hallazgos.flatMap(h => h.origenIds);
     if (new Set(referencias).size !== referencias.length || referencias.some(id => !originales.some(h => h.id === id))) throw new BadRequestException('Cada hallazgo original debe aparecer una sola vez.');
-    if (completo && (referencias.length !== originales.length || e.consenso.hallazgos.some(h => h.decision === 'PENDIENTE' || !h.origenIds.length || !h.justificacion.trim()))) throw new BadRequestException('Resuelve todos los hallazgos originales, incluida cada fusión o descarte justificado.');
+    if (completo && referencias.length !== originales.length) throw new BadRequestException('Resuelve todos los hallazgos originales, incluida cada fusión o descarte justificado.');
+    if (completo && e.consenso.hallazgos.some(h => h.decision === 'PENDIENTE' || !h.justificacion.trim())) throw new BadRequestException('Cada hallazgo, incluidos los nuevos del equipo, necesita una decisión y su justificación.');
+    if (completo && e.consenso.hallazgos.some(h => origenHallazgo(h) === 'equipo' && (!h.titulo.trim() || !h.descripcion.trim()))) throw new BadRequestException('Completa el título y la descripción de cada hallazgo nuevo del equipo.');
     if (completo && (e.consenso.positivos ?? []).some(p => !p.titulo.trim())) throw new BadRequestException('Completa el título de cada aspecto positivo.');
     const mejoras = e.consenso.mejoras ?? [];
     if (completo && mejoras.some(m => !m.titulo.trim())) throw new BadRequestException('Completa el título de cada mejora.');
