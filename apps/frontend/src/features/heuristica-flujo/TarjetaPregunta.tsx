@@ -8,7 +8,7 @@ const ESPERA_AVANCE_MS = 600;
 const MAX_ATAJOS = 5;
 
 /** Una pregunta como tarjeta: atajos 1 a 5 y N, y avance automatico opcional. `children` va debajo de la valoracion. */
-export function TarjetaPregunta({ config, criterio, numero, total, respuesta, editable, auto, onAuto, onChange, onAvanzar, children }: { config: ConfiguracionFlujo; criterio: CriterioFlujo; numero: number; total: number; respuesta: RespuestaCriterio; editable: boolean; auto: boolean; onAuto: (activo: boolean) => void; onChange: (r: RespuestaCriterio) => void; onAvanzar: () => void; children?: ReactNode }) {
+export function TarjetaPregunta({ config, criterio, numero, total, respuesta, editable, auto, onAuto, onChange, onAvanzar, children, proyectoId, evaluacionId, onEvidencePending }: { proyectoId: string; evaluacionId: string; onEvidencePending?: (pending: boolean) => void; config: ConfiguracionFlujo; criterio: CriterioFlujo; numero: number; total: number; respuesta: RespuestaCriterio; editable: boolean; auto: boolean; onAuto: (activo: boolean) => void; onChange: (r: RespuestaCriterio) => void; onAvanzar: () => void; children?: ReactNode }) {
   const niveles = escalaDe(config.metodologia, criterio).niveles;
   const atajos = Math.min(MAX_ATAJOS, niveles.length);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -34,7 +34,7 @@ export function TarjetaPregunta({ config, criterio, numero, total, respuesta, ed
   }
   return <section className="hf-tarjeta" onKeyDown={tecla}>
     <fieldset className="hf-pregunta-actual" disabled={!editable}><legend>{criterio.nombre}</legend><p>{criterio.descripcion}</p>
-      <ValoracionEditor config={config} respuesta={respuesta} onChange={elegir} />
+      <ValoracionEditor config={config} respuesta={respuesta} onChange={elegir} proyectoId={proyectoId} evaluacionId={evaluacionId} editable={editable} onEvidencePending={onEvidencePending} />
       {editable && <div className="hf-atajos"><p className="hf-ayuda">Atajos: teclas 1 a {atajos} para responder y N para No aplica.</p>
         <label className="hf-auto"><input type="checkbox" checked={auto} onChange={e => { clearTimeout(timer.current); setAviso(''); onAuto(e.target.checked); }} />Pasar sola a la siguiente pregunta</label></div>}
       <p role="status" className="hf-aviso">{aviso}</p>

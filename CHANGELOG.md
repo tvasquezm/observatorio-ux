@@ -6,6 +6,13 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **evaluacion-heuristica:** las capturas de evidencia ahora se pueden ver en grande (clic sobre la imagen, lupa o Esc
+  para cerrar), se quitan con un ícono de papelera y, si una imagen supera el máximo de 4 MB, aparece un cartel rojo
+  con el peso real de la imagen (también cuando el servidor responde 413). Si la captura tiene anotaciones sin guardar,
+  el botón de quitar explica por qué está deshabilitado.
+* **formularios:** los campos de dirección web (foto de la Persona y URL del producto en la evaluación heurística) muestran
+  `https://` fijo en un recuadro pequeño; la persona solo escribe, por ejemplo, `www.utem.cl`. Si pega una URL completa
+  se respeta (incluido `http://`). Lo que se guarda sigue siendo la URL completa. Componente nuevo `CampoUrl`.
 * **tecnicas:** las 5 técnicas (Personas, Journey Map, Momentos críticos, Card Sorting y Evaluación heurística) muestran
   sus partes en el mismo orden (cabecera, instrucciones, proceso, resumen, formulario, lista, comentarios), con `+ Nuevo`
   arriba a la derecha y las acciones de cada elemento (Consultar, Editar, Eliminar) en el mismo lugar con tres niveles de
@@ -157,6 +164,13 @@ All notable changes to this project will be documented in this file. See [commit
   negocio: Segregación de Auth — evaluadorToken y participanteToken ya no
   comparten secreto de firma). El backend no arranca sin ella. Agregarla a tu
   `.env` (y `apps/backend/.env` si no usás Docker) — ver `env.example`.
+
+### Bug Fixes
+
+* **seguridad/despliegue:** la política CSP de nginx (`default.conf`, `nginx.static.conf`) y de Vercel (`vercel.json`)
+  permitía `img-src 'self' data:` sin `blob:`, así que el navegador bloqueaba las capturas de evidencia (se muestran con
+  `URL.createObjectURL`). Ahora es `img-src 'self' data: blob:`.
+
 
 ## 1.0.0 (2026-08-03)
 
