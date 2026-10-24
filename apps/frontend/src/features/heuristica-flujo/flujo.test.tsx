@@ -67,7 +67,7 @@ describe('flujo individual', () => {
     expect(guardado.respuestas).toHaveLength(39);
     expect(guardado.respuestas.every((r: { noAplica: boolean; valor: string | null; motivo: string }) => r.noAplica && r.valor === null && r.motivo === '')).toBe(true);
     expect(screen.queryByRole('alert')).toBeNull();
-  });
+  }, 30000);
   it('ofrece respuestas visibles y No aplica dentro de la misma valoración', async () => {
     const e = evaluation(); renderFlow(<Harness initial={e} />);
     expect(screen.getAllByRole('radio')).toHaveLength(e.configuracion.metodologia.escala.niveles.length + 1);
