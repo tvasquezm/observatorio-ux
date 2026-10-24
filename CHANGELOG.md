@@ -6,6 +6,12 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **evaluacion-heuristica:** al combinar metodologías se copian los enunciados de cada ítem; si dos metodologías usan el
+  mismo nombre de categoría, la segunda se prefija con el nombre de su metodología para no mezclar enunciados.
+* **personas:** la URL de fotografía muestra un aviso cuando no es una dirección web válida, antes de intentar guardar.
+* **evaluacion-heuristica:** se elimina código y estilos sin uso de la vista anterior por rondas (`esChecklist`,
+  `avancePorCategoria`, `etiquetasDiscrepancia`, `detectarDiscrepancias` y clases `hf-*` huérfanas).
+
 * **evaluacion-heuristica:** el acuerdo del equipo (consenso) usa la misma tabla de preguntas: cada fila muestra lo que
   respondio cada evaluador con su nombre y la marca "Coinciden" o "Difieren", precarga la respuesta comun si todos
   coinciden y tiene el filtro "Solo diferencias". El encabezado indica "N de M preguntas acordadas" y quienes

@@ -3,6 +3,14 @@
 Todo acá parte de TUS archivos reales que subiste, con ediciones mínimas
 y quirúrgicas. No hay archivos inventados desde cero salvo los indicados.
 
+## Fase 5: cierre de pendientes (24-10-2026)
+
+- `packages/shared-types/src/domains/heuristica-metodologias.ts`: `combinarMetodologias` copia `enunciados`; una categoria repetida en otra metodologia se prefija con el nombre de esa metodologia, tanto en `criterios[].categoria` como en `enunciados`. Una misma metodologia repetida conserva sus categorias.
+- `packages/shared-types/src/domains/heuristica-resultados.ts` y `apps/frontend/src/features/heuristica-flujo/flujo-utils.ts`: se borran `detectarDiscrepancias`, `DiscrepanciasFlujo`, `esChecklist`, `avancePorCategoria`, `AvanceCategoria` y `etiquetasDiscrepancia` (sin usos fuera de sus tests).
+- `apps/frontend/src/styles/theme.css`: se podan las reglas de `hf-rondas`, `hf-ronda-*`, `hf-tarjeta`, `hf-atajos`, `hf-barra-pregunta`, `hf-auto`, `hf-pregunta-actual`, `hf-resumen-ronda`, `hf-extras` y `hf-origin`, sin uso en ningun `.tsx`.
+- `apps/frontend/src/pages/PersonasPage.tsx`: aviso bajo "URL de fotografía" cuando el valor no es una URL válida (cubre personas antiguas con un esquema no http o https).
+- Pruebas: `catalogo.test.ts` (combinar con enunciados, sin enunciados, categoria repetida; se quitan los tests de codigo borrado) y `PersonasPage.test.tsx` (aviso de URL).
+
 ## Fase 4: acuerdo del equipo sobre la tabla (23-10-2026)
 
 - `packages/shared-types/src/domains/heuristica-resultados.ts`: `acuerdoDifiere`, `origenHallazgo` y `MAX_HALLAZGOS_NUEVOS_EQUIPO` (50), compartidos por frontend y backend. El origen de un hallazgo no se guarda: se deriva de `origenIds`.

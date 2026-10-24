@@ -2850,7 +2850,6 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .hf .hf-table { overflow-x: auto; }
 .hf details { margin-bottom: 12px; }
 .hf summary { cursor: pointer; padding: 8px 0; }
-.hf .hf-origin { font-size: 12px; overflow-wrap: anywhere; }
 .hf .hf-status { font-size: 13px; }
 .hf pre { max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; }
 .hf .hf-paso { display: block; }
@@ -2938,9 +2937,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .hf .hf-mapa-preguntas [aria-current] { outline:2px solid var(--primary); outline-offset:1px; color:var(--primary); font-weight:700; }
 .hf .hf-mapa-preguntas button > span { position:absolute; top:0; right:3px; font-size:10px; }
 .hf .hf-revision-distribucion > .hf-contenido { overflow:visible; padding:12px 24px; }
-.hf .hf-trabajo-individual .hf-contenido > fieldset, .hf .hf-pregunta-actual { border:0; padding:0; margin:0; }
-.hf .hf-pregunta-actual > legend { font-size:23px; padding:0; margin:4px 0 8px; }
-.hf .hf-pregunta-actual > p { margin:8px 0 14px; color:var(--muted); font-size:14px; line-height:1.5; }
+.hf .hf-trabajo-individual .hf-contenido > fieldset { border:0; padding:0; margin:0; }
 .hf .hf-pie-trabajo { flex-shrink:0; display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:8px 16px; border-top:1px solid var(--line); padding-top:12px; }
 .hf .hf-pie-trabajo > .hf-resumen-compacto, .hf .hf-pie-trabajo > [role=alert] { grid-column:1/-1; margin:0; }
 .hf .hf-equipo-resumen { display:grid; grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr); gap:28px; min-height:0; padding:16px; }
@@ -3003,10 +3000,6 @@ div:has(> .project-section > .hf) > .project-heading p { margin:4px 0 0; font-si
 @media(min-width:1000px) { .hf .hf-acordar-columnas { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 
 /* Revisar: tarjeta de pregunta con atajos y avance automatico. */
-.hf .hf-tarjeta { border:1px solid var(--line); border-radius:10px; padding:16px 20px; background:var(--surface); }
-.hf .hf-tarjeta .hf-auto { display:flex; align-items:center; gap:8px; margin:8px 0; font-size:14px; }
-.hf .hf-tarjeta .hf-auto input { width:18px; height:18px; accent-color:var(--primary); }
-@media(max-width:650px) { .hf .hf-tarjeta { padding:12px; } }
 
 /* Revisar: pie compacto en una fila; en pantallas bajas no es fijo para no tapar la pregunta. */
 .hf .hf-pie-trabajo { padding:6px 0; gap:6px 12px; }
@@ -3019,25 +3012,7 @@ div:has(> .project-section > .hf) > .project-heading p { margin:4px 0 0; font-si
   .hf .hf-revision-distribucion > .hf-preguntas { position:static; max-height:none; overflow:visible; }
 }
 
-/* Revisar: navegacion junto a la pregunta, opciones en fila y extras plegables en una linea. */
-.hf .hf-barra-pregunta { position:sticky; top:0; z-index:4; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 12px; padding:6px 0; margin:0 0 8px; background:var(--surface); border-bottom:1px solid var(--line); }
-.hf .hf-barra-pregunta > .hf-ayuda { margin:0; font-weight:600; }
-.hf .hf-barra-pregunta .hf-navegar { display:flex; gap:8px; }
-.hf .hf-barra-pregunta .hf-navegar button { min-height:40px; min-width:130px; }
-.hf .hf-ronda-linea { display:flex; flex-wrap:wrap; align-items:center; gap:4px 12px; margin:0 0 6px; }
-.hf .hf-ronda-linea .hf-ronda-titulo { margin:0; font-size:14px; }
-.hf .hf-ronda-linea > .hf-vistas { margin:0; border:0; gap:4px; }
-.hf .hf-ronda-linea > .hf-vistas button { min-width:32px; min-height:32px; padding:0 8px; }
-.hf .hf-tarjeta .hf-opciones { grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; margin:8px 0; }
-.hf .hf-tarjeta .hf-opcion { padding:8px 10px; }
-.hf .hf-tarjeta .hf-atajos { display:flex; flex-wrap:wrap; align-items:center; gap:2px 16px; }
-.hf .hf-tarjeta .hf-atajos > p, .hf .hf-tarjeta .hf-atajos .hf-auto { margin:2px 0; }
-.hf .hf-extras { display:flex; flex-wrap:wrap; align-items:flex-start; gap:6px 12px; margin-top:8px; }
-.hf .hf-extras > p { margin:0; align-self:center; font-size:13px; color:var(--muted); }
-.hf .hf-extras > details[open] { flex:1 1 100%; }
-.hf .hf-extras > button { min-height:36px; }
 .hf .hf-revision-distribucion > .hf-preguntas > .hf-resumen-compacto { order:1; margin:0; flex-direction:column; align-items:flex-start; gap:4px; }
-@media(max-width:650px) { .hf .hf-barra-pregunta .hf-navegar { width:100%; } .hf .hf-barra-pregunta .hf-navegar button { flex:1; } }
 
 /* Revisar: mapa de preguntas como barra segmentada arriba; la pregunta usa todo el ancho. */
 .hf .hf-revision-distribucion:has(> .hf-preguntas-barra) { grid-template-columns:minmax(0,1fr); }
@@ -3051,12 +3026,6 @@ div:has(> .project-section > .hf) > .project-heading p { margin:4px 0 0; font-si
 .hf .hf-revision-distribucion > .hf-preguntas-barra > .hf-resumen-compacto { order:3; flex-direction:row; flex-wrap:wrap; align-items:center; gap:2px 12px; padding:0; background:transparent; }
 .hf .hf-revision-distribucion:has(> .hf-preguntas-barra) > .hf-contenido { padding:12px 0; }
 
-/* Revisar: rondas, pausa y revision final. */
-.hf .hf-ronda-titulo { margin:0 0 8px; }
-.hf .hf-rondas > .hf-vistas { margin-bottom:12px; }
-.hf .hf-resumen-ronda { border:1px solid var(--line); border-radius:10px; padding:16px 20px; background:var(--surface); }
-.hf .hf-resumen-ronda ul { margin:8px 0 12px; padding-left:20px; }
-@media(max-width:650px) { .hf .hf-resumen-ronda { padding:12px; } }
 /* Esqueleto estándar de técnica: lista, acciones por elemento y vacío */
 .technique-list-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 16px; margin-bottom: 16px; }
 .technique-list-title { display: flex; align-items: center; gap: 10px; min-width: 0; }

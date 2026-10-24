@@ -501,6 +501,18 @@ export function combinarMetodologias(originales: MetodologiaFlujo[], id = 'combi
   const copias = originales.map(m => copiarMetodologia(m));
   const base = copias[0].escala;
   const usados = new Set<string>();
+  // Una categoría con el mismo nombre en otra metodología se prefija con su nombre, para no mezclar sus enunciados.
+  const duenos = new Map<string, string>();
+  const categoriaDe = (indice: number, categoria: string): string => {
+    const dueno = duenos.get(categoria);
+    if (dueno === undefined) duenos.set(categoria, originales[indice].id);
+    return dueno === undefined || dueno === originales[indice].id ? categoria : `${originales[indice].nombre}: ${categoria}`;
+  };
+  const enunciados: Record<string, string> = {};
+  copias.forEach((m, indice) => {
+    for (const c of m.criterios) categoriaDe(indice, c.categoria);
+    for (const [categoria, texto] of Object.entries(m.enunciados ?? {})) enunciados[categoriaDe(indice, categoria)] ??= texto;
+  });
   // Cada criterio conserva su escala efectiva; solo se guarda `escala` propia cuando difiere de la base.
   const criterios: CriterioFlujo[] = copias.flatMap((m, indice) => m.criterios.map((c): CriterioFlujo => {
     const baseId = `${originales[indice].id}:${c.id}`;
@@ -509,7 +521,8 @@ export function combinarMetodologias(originales: MetodologiaFlujo[], id = 'combi
     usados.add(criterioId);
     const { escala: propia, ...resto } = c;
     const efectiva = propia ?? m.escala;
-    return JSON.stringify(efectiva) === JSON.stringify(base) ? { ...resto, id: criterioId } : { ...resto, id: criterioId, escala: efectiva };
+    const categoria = categoriaDe(indice, c.categoria);
+    return JSON.stringify(efectiva) === JSON.stringify(base) ? { ...resto, id: criterioId, categoria } : { ...resto, id: criterioId, categoria, escala: efectiva };
   }));
   const mismaEscala = criterios.every(c => !c.escala);
   return {
@@ -519,6 +532,7 @@ export function combinarMetodologias(originales: MetodologiaFlujo[], id = 'combi
     version: 'Combinación operativa v1; versiones originales en cada criterio', tipo: 'Combinación personalizada',
     ambito: originales.map(m => `${m.nombre}: ${m.ambito}`).join('\n') + (mismaEscala ? '' : '\nEscalas distintas: cada criterio conserva la escala de su metodología de origen.'),
     escala: base,
+    ...(Object.keys(enunciados).length ? { enunciados } : {}),
   };
 }
 

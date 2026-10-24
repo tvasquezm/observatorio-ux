@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   ESCALA_OPERATIVA_HEURISTICA, METODOLOGIAS_HEURISTICAS, copiarMetodologia, combinarMetodologias, resumirEvaluacion,
-  comprobarCompatibilidad, detectarDiscrepancias, escalaDe,
+  comprobarCompatibilidad, escalaDe,
   claveEscalaPredefinida, escalaPredefinida, metodologiaVacia, parsearListaCriterios, problemasMetodologia,
   clasificarCriterios, resumirCumplimiento,
 } from '@observatorio-ux/shared-types';
-import { avancePorCategoria, criterioRespondido, esChecklist, pendientesTrabajo } from './flujo-utils';
-import type { ConfiguracionFlujo, ConsensoFlujo, DecisionCriterio, DecisionHallazgo, TrabajoFlujo } from '@observatorio-ux/shared-types';
+import { criterioRespondido, pendientesTrabajo } from './flujo-utils';
+import type { ConfiguracionFlujo, ConsensoFlujo, DecisionCriterio, DecisionHallazgo } from '@observatorio-ux/shared-types';
 
 function configuracion(): ConfiguracionFlujo {
   return {
@@ -64,6 +64,23 @@ describe('catálogo y snapshots', () => {
     mezcla.criterios[0].origen.version = 'Cambio local';
     expect(METODOLOGIAS_HEURISTICAS[0].criterios[0].origen.version).not.toBe('Cambio local');
     expect(() => combinarMetodologias([])).toThrow();
+  });
+  it('copia los enunciados y separa categorías repetidas de otra metodología', () => {
+    const a = copiarMetodologia(METODOLOGIAS_HEURISTICAS[0], 'a', 'Metodología A');
+    const b = copiarMetodologia(METODOLOGIAS_HEURISTICAS[0], 'b', 'Metodología B');
+    const mezcla = combinarMetodologias([a, b]);
+    const categorias = new Set(mezcla.criterios.map(c => c.categoria));
+    expect(Object.keys(mezcla.enunciados ?? {}).sort()).toEqual([...categorias].sort());
+    const repetida = Object.keys(a.enunciados!)[0];
+    expect(mezcla.enunciados![repetida]).toBe(a.enunciados![repetida]);
+    expect(mezcla.enunciados![`Metodología B: ${repetida}`]).toBe(b.enunciados![repetida]);
+    expect(mezcla.criterios.filter(c => c.categoria === repetida)).toHaveLength(a.criterios.filter(c => c.categoria === repetida).length);
+    expect(a.enunciados![repetida]).toBeTruthy();
+  });
+  it('sin enunciados en las originales no agrega el campo', () => {
+    const sin = copiarMetodologia(METODOLOGIAS_HEURISTICAS[0]);
+    delete sin.enunciados;
+    expect(combinarMetodologias([sin]).enunciados).toBeUndefined();
   });
 });
 
@@ -180,17 +197,6 @@ describe('comparación y discrepancias', () => {
     anterior.metodologia.escala.niveles[0].significado = actual.metodologia.escala.niveles[0].significado = '';
     expect(comprobarCompatibilidad(anterior, actual).compatible).toBe(false);
   });
-  it('presenta una agenda sin fusionar hallazgos ni decidir por mayoría', () => {
-    const config = configuracion();
-    const trabajo = (id: string, valor: string): TrabajoFlujo => ({ evaluadorId: id, nombre: id, respuestas: [respuesta(config.metodologia.criterios[0].id, valor)], hallazgos: [hallazgo(id)], entregadoEn: null, guardadoEn: null });
-    const trabajos = [trabajo('e1', 'cumple'), trabajo('e2', 'no_cumple')];
-    const agenda = detectarDiscrepancias(config, trabajos);
-    expect(agenda.criterios[0]).toMatchObject({ criterioId: config.metodologia.criterios[0].id, motivos: ['Valoraciones distintas.'] });
-    expect(agenda.hallazgos.map(h => h.hallazgoId)).toEqual(['e1', 'e2']);
-    expect(trabajos[0].respuestas[0].valor).toBe('cumple');
-    trabajos[1].respuestas[0] = respuesta(config.metodologia.criterios[0].id, null, true);
-    expect(detectarDiscrepancias(config, trabajos).criterios[0].motivos).toContain('Aplicabilidad distinta.');
-  });
 });
 
 describe('constructor de métodos', () => {
@@ -268,27 +274,13 @@ describe('checklist Hassan y Martín (D22)', () => {
     expect(problemasMetodologia(m)).toEqual([]);
     expect(METODOLOGIAS_HEURISTICAS.find(x => x.id === 'hassan-montero-martin-fernandez')!.criterios).toHaveLength(33);
   });
-  it('esChecklist solo con todos los criterios de dos niveles', () => {
-    const c = configChecklist();
-    expect(esChecklist(c)).toBe(true);
-    expect(esChecklist(configuracion())).toBe(false);
-    c.metodologia.criterios[0] = { ...c.metodologia.criterios[0], escala: escalaPredefinida('likert_1_5') };
-    expect(esChecklist(c)).toBe(false);
-    c.metodologia.criterios = [];
-    expect(esChecklist(c)).toBe(false);
-  });
-  it('cuenta respondidos por categoría; no aplica cuenta sin motivo', () => {
+  it('no aplica cuenta como respondido sin motivo; un valor fuera de la escala no', () => {
     const c = configChecklist();
     const [a, b] = c.metodologia.criterios.filter(x => x.categoria === 'Generales');
     const base = (criterioId: string) => ({ criterioId, valor: null, noAplica: false, motivo: '', notas: '' });
-    const resp = [{ ...base(a.id), valor: 'si' }, { ...base(b.id), noAplica: true }];
-    const generales = () => avancePorCategoria(c, resp).find(g => g.categoria === 'Generales')!;
-    expect(generales()).toMatchObject({ respondidos: 2 });
-    expect(generales().criterios).toHaveLength(7);
-    resp[1].motivo = 'Fuera del alcance';
-    expect(generales().respondidos).toBe(2);
+    expect(criterioRespondido(c, a, { ...base(a.id), valor: 'si' })).toBe(true);
+    expect(criterioRespondido(c, b, { ...base(b.id), noAplica: true })).toBe(true);
     expect(criterioRespondido(c, a, { ...base(a.id), valor: 'cumple' })).toBe(false);
-    expect(avancePorCategoria(c, []).map(g => g.categoria)[0]).toBe('Generales');
   });
 });
 
@@ -368,7 +360,6 @@ describe('rúbrica UTEM', () => {
   it('no marca niveles favorables: no genera "n de N cumplen" y el índice sí es calculable', () => {
     const m = copiarMetodologia(rubrica());
     expect(m.escala.niveles.some(n => n.favorable !== undefined)).toBe(false);
-    expect(esChecklist({ ...configuracion(), metodologia: m })).toBe(false);
   });
   it('no cambia la síntesis ni la lista previa del catálogo', () => {
     expect(METODOLOGIAS_HEURISTICAS[0].id).toBe('nielsen10');

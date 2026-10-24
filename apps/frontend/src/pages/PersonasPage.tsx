@@ -253,6 +253,9 @@ export function PersonasPage() {
                       <input type="text" inputMode="url" value={form.fotografiaUrl ?? ''} placeholder="miweb.cl/foto"
                         onChange={(e) => setForm({ ...form, fotografiaUrl: e.target.value || undefined })}
                         onBlur={(e) => { const url = normalizarUrlProducto(e.target.value); if (url && url !== form.fotografiaUrl) setForm({ ...form, fotografiaUrl: url }); }} />
+                      {form.fotografiaUrl?.trim() && !normalizarUrlProducto(form.fotografiaUrl) && (
+                        <span className="error-text" role="alert">Esta URL no es válida. Usa una dirección web (por ejemplo miweb.cl/foto) para poder guardar.</span>
+                      )}
                     </label>
                   </div>,
                 ),

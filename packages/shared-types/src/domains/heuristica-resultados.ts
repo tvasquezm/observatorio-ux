@@ -102,30 +102,6 @@ export function comprobarCompatibilidad(anterior: ConfiguracionFlujo, actual: Co
   return { compatible: motivos.length === 0, motivos };
 }
 
-/** Agenda informativa: respuestas distintas/incompletas y hallazgos individuales sin vínculo confirmado. No toma decisiones de consenso. */
-export interface DiscrepanciasFlujo {
-  criterios: Array<{ criterioId: string; respuestas: Array<{ evaluadorId: string; valor: string | null; noAplica: boolean }>; motivos: string[] }>;
-  hallazgos: Array<{ evaluadorId: string; hallazgoId: string; criterioIds: string[]; titulo: string }>;
-}
-
-export function detectarDiscrepancias(configuracion: ConfiguracionFlujo, trabajos: TrabajoFlujo[]): DiscrepanciasFlujo {
-  const criterios: DiscrepanciasFlujo['criterios'] = [];
-  for (const criterio of configuracion.metodologia.criterios) {
-    const respuestas = trabajos.map(t => {
-      const respuesta = t.respuestas.find(r => r.criterioId === criterio.id);
-      return { evaluadorId: t.evaluadorId, valor: respuesta?.valor ?? null, noAplica: respuesta?.noAplica ?? false };
-    });
-    const motivos: string[] = [];
-    if (new Set(respuestas.map(r => r.noAplica)).size > 1) motivos.push('Aplicabilidad distinta.');
-    if (new Set(respuestas.filter(r => !r.noAplica).map(r => r.valor)).size > 1) motivos.push('Valoraciones distintas.');
-    if (respuestas.some(r => !r.noAplica && r.valor === null)) motivos.push('Valoraciones pendientes.');
-    if (motivos.length) criterios.push({ criterioId: criterio.id, respuestas, motivos });
-  }
-  // La semejanza textual no demuestra correspondencia: se revisan todos los originales.
-  const hallazgos = trabajos.flatMap(t => t.hallazgos.map(h => ({ evaluadorId: t.evaluadorId, hallazgoId: h.id, criterioIds: [...h.criterioIds], titulo: h.titulo })));
-  return { criterios, hallazgos };
-}
-
 /** Tope de hallazgos nuevos del equipo (sin origen en los trabajos individuales) por consenso. */
 export const MAX_HALLAZGOS_NUEVOS_EQUIPO = 50;
 
