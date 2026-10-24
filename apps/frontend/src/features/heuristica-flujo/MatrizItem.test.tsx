@@ -19,37 +19,47 @@ function ConGuardado({ m }: { m: MetodologiaFlujo }) {
   return <><button type="button" onClick={() => setDirty(false)}>simular guardado</button><Harness m={m} guardado={{ dirty, saving: false, error: '' }} /></>;
 }
 
+async function recorrerSecciones() {
+  let secciones = 0, tablas = 0, filas = 0, titulos = 0;
+  for (;;) {
+    secciones++;
+    tablas += screen.getAllByRole('table').length;
+    filas += screen.getAllByRole('rowheader').length;
+    titulos += screen.getAllByRole('heading', { level: 3 }).length;
+    const sig = screen.getByRole('button', { name: 'Sección siguiente' });
+    if ((sig as HTMLButtonElement).disabled) break;
+    await userEvent.click(sig);
+  }
+  return { secciones, tablas, filas, titulos };
+}
+
 describe('MatrizItem', () => {
-  it('Rúbrica UTEM: 22 preguntas en 6 tablas con columnas 1 a 5 y título arriba', async () => {
+  it('Rúbrica UTEM: 22 preguntas en 6 secciones, una tabla por sección con columnas 1 a 5 y título arriba', async () => {
     const m = metodo('rubrica-utem-eval-heuristica');
     render(<Harness m={m} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Ver todo' }));
-    expect(screen.getAllByRole('table', { hidden: true })).toHaveLength(6);
-    expect(screen.getAllByRole('row').filter(r => within(r).queryAllByRole('radio').length > 0)).toHaveLength(22);
+    expect(screen.queryByRole('button', { name: 'Ver todo' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Por grupo' })).toBeNull();
     const t = screen.getAllByRole('table')[0];
     expect(within(t).getAllByRole('columnheader').map(c => c.textContent)).toEqual(expect.arrayContaining([expect.stringContaining('1'), expect.stringContaining('5'), 'No aplica']));
-    expect(screen.getAllByRole('heading', { level: 3 })).toHaveLength(6);
+    expect(await recorrerSecciones()).toEqual({ secciones: 6, tablas: 6, filas: 22, titulos: 6 });
   });
-  it('checklist Hassan: 71 preguntas en 11 tablas con columnas Sí y No', async () => {
+  it('checklist Hassan: 71 preguntas en 11 secciones con columnas Sí y No', async () => {
     render(<Harness m={metodo('hassan-checklist-2003')} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Ver todo' }));
-    expect(screen.getAllByRole('table')).toHaveLength(11);
-    expect(screen.getAllByRole('rowheader')).toHaveLength(71);
     expect(within(screen.getAllByRole('table')[0]).getAllByRole('columnheader').map(c => c.textContent)).toEqual(expect.arrayContaining([expect.stringContaining('Sí'), expect.stringContaining('No')]));
+    expect(await recorrerSecciones()).toEqual({ secciones: 11, tablas: 11, filas: 71, titulos: 11 });
   });
-  it('Nielsen: título y enunciado arriba de cada ítem; por grupo 4 preguntas y en Ver todo 10 tablas con 39 filas', async () => {
+  it('Nielsen: título y enunciado arriba de cada ítem; una sección a la vez y 39 filas en 10 secciones', async () => {
     const m = metodo('nielsen10');
     render(<Harness m={m} />);
     expect(screen.getByRole('heading', { name: 'Estado visible' })).toBeInTheDocument();
     expect(screen.getByText(m.enunciados!['Estado visible'])).toBeInTheDocument();
     expect(screen.getAllByRole('table')).toHaveLength(1);
     expect(screen.getAllByRole('rowheader')).toHaveLength(4);
-    await userEvent.click(screen.getByRole('button', { name: 'Ver todo' }));
-    expect(screen.getAllByRole('table')).toHaveLength(10);
-    expect(screen.getAllByRole('rowheader')).toHaveLength(39);
-    expect(screen.getAllByRole('heading', { level: 3 })).toHaveLength(10);
+    expect(screen.getByRole('button', { name: 'Sección anterior' })).toBeDisabled();
+    expect(await recorrerSecciones()).toEqual({ secciones: 10, tablas: 10, filas: 39, titulos: 10 });
+    expect(screen.getByRole('button', { name: 'Sección siguiente' })).toBeDisabled();
   });
-  it('enunciado y título siempre visibles; "Por grupo" muestra un ítem y "Ver todo" todos', async () => {
+  it('enunciado y título siempre visibles; Sección siguiente y anterior cambian de ítem', async () => {
     const m = metodo('nielsen10');
     const cats = ['Estado visible', 'Lenguaje del usuario', 'Control y salida'];
     m.criterios = cats.flatMap(cat => m.criterios.filter(c => c.categoria === cat).slice(0, 2));
@@ -58,10 +68,22 @@ describe('MatrizItem', () => {
     expect(screen.getByRole('heading', { name: 'Estado visible' })).toBeInTheDocument();
     expect(screen.getByText('El sistema informa lo que ocurre.')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Control y salida' })).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: 'Grupo siguiente' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Sección siguiente' }));
     expect(screen.getByText('Habla como la persona.')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Ver todo' }));
-    expect(screen.getAllByRole('heading', { level: 3 })).toHaveLength(3);
+    expect(screen.queryByRole('heading', { name: 'Estado visible' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Sección anterior' }));
+    expect(screen.getByRole('heading', { name: 'Estado visible' })).toBeInTheDocument();
+  });
+  it('avisa el primer criterio de la sección a la que se pasa y abre la sección del foco', async () => {
+    const m = metodo('nielsen10');
+    const onFoco = vi.fn();
+    const { unmount } = render(<MatrizItem criterios={m.criterios} config={configDe(m)} respuestas={[]} modo="individual" onChange={vi.fn()} onFoco={onFoco} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Sección siguiente' }));
+    expect(onFoco).toHaveBeenCalledWith(m.criterios.find(c => c.categoria !== m.criterios[0].categoria)!.id);
+    unmount();
+    const ultima = m.criterios[m.criterios.length - 1];
+    render(<MatrizItem criterios={m.criterios} config={configDe(m)} respuestas={[]} modo="individual" onChange={vi.fn()} foco={ultima.id} />);
+    expect(screen.getByRole('heading', { name: ultima.categoria })).toBeInTheDocument();
   });
   it('escalas mezcladas: un ítem con dos escalas muestra dos tablas con su propia cabecera', () => {
     const m = metodo('rubrica-utem-eval-heuristica');

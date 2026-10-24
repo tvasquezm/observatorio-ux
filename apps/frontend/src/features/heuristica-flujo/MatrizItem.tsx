@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useId, useState } from 'react';
+import { Fragment, useEffect, useId, useRef, useState } from 'react';
 import { acuerdoDifiere, escalaDe } from '@observatorio-ux/shared-types';
 import type { ConfiguracionFlujo, CriterioFlujo, DecisionCriterio, EscalaFlujo, HallazgoFlujo, RespuestaCriterio } from '@observatorio-ux/shared-types';
 import { criterioRespondido, respuestaVacia } from './flujo-utils';
@@ -18,11 +18,13 @@ interface Props {
   editable?: boolean;
   onAddHallazgo?: (criterioId: string) => void;
   guardado?: EstadoGuardado;
-  /** Criterio al que se quiere llevar la vista (en "Por grupo" abre su ítem). */
+  /** Criterio al que se quiere llevar la vista: abre la sección que lo contiene. */
   foco?: string;
+  /** Aviso al cambiar de sección con Anterior/Siguiente: primer criterio de la sección abierta. */
+  onFoco?: (criterioId: string) => void;
 }
 interface Subgrupo { escala: EscalaFlujo; criterios: CriterioFlujo[] }
-interface Grupo { categoria: string; criterios: CriterioFlujo[]; subgrupos: Subgrupo[] }
+export interface Grupo { categoria: string; criterios: CriterioFlujo[]; subgrupos: Subgrupo[] }
 
 const firmaEscala = (e: EscalaFlujo) => JSON.stringify(e.niveles.map(n => [n.id, n.etiqueta, n.significado]));
 
@@ -40,18 +42,20 @@ export function agruparPorItem(config: ConfiguracionFlujo, criterios: CriterioFl
   return [...grupos.values()];
 }
 
+/** Cada ítem tiene una sola pregunta: se muestran todas en una tabla y no hay secciones. */
+export const esUnaTabla = (grupos: Grupo[]) => grupos.length > 1 && grupos.every(g => g.criterios.length === 1);
+
 type Marca = 'ninguna' | 'pendiente' | 'guardado' | 'error';
 const textoRespuesta = (r: RespuestaCriterio | undefined, niveles: EscalaFlujo['niveles']) => !r ? 'Sin evaluar' : r.noAplica ? 'No aplica' : niveles.find(n => n.id === r.valor)?.etiqueta ?? 'Sin evaluar';
 
 /** Tabla calificable: una por ítem, con título y enunciado siempre visibles. */
-export function MatrizItem({ criterios, config, respuestas, modo, individuales = [], onChange, hallazgos = [], editable = true, onAddHallazgo, guardado = { dirty: false, saving: false, error: '' }, foco }: Props) {
+export function MatrizItem({ criterios, config, respuestas, modo, individuales = [], onChange, hallazgos = [], editable = true, onAddHallazgo, guardado = { dirty: false, saving: false, error: '' }, foco, onFoco }: Props) {
   const id = useId();
   const esEquipo = modo === 'equipo';
   const propiasDe = (cid: string) => individuales.map(i => ({ i, r: i.respuestas.find(x => x.criterioId === cid) }));
   const coincidenDe = (cid: string) => { const p = propiasDe(cid); return p.length > 0 && p[0].r !== undefined && !acuerdoDifiere(p[0].r, p.map(x => x.r)); };
   const [soloDif, setSoloDif] = useState(false);
   const grupos = agruparPorItem(config, esEquipo && soloDif ? criterios.filter(c => !coincidenDe(c.id)) : criterios);
-  const [verTodo, setVerTodo] = useState(grupos.length <= 1);
   const [actual, setActual] = useState(() => Math.max(0, grupos.findIndex(g => g.criterios.some(c => c.id === foco))));
   const [abiertos, setAbiertos] = useState<Set<string>>(new Set());
   const textoDe = (r: RespuestaCriterio) => esEquipo ? (r as Partial<DecisionCriterio>).justificacion ?? '' : r.notas;
@@ -59,8 +63,20 @@ export function MatrizItem({ criterios, config, respuestas, modo, individuales =
   const [guardadas, setGuardadas] = useState<Record<string, string>>(() => guardado.dirty ? {} : notasDe());
   useEffect(() => { if (!guardado.dirty && !guardado.saving && !guardado.error) setGuardadas(notasDe()); }, [guardado.dirty, guardado.saving, guardado.error, respuestas]);
   useEffect(() => { const i = grupos.findIndex(g => g.criterios.some(c => c.id === foco)); if (i >= 0) setActual(i); }, [foco]);
-  const visibles = verTodo || esEquipo ? grupos : grupos.slice(Math.min(actual, grupos.length - 1), Math.min(actual, grupos.length - 1) + 1);
-  const unaTabla = grupos.length > 1 && grupos.every(g => g.criterios.length === 1);
+  const a = Math.min(actual, Math.max(grupos.length - 1, 0));
+  const visibles = esEquipo ? grupos : grupos.slice(a, a + 1);
+  const unaTabla = esUnaTabla(grupos);
+  const titulo = useRef<HTMLHeadingElement>(null);
+  const previa = useRef(actual);
+  const irA = (i: number) => { const g = grupos[i]; if (!g) return; setActual(i); onFoco?.(g.criterios[0].id); };
+  useEffect(() => {
+    if (previa.current === actual) return;
+    previa.current = actual;
+    const t = titulo.current; if (esEquipo || !t) return;
+    t.focus({ preventScroll: true });
+    const quieto = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+    t.scrollIntoView?.({ block: 'start', behavior: quieto ? 'auto' : 'smooth' });
+  }, [actual]);
   const marcaDe = (r: RespuestaCriterio): Marca => { const t = textoDe(r); return !t.trim() ? 'ninguna' : t === guardadas[r.criterioId] ? 'guardado' : guardado.error ? 'error' : 'pendiente'; };
   const alternar = (cid: string) => setAbiertos(prev => { const n = new Set(prev); if (n.has(cid)) n.delete(cid); else n.add(cid); return n; });
 
@@ -113,10 +129,6 @@ export function MatrizItem({ criterios, config, respuestas, modo, individuales =
   return <div className="hf-matrices">
     {esEquipo && <div className="hf-matriz-barra"><div className="hf-vistas" role="group" aria-label="Qué preguntas ver"><button type="button" aria-pressed={soloDif} onClick={() => setSoloDif(true)}>Solo diferencias</button><button type="button" aria-pressed={!soloDif} onClick={() => setSoloDif(false)}>Ver todo</button></div></div>}
     {!grupos.length && <p className="hf-ayuda" role="status">Las respuestas individuales coinciden en todas las preguntas.</p>}
-    {!esEquipo && grupos.length > 1 && <div className="hf-matriz-barra">
-      <div className="hf-vistas" role="group" aria-label="Cómo ver los ítems"><button type="button" aria-pressed={!verTodo} onClick={() => setVerTodo(false)}>Por grupo</button><button type="button" aria-pressed={verTodo} onClick={() => setVerTodo(true)}>Ver todo</button></div>
-      {!verTodo && <div className="hf-navegar"><button type="button" className="secondary" disabled={actual <= 0} onClick={() => setActual(actual - 1)}>Grupo anterior</button><span className="hf-ayuda">Grupo {actual + 1} de {grupos.length}</span><button type="button" className="secondary" disabled={actual >= grupos.length - 1} onClick={() => setActual(actual + 1)}>Grupo siguiente</button></div>}
-    </div>}
     {unaTabla ? (() => { const g = { categoria: 'Preguntas', criterios: grupos.flatMap(x => x.criterios), subgrupos: [] as Subgrupo[] };
       for (const x of grupos) for (const s of x.subgrupos) { const e = g.subgrupos.find(y => firmaEscala(y.escala) === firmaEscala(s.escala)); if (e) e.criterios.push(...s.criterios); else g.subgrupos.push({ escala: s.escala, criterios: [...s.criterios] }); }
       return <section className="hf-cat" aria-label="Preguntas">{g.subgrupos.map(s => tabla(s, 'Preguntas', true))}</section>; })()
@@ -124,11 +136,15 @@ export function MatrizItem({ criterios, config, respuestas, modo, individuales =
         const respondidos = g.criterios.filter(c => criterioRespondido(config, c, respuestas.find(r => r.criterioId === c.id))).length;
         const enunciado = config.metodologia.enunciados?.[g.categoria] ?? (g.criterios.length === 1 ? g.criterios[0].descripcion : '');
         return <section className="hf-cat" key={g.categoria} aria-labelledby={`${id}-t-${g.categoria}`}>
-          <h3 id={`${id}-t-${g.categoria}`}>{g.categoria}</h3>
+          <h3 ref={titulo} tabIndex={-1} id={`${id}-t-${g.categoria}`}>{g.categoria}</h3>
           {enunciado && <p className="hf-enunciado">{enunciado}</p>}
           <p className="hf-avance">{respondidos} de {g.criterios.length} {esEquipo ? 'acordadas' : 'respondidos'}{respondidos === g.criterios.length ? ' · ✓ Categoría completa' : ''}</p>
           {g.subgrupos.map(s => tabla(s, `${g.categoria}${g.subgrupos.length > 1 ? `: ${s.escala.niveles.map(n => n.etiqueta).join(', ')}` : ''}`, false))}
         </section>;
       })}
+    {!esEquipo && grupos.length > 1 && !unaTabla && <div className="hf-navegar">
+      <button type="button" className="secondary" disabled={a <= 0} onClick={() => irA(a - 1)}><span aria-hidden="true">←</span> Sección anterior</button>
+      <button type="button" className="secondary" disabled={a >= grupos.length - 1} onClick={() => irA(a + 1)}>Sección siguiente <span aria-hidden="true">→</span></button>
+    </div>}
   </div>;
 }

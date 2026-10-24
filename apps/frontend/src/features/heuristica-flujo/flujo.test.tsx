@@ -57,8 +57,10 @@ describe('flujo individual', () => {
     const e = evaluation(); e.configuracion.metodologia = copiarMetodologia(METODOLOGIAS_HEURISTICAS[0]);
     api.mockImplementation(async (_p, path, _method, body) => path.endsWith('/trabajo') ? { ...e, revision: 2, trabajos: [{ ...e.trabajos[0], respuestas: body.respuestas }] } : { ...e, revision: 3, trabajos: [{ ...e.trabajos[0], entregadoEn: e.updatedAt }] });
     renderFlow(<Harness initial={e} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Ver todo' }));
-    for (const r of screen.getAllByRole('radio', { name: 'No aplica' })) await userEvent.click(r);
+    for (let seccion = 0; seccion < 10; seccion++) {
+      for (const r of screen.getAllByRole('radio', { name: 'No aplica' })) await userEvent.click(r);
+      if (seccion < 9) await userEvent.click(screen.getByRole('button', { name: 'Sección siguiente' }));
+    }
     expect(screen.queryByLabelText('Motivo de no aplica')).toBeNull();
     expect(screen.getByText('39 de 39 preguntas respondidas')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Entregar mi evaluación' }));
@@ -82,14 +84,15 @@ describe('flujo individual', () => {
     e.avanceEquipo = [{ evaluadorId: 'u1', nombre: 'Ana', evaluados: 0, total: 39, entregadoEn: null, guardadoEn: null }];
     renderFlow(<Harness initial={e} />);
     await userEvent.click(screen.getAllByRole('radio', { name: 'No aplica' })[0]);
-    const combo = () => within(screen.getByRole('navigation', { name: 'Preguntas de la revisión' })).getByRole('combobox', { name: 'Pregunta que estás revisando' });
-    await userEvent.selectOptions(combo(), '4');
-    expect(combo()).toHaveValue('4');
+    const barra = () => screen.getByRole('navigation', { name: 'Preguntas de la revisión' });
+    await userEvent.click(within(barra()).getByRole('button', { name: /^Sección 2:/ }));
+    expect(within(barra()).getByRole('button', { name: /^Sección 2:/ })).toHaveAttribute('aria-current', 'true');
+    expect(screen.queryByRole('heading', { name: 'Estado visible' })).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Resumen del equipo' }));
     expect(screen.getByRole('heading', { name: 'Progreso del equipo' })).toBeVisible();
     expect(screen.queryByRole('radio')).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Mi revisión' }));
-    await userEvent.selectOptions(combo(), '0');
+    await userEvent.click(within(barra()).getByRole('button', { name: /^Sección 1:/ }));
     expect(screen.getAllByRole('radio', { name: 'No aplica' })[0]).toBeChecked();
   });
   it.each([true, false])('muestra errores al actualizar el resumen con trabajo propio: %s', async propio => {
@@ -426,17 +429,17 @@ describe('vista de tablas por ítem', () => {
     expect(screen.getByText('1 de 2 respondidos')).toBeInTheDocument();
     await userEvent.click(within(fila(b.nombre)).getByLabelText('No'));
     expect(screen.getByText('2 de 2 respondidos · ✓ Categoría completa')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Grupo siguiente' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Sección siguiente' }));
     expect(screen.getByText('0 de 1 respondidos')).toBeInTheDocument();
   });
   it('cuenta no aplica inmediatamente, también con preguntas de tipo checklist', async () => {
     const e = checklistEval(); const [a, b, c] = e.configuracion.metodologia.criterios;
     renderFlow(<Harness initial={e} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Ver todo' }));
     await userEvent.click(within(fila(a.nombre)).getByLabelText('Sí'));
-    await userEvent.click(within(fila(c.nombre)).getByLabelText('No'));
     await userEvent.click(within(fila(b.nombre)).getByRole('radio', { name: 'No aplica' }));
     expect(screen.getByText('2 de 2 respondidos · ✓ Categoría completa')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Sección siguiente' }));
+    await userEvent.click(within(fila(c.nombre)).getByLabelText('No'));
     expect(screen.queryByLabelText('Motivo de no aplica')).toBeNull();
     expect(screen.getByText('3 de 3 preguntas respondidas')).toBeInTheDocument();
   });
@@ -451,9 +454,11 @@ describe('vista de tablas por ítem', () => {
     expect(screen.getAllByRole('radio')).toHaveLength(4);
     unmount();
     renderFlow(<Harness initial={checklistEval(true)} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Ver todo' }));
-    expect(screen.getAllByRole('table')).toHaveLength(2);
-    expect(screen.getAllByRole('radio')).toHaveLength(2 * 3 + 4);
+    expect(screen.getAllByRole('table')).toHaveLength(1);
+    expect(screen.getAllByRole('radio')).toHaveLength(2 * 3);
+    await userEvent.click(screen.getByRole('button', { name: 'Sección siguiente' }));
+    expect(screen.getAllByRole('table')).toHaveLength(1);
+    expect(screen.getAllByRole('radio')).toHaveLength(4);
   });
 });
 describe('cumplimiento en el informe', () => {
@@ -699,13 +704,19 @@ describe('continuidad al revisar', () => {
     expect(screen.queryByRole('navigation', { name: 'Preguntas de la revisión' })).toBeNull();
   });
   it('recuerda la pregunta en la que estabas al volver', async () => {
-    const e = dos();
+    const e = dos(); e.configuracion.metodologia.criterios = copiarMetodologia(METODOLOGIAS_HEURISTICAS[0]).criterios.slice(0, 5);
+    const barra = () => screen.getByRole('navigation', { name: 'Preguntas de la revisión' });
     const primera = renderFlow(<Harness initial={e} />);
-    await userEvent.click(within(screen.getByRole('navigation', { name: 'Preguntas de la revisión' })).getByRole('button', { name: /^Pregunta 2:/ }));
-    expect(sessionStorage.getItem('heuristica:preg:e1:u1')).toBe('1');
+    expect(within(barra()).getByRole('button', { name: /^Sección 1:/ })).toHaveAttribute('aria-current', 'true');
+    await userEvent.click(within(barra()).getByRole('button', { name: /^Sección 2:/ }));
+    expect(sessionStorage.getItem('heuristica:preg:e1:u1')).toBe('4');
     primera.unmount();
     renderFlow(<Harness initial={e} />);
-    expect(within(screen.getByRole('navigation', { name: 'Preguntas de la revisión' })).getByRole('button', { name: /^Pregunta 2:/ })).toHaveAttribute('aria-current', 'true');
+    expect(within(barra()).getByRole('button', { name: /^Sección 2:/ })).toHaveAttribute('aria-current', 'true');
+    expect(screen.queryByRole('heading', { name: 'Estado visible' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Sección anterior' }));
+    expect(within(barra()).getByRole('button', { name: /^Sección 1:/ })).toHaveAttribute('aria-current', 'true');
+    expect(sessionStorage.getItem('heuristica:preg:e1:u1')).toBe('0');
   });
 });
 

@@ -3114,3 +3114,8 @@ div:has(> .project-section > .hf) > .project-heading p { margin:4px 0 0; font-si
 .hf .hf-revision-distribucion > .hf-preguntas-barra { padding: 4px 0; }
 .hf .hf-revision-distribucion:has(> .hf-preguntas-barra) > .hf-contenido { padding: 4px 0; }
 @media (min-width: 651px) { .hf .hf-matriz th, .hf .hf-matriz td { padding: 6px 8px; } }
+.hf .hf-cat > h3 { scroll-margin-top: 88px; }
+.hf .hf-cat > h3:focus { outline: none; }
+.hf .hf-matrices > .hf-navegar { display: flex; justify-content: space-between; gap: 8px; margin: 8px 0; }
+.hf .hf-matrices > .hf-navegar button { min-height: 40px; min-width: 150px; }
+@media (max-width: 650px) { .hf .hf-matrices > .hf-navegar button { flex: 1; min-width: 0; } }
