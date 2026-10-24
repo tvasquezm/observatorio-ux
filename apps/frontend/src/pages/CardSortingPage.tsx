@@ -24,9 +24,16 @@ import {
 } from '../features/card-sorting/card-sorting-input';
 import type { ProjectOutletContext } from '../layouts/ProjectDetailLayout';
 import { CardSortingTypePicker } from '../features/card-sorting/components/CardSortingTypePicker';
-import { CardSortingProgress, type ProgressStep } from '../features/card-sorting/components/CardSortingProgress';
 import { CardSortingEntry } from '../features/card-sorting/components/CardSortingEntry';
 import { ComentariosTecnica } from '../features/comments/components/ComentariosTecnica';
+import { TechniquePageHeader } from '../shared/components/TechniquePageHeader';
+import { TechniquePage } from '../shared/components/TechniquePage';
+import { TechniqueNewButton } from '../shared/components/TechniqueNewButton';
+import { TechniqueItemActions } from '../shared/components/TechniqueItemActions';
+import { TechniqueListHead, TechniqueEmpty } from '../shared/components/TechniqueListParts';
+import { Icon } from '../shared/components/ui/Icon';
+import { PasosTecnica, type PasoTecnica } from '../shared/components/PasosTecnica';
+import { TechniqueProcess, type ProcessStep } from '../shared/components/TechniqueProcess';
 
 const TYPE_HINTS: Record<TipoCardSorting, string> = {
   ABIERTO: 'Los participantes crean y nombran sus propias categorías. Úsalo para descubrir cómo piensan tus usuarios.',
@@ -125,6 +132,7 @@ export function CardSortingPage() {
   const [cardsText, setCardsText] = useState('');
   const [categoriesText, setCategoriesText] = useState('');
   const [questionsText, setQuestionsText] = useState('');
+  const [mostrarForm, setMostrarForm] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const cardsInfo = analizarEntrada(cardsText, MAX_ETIQUETA, AVISO_ETIQUETA);
@@ -144,7 +152,7 @@ export function CardSortingPage() {
   const minCategories = type === 'CERRADO' ? MIN_CATEGORIAS_CERRADO : 1;
   const categoriesOk = categoriesInfo.items.length >= minCategories
     && categoriesInfo.duplicados.length === 0 && categoriesInfo.excedidas.length === 0;
-  const steps: ProgressStep[] = [
+  const steps: ProcessStep[] = [
     { id: 'nombre', label: 'Nombre', detail: name.trim() || 'Sin nombre todavía', done: name.trim().length > 0 },
     { id: 'tipo', label: 'Tipo', detail: TYPE_LABELS[type], done: true },
     {
@@ -166,7 +174,7 @@ export function CardSortingPage() {
       label: 'Preguntas',
       detail: `${questionsInfo.items.length} de ${MAX_PREGUNTAS}`,
       done: questionsInfo.items.length > 0 && questionsInfo.items.length <= MAX_PREGUNTAS,
-      optional: true,
+      opcional: true,
     },
   ];
 
@@ -195,29 +203,13 @@ export function CardSortingPage() {
     );
   }
 
-  return (
-    <div className="fade">
-      <header className="page-head">
-        <div>
-          <h2>Card Sorting</h2>
-          <p>
-            Crea estudios abiertos, cerrados o híbridos, compártelos con participantes y analiza cada
-            clasificación como evidencia independiente.
-          </p>
-        </div>
-      </header>
-
-      <details className="cs-create-disclosure">
-        <summary>Nuevo estudio</summary>
-      <section className="sort-layout">
-        <article className="panel sort-board">
-          <div className="panel-head">
-            <div>
-              <h2>Configurar tarjetas y categorías</h2>
-            </div>
-          </div>
-
-          <form onSubmit={handleSubmit} className="form-grid cs-study-form">
+  const pasos: PasoTecnica[] = [
+    {
+      id: 'nombre',
+      titulo: 'Nombre y tipo',
+      ayuda: 'Dale un nombre al estudio y elige cómo clasificarán los participantes.',
+      contenido: (
+        <div className="tv-pasos-campos tv-pasos-campos--una">
             <label className="field">
               Nombre del estudio
               <input
@@ -234,6 +226,14 @@ export function CardSortingPage() {
             <CardSortingTypePicker value={type} onChange={setType} />
             <p className="cs-type-hint" data-testid="cs-type-hint">{TYPE_HINTS[type]}</p>
 
+        </div>
+      ),
+    },
+    {
+      id: 'tarjetas',
+      titulo: 'Tarjetas',
+      ayuda: 'Los elementos que los participantes van a ordenar.',
+      contenido: (
             <CardSortingEntry
               error={validationErrors.tarjetas}
               title="Tarjetas"
@@ -262,7 +262,14 @@ export function CardSortingPage() {
               )}
             />
 
-            {type !== 'ABIERTO' && (
+      ),
+    },
+    ...(type !== 'ABIERTO'
+      ? [{
+          id: 'categorias',
+          titulo: 'Categorías',
+          ayuda: 'Las categorías de partida que usarán los participantes.',
+          contenido: (
               <CardSortingEntry
                 error={validationErrors.categorias}
                 title="Categorías predefinidas"
@@ -283,8 +290,14 @@ export function CardSortingPage() {
                 helpLabel="Ayuda: cómo definir las categorías"
                 meta={<InputWarnings info={categoriesInfo} noun="categoría(s)" max={MAX_CATEGORIA} />}
               />
-            )}
-
+          ),
+        }]
+      : []),
+    {
+      id: 'preguntas',
+      titulo: 'Preguntas (opcional)',
+      ayuda: 'Lo que quieres preguntar al participante al enviar. Puedes saltar este paso.',
+      contenido: (
             <CardSortingEntry
               error={validationErrors.preguntas}
               title="Preguntas para el participante (opcional)"
@@ -315,70 +328,101 @@ export function CardSortingPage() {
               )}
             />
 
-            {formError && <p id="cs-configuration-error" role="alert" className="error-text">{formError}</p>}
+      ),
+    },
+  ];
 
-            {createStudy.error && (
-              <p role="alert" className="error-text">{createStudy.error.message}</p>
-            )}
+  return (
+    <TechniquePage
+      cabecera={
+        <TechniquePageHeader
+          label="TÉCNICA DE INVESTIGACIÓN"
+          title="Card Sorting"
+          description="Crea estudios abiertos, cerrados o híbridos, compártelos con participantes y analiza cada clasificación como evidencia independiente."
+          instructions={(
+            <>
+              <p>Prepara las tarjetas, invita a los participantes y revisa los resultados. Abre cada paso para ver sus instrucciones.</p>
+              <CardSortingGuide />
+            </>
+          )}
+          action={(
+            <TechniqueNewButton
+              etiqueta="+ Nuevo Card Sorting"
+              abierto={mostrarForm}
+              puedeEditar
+              disabled={createStudy.isPending}
+              onClick={() => setMostrarForm((visible) => !visible)}
+            />
+          )}
+        />
+      }
+      proceso={mostrarForm && (
+        <TechniqueProcess
+          title="Proceso del estudio"
+          textoListo="Estudio completo: ya puedes crearlo"
+          steps={steps}
+        />
+      )}
+      formulario={mostrarForm && (
+        <form onSubmit={handleSubmit} className="entity-card form cs-study-form" noValidate>
+          <h3>Nuevo Card Sorting</h3>
 
+          <PasosTecnica pasos={pasos} acciones={(
             <button type="submit" className="primary" disabled={createStudy.isPending}>
               {createStudy.isPending ? 'Creando estudio…' : 'Crear y abrir el workspace →'}
             </button>
-          </form>
-        </article>
+          )} />
 
-        <div className="cs-side">
-          <CardSortingProgress steps={steps} problem={problem} />
-        </div>
-      </section>
-      </details>
+          {formError && <p id="cs-configuration-error" role="alert" className="error-text">{formError}</p>}
 
-      <details className="panel cs-guide-box technique-instructions" open>
-        <summary><h2>Cómo hacer un card sorting</h2></summary>
-        <p>Prepara las tarjetas, invita a los participantes y revisa los resultados. Abre cada paso para ver sus instrucciones.</p>
-        <CardSortingGuide />
-      </details>
+          {createStudy.error && (
+            <p role="alert" className="error-text">{createStudy.error.message}</p>
+          )}
+        </form>
+      )}
+      lista={!mostrarForm && (
+        <>
+          {!loadingStudies && studies.length > 0 && (
+            <TechniqueListHead titulo="Continuar un Card Sorting" cantidad={studies.length} />
+          )}
 
-      <section className="panel mt-16">
-        <div className="panel-head">
-          <div>
-            <h2>Continuar un Card Sorting</h2>
-          </div>
-          <span className="count">{studies.length}</span>
-        </div>
-
-        {loadingStudies ? (
-          <p className="text-muted-sm">Cargando estudios…</p>
-        ) : studies.length === 0 ? (
-          <p className="text-muted-sm">Todavía no hay estudios de Card Sorting.</p>
-        ) : (
-          <div className="cs-study-list">
-            {studies.map((study) => (
-              <button
-                key={study.id}
-                type="button"
-                className="cs-study-row"
-                onClick={() => navigate(`/proyectos/${proyectoId}/card-sorting/${study.id}`)}
-              >
-                <span>
-                  <strong>{study.nombre}</strong>
-                  <small>
-                    {TYPE_LABELS[study.tipoCardSorting ?? 'ABIERTO']} ·{' '}
-                    {study.cardsDefinidas.length} tarjetas · {study.respuestasCount ?? 0}{' '}
-                    {(study.respuestasCount ?? 0) === 1 ? 'respuesta' : 'respuestas'}
-                  </small>
-                </span>
-                <span className={`cs-status${study.cerrado ? ' closed' : ''}`}>
-                  {study.cerrado ? 'Cerrado' : 'Recibiendo respuestas'}
-                </span>
-                <time dateTime={study.createdAt}>{formatDate(study.createdAt)}</time>
-                <span aria-hidden="true">→</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </section>
-      <ComentariosTecnica proyectoId={proyectoId} tecnica="card-sorting" />
-    </div>
+          {loadingStudies ? (
+            <p className="text-muted-sm">Cargando estudios…</p>
+          ) : studies.length === 0 ? (
+            <TechniqueEmpty
+              icono={<Icon name="card-sorting" size={28} />}
+              titulo="Todavía no hay estudios de Card Sorting"
+              texto="Usa + Nuevo Card Sorting para crear el primer estudio del proyecto."
+            />
+          ) : (
+            <div className="cs-study-list">
+              {studies.map((study) => {
+                const abrir = () => navigate(`/proyectos/${proyectoId}/card-sorting/${study.id}`);
+                return (
+                  <div key={study.id} className="cs-study-row" onClick={abrir}>
+                    <span>
+                      <strong>{study.nombre}</strong>
+                      <small>
+                        {TYPE_LABELS[study.tipoCardSorting ?? 'ABIERTO']} ·{' '}
+                        {study.cardsDefinidas.length} tarjetas · {study.respuestasCount ?? 0}{' '}
+                        {(study.respuestasCount ?? 0) === 1 ? 'respuesta' : 'respuestas'}
+                      </small>
+                    </span>
+                    <span className={`cs-status${study.cerrado ? ' closed' : ''}`}>
+                      {study.cerrado ? 'Cerrado' : 'Recibiendo respuestas'}
+                    </span>
+                    <time dateTime={study.createdAt}>{formatDate(study.createdAt)}</time>
+                    <div onClick={(event) => event.stopPropagation()}>
+                      <TechniqueItemActions etiquetaConsultar="Abrir" onConsultar={abrir} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+      comentarios={<ComentariosTecnica proyectoId={proyectoId} tecnica="card-sorting" />}
+    />
   );
 }

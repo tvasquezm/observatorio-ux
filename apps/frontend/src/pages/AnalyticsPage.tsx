@@ -3,12 +3,13 @@
 // Analítica agregada del proyecto. A diferencia del mockup de referencia,
 // NO incluye SUS score ni NPS: esas métricas no existen en el modelo de
 // datos (no hay ninguna sesión de encuesta que las produzca). Lo que se
-// muestra acá sale de GET /projects/:id/evaluacion-heuristica/analytics,
-// calculado sobre hallazgos reales.
+// muestra acá sale de las evaluaciones heurísticas del flujo nuevo
+// (GET /projects/:id/evaluacion-heuristica/evaluaciones): solo cuentan los
+// problemas acordados de la versión más reciente de cada evaluación.
 
 import { useOutletContext } from 'react-router-dom';
 import type { ProjectOutletContext } from '../layouts/ProjectDetailLayout';
-import { useAnaliticaHeuristica } from '../features/evaluacion-heuristica/hooks/useEvaluacionHeuristicaQueries';
+import { useAnaliticaHeuristica } from '../features/heuristica-flujo/useAnaliticaHeuristica';
 import { usePersonas } from '../features/persona/hooks/usePersonaQueries';
 import { useJourneys } from '../features/journey-map/hooks/useJourneyMapQueries';
 import { useCriticalMoments } from '../features/momentos-criticos/hooks/useMomentosCriticosQueries';

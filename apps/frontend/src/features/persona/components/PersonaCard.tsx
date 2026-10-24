@@ -1,14 +1,15 @@
 import type { ReactNode } from 'react';
+import { AnilloAvance } from '../../../shared/components/AnilloAvance';
 import { TechniqueProcess } from '../../../shared/components/TechniqueProcess';
 import type { PersonaArtifact, PersonaContenido } from '../api/persona.api';
 import { ETIQUETAS_CAMPOS, iniciales, procesoPersona } from '../persona-visual';
 
 type CampoLista = 'objetivos' | 'necesidades' | 'motivaciones' | 'frustraciones' | 'comportamientos' | 'expectativas';
 
-const COLUMNAS: { titulo: string; campos: CampoLista[] }[] = [
-  { titulo: 'Quiere lograr', campos: ['objetivos', 'necesidades', 'motivaciones'] },
-  { titulo: 'Le frustra', campos: ['frustraciones'] },
-  { titulo: 'Cómo actúa', campos: ['comportamientos', 'expectativas'] },
+const COLUMNAS: { titulo: string; tono: string; campos: CampoLista[] }[] = [
+  { titulo: 'Quiere lograr', tono: 'meta', campos: ['objetivos', 'necesidades', 'motivaciones'] },
+  { titulo: 'Le frustra', tono: 'barrera', campos: ['frustraciones'] },
+  { titulo: 'Cómo actúa', tono: 'conducta', campos: ['comportamientos', 'expectativas'] },
 ];
 
 const DETALLE_TEXTO = [
@@ -24,6 +25,7 @@ interface Props {
 export function PersonaCard({ persona, acciones }: Props) {
   const c: PersonaContenido = persona.contenido;
   const validada = c.estadoValidacion === 'VALIDADA';
+  const obligatorias = procesoPersona(c).filter((paso) => !paso.opcional);
   const demografia = [c.ocupacion, c.edad !== undefined ? `${c.edad} años` : null].filter(Boolean).join(' · ');
 
   return (
@@ -34,6 +36,13 @@ export function PersonaCard({ persona, acciones }: Props) {
           <h3 id={`persona-name-${persona.id}`}>{c.nombreCompleto}</h3>
           <p>{demografia || 'Sin datos demográficos registrados'}</p>
         </div>
+        <AnilloAvance
+          className="tv-persona-anillo"
+          hecho={obligatorias.filter((paso) => paso.done).length}
+          total={obligatorias.length}
+          etiqueta="fases obligatorias"
+          tamano={44}
+        />
         <div className="tv-persona-badges">
           <span className={validada ? 'count' : 'short-id'}>{validada ? 'Validada' : 'Validación pendiente'}</span>
           <span className="text-muted-xs">Versión {persona.version}</span>
@@ -44,7 +53,7 @@ export function PersonaCard({ persona, acciones }: Props) {
 
       <div className="tv-persona-cols">
         {COLUMNAS.map((columna) => (
-          <section key={columna.titulo} className="tv-persona-col">
+          <section key={columna.titulo} className={`tv-persona-col tv-persona-col--${columna.tono}`}>
             <h4>{columna.titulo}</h4>
             {columna.campos.map((campo) => (
               <div key={campo} className="tv-persona-group">

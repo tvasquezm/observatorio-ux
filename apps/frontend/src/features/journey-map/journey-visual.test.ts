@@ -35,6 +35,10 @@ describe('journey-visual', () => {
     expect(procesoJourney(completo).map((s) => s.done)).toEqual([true, true, true, true, true, true]);
   });
 
+  it('marca como opcionales el objetivo y la evidencia', () => {
+    expect(procesoJourney(completo).filter((s) => s.opcional).map((s) => s.id)).toEqual(['objetivo', 'evidencia']);
+  });
+
   it('marca pendientes los pasos sin datos', () => {
     const vacio: JourneyMapContenido = {
       perfilUsuario: { id: 'p1', nombre: '', rol: 'Rol' },
