@@ -45,7 +45,7 @@ describe('escala de respuesta de la revisión', () => {
   it('parte con la escala de la metodología y muestra sus niveles', () => {
     render(<Editor />);
     expect(selector()).toHaveValue('metodologia');
-    expect(screen.getByLabelText('Niveles de la escala elegida')).toHaveTextContent(actual.metodologia.escala.niveles[0].etiqueta);
+    expect(screen.getByLabelText('Vista previa de la revisión')).toHaveTextContent(actual.metodologia.escala.niveles[0].etiqueta);
   });
   it.each([['si_no', ['Sí', 'No']], ['likert_1_5', ['No cumple', 'Cumple totalmente']], ['nielsen_0_4', ['Sin problema', 'Catastrófico']], ['operativa', ['Cumple', 'No cumple']]])('aplica %s a toda la revisión y limpia escalas propias', async (opcion, etiquetas) => {
     render(<Editor />);

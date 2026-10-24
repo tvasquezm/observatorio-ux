@@ -3101,3 +3101,16 @@ div:has(> .project-section > .hf) > .project-heading p { margin:4px 0 0; font-si
   .hf .hf-matriz .hf-celda { min-height: 44px; width: 100%; }
   .hf .hf-celda-txt { position: static; width: auto; height: auto; clip: auto; white-space: normal; }
 }
+
+.hf .hf-volver { margin: 0 0 12px; background: var(--surface); border: 1px solid var(--primary); color: var(--primary); font-weight: 600; }
+.hf .hf-volver:hover { background: var(--surface-alt); }
+.hf .hf-cat { margin: 8px 0; }
+.hf .hf-avance { margin: 2px 0 4px; }
+.hf .hf-enunciado { margin: 2px 0 4px; }
+.hf .hf-tabla-wrap { margin: 4px 0 8px; }
+.hf .hf-matriz-barra { margin: 4px 0; }
+.hf .hf-vistas { margin-bottom: 6px; }
+.hf .hf-espacio .page-head { margin-bottom: 4px; }
+.hf .hf-revision-distribucion > .hf-preguntas-barra { padding: 4px 0; }
+.hf .hf-revision-distribucion:has(> .hf-preguntas-barra) > .hf-contenido { padding: 4px 0; }
+@media (min-width: 651px) { .hf .hf-matriz th, .hf .hf-matriz td { padding: 6px 8px; } }
