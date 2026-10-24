@@ -28,8 +28,16 @@ export const PersonaSchema = z.object({
     .describe('Ocupación, profesión o cargo de la persona.'),
   fotografiaUrl: z
     .string()
-    .url('Debe ser una URL válida.')
-    .optional(),
+.refine((value) => {
+  // Se permiten imágenes locales comprimidas en formato data URL.
+  if (/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(value)) {
+    return value.length <= 2_200_000;
+  }
+
+  // Validar URL HTTP(S) sin depender del tipo global URL.
+  return /^https?:\/\/[^\s/?#]+(?:[/?#][^\s]*)?$/i.test(value);
+}, 'Debe ser una URL HTTP(S) válida o una imagen local permitida.')
+.optional(),
   acercaDe: z
     .string()
     .max(2000)
