@@ -3,9 +3,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { copiarMetodologia, escalaPredefinida, METODOLOGIAS_HEURISTICAS } from '@observatorio-ux/shared-types';
-import type { ConfiguracionFlujo, DecisionCriterio, MetodologiaFlujo, RespuestaCriterio } from '@observatorio-ux/shared-types';
+import type { ConfiguracionFlujo, DecisionCriterio, HallazgoFlujo, MetodologiaFlujo, RespuestaCriterio } from '@observatorio-ux/shared-types';
 import { MatrizItem } from './MatrizItem';
 import type { EstadoGuardado, IndividualEquipo } from './MatrizItem';
+import { hallazgoVacio } from './flujo-utils';
 
 const metodo = (id: string) => copiarMetodologia(METODOLOGIAS_HEURISTICAS.find(m => m.id === id)!);
 const configDe = (m: MetodologiaFlujo): ConfiguracionFlujo => ({ nombre: 'R', producto: { clave: 'p', nombre: 'P', version: '1', url: '', dispositivo: 'web' }, objetivo: '', tareas: '', pantallas: '', exclusiones: '', metodologia: m, evaluadorIds: [], lectorIds: [] });
@@ -186,5 +187,48 @@ describe('MatrizItem en modo equipo', () => {
     expect(screen.queryByText('Falta el comentario del equipo')).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: /^Listo/ }));
     expect(screen.getByRole('button', { name: /^Comentario agregado, pendiente de guardar/ })).toBeInTheDocument();
+  });
+});
+
+describe('MatrizItem con el formulario de problemas dentro de la fila', () => {
+  const dos = () => { const m = metodo('nielsen10'); m.criterios = m.criterios.slice(0, 2); return m; };
+  function ConProblemas({ m, conRender = true }: { m: MetodologiaFlujo; conRender?: boolean }) {
+    const [hs, setHs] = useState<HallazgoFlujo[]>([]);
+    const [abiertos, setAbiertos] = useState<ReadonlySet<string>>(new Set());
+    const alternar = (cid: string) => setAbiertos(p => { const n = new Set(p); if (n.has(cid)) n.delete(cid); else n.add(cid); return n; });
+    return <MatrizItem criterios={m.criterios} config={configDe(m)} respuestas={[]} modo="individual" onChange={vi.fn()} hallazgos={hs}
+      onAddHallazgo={cid => { setHs(p => [...p, hallazgoVacio(cid)]); setAbiertos(p => new Set(p).add(cid)); }}
+      problemasAbiertos={abiertos} onToggleProblemas={alternar} renderProblemas={conRender ? cid => <p>Formulario de {cid}</p> : undefined} />;
+  }
+  it('Agregar problema abre el formulario en la fila inmediata de la pregunta', async () => {
+    const m = dos(); render(<ConProblemas m={m} />);
+    const filas = () => screen.getAllByRole('row').filter(r => within(r).queryAllByRole('radio').length > 0);
+    await userEvent.click(within(filas()[0]).getByRole('button', { name: /^Agregar problema/ }));
+    expect(filas()[0].nextElementSibling).toHaveTextContent(`Formulario de ${m.criterios[0].id}`);
+    expect(screen.getAllByText(/^Formulario de /)).toHaveLength(1);
+  });
+  it('el contador de problemas abre y cierra la fila', async () => {
+    render(<ConProblemas m={dos()} />);
+    await userEvent.click(screen.getAllByRole('button', { name: /^Agregar problema/ })[0]);
+    const contador = screen.getByRole('button', { name: /^1 problema/ });
+    expect(contador).toHaveAttribute('aria-expanded', 'true');
+    await userEvent.click(contador);
+    expect(contador).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByText(/^Formulario de /)).toBeNull();
+    await userEvent.click(contador);
+    expect(screen.getByText(/^Formulario de /)).toBeInTheDocument();
+  });
+  it('sin renderProblemas no hay fila ni contador interactivo', async () => {
+    render(<ConProblemas m={dos()} conRender={false} />);
+    await userEvent.click(screen.getAllByRole('button', { name: /^Agregar problema/ })[0]);
+    expect(screen.getByText('1 problema')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^1 problema/ })).toBeNull();
+    expect(screen.queryByText(/^Formulario de /)).toBeNull();
+  });
+  it('en modo equipo no hay Agregar problema ni fila de problemas', () => {
+    const m = dos();
+    render(<MatrizItem criterios={m.criterios} config={configDe(m)} respuestas={[]} modo="equipo" onChange={vi.fn()} renderProblemas={cid => <p>Formulario de {cid}</p>} />);
+    expect(screen.queryByRole('button', { name: /^Agregar problema/ })).toBeNull();
+    expect(screen.queryByText(/^Formulario de /)).toBeNull();
   });
 });

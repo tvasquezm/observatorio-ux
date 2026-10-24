@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useId, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { acuerdoDifiere, escalaDe } from '@observatorio-ux/shared-types';
 import type { ConfiguracionFlujo, CriterioFlujo, DecisionCriterio, EscalaFlujo, HallazgoFlujo, RespuestaCriterio } from '@observatorio-ux/shared-types';
 import { criterioRespondido, respuestaVacia } from './flujo-utils';
@@ -22,6 +23,13 @@ interface Props {
   foco?: string;
   /** Aviso al cambiar de sección con Anterior/Siguiente: primer criterio de la sección abierta. */
   onFoco?: (criterioId: string) => void;
+  /** Preguntas con el formulario de problemas abierto bajo su fila (solo con `renderProblemas`). */
+  problemasAbiertos?: ReadonlySet<string>;
+  onToggleProblemas?: (criterioId: string) => void;
+  /** Contenido de los problemas de una pregunta; se muestra en una fila bajo la pregunta. */
+  renderProblemas?: (criterioId: string) => ReactNode;
+  /** Impide cambiar de sección: lo que hay abierto en las filas se perdería. */
+  bloqueado?: boolean;
 }
 interface Subgrupo { escala: EscalaFlujo; criterios: CriterioFlujo[] }
 export interface Grupo { categoria: string; criterios: CriterioFlujo[]; subgrupos: Subgrupo[] }
@@ -49,7 +57,7 @@ type Marca = 'ninguna' | 'pendiente' | 'guardado' | 'error';
 const textoRespuesta = (r: RespuestaCriterio | undefined, niveles: EscalaFlujo['niveles']) => !r ? 'Sin evaluar' : r.noAplica ? 'No aplica' : niveles.find(n => n.id === r.valor)?.etiqueta ?? 'Sin evaluar';
 
 /** Tabla calificable: una por ítem, con título y enunciado siempre visibles. */
-export function MatrizItem({ criterios, config, respuestas, modo, individuales = [], onChange, hallazgos = [], editable = true, onAddHallazgo, guardado = { dirty: false, saving: false, error: '' }, foco, onFoco }: Props) {
+export function MatrizItem({ criterios, config, respuestas, modo, individuales = [], onChange, hallazgos = [], editable = true, onAddHallazgo, guardado = { dirty: false, saving: false, error: '' }, foco, onFoco, problemasAbiertos, onToggleProblemas, renderProblemas, bloqueado = false }: Props) {
   const id = useId();
   const esEquipo = modo === 'equipo';
   const propiasDe = (cid: string) => individuales.map(i => ({ i, r: i.respuestas.find(x => x.criterioId === cid) }));
@@ -88,7 +96,9 @@ export function MatrizItem({ criterios, config, respuestas, modo, individuales =
     const marca = marcaDe(r);
     const abierto = abiertos.has(c.id);
     const nombre = `${id}-${c.id}`;
-    const problemas = hallazgos.filter(h => h.criterioIds.includes(c.id)).length;
+    const problemas = hallazgos.filter(h => renderProblemas ? h.criterioIds[0] === c.id : h.criterioIds.includes(c.id)).length;
+    const textoProblemas = problemas === 1 ? '1 problema' : `${problemas} problemas`;
+    const problemasVisibles = !!renderProblemas && problemas > 0 && !!problemasAbiertos?.has(c.id);
     const ok = criterioRespondido(config, c, respuestas.find(x => x.criterioId === c.id));
     return <Fragment key={c.id}>
       <tr data-respondido={ok || undefined}>
@@ -99,7 +109,7 @@ export function MatrizItem({ criterios, config, respuestas, modo, individuales =
           <button type="button" className="ghost" aria-expanded={abierto} aria-controls={`${nombre}-c`} onClick={() => alternar(c.id)}>Comentario{esEquipo ? ' del equipo' : ''}<span className="sr-only"> de {c.nombre}</span></button>
           {marca !== 'ninguna' && !abierto && <button type="button" className={`hf-marca hf-marca-${marca}`} title={texto} role={marca === 'error' ? 'alert' : undefined} aria-label={`${marca === 'guardado' ? 'Comentario guardado' : marca === 'error' ? 'No se pudo guardar el comentario' : 'Comentario agregado, pendiente de guardar'}. Editar comentario de ${c.nombre}`} onClick={() => alternar(c.id)}>{marca === 'guardado' ? 'Comentario guardado' : marca === 'error' ? 'No se pudo guardar el comentario' : 'Comentario agregado, pendiente de guardar'}</button>}
           {editable && onAddHallazgo && <button type="button" className="secondary" onClick={() => onAddHallazgo(c.id)}>Agregar problema<span className="sr-only"> para {c.nombre}</span></button>}
-          {problemas > 0 && <span className="hf-ayuda">{problemas === 1 ? '1 problema' : `${problemas} problemas`}</span>}
+          {problemas > 0 && (renderProblemas && onToggleProblemas ? <button type="button" className="hf-contador-problemas" aria-expanded={problemasVisibles} aria-controls={`${nombre}-pr`} onClick={() => onToggleProblemas(c.id)}>{textoProblemas}<span className="sr-only"> de {c.nombre}</span></button> : <span className="hf-ayuda">{textoProblemas}</span>)}
           {exige && !texto.trim() && <span className="hf-ayuda">Falta el comentario del equipo</span>}
         </td>
       </tr>
@@ -114,6 +124,7 @@ export function MatrizItem({ criterios, config, respuestas, modo, individuales =
         {r.motivo && <p className="hf-ayuda">Nota anterior: {r.motivo}</p>}
         <button type="button" className="secondary" onClick={() => alternar(c.id)}>Listo<span className="sr-only">: comentario de {c.nombre}</span></button>
       </td></tr>}
+      {problemasVisibles && <tr id={`${nombre}-pr`} className="hf-fila-problemas"><td colSpan={niveles.length + 3}>{renderProblemas?.(c.id)}</td></tr>}
     </Fragment>;
   }
 
@@ -143,8 +154,8 @@ export function MatrizItem({ criterios, config, respuestas, modo, individuales =
         </section>;
       })}
     {!esEquipo && grupos.length > 1 && !unaTabla && <div className="hf-navegar">
-      <button type="button" className="secondary" disabled={a <= 0} onClick={() => irA(a - 1)}><span aria-hidden="true">←</span> Sección anterior</button>
-      <button type="button" className="secondary" disabled={a >= grupos.length - 1} onClick={() => irA(a + 1)}>Sección siguiente <span aria-hidden="true">→</span></button>
+      <button type="button" className="secondary" disabled={bloqueado || a <= 0} onClick={() => irA(a - 1)}><span aria-hidden="true">←</span> Sección anterior</button>
+      <button type="button" className="secondary" disabled={bloqueado || a >= grupos.length - 1} onClick={() => irA(a + 1)}>Sección siguiente <span aria-hidden="true">→</span></button>
     </div>}
   </div>;
 }

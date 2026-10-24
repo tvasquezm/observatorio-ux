@@ -146,12 +146,11 @@ describe('flujo individual', () => {
     const e = evaluation(); renderFlow(<Harness initial={e} />);
     await userEvent.click(screen.getByRole('radio', { name: e.configuracion.metodologia.escala.niveles[0].etiqueta }));
     await userEvent.click(screen.getByRole('button', { name: `Agregar problema para ${e.configuracion.metodologia.criterios[0].nombre}` }));
-    const resumen = screen.getByText('Problema 1 sin título');
-    const panel = resumen.closest('details')!;
-    await userEvent.click(resumen);
-    expect(panel).not.toHaveAttribute('open');
+    const contador = screen.getByRole('button', { name: /^1 problema/ });
+    await userEvent.click(contador);
+    expect(screen.queryByRole('textbox', { name: 'Título del problema' })).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Entregar mi evaluación' }));
-    await waitFor(() => expect(panel).toHaveAttribute('open'));
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Título del problema' })).toBeInTheDocument());
     expect(screen.getByRole('alert')).toHaveTextContent('título y descripción');
   });
   it('retiene texto cuando falla guardado, muestra error y permite reintentar', async () => {

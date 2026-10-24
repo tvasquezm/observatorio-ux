@@ -2899,6 +2899,9 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .hf .hf-preguntas .tv-anillo { grid-column: 1 / -1; justify-self: start; }
 .hf .hf-preguntas .hf-actions { grid-column: 1 / -1; margin: 4px 0; }
 .hf .hf-problemas { border-top: 1px solid var(--line); padding-top: 8px; }
+.hf .hf-matriz .hf-fila-problemas td { text-align: left; background: var(--surface-alt); }
+.hf .hf-matriz .hf-fila-problemas fieldset { text-align: left; }
+.hf .hf-contador-problemas { background: none; border: 0; padding: 0; min-height: 0; font-size: 14px; color: var(--primary); text-decoration: underline; cursor: pointer; }
 @media (max-width: 600px) { .hf .hf-preguntas { grid-template-columns: minmax(0,1fr); } }
 
 .hf .hf-no-aplica { align-self: center; margin: 0; padding: 10px 12px; color: var(--positive-text); background: var(--surface-alt); border-left: 3px solid var(--positive-text); font-size: 14px; }

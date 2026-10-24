@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react';
+import { useId, useState } from 'react';
 import { escalaDe } from '@observatorio-ux/shared-types';
 import type { ConfiguracionFlujo, EvaluacionFlujo, HallazgoFlujo, RespuestaCriterio } from '@observatorio-ux/shared-types';
 import { AnilloAvance } from '../../shared/components/AnilloAvance';
@@ -38,15 +38,14 @@ export function SaveStatus({ dirty, saving, error, lastSaved, save, reloadRevisi
   return <div className="hf-actions"><button type="button" className="ghost" disabled={saving} onClick={() => void save().catch(() => {})}>Guardar cambios</button><span role="status" className="hf-status">{saving ? 'Guardando…' : dirty ? 'Cambios sin guardar' : 'Cambios guardados'}{lastSaved && ` · Último guardado: ${new Date(lastSaved).toLocaleString()}`}</span>{error && <><p role="alert" className="hf-error">{error} El borrador se conserva. Reintenta Guardar.</p>{reloadRevision && <button type="button" className="secondary" disabled={saving} onClick={() => void reloadRevision().catch(e => setReloadError(e instanceof Error ? e.message : 'No se pudo recargar'))}>Recargar revisión conservando mi borrador</button>}</>}{reloadError && <p role="alert">{reloadError}</p>}{remote != null && <details><summary>Revisar datos guardados en servidor antes de reintentar</summary><p>Tu borrador permanece en el editor. Guardar lo aplicará a la revisión recargada.</p><pre>{JSON.stringify(remote, null, 2)}</pre></details>}</div>;
 }
 export function TrabajoEditor({ evaluacion, usuarioId, onSaved, onBack }: { evaluacion: EvaluacionFlujo; usuarioId: string; onSaved: (e: EvaluacionFlujo) => void; onBack: () => void }) {
-  const problemasRef = useRef<HTMLDetailsElement>(null);
-  const [hallazgoAbierto, setHallazgoAbierto] = useState<string | null>(null);
+  const [problemasAbiertos, setProblemasAbiertos] = useState<ReadonlySet<string>>(new Set());
   const [mostrarFaltantes, setMostrarFaltantes] = useState(false);
   const claveIndice = `heuristica:preg:${evaluacion.id}:${usuarioId}`;
   const totalPreguntas = evaluacion.configuracion.metodologia.criterios.length;
   const [indice, setIndiceInterno] = useState(() => { const n = Number(leerSesion(claveIndice)); return Number.isInteger(n) && n >= 0 && n < totalPreguntas ? n : 0; });
   const setIndice = (i: number) => { setIndiceInterno(i); guardarSesion(claveIndice, String(i)); };
   const [verEquipo, setVerEquipo] = useState(false);
-  const irAIndice = (i: number) => setIndice(i);
+  const irAIndice = (i: number) => { if (!pending) setIndice(i); };
   const criterioActual = evaluacion.configuracion.metodologia.criterios[indice];
   const trabajo = evaluacion.trabajos.find(t => t.evaluadorId === usuarioId);
   const [evidencePending, setEvidencePending] = useState<Record<string, boolean>>({});
@@ -57,11 +56,16 @@ export function TrabajoEditor({ evaluacion, usuarioId, onSaved, onBack }: { eval
   const editable = evaluacion.fase === 'EN_EVALUACION' && !!trabajo && !trabajo.entregadoEn;
   const update = (h: HallazgoFlujo) => state.setDraft({ ...state.draft, hallazgos: state.draft.hallazgos.map(x => x.id === h.id ? h : x) });
   const faltantes = mostrarFaltantes ? pendientesTrabajo(evaluacion.configuracion, state.draft.respuestas, state.draft.hallazgos) : [];
+  const abrirProblemas = (criterioId: string) => setProblemasAbiertos(prev => new Set(prev).add(criterioId));
+  const alternarProblemas = (criterioId: string) => {
+    if (problemasAbiertos.has(criterioId) && state.draft.hallazgos.some(h => h.criterioIds[0] === criterioId && evidencePending[h.id])) return;
+    setProblemasAbiertos(prev => { const n = new Set(prev); if (n.has(criterioId)) n.delete(criterioId); else n.add(criterioId); return n; });
+  };
   function agregarHallazgo(criterioId: string) {
     const h = hallazgoVacio(criterioId);
     const i = evaluacion.configuracion.metodologia.criterios.findIndex(c => c.id === criterioId); if (i >= 0) setIndice(i);
     state.setDraft({ ...state.draft, hallazgos: [...state.draft.hallazgos, h] });
-    setHallazgoAbierto(h.id); if (problemasRef.current) problemasRef.current.open = true;
+    abrirProblemas(criterioId);
   }
   const completos = evaluacion.configuracion.metodologia.criterios.filter(c => criterioRespondido(evaluacion.configuracion, c, state.draft.respuestas.find(r => r.criterioId === c.id))).length;
   function irAPendiente() {
@@ -70,14 +74,16 @@ export function TrabajoEditor({ evaluacion, usuarioId, onSaved, onBack }: { eval
     if (i >= 0) setIndice(i);
     else {
       const h = state.draft.hallazgos.find(h => !h.titulo.trim() || !h.descripcion.trim() || !h.criterioIds.length);
-      if (h) { const i = evaluacion.configuracion.metodologia.criterios.findIndex(c => h.criterioIds.includes(c.id)); setIndice(Math.max(0, i)); setHallazgoAbierto(h.id); if (problemasRef.current) problemasRef.current.open = true; }
+      if (h) { const i = evaluacion.configuracion.metodologia.criterios.findIndex(c => c.id === h.criterioIds[0]); setIndice(Math.max(0, i)); if (h.criterioIds.length) abrirProblemas(h.criterioIds[0]); }
     }
   }
-  const tieneProblemasAqui = state.draft.hallazgos.some(h => h.criterioIds.includes(criterioActual?.id ?? ''));
-  const problemas = <details ref={problemasRef} className="hf-problemas" open={tieneProblemasAqui}><summary>Problemas encontrados &middot; {state.draft.hallazgos.filter(h => !h.criterioIds.length || h.criterioIds.includes(criterioActual?.id ?? '')).length}</summary>{state.draft.hallazgos.map((h, i) => <details key={h.id} name={`hallazgos-${evaluacion.id}`} hidden={h.criterioIds.length > 0 && !h.criterioIds.includes(criterioActual?.id ?? '')} open={h.id === hallazgoAbierto} onToggle={e => { const abierto = e.currentTarget.open; setHallazgoAbierto(actual => abierto ? h.id : actual === h.id ? null : actual); }}><summary>{h.titulo || `Problema ${i + 1} sin título`}</summary><fieldset><legend>Problema {i + 1}: {h.titulo || 'Sin título'}</legend><fieldset disabled={!editable || busy}><legend>Datos del problema</legend><HallazgoEditor value={h} config={evaluacion.configuracion} onChange={update} /></fieldset>
+  const bloqueProblema = (h: HallazgoFlujo, i: number) => <fieldset key={h.id}><legend>Problema {i + 1}: {h.titulo || 'Sin título'}</legend><fieldset disabled={!editable || busy}><legend>Datos del problema</legend><HallazgoEditor value={h} config={evaluacion.configuracion} onChange={update} /></fieldset>
         <EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={h.evidenciaIds} editable={editable && !busy} onChange={ids => state.setDraft(prev => ({ ...prev, hallazgos: prev.hallazgos.map(x => x.id === h.id ? { ...x, evidenciaIds: ids } : x) }))} onPendingChange={value => setEvidencePending(prev => prev[h.id] === value ? prev : { ...prev, [h.id]: value })} />
         {editable && <button type="button" className="danger" disabled={!!evidencePending[h.id] || busy} onClick={() => state.setDraft({ ...state.draft, hallazgos: state.draft.hallazgos.filter(x => x.id !== h.id) })}>Quitar problema {i + 1}</button>}
-      </fieldset></details>)}</details>;
+      </fieldset>;
+  const problemasDe = (criterioId: string) => state.draft.hallazgos.map((h, i) => h.criterioIds[0] === criterioId ? bloqueProblema(h, i) : null);
+  const sinPregunta = state.draft.hallazgos.filter(h => !h.criterioIds.length);
+  const problemas = sinPregunta.length > 0 && <details className="hf-problemas" open><summary>Problemas sin pregunta relacionada &middot; {sinPregunta.length}</summary>{state.draft.hallazgos.map((h, i) => h.criterioIds.length ? null : bloqueProblema(h, i))}</details>;
   return <>
     <button type="button" className="secondary hf-volver" onClick={async () => { if (await state.confirmLeave()) onBack(); }}><span aria-hidden="true">←</span> Volver</button>
     <section className="panel hf-espacio"><div className="page-head"><div><h2>{evaluacion.configuracion.nombre}</h2><p>{editable ? 'Califica cada pregunta en su tabla. Tu trabajo es privado.' : trabajo?.entregadoEn ? 'Trabajo entregado. Tus respuestas están cerradas.' : 'Esperando la entrega de los expertos. Sus trabajos permanecen independientes.'}</p></div><span className="badge">{trabajo?.entregadoEn ? 'Entregada' : 'En revisión'}</span></div>
@@ -89,7 +95,7 @@ export function TrabajoEditor({ evaluacion, usuarioId, onSaved, onBack }: { eval
     {trabajo && <div hidden={verEquipo} className="hf-trabajo-individual">
       <div className="hf-revision-distribucion"><NavegadorPreguntas config={evaluacion.configuracion} respuestas={state.draft.respuestas} indice={indice} onChange={irAIndice}><div className="hf-resumen-compacto" aria-label="Resumen de mi revisión"><span>{state.draft.respuestas.filter(r => r.noAplica && r.valor === null).length} no aplican</span><span>{state.draft.hallazgos.length === 1 ? '1 problema registrado' : `${state.draft.hallazgos.length} problemas registrados`}</span></div></NavegadorPreguntas>
       <div className="hf-contenido">
-        <fieldset disabled={busy}><legend className="sr-only">Responde las preguntas</legend><MatrizItem criterios={evaluacion.configuracion.metodologia.criterios} config={evaluacion.configuracion} respuestas={state.draft.respuestas} modo="individual" editable={editable} guardado={{ dirty: state.dirty, saving: state.saving, error: state.error }} foco={criterioActual?.id} onFoco={id => { const i = evaluacion.configuracion.metodologia.criterios.findIndex(c => c.id === id); if (i >= 0) setIndice(i); }} hallazgos={state.draft.hallazgos} onAddHallazgo={agregarHallazgo} onChange={r => state.setDraft({ ...state.draft, respuestas: [...state.draft.respuestas.filter(x => x.criterioId !== r.criterioId), r] })} /></fieldset>
+        <fieldset disabled={busy}><legend className="sr-only">Responde las preguntas</legend><MatrizItem criterios={evaluacion.configuracion.metodologia.criterios} config={evaluacion.configuracion} respuestas={state.draft.respuestas} modo="individual" editable={editable} guardado={{ dirty: state.dirty, saving: state.saving, error: state.error }} foco={criterioActual?.id} onFoco={id => { const i = evaluacion.configuracion.metodologia.criterios.findIndex(c => c.id === id); if (i >= 0) setIndice(i); }} hallazgos={state.draft.hallazgos} onAddHallazgo={agregarHallazgo} problemasAbiertos={problemasAbiertos} onToggleProblemas={alternarProblemas} renderProblemas={problemasDe} bloqueado={pending} onChange={r => state.setDraft({ ...state.draft, respuestas: [...state.draft.respuestas.filter(x => x.criterioId !== r.criterioId), r] })} /></fieldset>
         {problemas}
       </div></div>
       <footer className="hf-pie-trabajo">
@@ -98,7 +104,7 @@ export function TrabajoEditor({ evaluacion, usuarioId, onSaved, onBack }: { eval
         if (errores.length) { irAPendiente(); return; }
         setMostrarFaltantes(false);
         setBusy(true); try { await state.save(); onSaved(await flujoRequest<EvaluacionFlujo>(evaluacion.proyectoId, `/evaluaciones/${evaluacion.id}/entregar`, 'POST', { revision: state.getRevision() })); } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo entregar'); } finally { setBusy(false); }
-      }}>Entregar mi evaluación</button>{pending && <p role="status">Guarda las anotaciones y espera las capturas antes de entregar.</p>}</>}
+      }}>Entregar mi evaluación</button>{pending && <p role="status">Guarda las anotaciones y espera las capturas antes de entregar o cambiar de pregunta.</p>}</>}
       {faltantes.length > 0 && <div role="alert" className="hf-error"><strong>Antes de entregar, revisa este pendiente:</strong><p>{faltantes[0]}</p><button type="button" className="secondary" onClick={irAPendiente}>Revisar pendiente</button></div>}
       </footer>
     </div>}
