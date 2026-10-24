@@ -192,13 +192,13 @@ describe('MatrizItem en modo equipo', () => {
 
 describe('MatrizItem con el formulario de problemas dentro de la fila', () => {
   const dos = () => { const m = metodo('nielsen10'); m.criterios = m.criterios.slice(0, 2); return m; };
-  function ConProblemas({ m, conRender = true }: { m: MetodologiaFlujo; conRender?: boolean }) {
+  function ConProblemas({ m, conRender = true, bloqueado = false }: { m: MetodologiaFlujo; conRender?: boolean; bloqueado?: boolean }) {
     const [hs, setHs] = useState<HallazgoFlujo[]>([]);
     const [abiertos, setAbiertos] = useState<ReadonlySet<string>>(new Set());
     const alternar = (cid: string) => setAbiertos(p => { const n = new Set(p); if (n.has(cid)) n.delete(cid); else n.add(cid); return n; });
     return <MatrizItem criterios={m.criterios} config={configDe(m)} respuestas={[]} modo="individual" onChange={vi.fn()} hallazgos={hs}
       onAddHallazgo={cid => { setHs(p => [...p, hallazgoVacio(cid)]); setAbiertos(p => new Set(p).add(cid)); }}
-      problemasAbiertos={abiertos} onToggleProblemas={alternar} renderProblemas={conRender ? cid => <p>Formulario de {cid}</p> : undefined} />;
+      problemasAbiertos={abiertos} onToggleProblemas={alternar} renderProblemas={conRender ? cid => <p>Formulario de {cid}</p> : undefined} bloqueado={bloqueado} />;
   }
   it('Agregar problema abre el formulario en la fila inmediata de la pregunta', async () => {
     const m = dos(); render(<ConProblemas m={m} />);
@@ -217,6 +217,22 @@ describe('MatrizItem con el formulario de problemas dentro de la fila', () => {
     expect(screen.queryByText(/^Formulario de /)).toBeNull();
     await userEvent.click(contador);
     expect(screen.getByText(/^Formulario de /)).toBeInTheDocument();
+  });
+  it('Listo cierra la fila de problemas y el contador la reabre', async () => {
+    render(<ConProblemas m={dos()} />);
+    await userEvent.click(screen.getAllByRole('button', { name: /^Agregar problema/ })[0]);
+    await userEvent.click(screen.getByRole('button', { name: /^Listo\s?: problemas de / }));
+    expect(screen.queryByText(/^Formulario de /)).toBeNull();
+    expect(screen.getByRole('button', { name: /^1 problema/ })).toHaveAttribute('aria-expanded', 'false');
+    await userEvent.click(screen.getByRole('button', { name: /^1 problema/ }));
+    expect(screen.getByText(/^Formulario de /)).toBeInTheDocument();
+  });
+  it('con trabajo pendiente Listo queda deshabilitado', async () => {
+    const { rerender } = render(<ConProblemas m={dos()} />);
+    await userEvent.click(screen.getAllByRole('button', { name: /^Agregar problema/ })[0]);
+    expect(screen.getByRole('button', { name: /^Listo\s?: problemas de / })).toBeEnabled();
+    rerender(<ConProblemas m={dos()} bloqueado />);
+    expect(screen.getByRole('button', { name: /^Listo\s?: problemas de / })).toBeDisabled();
   });
   it('sin renderProblemas no hay fila ni contador interactivo', async () => {
     render(<ConProblemas m={dos()} conRender={false} />);

@@ -124,7 +124,7 @@ export function MatrizItem({ criterios, config, respuestas, modo, individuales =
         {r.motivo && <p className="hf-ayuda">Nota anterior: {r.motivo}</p>}
         <button type="button" className="secondary" onClick={() => alternar(c.id)}>Listo<span className="sr-only">: comentario de {c.nombre}</span></button>
       </td></tr>}
-      {problemasVisibles && <tr id={`${nombre}-pr`} className="hf-fila-problemas"><td colSpan={niveles.length + 3}>{renderProblemas?.(c.id)}</td></tr>}
+      {problemasVisibles && <tr id={`${nombre}-pr`} className="hf-fila-problemas"><td colSpan={niveles.length + 3}>{renderProblemas?.(c.id)}<button type="button" className="secondary" disabled={bloqueado} onClick={() => onToggleProblemas?.(c.id)}>Listo<span className="sr-only">: problemas de {c.nombre}</span></button></td></tr>}
     </Fragment>;
   }
 
