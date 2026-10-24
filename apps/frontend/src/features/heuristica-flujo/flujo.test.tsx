@@ -62,11 +62,11 @@ describe('flujo individual', () => {
       if (seccion < 9) await userEvent.click(screen.getByRole('button', { name: 'Sección siguiente' }));
     }
     expect(screen.queryByLabelText('Motivo de no aplica')).toBeNull();
-    expect(screen.getByText('39 de 39 preguntas respondidas')).toBeInTheDocument();
+    expect(screen.getByText('40 de 40 preguntas respondidas')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Entregar mi evaluación' }));
     await screen.findByText('Trabajo entregado. Tus respuestas están cerradas.');
     const guardado = api.mock.calls.find(c => c[1].endsWith('/trabajo'))![3];
-    expect(guardado.respuestas).toHaveLength(39);
+    expect(guardado.respuestas).toHaveLength(40);
     expect(guardado.respuestas.every((r: { noAplica: boolean; valor: string | null; motivo: string }) => r.noAplica && r.valor === null && r.motivo === '')).toBe(true);
     expect(screen.queryByRole('alert')).toBeNull();
   }, 30000);
@@ -81,7 +81,7 @@ describe('flujo individual', () => {
   });
   it('conserva respuestas al cambiar de pregunta y al consultar el resumen real del equipo', async () => {
     const e = evaluation(); e.configuracion.metodologia = copiarMetodologia(METODOLOGIAS_HEURISTICAS[0]);
-    e.avanceEquipo = [{ evaluadorId: 'u1', nombre: 'Ana', evaluados: 0, total: 39, entregadoEn: null, guardadoEn: null }];
+    e.avanceEquipo = [{ evaluadorId: 'u1', nombre: 'Ana', evaluados: 0, total: 40, entregadoEn: null, guardadoEn: null }];
     renderFlow(<Harness initial={e} />);
     await userEvent.click(screen.getAllByRole('radio', { name: 'No aplica' })[0]);
     const barra = () => screen.getByRole('navigation', { name: 'Preguntas de la revisión' });

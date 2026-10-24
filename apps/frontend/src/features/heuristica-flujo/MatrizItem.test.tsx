@@ -49,7 +49,7 @@ describe('MatrizItem', () => {
     expect(within(screen.getAllByRole('table')[0]).getAllByRole('columnheader').map(c => c.textContent)).toEqual(expect.arrayContaining([expect.stringContaining('Sí'), expect.stringContaining('No')]));
     expect(await recorrerSecciones()).toEqual({ secciones: 11, tablas: 11, filas: 71, titulos: 11 });
   });
-  it('Nielsen: título y enunciado arriba de cada ítem; una sección a la vez y 39 filas en 10 secciones', async () => {
+  it('Nielsen: título y enunciado arriba de cada ítem; una sección a la vez y 40 filas en 10 secciones', async () => {
     const m = metodo('nielsen10');
     render(<Harness m={m} />);
     expect(screen.getByRole('heading', { name: 'Estado visible' })).toBeInTheDocument();
@@ -57,7 +57,7 @@ describe('MatrizItem', () => {
     expect(screen.getAllByRole('table')).toHaveLength(1);
     expect(screen.getAllByRole('rowheader')).toHaveLength(4);
     expect(screen.getByRole('button', { name: 'Sección anterior' })).toBeDisabled();
-    expect(await recorrerSecciones()).toEqual({ secciones: 10, tablas: 10, filas: 39, titulos: 10 });
+    expect(await recorrerSecciones()).toEqual({ secciones: 10, tablas: 10, filas: 40, titulos: 10 });
     expect(screen.getByRole('button', { name: 'Sección siguiente' })).toBeDisabled();
   });
   it('enunciado y título siempre visibles; Sección siguiente y anterior cambian de ítem', async () => {
