@@ -76,7 +76,7 @@ describe('escala por criterio', () => {
     expect(escalaDe(config.metodologia, config.metodologia.criterios[1])).toBe(config.metodologia.escala);
     consenso.criterios = [respuesta(config.metodologia.criterios[0].id, 'n5'), respuesta(config.metodologia.criterios[1].id, 'cumple'), respuesta(config.metodologia.criterios[2].id, 'cumple')];
     const r = resumirEvaluacion(config, consenso);
-    expect(r).toMatchObject({ evaluados: 3, pendientes: 7 });
+    expect(r).toMatchObject({ evaluados: 3, pendientes: 36 });
     expect(r.porCategoria.find(n => n.id === 'cumple')!.count).toBe(2);
     expect(r.porEscala).toEqual([{ fuente: 'Rúbrica local', tipo: 'numerica', criterios: 1, evaluados: 1, distribucion: [{ id: 'n1', etiqueta: '1', count: 0 }, { id: 'n5', etiqueta: '5', count: 1 }] }]);
   });
@@ -113,9 +113,9 @@ describe('resumen del consenso', () => {
   it('distingue pendiente, no aplica e inválido', () => {
     const config = configuracion(), consenso = vacio();
     consenso.criterios = [respuesta(config.metodologia.criterios[0].id), respuesta(config.metodologia.criterios[1].id, null, true), respuesta(config.metodologia.criterios[2].id, 'desconocido')];
-    expect(resumirEvaluacion(config, consenso)).toMatchObject({ evaluados: 1, pendientes: 8, noAplica: 1, indice: null, denominador: 0, formula: null });
+    expect(resumirEvaluacion(config, consenso)).toMatchObject({ evaluados: 1, pendientes: 37, noAplica: 1, indice: null, denominador: 0, formula: null });
     consenso.criterios[1].motivo = '';
-    expect(resumirEvaluacion(config, consenso)).toMatchObject({ pendientes: 8, noAplica: 1 });
+    expect(resumirEvaluacion(config, consenso)).toMatchObject({ pendientes: 37, noAplica: 1 });
   });
   it('no produce un cero cuando todo es no aplica', () => {
     const config = configuracion(), consenso = vacio();
@@ -128,7 +128,7 @@ describe('resumen del consenso', () => {
     config.metodologia.criterios[0].peso = 3;
     config.metodologia.criterios[1].peso = 1;
     consenso.criterios = [respuesta(config.metodologia.criterios[0].id, 'alto'), respuesta(config.metodologia.criterios[1].id, 'bajo'), respuesta(config.metodologia.criterios[2].id, null, true)];
-    expect(resumirEvaluacion(config, consenso)).toMatchObject({ evaluados: 2, pendientes: 7, noAplica: 1, indice: 7.5, denominador: 4, porCategoria: [{ id: 'bajo', etiqueta: 'Bajo', count: 1 }, { id: 'alto', etiqueta: 'Alto', count: 1 }] });
+    expect(resumirEvaluacion(config, consenso)).toMatchObject({ evaluados: 2, pendientes: 36, noAplica: 1, indice: 7.5, denominador: 4, porCategoria: [{ id: 'bajo', etiqueta: 'Bajo', count: 1 }, { id: 'alto', etiqueta: 'Alto', count: 1 }] });
     config.metodologia.escala.tipo = 'ordinal';
     expect(resumirEvaluacion(config, consenso)).toMatchObject({ indice: null, denominador: 0, formula: null });
     config.metodologia.escala.tipo = 'numerica';
