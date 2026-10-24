@@ -743,3 +743,27 @@ describe('esqueleto estándar', () => {
     expect(resumen.closest('details')).not.toHaveAttribute('open');
   });
 });
+
+describe('esqueleto estándar', () => {
+  const equipo = [{ id: 'u1', nombre: 'Ana', rol: 'ESTUDIANTE' }];
+  it('la lista muestra Mis revisiones con Abrir secundario; Nueva evaluación oculta la lista y pasa a Cancelar', async () => {
+    api.mockImplementation(async (_p, path) => path === '/evaluaciones' ? [final('f1')] : path === '/metodologias' ? [config().metodologia] : path === '/equipo' ? equipo : []);
+    renderFlow(<FlujoHeuristicaPage />);
+    const abrir = await screen.findByRole('button', { name: 'Abrir' });
+    expect(abrir).toHaveClass('secondary');
+    expect(abrir.closest('.technique-item-actions')).not.toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: '+ Nueva evaluación' }));
+    expect(screen.getByRole('button', { name: 'Cancelar' })).toHaveClass('secondary');
+    expect(await screen.findByLabelText('Producto o sitio')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Abrir' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+    expect(screen.queryByLabelText('Producto o sitio')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Abrir' })).toBeInTheDocument();
+  });
+  it('las instrucciones arrancan colapsadas', async () => {
+    api.mockImplementation(async (_p, path) => path === '/metodologias' ? [config().metodologia] : path === '/equipo' ? equipo : []);
+    renderFlow(<FlujoHeuristicaPage />);
+    const resumen = await screen.findByText('Cómo trabajar con Evaluación heurística');
+    expect(resumen.closest('details')).not.toHaveAttribute('open');
+  });
+});
