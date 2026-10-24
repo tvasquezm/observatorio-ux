@@ -82,14 +82,14 @@ describe('flujo individual', () => {
     e.avanceEquipo = [{ evaluadorId: 'u1', nombre: 'Ana', evaluados: 0, total: 39, entregadoEn: null, guardadoEn: null }];
     renderFlow(<Harness initial={e} />);
     await userEvent.click(screen.getAllByRole('radio', { name: 'No aplica' })[0]);
-    const mapa = screen.getByRole('navigation', { name: 'Preguntas de la revisión' });
-    await userEvent.click(within(mapa).getByRole('button', { name: /^Pregunta 5:/ }));
-    expect(within(mapa).getByRole('button', { name: /^Pregunta 5:/ })).toHaveAttribute('aria-current', 'true');
+    const combo = () => within(screen.getByRole('navigation', { name: 'Preguntas de la revisión' })).getByRole('combobox', { name: 'Pregunta que estás revisando' });
+    await userEvent.selectOptions(combo(), '4');
+    expect(combo()).toHaveValue('4');
     await userEvent.click(screen.getByRole('button', { name: 'Resumen del equipo' }));
     expect(screen.getByRole('heading', { name: 'Progreso del equipo' })).toBeVisible();
     expect(screen.queryByRole('radio')).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Mi revisión' }));
-    await userEvent.click(within(mapa).getByRole('button', { name: /^Pregunta 1:/ }));
+    await userEvent.selectOptions(combo(), '0');
     expect(screen.getAllByRole('radio', { name: 'No aplica' })[0]).toBeChecked();
   });
   it.each([true, false])('muestra errores al actualizar el resumen con trabajo propio: %s', async propio => {

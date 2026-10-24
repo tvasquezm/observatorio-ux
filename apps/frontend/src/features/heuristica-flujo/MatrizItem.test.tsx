@@ -51,7 +51,8 @@ describe('MatrizItem', () => {
   });
   it('enunciado y título siempre visibles; "Por grupo" muestra un ítem y "Ver todo" todos', async () => {
     const m = metodo('nielsen10');
-    m.criterios = m.criterios.flatMap(c => [{ ...c, id: `${c.id}a`, nombre: `${c.nombre} 1`, categoria: c.nombre }, { ...c, id: `${c.id}b`, nombre: `${c.nombre} 2`, categoria: c.nombre }]).slice(0, 6);
+    const cats = ['Estado visible', 'Lenguaje del usuario', 'Control y salida'];
+    m.criterios = cats.flatMap(cat => m.criterios.filter(c => c.categoria === cat).slice(0, 2));
     m.enunciados = { 'Estado visible': 'El sistema informa lo que ocurre.', 'Lenguaje del usuario': 'Habla como la persona.', 'Control y salida': 'La persona manda.' };
     render(<Harness m={m} />);
     expect(screen.getByRole('heading', { name: 'Estado visible' })).toBeInTheDocument();
