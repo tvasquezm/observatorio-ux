@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -11,8 +11,7 @@ import { ConsensoEditor } from './ConsensoEditor';
 import { InformeView } from './InformeView';
 import { ConfiguracionEditor } from './ConfiguracionEditor';
 import { FlujoHeuristicaPage } from './FlujoHeuristicaPage';
-import { pendientesTrabajo, textoCumplimiento } from './flujo-utils';
-import { armarRondas } from './rondas';
+import { pendientesTrabajo, precargarConsenso, textoCumplimiento } from './flujo-utils';
 import { useAuthStore } from '../auth/store/useAuthStore';
 
 const api = vi.hoisted(() => vi.fn());
@@ -51,49 +50,50 @@ function Harness({ initial }: { initial: EvaluacionFlujo }) {
 }
 beforeEach(() => { vi.resetAllMocks(); sessionStorage.clear(); confirm.mockResolvedValue(true); useAuthStore.setState({ user: { id: 'u1', nombre: 'Ana', email: 'ana@example.org', rol: 'ESTUDIANTE' }, isAuthenticated: true }); });
 
+const abrirComentario = () => userEvent.click(screen.getByRole('button', { name: /^Comentario de / }));
+
 describe('flujo individual', () => {
   it('permite entregar todas las preguntas no aplicables sin motivo ni valoración', async () => {
     const e = evaluation(); e.configuracion.metodologia = copiarMetodologia(METODOLOGIAS_HEURISTICAS[0]);
     api.mockImplementation(async (_p, path, _method, body) => path.endsWith('/trabajo') ? { ...e, revision: 2, trabajos: [{ ...e.trabajos[0], respuestas: body.respuestas }] } : { ...e, revision: 3, trabajos: [{ ...e.trabajos[0], entregadoEn: e.updatedAt }] });
     renderFlow(<Harness initial={e} />);
-    for (let i = 0; i < e.configuracion.metodologia.criterios.length; i++) {
-      await userEvent.click(screen.getByRole('button', { name: new RegExp(`^Pregunta ${i + 1}:`) }));
-      await userEvent.click(screen.getByRole('radio', { name: 'No aplica' }));
-      expect(screen.queryByRole('combobox', { name: 'Valoración' })).toBeNull();
-      expect(screen.queryByLabelText('Motivo de no aplica')).toBeNull();
+    for (let seccion = 0; seccion < 10; seccion++) {
+      for (const r of screen.getAllByRole('radio', { name: 'No aplica' })) await userEvent.click(r);
+      if (seccion < 9) await userEvent.click(screen.getByRole('button', { name: 'Sección siguiente' }));
     }
-    expect(screen.getByText('10 de 10 preguntas respondidas')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Motivo de no aplica')).toBeNull();
+    expect(screen.getByText('40 de 40 preguntas respondidas')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Entregar mi evaluación' }));
     await screen.findByText('Trabajo entregado. Tus respuestas están cerradas.');
     const guardado = api.mock.calls.find(c => c[1].endsWith('/trabajo'))![3];
-    expect(guardado.respuestas).toHaveLength(10);
+    expect(guardado.respuestas).toHaveLength(40);
     expect(guardado.respuestas.every((r: { noAplica: boolean; valor: string | null; motivo: string }) => r.noAplica && r.valor === null && r.motivo === '')).toBe(true);
     expect(screen.queryByRole('alert')).toBeNull();
-  });
+  }, 30000);
   it('ofrece respuestas visibles y No aplica dentro de la misma valoración', async () => {
     const e = evaluation(); renderFlow(<Harness initial={e} />);
-    const opciones = screen.getByRole('radiogroup', { name: 'Valoración' });
-    expect(within(opciones).getAllByRole('radio')).toHaveLength(e.configuracion.metodologia.escala.niveles.length + 1);
-    await userEvent.click(within(opciones).getByRole('radio', { name: e.configuracion.metodologia.escala.niveles[0].etiqueta }));
-    await userEvent.click(within(opciones).getByRole('radio', { name: 'No aplica' }));
-    expect(within(opciones).getByRole('radio', { name: 'No aplica' })).toBeChecked();
+    expect(screen.getAllByRole('radio')).toHaveLength(e.configuracion.metodologia.escala.niveles.length + 1);
+    await userEvent.click(screen.getByRole('radio', { name: e.configuracion.metodologia.escala.niveles[0].etiqueta }));
+    await userEvent.click(screen.getByRole('radio', { name: 'No aplica' }));
+    expect(screen.getByRole('radio', { name: 'No aplica' })).toBeChecked();
     expect(screen.queryByLabelText('Motivo de no aplica')).toBeNull();
     expect(screen.queryByRole('combobox', { name: 'Valoración' })).toBeNull();
   });
   it('conserva respuestas al cambiar de pregunta y al consultar el resumen real del equipo', async () => {
     const e = evaluation(); e.configuracion.metodologia = copiarMetodologia(METODOLOGIAS_HEURISTICAS[0]);
-    e.avanceEquipo = [{ evaluadorId: 'u1', nombre: 'Ana', evaluados: 0, total: 10, entregadoEn: null, guardadoEn: null }];
+    e.avanceEquipo = [{ evaluadorId: 'u1', nombre: 'Ana', evaluados: 0, total: 40, entregadoEn: null, guardadoEn: null }];
     renderFlow(<Harness initial={e} />);
-    await userEvent.click(screen.getByRole('radio', { name: 'No aplica' }));
-    const mapa = screen.getByRole('navigation', { name: 'Preguntas de la revisión' });
-    await userEvent.click(within(mapa).getByRole('button', { name: /^Pregunta 5:/ }));
-    expect(screen.getByText('Pregunta 5 de 10')).toBeVisible();
+    await userEvent.click(screen.getAllByRole('radio', { name: 'No aplica' })[0]);
+    const barra = () => screen.getByRole('navigation', { name: 'Preguntas de la revisión' });
+    await userEvent.click(within(barra()).getByRole('button', { name: /^Sección 2:/ }));
+    expect(within(barra()).getByRole('button', { name: /^Sección 2:/ })).toHaveAttribute('aria-current', 'true');
+    expect(screen.queryByRole('heading', { name: 'Estado visible' })).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Resumen del equipo' }));
     expect(screen.getByRole('heading', { name: 'Progreso del equipo' })).toBeVisible();
     expect(screen.queryByRole('radio')).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Mi revisión' }));
-    await userEvent.click(within(mapa).getByRole('button', { name: /^Pregunta 1:/ }));
-    expect(screen.getByRole('radio', { name: 'No aplica' })).toBeChecked();
+    await userEvent.click(within(barra()).getByRole('button', { name: /^Sección 1:/ }));
+    expect(screen.getAllByRole('radio', { name: 'No aplica' })[0]).toBeChecked();
   });
   it.each([true, false])('muestra errores al actualizar el resumen con trabajo propio: %s', async propio => {
     const e = evaluation();
@@ -124,8 +124,8 @@ describe('flujo individual', () => {
     const add = screen.getByRole('button', { name: `Agregar problema para ${e.configuracion.metodologia.criterios[0].nombre}` });
     await userEvent.click(add); await userEvent.click(add);
     expect(screen.getAllByLabelText('Título del problema')).toHaveLength(2);
-    expect(within(screen.getByRole('radiogroup', { name: 'Valoración' })).getAllByRole('radio').every(r => !(r as HTMLInputElement).checked)).toBe(true);
-    expect(screen.getByText('2 problemas registrados en esta pregunta.')).toBeInTheDocument();
+    expect(screen.getAllByRole('radio').every(r => !(r as HTMLInputElement).checked)).toBe(true);
+    expect(screen.getByText('2 problemas')).toBeInTheDocument();
   });
   it('mantiene accesible un problema al quitar su última pregunta relacionada', async () => {
     const e = evaluation(); renderFlow(<Harness initial={e} />);
@@ -146,21 +146,21 @@ describe('flujo individual', () => {
     const e = evaluation(); renderFlow(<Harness initial={e} />);
     await userEvent.click(screen.getByRole('radio', { name: e.configuracion.metodologia.escala.niveles[0].etiqueta }));
     await userEvent.click(screen.getByRole('button', { name: `Agregar problema para ${e.configuracion.metodologia.criterios[0].nombre}` }));
-    const resumen = screen.getByText('Problema 1 sin título');
-    const panel = resumen.closest('details')!;
-    await userEvent.click(resumen);
-    expect(panel).not.toHaveAttribute('open');
+    const contador = screen.getByRole('button', { name: /^1 problema/ });
+    await userEvent.click(contador);
+    expect(screen.queryByRole('textbox', { name: 'Título del problema' })).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Entregar mi evaluación' }));
-    await waitFor(() => expect(panel).toHaveAttribute('open'));
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Título del problema' })).toBeInTheDocument());
     expect(screen.getByRole('alert')).toHaveTextContent('título y descripción');
   });
   it('retiene texto cuando falla guardado, muestra error y permite reintentar', async () => {
     const e = evaluation(); api.mockRejectedValueOnce(new Error('Sin conexión')).mockImplementation(async (_p, _path, _m, b) => ({ ...e, revision: 2, trabajos: [{ ...e.trabajos[0], respuestas: b.respuestas, hallazgos: b.hallazgos }] }));
     renderFlow(<Harness initial={e} />);
-    await userEvent.type(screen.getByLabelText('Notas de la valoración'), 'Observación conservada');
+    await abrirComentario();
+    await userEvent.type(screen.getByRole('textbox', { name: /^Comentario de / }), 'Observación conservada');
     await userEvent.click(screen.getAllByRole('button', { name: 'Guardar cambios' })[0]);
     await screen.findAllByText(/Sin conexión/);
-    expect(screen.getByLabelText('Notas de la valoración')).toHaveValue('Observación conservada');
+    expect(screen.getByRole('textbox', { name: /^Comentario de / })).toHaveValue('Observación conservada');
     expect(sessionStorage.getItem('heuristica:u1:e1:trabajo:')).toContain('Observación conservada');
     await userEvent.click(screen.getAllByRole('button', { name: 'Guardar cambios' })[0]);
     await waitFor(() => expect(screen.getAllByText(/Cambios guardados/)).toHaveLength(1));
@@ -169,9 +169,10 @@ describe('flujo individual', () => {
     const e = evaluation(); let finish!: (e: EvaluacionFlujo) => void;
     api.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; })).mockImplementation(async (_p, _path, _m, b) => ({ ...e, revision: 3, trabajos: [{ ...e.trabajos[0], respuestas: b.respuestas, hallazgos: b.hallazgos }] }));
     renderFlow(<Harness initial={e} />);
-    await userEvent.type(screen.getByLabelText('Notas de la valoración'), 'Primero');
+    await abrirComentario();
+    await userEvent.type(screen.getByRole('textbox', { name: /^Comentario de / }), 'Primero');
     await userEvent.click(screen.getAllByRole('button', { name: 'Guardar cambios' })[0]);
-    await userEvent.type(screen.getByLabelText('Notas de la valoración'), ' después');
+    await userEvent.type(screen.getByRole('textbox', { name: /^Comentario de / }), ' después');
     expect(api).toHaveBeenCalledTimes(1);
     finish({ ...e, revision: 2, trabajos: [{ ...e.trabajos[0], respuestas: api.mock.calls[0][3].respuestas }] });
     await waitFor(() => expect(api).toHaveBeenCalledTimes(2));
@@ -188,11 +189,12 @@ describe('flujo individual', () => {
     sessionStorage.setItem('heuristica:u1:e1:trabajo:', JSON.stringify({ revision: 5, base: JSON.stringify(base), data: oldDraft }));
     api.mockRejectedValue(new Error('La revisión cambió'));
     renderFlow(<Harness initial={e} />);
-    expect(screen.getByLabelText('Notas de la valoración')).toHaveValue('Borrador de revisión cinco');
+    await abrirComentario();
+    expect(screen.getByRole('textbox', { name: /^Comentario de / })).toHaveValue('Borrador de revisión cinco');
     await waitFor(() => expect(api).toHaveBeenCalled(), { timeout: 2000 });
     expect(api.mock.calls[0][3].revision).toBe(5);
     await screen.findAllByText(/La revisión cambió/);
-    expect(screen.getByLabelText('Notas de la valoración')).toHaveValue('Borrador de revisión cinco');
+    expect(screen.getByRole('textbox', { name: /^Comentario de / })).toHaveValue('Borrador de revisión cinco');
   });
 });
 
@@ -212,7 +214,7 @@ describe('configuración y consenso', () => {
     const e = evaluation({ fase: 'PENDIENTE_CONSENSO' });
     e.trabajos[0].hallazgos = [{ id: 'origen', criterioIds: [e.configuracion.metodologia.criterios[0].id], titulo: 'Problema original', pantalla: 'Inicio', descripcion: 'Error', recomendacion: 'Mejorar', severidad: 2, prioridad: 'MEDIA', notas: '', evidenciaIds: [] }];
     renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
-    expect(within(screen.getByRole('radiogroup', { name: 'Valoración' })).getAllByRole('radio').every(r => !(r as HTMLInputElement).checked)).toBe(true);
+    expect(screen.getAllByRole('radio').every(r => !(r as HTMLInputElement).checked)).toBe(true);
     expect(screen.queryByLabelText('Decisión del consenso')).not.toBeInTheDocument();
     expect(api).not.toHaveBeenCalled();
   });
@@ -265,7 +267,8 @@ describe('configuración y consenso', () => {
     api.mockResolvedValue(fresh);
     function Editor() { const [v, setV] = useState(e); return <ConsensoEditor evaluacion={v} usuarioId="u1" onSaved={setV} onBack={vi.fn()} />; }
     renderFlow(<Editor />); await userEvent.click(screen.getByRole('button', { name: 'Actualizar consenso y confirmaciones' }));
-    await waitFor(() => expect(screen.getByLabelText('Notas de la valoración')).toHaveValue('Acuerdo remoto'));
+    await userEvent.click(await screen.findByRole('button', { name: /^Comentario guardado/ }));
+    expect(screen.getByLabelText(/^Comentario del equipo de /)).toHaveValue('Revisión conjunta');
   });
 });
 
@@ -408,40 +411,7 @@ it('distingue todos NA justificados de criterios pendientes', () => {
   const c = config(); expect(pendientesTrabajo(c, [{ criterioId: c.metodologia.criterios[0].id, valor: null, noAplica: true, motivo: 'Fuera de alcance', notas: '' }], [])).toEqual([]);
 });
 
-describe('rondas en la revisión', () => {
-  function larga(): EvaluacionFlujo { const e = evaluation(); e.configuracion.metodologia = copiarMetodologia(METODOLOGIAS_HEURISTICAS[0]); return e; }
-  it('pausa al terminar la ronda, la resume y sigue con la siguiente', async () => {
-    const e = larga(); const rondas = armarRondas(e.configuracion.metodologia.criterios); const n = rondas[0].criterios.length;
-    renderFlow(<Harness initial={e} />);
-    for (let i = 0; i < n - 1; i++) await userEvent.click(screen.getByRole('button', { name: 'Pregunta siguiente' }));
-    expect(screen.getByText(`Pregunta ${n} de ${e.configuracion.metodologia.criterios.length}`)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Pregunta siguiente' }));
-    expect(screen.getByRole('heading', { name: `Terminaste la ronda 1 de ${rondas.length}` })).toBeInTheDocument();
-    expect(screen.getByText(`${n} preguntas pendientes.`)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Seguir con la ronda siguiente' }));
-    expect(screen.queryByRole('heading', { name: /^Terminaste la ronda/ })).toBeNull();
-    expect(screen.getByText(`Pregunta ${n + 1} de ${e.configuracion.metodologia.criterios.length}`)).toBeInTheDocument();
-    expect(screen.getByText(`Ronda 2 de ${rondas.length}`)).toBeInTheDocument();
-  });
-  it('volver a la ronda cierra la pausa sin cambiar de pregunta', async () => {
-    const e = larga(); const n = armarRondas(e.configuracion.metodologia.criterios)[0].criterios.length;
-    renderFlow(<Harness initial={e} />);
-    for (let i = 0; i < n; i++) await userEvent.click(screen.getByRole('button', { name: 'Pregunta siguiente' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Volver a esta ronda' }));
-    expect(screen.getByText(`Pregunta ${n} de ${e.configuracion.metodologia.criterios.length}`)).toBeInTheDocument();
-  });
-  it('la revisión final cuenta lo pendiente y lleva a la primera pregunta sin responder', async () => {
-    const e = larga();
-    renderFlow(<Harness initial={e} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Ver revisión final' }));
-    expect(screen.getByRole('heading', { name: 'Revisión final' })).toBeInTheDocument();
-    expect(screen.getByText(`${e.configuracion.metodologia.criterios.length} preguntas pendientes.`)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Ir a lo pendiente' }));
-    expect(screen.queryByRole('heading', { name: 'Revisión final' })).toBeNull();
-    expect(screen.getByText(`Pregunta 1 de ${e.configuracion.metodologia.criterios.length}`)).toBeInTheDocument();
-  });
-});
-describe('vista checklist', () => {
+describe('vista de tablas por ítem', () => {
   function checklistEval(mixta = false): EvaluacionFlujo {
     const base = evaluation();
     const m = copiarMetodologia(METODOLOGIAS_HEURISTICAS.find(x => x.id === 'hassan-checklist-2003')!);
@@ -449,29 +419,26 @@ describe('vista checklist', () => {
     if (mixta) m.criterios[2] = { ...m.criterios[2], escala: copiarMetodologia(METODOLOGIAS_HEURISTICAS[0]).escala };
     return { ...base, configuracion: { ...base.configuracion, metodologia: m } };
   }
-  const grupo = (nombre: string) => screen.getByRole('radiogroup', { name: nombre });
+  const fila = (nombre: string) => screen.getByRole('rowheader', { name: nombre }).closest('tr') as HTMLElement;
   it('agrupa por categoría y muestra "n de N respondidos" en texto', async () => {
     const e = checklistEval(); const [a, b] = e.configuracion.metodologia.criterios;
     renderFlow(<Harness initial={e} />);
     expect(screen.getByText('0 de 2 respondidos')).toBeInTheDocument();
-    expect(screen.getByText('0 de 1 respondidos')).toBeInTheDocument();
-    await userEvent.click(within(grupo(a.nombre)).getByLabelText('Sí'));
+    await userEvent.click(within(fila(a.nombre)).getByLabelText('Sí'));
     expect(screen.getByText('1 de 2 respondidos')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Pregunta siguiente' }));
-    await userEvent.click(within(grupo(b.nombre)).getByLabelText('No'));
+    await userEvent.click(within(fila(b.nombre)).getByLabelText('No'));
     expect(screen.getByText('2 de 2 respondidos · ✓ Categoría completa')).toBeInTheDocument();
-    expect(screen.getAllByText('✓ Respondido')).toHaveLength(2);
-    expect(screen.getAllByText('Sin responder')).toHaveLength(1);
+    await userEvent.click(screen.getByRole('button', { name: 'Sección siguiente' }));
+    expect(screen.getByText('0 de 1 respondidos')).toBeInTheDocument();
   });
   it('cuenta no aplica inmediatamente, también con preguntas de tipo checklist', async () => {
     const e = checklistEval(); const [a, b, c] = e.configuracion.metodologia.criterios;
     renderFlow(<Harness initial={e} />);
-    await userEvent.click(within(grupo(a.nombre)).getByLabelText('Sí'));
-    await userEvent.click(screen.getByRole('button', { name: /^Pregunta 3:/ }));
-    await userEvent.click(within(grupo(c.nombre)).getByLabelText('No'));
-    await userEvent.click(screen.getByRole('button', { name: /^Pregunta 2:/ }));
-    await userEvent.click(within(grupo(b.nombre)).getByRole('radio', { name: 'No aplica' }));
+    await userEvent.click(within(fila(a.nombre)).getByLabelText('Sí'));
+    await userEvent.click(within(fila(b.nombre)).getByRole('radio', { name: 'No aplica' }));
     expect(screen.getByText('2 de 2 respondidos · ✓ Categoría completa')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Sección siguiente' }));
+    await userEvent.click(within(fila(c.nombre)).getByLabelText('No'));
     expect(screen.queryByLabelText('Motivo de no aplica')).toBeNull();
     expect(screen.getByText('3 de 3 preguntas respondidas')).toBeInTheDocument();
   });
@@ -479,16 +446,18 @@ describe('vista checklist', () => {
     const e = checklistEval(); renderFlow(<Harness initial={e} />);
     await userEvent.click(screen.getByRole('button', { name: `Agregar problema para ${e.configuracion.metodologia.criterios[0].nombre}` }));
     expect(screen.getAllByLabelText('Título del problema')).toHaveLength(1);
-    expect(screen.getByText(/^1 problema registrado en este ítem\./)).toBeInTheDocument();
+    expect(screen.getByText('1 problema')).toBeInTheDocument();
   });
-  it('evaluación antigua (3 niveles) o con escalas mixtas conserva la vista actual', () => {
+  it('evaluación antigua (3 niveles) o con escalas mixtas se muestra como tablas por escala', async () => {
     const { unmount } = renderFlow(<Harness initial={evaluation()} />);
-    expect(screen.getByRole('radiogroup', { name: 'Valoración' })).toBeInTheDocument();
     expect(screen.getAllByRole('radio')).toHaveLength(4);
     unmount();
     renderFlow(<Harness initial={checklistEval(true)} />);
-    expect(screen.getAllByLabelText('Valoración')).toHaveLength(1);
-    expect(screen.getAllByRole('radio')).toHaveLength(3);
+    expect(screen.getAllByRole('table')).toHaveLength(1);
+    expect(screen.getAllByRole('radio')).toHaveLength(2 * 3);
+    await userEvent.click(screen.getByRole('button', { name: 'Sección siguiente' }));
+    expect(screen.getAllByRole('table')).toHaveLength(1);
+    expect(screen.getAllByRole('radio')).toHaveLength(4);
   });
 });
 describe('cumplimiento en el informe', () => {
@@ -530,18 +499,90 @@ describe('consenso con checklist', () => {
     const trabajo = (evaluadorId: string, nombre: string, valor: string) => ({ evaluadorId, nombre, respuestas: resp(valor), hallazgos: [], entregadoEn: '2026-10-09T12:00:00Z', guardadoEn: '2026-10-09T12:00:00Z' });
     return { ...base, configuracion: { ...base.configuracion, metodologia: m, evaluadorIds: ['u1', 'u2'] }, trabajos: [trabajo('u1', 'Ana', 'si'), trabajo('u2', 'Beto', 'no')] };
   }
-  it('agrupa por categoría y dice en texto qué respuestas difieren', () => {
-    const e = consensoEval();
-    renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
-    expect(screen.getByRole('region', { name: 'Generales' })).toBeInTheDocument();
-    expect(screen.queryByRole('region', { name: 'Identidad e información' })).toBeNull();
-    expect(screen.getByText('0 de 2 con valoración acordada')).toBeInTheDocument();
-    expect(screen.getAllByText(/Difieren: Sí \/ No/)).toHaveLength(3);
+  it('muestra un ítem por categoría y dice en texto qué respondió cada persona', () => {
+    renderFlow(<ConsensoEditor evaluacion={consensoEval()} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.getAllByRole('heading', { level: 3 }).map(h => h.textContent)).toEqual(['Generales', 'Identidad e información']);
+    expect(screen.getByText('0 de 2 acordadas')).toBeInTheDocument();
+    expect(screen.getAllByText('Difieren')).toHaveLength(3);
+    expect(screen.getAllByText('Ana: Sí')).toHaveLength(3);
+    expect(screen.getAllByText('Beto: No')).toHaveLength(3);
   });
-  it('con escalas mixtas conserva la vista plana', () => {
+  it('con escalas mixtas separa una tabla por escala y no muestra la lista de diferencias antigua', () => {
     renderFlow(<ConsensoEditor evaluacion={consensoEval(true)} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
-    expect(screen.queryByRole('region', { name: 'Generales' })).toBeNull();
+    expect(screen.getAllByRole('table')).toHaveLength(2);
     expect(screen.queryByText(/Difieren:/)).toBeNull();
+  });
+});
+
+describe('consenso en equipo sobre la tabla', () => {
+  function equipoEval(valorBeto: string, aprobadoPor: string[] = []): EvaluacionFlujo {
+    const e = evaluation({ fase: 'PENDIENTE_CONSENSO' });
+    e.configuracion.evaluadorIds = ['u1', 'u2'];
+    const cid = e.configuracion.metodologia.criterios[0].id;
+    const resp = (valor: string) => [{ criterioId: cid, valor, noAplica: false, motivo: '', notas: '' }];
+    const trabajo = (evaluadorId: string, nombre: string, valor: string) => ({ evaluadorId, nombre, respuestas: resp(valor), hallazgos: [], entregadoEn: '2026-10-09T12:00:00Z', guardadoEn: '2026-10-09T12:00:00Z' });
+    e.trabajos = [trabajo('u1', 'Ana', 'cumple'), trabajo('u2', 'Beto', valorBeto)];
+    e.consenso.aprobadoPor = aprobadoPor;
+    return e;
+  }
+  it('precarga la respuesta común cuando todos coinciden y la autoguarda', async () => {
+    const e = equipoEval('cumple');
+    api.mockResolvedValue({ ...e, revision: 2 });
+    renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.getByRole('radio', { name: 'Cumple' })).toBeChecked();
+    expect(screen.getByText('Coinciden')).toBeInTheDocument();
+    expect(screen.getByText('1 de 1 preguntas acordadas')).toBeInTheDocument();
+    await waitFor(() => expect(api).toHaveBeenCalledWith('p1', '/evaluaciones/e1/consenso', 'PATCH', expect.objectContaining({ criterios: [expect.objectContaining({ valor: 'cumple', noAplica: false, justificacion: '' })] })), { timeout: 3000 });
+  });
+  it('si difieren deja la respuesta común vacía y exige el comentario del equipo', async () => {
+    renderFlow(<ConsensoEditor evaluacion={equipoEval('no_cumple')} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.getAllByRole('radio').every(r => !(r as HTMLInputElement).checked)).toBe(true);
+    expect(screen.getByText('Difieren')).toBeInTheDocument();
+    expect(screen.getByText('0 de 1 preguntas acordadas')).toBeInTheDocument();
+    expect(screen.getByText('Ana: Cumple')).toBeInTheDocument();
+    expect(screen.getByText('Beto: No cumple')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('radio', { name: 'Cumple' }));
+    expect(screen.getByText('Falta el comentario del equipo')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /^Comentario del equipo de / }));
+    expect(screen.getByText(/^Obligatorio:/)).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText(/^Comentario del equipo de /), 'Se acordó tras revisar el flujo');
+    expect(screen.queryByText('Falta el comentario del equipo')).toBeNull();
+  });
+  it('muestra quiénes confirmaron el acuerdo', () => {
+    const { unmount } = renderFlow(<ConsensoEditor evaluacion={equipoEval('no_cumple')} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.getByText('Confirmaron 0 de 2 evaluadores.')).toBeInTheDocument();
+    unmount();
+    renderFlow(<ConsensoEditor evaluacion={equipoEval('no_cumple', ['u2'])} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.getByText('Confirmaron 1 de 2 evaluadores: Beto.')).toBeInTheDocument();
+  });
+  it('agrega un hallazgo nuevo del equipo, lo rotula y permite quitarlo', async () => {
+    renderFlow(<ConsensoEditor evaluacion={equipoEval('no_cumple')} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Revisar los problemas' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Agregar hallazgo nuevo del equipo' }));
+    expect(screen.getByText('Nuevo del equipo')).toBeInTheDocument();
+    expect(screen.getByLabelText('Decisión del consenso')).toHaveValue('PENDIENTE');
+    await waitFor(() => expect(screen.getByRole('group', { name: /Decisión 1/ })).toHaveFocus());
+    await userEvent.click(screen.getByRole('button', { name: 'Quitar hallazgo nuevo del equipo 1' }));
+    expect(screen.queryByLabelText('Decisión del consenso')).toBeNull();
+  });
+  it('desactiva el botón al llegar al tope de hallazgos nuevos', async () => {
+    const e = equipoEval('cumple');
+    e.consenso.hallazgos = Array.from({ length: 50 }, (_, i) => ({ id: `n${i}`, criterioIds: [], titulo: `Nuevo ${i}`, pantalla: '', descripcion: '', recomendacion: '', severidad: 2 as const, prioridad: 'MEDIA' as const, notas: '', evidenciaIds: [], origenIds: [], decision: 'PENDIENTE' as const, justificacion: '' }));
+    renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Revisar los problemas' }));
+    expect(screen.getByRole('button', { name: 'Agregar hallazgo nuevo del equipo' })).toBeDisabled();
+  });
+  it('el informe rotula el hallazgo sin origen individual como Nuevo del equipo', () => {
+    const e = final('equipo'); e.consenso.hallazgos[0].origenIds = []; e.informe!.consenso = e.consenso;
+    renderFlow(<InformeView evaluacion={e} historial={[]} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.getByText(/Origen: Nuevo del equipo/)).toBeInTheDocument();
+  });
+  it('precargarConsenso respeta lo ya acordado y devuelve el mismo arreglo si no hay nada que cargar', () => {
+    const e = equipoEval('cumple'); const cid = e.configuracion.metodologia.criterios[0].id;
+    const acordado = [{ criterioId: cid, valor: 'no_cumple', noAplica: false, motivo: '', notas: '', justificacion: 'x' }];
+    expect(precargarConsenso(e.configuracion, e.trabajos, acordado)).toBe(acordado);
+    expect(precargarConsenso(e.configuracion, equipoEval('no_cumple').trabajos, [])).toEqual([]);
+    expect(precargarConsenso(e.configuracion, e.trabajos, [])).toEqual([expect.objectContaining({ criterioId: cid, valor: 'cumple', justificacion: '' })]);
   });
 });
 
@@ -662,49 +703,43 @@ describe('continuidad al revisar', () => {
     expect(screen.queryByRole('navigation', { name: 'Preguntas de la revisión' })).toBeNull();
   });
   it('recuerda la pregunta en la que estabas al volver', async () => {
-    const e = dos();
+    const e = dos(); e.configuracion.metodologia.criterios = copiarMetodologia(METODOLOGIAS_HEURISTICAS[0]).criterios.slice(0, 5);
+    const barra = () => screen.getByRole('navigation', { name: 'Preguntas de la revisión' });
     const primera = renderFlow(<Harness initial={e} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Pregunta siguiente' }));
-    expect(screen.getByText('Pregunta 2 de 2')).toBeInTheDocument();
+    expect(within(barra()).getByRole('button', { name: /^Sección 1:/ })).toHaveAttribute('aria-current', 'true');
+    await userEvent.click(within(barra()).getByRole('button', { name: /^Sección 2:/ }));
+    expect(sessionStorage.getItem('heuristica:preg:e1:u1')).toBe('4');
     primera.unmount();
     renderFlow(<Harness initial={e} />);
-    expect(screen.getByText('Pregunta 2 de 2')).toBeInTheDocument();
-  });
-  it('deja Anterior y Siguiente junto a la pregunta, sin bajar al pie, y reserva el botón principal para la última pregunta', async () => {
-    renderFlow(<Harness initial={dos()} />);
-    const siguiente = screen.getByRole('button', { name: 'Pregunta siguiente' });
-    expect(siguiente.closest('.hf-barra-pregunta')).not.toBeNull();
-    expect(siguiente.closest('.hf-pie-trabajo')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Pregunta anterior' }).closest('.hf-barra-pregunta')).not.toBeNull();
-    expect(siguiente).toHaveClass('primary');
-    expect(screen.getByRole('button', { name: 'Entregar mi evaluación' })).not.toHaveClass('primary');
-    await userEvent.click(siguiente);
-    expect(screen.getByRole('button', { name: 'Entregar mi evaluación' })).toHaveClass('primary');
+    expect(within(barra()).getByRole('button', { name: /^Sección 2:/ })).toHaveAttribute('aria-current', 'true');
+    expect(screen.queryByRole('heading', { name: 'Estado visible' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Sección anterior' }));
+    expect(within(barra()).getByRole('button', { name: /^Sección 1:/ })).toHaveAttribute('aria-current', 'true');
+    expect(sessionStorage.getItem('heuristica:preg:e1:u1')).toBe('0');
   });
 });
 
-describe('tarjeta de pregunta en Revisar', () => {
-  function dosPreguntas(): EvaluacionFlujo {
-    const e = evaluation();
-    e.configuracion.metodologia.criterios = copiarMetodologia(METODOLOGIAS_HEURISTICAS[0]).criterios.slice(0, 2);
-    return e;
-  }
-  it('muestra el problema dentro de la tarjeta de su pregunta', async () => {
-    const e = evaluation(); renderFlow(<Harness initial={e} />);
-    await userEvent.click(screen.getByRole('button', { name: `Agregar problema para ${e.configuracion.metodologia.criterios[0].nombre}` }));
-    expect(screen.getByLabelText('Título del problema').closest('.hf-tarjeta')).not.toBeNull();
+describe('esqueleto estándar', () => {
+  const equipo = [{ id: 'u1', nombre: 'Ana', rol: 'ESTUDIANTE' }];
+  it('la lista muestra Mis revisiones con Abrir secundario; Nueva evaluación oculta la lista y pasa a Cancelar', async () => {
+    api.mockImplementation(async (_p, path) => path === '/evaluaciones' ? [final('f1')] : path === '/metodologias' ? [config().metodologia] : path === '/equipo' ? equipo : []);
+    renderFlow(<FlujoHeuristicaPage />);
+    const abrir = await screen.findByRole('button', { name: 'Abrir' });
+    expect(abrir).toHaveClass('secondary');
+    expect(abrir.closest('.technique-item-actions')).not.toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: '+ Nueva evaluación' }));
+    expect(screen.getByRole('button', { name: 'Cancelar' })).toHaveClass('secondary');
+    expect(await screen.findByLabelText('Producto o sitio')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Abrir' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+    expect(screen.queryByLabelText('Producto o sitio')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Abrir' })).toBeInTheDocument();
   });
-  it('avanza sola a la pregunta siguiente, recuerda la pregunta y el interruptor', () => {
-    vi.useFakeTimers();
-    try {
-      renderFlow(<Harness initial={dosPreguntas()} />);
-      fireEvent.click(screen.getByRole('radio', { name: 'Cumple' }));
-      act(() => { vi.advanceTimersByTime(600); });
-      expect(screen.getByText('Pregunta 2 de 2')).toBeInTheDocument();
-      expect(sessionStorage.getItem('heuristica:preg:e1:u1')).toBe('1');
-      fireEvent.click(screen.getByRole('checkbox', { name: 'Pasar sola a la siguiente pregunta' }));
-      expect(sessionStorage.getItem('heuristica:auto:u1')).toBe('0');
-    } finally { vi.useRealTimers(); }
+  it('las instrucciones arrancan colapsadas', async () => {
+    api.mockImplementation(async (_p, path) => path === '/metodologias' ? [config().metodologia] : path === '/equipo' ? equipo : []);
+    renderFlow(<FlujoHeuristicaPage />);
+    const resumen = await screen.findByText('Cómo trabajar con Evaluación heurística');
+    expect(resumen.closest('details')).not.toHaveAttribute('open');
   });
 });
 

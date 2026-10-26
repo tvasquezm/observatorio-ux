@@ -3,6 +3,42 @@
 Todo acá parte de TUS archivos reales que subiste, con ediciones mínimas
 y quirúrgicas. No hay archivos inventados desde cero salvo los indicados.
 
+## Fase 5: cierre de pendientes (24-10-2026)
+
+- `packages/shared-types/src/domains/heuristica-metodologias.ts`: `combinarMetodologias` copia `enunciados`; una categoria repetida en otra metodologia se prefija con el nombre de esa metodologia, tanto en `criterios[].categoria` como en `enunciados`. Una misma metodologia repetida conserva sus categorias.
+- `packages/shared-types/src/domains/heuristica-resultados.ts` y `apps/frontend/src/features/heuristica-flujo/flujo-utils.ts`: se borran `detectarDiscrepancias`, `DiscrepanciasFlujo`, `esChecklist`, `avancePorCategoria`, `AvanceCategoria` y `etiquetasDiscrepancia` (sin usos fuera de sus tests).
+- `apps/frontend/src/styles/theme.css`: se podan las reglas de `hf-rondas`, `hf-ronda-*`, `hf-tarjeta`, `hf-atajos`, `hf-barra-pregunta`, `hf-auto`, `hf-pregunta-actual`, `hf-resumen-ronda`, `hf-extras` y `hf-origin`, sin uso en ningun `.tsx`.
+- `apps/frontend/src/pages/PersonasPage.tsx`: aviso bajo "URL de fotografía" cuando el valor no es una URL válida (cubre personas antiguas con un esquema no http o https).
+- Pruebas: `catalogo.test.ts` (combinar con enunciados, sin enunciados, categoria repetida; se quitan los tests de codigo borrado) y `PersonasPage.test.tsx` (aviso de URL).
+
+## Fase 4: acuerdo del equipo sobre la tabla (23-10-2026)
+
+- `packages/shared-types/src/domains/heuristica-resultados.ts`: `acuerdoDifiere`, `origenHallazgo` y `MAX_HALLAZGOS_NUEVOS_EQUIPO` (50), compartidos por frontend y backend. El origen de un hallazgo no se guarda: se deriva de `origenIds`.
+- `apps/backend/src/modules/sessions/heuristica-flujo/heuristica-flujo.service.ts`: al confirmar, la justificacion de una pregunta solo es obligatoria si la respuesta acordada difiere de alguna individual (No aplica mantiene su regla). Los hallazgos nuevos del equipo (sin `origenIds`) exigen titulo, descripcion, decision no pendiente y justificacion; los originales siguen exigiendo cobertura completa.
+- `apps/backend/src/modules/sessions/heuristica-flujo/heuristica-flujo.schemas.ts`: maximo 50 hallazgos nuevos por consenso; largos iguales a los del resto de hallazgos.
+- `apps/frontend/src/features/heuristica-flujo/MatrizItem.tsx`: `modo="equipo"` con las respuestas de cada evaluador en solo lectura, Coinciden/Difieren, filtro Solo diferencias y comentario del equipo obligatorio solo si difiere.
+- `apps/frontend/src/features/heuristica-flujo/ConsensoEditor.tsx`: usa la tabla en lugar de la agenda y del navegador por pregunta; precarga la respuesta comun si todos coinciden; encabezado de progreso; boton "Agregar hallazgo nuevo del equipo".
+- `apps/frontend/src/features/heuristica-flujo/{flujo-utils.ts,InformeView.tsx,informe-pdf.ts}` y `apps/frontend/src/styles/theme.css`: `precargarConsenso`, etiqueta "Nuevo del equipo" en informe y PDF (texto plano), estilos de la fila de equipo.
+- Pruebas: `heuristica-flujo.service.spec.ts` (8 bloques nuevos), `MatrizItem.test.tsx`, `flujo.test.tsx`, `informe-pdf.test.ts` y `tests/e2e/heuristica-sencilla.spec.ts` (consenso con la tabla).
+
+## Fase 2: formulario visible y escala de respuesta (23-10-2026)
+
+- `apps/frontend/src/shared/components/TechniquePage.tsx`: el slot `formulario` se envuelve en `div.technique-form-anchor` solo cuando hay formulario; al pasar de ausente a presente (nunca en el primer montaje) hace `scrollIntoView` (`auto` con reduced-motion, si no `smooth`) y enfoca el primer `h2` o `h3`, o el ancla si aún no existe.
+- `apps/frontend/src/styles/theme.css`: `scroll-margin-top: 88px` para la barra fija de 64px.
+- `apps/frontend/src/features/heuristica-flujo/ConfiguracionEditor.tsx`: selector de escala; lo usan también el alta y el borrador. Elegir una escala reemplaza la de la metodología y quita las escalas propias de los criterios; volver a "La de la metodología" restaura la copia del catálogo.
+- Pruebas: `TechniqueLayout.test.tsx`, `ConfiguracionEditor.test.tsx` y `tests/e2e/formulario-visible.spec.ts` (nuevo).
+- Límite conocido: pasar de una persona a otra con el formulario ya abierto no baja (no hay transición ausente a presente).
+
+## Fase 1: URL sin http y validación segura (23-10-2026)
+
+- `packages/shared-types/src/domains/url-segura.ts` (nuevo) e `index.ts`: `normalizarUrlProducto` y `esUrlSegura`. Solo http/https, antepone `https://` si falta, sin dependencia del tipo global `URL` (el paquete no tiene DOM ni `@types/node`).
+- `packages/shared-types/src/domains/persona.ts`: `fotografiaUrl` usa la validación segura en lugar de `.url()`, que aceptaba cualquier esquema.
+- `apps/backend/src/modules/sessions/heuristica-flujo/heuristica-flujo.schemas.ts`: `producto.url` se normaliza y revalida en el servidor.
+- `apps/frontend/src/features/heuristica-flujo/{flujo-utils.ts,ConfiguracionEditor.tsx,campos.tsx}` y `apps/frontend/src/pages/PersonasPage.tsx`: campos `type="text"` con `inputMode="url"`, normalizan al salir del campo y al enviar; `Fuente` genera el enlace solo con URL segura.
+- `PersonaCard.tsx` no cambia: muestra `fotografiaUrl` como texto, sin `href` ni `src`.
+- Pruebas: `apps/frontend/src/features/heuristica-flujo/url-segura.test.ts` (nuevo) y un caso nuevo en `heuristica-flujo.schemas.spec.ts`.
+- Seguridad: sin hallazgos que corregir (ver `PLAN_APROBADO.md`, seccion 8).
+
 ## Integración de Card Sorting y Momentos Críticos (05-10-2026)
 
 - `features/card-sorting/`, `pages/CardSortingPage.tsx` y sus pruebas: integran la entrada guiada, las vistas y exportaciones de Tomás con validación compartida y desplegables; corrigen el recálculo de agrupaciones según el umbral.

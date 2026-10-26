@@ -1,6 +1,23 @@
 packages:
   - "apps/*"
   - "packages/*"
+overrides:
+  deepmerge-ts: ^8.0.0
+  effect: ^3.20.0
+  js-yaml: ^5.2.2
+  qs: ^6.16.0
+  fast-uri: ^3.1.8
+  fast-uri@>=3.0.0 <3.1.9: '>=3.1.9'
+  fast-uri@>=3.1.3 <3.1.9: '>=3.1.9'
+  multer: ^2.5.0
+  multer@>=2.0.0 <2.5.0: '>=2.5.0'
+  body-parser: ^2.4.0
+  body-parser@>=2.0.0 <2.4.0: '>=2.4.0'
+  proxy-addr: ^2.0.8
+  handlebars: ^4.7.10
+  mysql2: ^3.22.0
+  "brace-expansion@<2": ^1.1.21
+  "brace-expansion@>=4 <5.0.12": ^5.0.12
 allowBuilds:
   '@prisma/client': true
   '@prisma/engines': true
@@ -8,19 +25,3 @@ allowBuilds:
   bcrypt: true
   esbuild: true
   prisma: true
-overrides:
-  body-parser@>=2.0.0 <2.4.0: '>=2.4.0'
-  "brace-expansion@<2": ^1.1.21
-  "brace-expansion@>=4 <5.0.12": ^5.0.12
-  deepmerge-ts: ^8.0.0
-  effect: ^3.20.0
-  fast-uri: ^3.1.8
-  fast-uri@>=3.0.0 <3.1.9: '>=3.1.9'
-  fast-uri@>=3.1.3 <3.1.9: '>=3.1.9'
-  handlebars: ^4.7.10
-  js-yaml: ^5.2.2
-  multer: ^2.4.0
-  multer@>=2.0.0 <2.5.0: '>=2.5.0'
-  mysql2: ^3.22.0
-  proxy-addr: ^2.0.8
-  qs: ^6.16.0

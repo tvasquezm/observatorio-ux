@@ -1,5 +1,5 @@
-import { escalaDe } from '@observatorio-ux/shared-types';
-import type { ConfiguracionFlujo, CriterioFlujo, CumplimientoGrupo, DiscrepanciasFlujo, HallazgoFlujo, RespuestaCriterio } from '@observatorio-ux/shared-types';
+import { acuerdoDifiere, escalaDe, normalizarUrlProducto } from '@observatorio-ux/shared-types';
+import type { ConfiguracionFlujo, CriterioFlujo, CumplimientoGrupo, DecisionCriterio, HallazgoFlujo, RespuestaCriterio, TrabajoFlujo } from '@observatorio-ux/shared-types';
 
 export function pendientesTrabajo(config: ConfiguracionFlujo, respuestas: RespuestaCriterio[], hallazgos: HallazgoFlujo[]) {
   const pendientes = config.metodologia.criterios.flatMap((c, i) => {
@@ -28,23 +28,6 @@ export function criterioRespondido(config: ConfiguracionFlujo, criterio: Criteri
   if (!respuesta) return false;
   return respuesta.noAplica ? respuesta.valor === null : escalaDe(config.metodologia, criterio).niveles.some(n => n.id === respuesta.valor);
 }
-/** Vista checklist (D22): solo si todos los criterios se responden con exactamente dos niveles. */
-export function esChecklist(config: ConfiguracionFlujo): boolean {
-  const { criterios } = config.metodologia;
-  return criterios.length > 0 && criterios.every(c => escalaDe(config.metodologia, c).niveles.length === 2);
-}
-export interface AvanceCategoria { categoria: string; criterios: CriterioFlujo[]; respondidos: number }
-/** Categorías en el orden en que aparecen en la metodología, con cuántos criterios tienen respuesta. */
-export function avancePorCategoria(config: ConfiguracionFlujo, respuestas: RespuestaCriterio[]): AvanceCategoria[] {
-  const grupos = new Map<string, AvanceCategoria>();
-  for (const c of config.metodologia.criterios) {
-    const g = grupos.get(c.categoria) ?? { categoria: c.categoria, criterios: [], respondidos: 0 };
-    g.criterios.push(c);
-    if (criterioRespondido(config, c, respuestas.find(r => r.criterioId === c.id))) g.respondidos++;
-    grupos.set(c.categoria, g);
-  }
-  return [...grupos.values()];
-}
 /** "n de N cumplen (x %)" con N = favorables + desfavorables; sin ellos no hay porcentaje que calcular. */
 export function textoCumplimiento(g: CumplimientoGrupo): string {
   const valorables = g.favorables + g.desfavorables;
@@ -52,17 +35,25 @@ export function textoCumplimiento(g: CumplimientoGrupo): string {
   const extra = [g.sinEvaluar ? `${g.sinEvaluar} sin evaluar` : '', g.noAplica ? `${g.noAplica} no aplica` : ''].filter(Boolean);
   return extra.length ? `${base} · ${extra.join(' · ')}` : base;
 }
-/** Respuestas distintas de un criterio en discrepancia, con las etiquetas de su escala: "Sí / No". */
-export function etiquetasDiscrepancia(config: ConfiguracionFlujo, d: DiscrepanciasFlujo['criterios'][number]): string {
-  const criterio = config.metodologia.criterios.find(c => c.id === d.criterioId);
-  const niveles = criterio ? escalaDe(config.metodologia, criterio).niveles : [];
-  const etiqueta = (r: typeof d.respuestas[number]) => r.noAplica ? 'N.A.' : niveles.find(n => n.id === r.valor)?.etiqueta ?? 'Sin evaluar';
-  return [...new Set(d.respuestas.map(etiqueta))].join(' / ');
-}
-
 /** Identificador estable del producto derivado del nombre (editable en «Más detalles»). */
 export const claveDeNombre = (nombre: string) => nombre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 200);
 /** Minimum data needed by the student view; descriptive fields are optional. */
 export function faltantesParaIniciar(c: ConfiguracionFlujo): string[] {
-  return [!c.producto.nombre.trim() && 'producto o sitio', !c.metodologia.criterios.length && 'una metodología con preguntas', !c.evaluadorIds.length && 'al menos una persona en «Personas que revisarán»', !!c.producto.url && (!/^https?:\/\//i.test(c.producto.url) || !URL.canParse(c.producto.url)) && 'una URL válida que comience con http:// o https:// (o déjala vacía)'].filter((v): v is string => !!v);
+  return [!c.producto.nombre.trim() && 'producto o sitio', !c.metodologia.criterios.length && 'una metodología con preguntas', !c.evaluadorIds.length && 'al menos una persona en «Personas que revisarán»', !!c.producto.url.trim() && !normalizarUrlProducto(c.producto.url) && 'una dirección web válida, por ejemplo miweb.cl (o déjala vacía)'].filter((v): v is string => !!v);
+}
+
+/** Respuesta común de las preguntas donde todos los evaluadores coinciden y el consenso aún no tiene respuesta. Si no hay nada que precargar devuelve el mismo arreglo. */
+export function precargarConsenso(config: ConfiguracionFlujo, trabajos: TrabajoFlujo[], criterios: DecisionCriterio[]): DecisionCriterio[] {
+  const nuevos: DecisionCriterio[] = [];
+  for (const c of config.metodologia.criterios) {
+    const actual = criterios.find(x => x.criterioId === c.id);
+    if (actual && (actual.noAplica || actual.valor !== null)) continue;
+    const propias = trabajos.map(t => t.respuestas.find(r => r.criterioId === c.id));
+    const primera = propias[0];
+    if (!primera || (!primera.noAplica && primera.valor === null) || acuerdoDifiere(primera, propias)) continue;
+    nuevos.push({ ...respuestaVacia(c.id), valor: primera.valor, noAplica: primera.noAplica, justificacion: actual?.justificacion ?? '' });
+  }
+  if (!nuevos.length) return criterios;
+  const ids = new Set(nuevos.map(n => n.criterioId));
+  return [...criterios.filter(x => !ids.has(x.criterioId)), ...nuevos];
 }

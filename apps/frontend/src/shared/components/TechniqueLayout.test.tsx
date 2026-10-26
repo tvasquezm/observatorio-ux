@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TechniqueItemActions } from './TechniqueItemActions';
 import { TechniqueListHead, TechniqueEmpty } from './TechniqueListParts';
 import { TechniqueNewButton } from './TechniqueNewButton';
@@ -104,5 +104,54 @@ describe('TechniqueListParts', () => {
     expect(within(vacio).getByText('Sin datos')).toBeInTheDocument();
     expect(within(vacio).getByText('Crea el primero.')).toBeInTheDocument();
     expect(within(vacio).getByTestId('icono')).toBeInTheDocument();
+  });
+});
+
+describe('TechniquePage: baja al formulario', () => {
+  const scrollIntoView = vi.fn();
+  const matchMedia = vi.fn();
+  const formulario = <form><h2>Nueva persona</h2><input aria-label="nombre" /></form>;
+  const pagina = (f?: React.ReactNode) => <TechniquePage cabecera={<p>cabecera</p>} formulario={f} lista={<p>lista</p>} />;
+
+  beforeEach(() => {
+    scrollIntoView.mockReset();
+    matchMedia.mockReset().mockReturnValue({ matches: false });
+    Element.prototype.scrollIntoView = scrollIntoView;
+    window.matchMedia = matchMedia as unknown as typeof window.matchMedia;
+  });
+  afterEach(() => { delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView; delete (window as { matchMedia?: unknown }).matchMedia; });
+
+  it('no baja en el primer montaje aunque el formulario ya esté presente', () => {
+    render(pagina(formulario));
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+  it('baja con movimiento suave al pasar de vacío a presente y deja el foco en el título', () => {
+    const { rerender } = render(pagina(false));
+    expect(scrollIntoView).not.toHaveBeenCalled();
+    rerender(pagina(formulario));
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start', behavior: 'smooth' });
+    expect(screen.getByRole('heading', { name: 'Nueva persona' })).toHaveFocus();
+  });
+  it('usa behavior auto con prefers-reduced-motion', () => {
+    matchMedia.mockReturnValue({ matches: true });
+    const { rerender } = render(pagina());
+    rerender(pagina(formulario));
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start', behavior: 'auto' });
+  });
+  it('deja el foco en el ancla si el formulario aún no tiene título', () => {
+    const { rerender, container } = render(pagina(null));
+    rerender(pagina(<form aria-label="cargando" />));
+    expect(container.querySelector('.technique-form-anchor')).toHaveFocus();
+  });
+  it('no vuelve a bajar si el formulario sigue presente tras un rerender', () => {
+    const { rerender } = render(pagina(false));
+    rerender(pagina(formulario));
+    rerender(pagina(<form><h2>Nueva persona</h2><input aria-label="nombre" defaultValue="x" /></form>));
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+  });
+  it('sin formulario no agrega el ancla y conserva el orden de los slots', () => {
+    const { container } = render(pagina());
+    expect(container.querySelector('.technique-form-anchor')).toBeNull();
   });
 });

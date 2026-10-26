@@ -25,6 +25,7 @@ import { TechniqueProcess } from '../shared/components/TechniqueProcess';
 import { PasosTecnica } from '../shared/components/PasosTecnica';
 import { useArtifactEditLock } from '../shared/hooks/useArtifactEditLock';
 import { useUnsavedChanges } from '../shared/hooks/useUnsavedChanges';
+import { normalizarUrlProducto } from '@observatorio-ux/shared-types';
 import { CampoUrl } from '../shared/components/ui/CampoUrl';
 import { PersonaCard } from '../features/persona/components/PersonaCard';
 import { ETIQUETAS_CAMPOS, procesoPersona } from '../features/persona/persona-visual';
@@ -136,7 +137,8 @@ export function PersonasPage() {
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!nombreCompleto) return;
-    const payload = contenidoEnVivo;
+    const foto = contenidoEnVivo.fotografiaUrl?.trim();
+    const payload = { ...contenidoEnVivo, fotografiaUrl: foto ? (foto.startsWith('data:') ? foto : (normalizarUrlProducto(foto) ?? foto)) : undefined };
 
     if (editandoId) {
       const idAEditar = editandoId;
@@ -276,6 +278,9 @@ export function PersonasPage() {
                       <label htmlFor="persona-fotografia-url">O ingresa una URL de fotografía</label>
                       <CampoUrl id="persona-fotografia-url" value={form.fotografiaUrl?.startsWith('data:') ? '' : form.fotografiaUrl ?? ''} placeholder="https://ejemplo.cl/foto.jpg"
                         onChange={(url) => setForm({ ...form, fotografiaUrl: url || undefined })} />
+                      {form.fotografiaUrl?.trim() && !form.fotografiaUrl.startsWith('data:') && !normalizarUrlProducto(form.fotografiaUrl) && (
+                        <span className="error-text" role="alert">Esta URL no es válida. Usa una dirección web (por ejemplo miweb.cl/foto) para poder guardar.</span>
+                      )}
                       {form.fotografiaUrl && <div className="persona-fotografia-preview"><img src={form.fotografiaUrl} alt={`Vista previa de ${form.nombreCompleto || 'la persona'}`} style={{ maxWidth: 160, maxHeight: 160, objectFit: 'cover', borderRadius: 8 }} /><button type="button" className="text-button" disabled={bloqueado} onClick={() => setForm({ ...form, fotografiaUrl: undefined })}>Quitar fotografía</button></div>}
                     </div>
                   </div>,

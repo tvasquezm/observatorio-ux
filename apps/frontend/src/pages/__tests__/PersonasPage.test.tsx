@@ -122,6 +122,17 @@ describe('Personas — presentación y edición', () => {
     }), expect.any(Object));
   });
 
+  it('avisa cuando la URL de fotografía no es válida y lo quita al corregirla', async () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+    await screen.findByRole('heading', { name: 'Paso 1 de 6: Identidad' });
+    const campo = screen.getByLabelText(/URL de fotografía/);
+    expect(screen.queryByText(/Esta URL no es válida/)).not.toBeInTheDocument();
+    fireEvent.change(campo, { target: { value: 'javascript:alert(1)' } });
+    expect(screen.getByText(/Esta URL no es válida/)).toHaveAttribute('role', 'alert');
+    fireEvent.change(campo, { target: { value: 'miweb.cl/foto' } });
+    expect(screen.queryByText(/Esta URL no es válida/)).not.toBeInTheDocument();
+  });
   it('avisa que la persona está lista cuando las fases obligatorias están hechas', async () => {
     renderPage();
     fireEvent.click(screen.getByRole('button', { name: 'Editar' }));

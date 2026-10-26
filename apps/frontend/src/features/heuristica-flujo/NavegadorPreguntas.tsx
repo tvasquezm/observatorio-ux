@@ -1,16 +1,23 @@
 import type { ReactNode } from 'react';
-import type { ConfiguracionFlujo, RespuestaCriterio } from '@observatorio-ux/shared-types';
-import { AnilloAvance } from '../../shared/components/AnilloAvance';
+import type { ConfiguracionFlujo, CriterioFlujo, RespuestaCriterio } from '@observatorio-ux/shared-types';
 import { criterioRespondido } from './flujo-utils';
+import { agruparPorItem, esUnaTabla } from './MatrizItem';
 
-export function NavegadorPreguntas({ config, respuestas, indice, onChange, sinBotones = false, barra = false, children }: { config: ConfiguracionFlujo; respuestas: RespuestaCriterio[]; indice: number; onChange: (indice: number) => void; sinBotones?: boolean; barra?: boolean; children?: ReactNode }) {
+/** Barra de avance de la revisión: tarjetas numeradas por sección y conteo de preguntas respondidas. */
+export function NavegadorPreguntas({ config, respuestas, indice, onChange, children }: { config: ConfiguracionFlujo; respuestas: RespuestaCriterio[]; indice: number; onChange: (indice: number) => void; children?: ReactNode }) {
   const criterios = config.metodologia.criterios;
-  const completos = criterios.filter(c => criterioRespondido(config, c, respuestas.find(r => r.criterioId === c.id))).length;
-  return <nav className={barra ? 'hf-preguntas hf-preguntas-barra' : 'hf-preguntas panel'} aria-label="Preguntas de la revisión">
-    {criterios.length > 12 ? <label className="field">Pregunta que estás revisando<select aria-label="Pregunta que estás revisando" value={indice} onChange={e => onChange(Number(e.target.value))}>{criterios.map((c, i) => <option key={c.id} value={i}>{i + 1}. {c.nombre}</option>)}</select></label> : <div className={barra ? 'hf-segmentos' : 'hf-mapa-preguntas'}>{criterios.map((c, i) => { const r = respuestas.find(r => r.criterioId === c.id); const lista = criterioRespondido(config, c, r); return <button type="button" key={c.id} aria-label={`Pregunta ${i + 1}: ${c.nombre}${lista ? r?.noAplica ? ', no aplica' : ', respondida' : ', pendiente'}`} aria-current={i === indice ? 'true' : undefined} data-done={lista || undefined} onClick={() => onChange(i)}>{i + 1}{lista && <span aria-hidden="true">{r?.noAplica ? '−' : '✓'}</span>}</button>; })}</div>}
+  const respondido = (c: CriterioFlujo) => criterioRespondido(config, c, respuestas.find(r => r.criterioId === c.id));
+  const completos = criterios.filter(respondido).length;
+  const grupos = agruparPorItem(config, criterios);
+  const conSecciones = grupos.length > 1 && !esUnaTabla(grupos);
+  const actualId = criterios[indice]?.id;
+  return <nav className="hf-preguntas hf-preguntas-barra" aria-label="Preguntas de la revisión">
+    {conSecciones && <div className="hf-segmentos">{grupos.map((g, i) => {
+      const n = g.criterios.filter(respondido).length;
+      const lista = n === g.criterios.length;
+      return <button type="button" key={g.categoria} title={g.categoria} aria-label={`Sección ${i + 1}: ${g.categoria}, ${n} de ${g.criterios.length} respondidas${lista ? ', completa' : ''}`} aria-current={g.criterios.some(c => c.id === actualId) ? 'true' : undefined} data-done={lista || undefined} onClick={() => onChange(criterios.indexOf(g.criterios[0]))}>{i + 1}{lista && <span aria-hidden="true">✓</span>}</button>;
+    })}</div>}
     <p role="status">{completos} de {criterios.length} preguntas respondidas</p>
-    {!barra && <AnilloAvance hecho={completos} total={criterios.length} etiqueta="preguntas respondidas" tamano={44} />}
     {children}
-    {!sinBotones && <div className="hf-actions"><button type="button" className="secondary" disabled={indice === 0} onClick={() => onChange(indice - 1)}>Pregunta anterior</button><button type="button" className="secondary" disabled={indice >= criterios.length - 1} onClick={() => onChange(indice + 1)}>Pregunta siguiente</button></div>}
   </nav>;
 }

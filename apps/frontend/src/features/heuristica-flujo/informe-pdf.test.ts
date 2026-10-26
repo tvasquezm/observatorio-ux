@@ -24,6 +24,13 @@ describe('Informe consolidado PDF', () => {
     expect(contenido).toContain('Portal');
     expect(contenido).toContain('Ana');
   });
+  it('rotula como Nuevo del equipo el hallazgo sin origen individual', () => {
+    const ev = evaluacion();
+    ev.informe!.consenso.hallazgos.push({ ...finding, id: 'equipo', titulo: 'Detectado por el equipo', origenIds: [], decision: 'ACEPTADO' });
+    const contenido = JSON.stringify(construirInformeFlujoPdf(ev, new Map(), new Date()).content);
+    expect(contenido).toContain('Detectado por el equipo');
+    expect(contenido).toContain('Nuevo del equipo');
+  });
   it('muestra la escala propia y su valoración sin mezclarla con la de la metodología', () => {
     const ev = evaluacion();
     const propia = { tipo: 'categorica' as const, sentido: 'sin_orden' as const, fuente: 'Checklist propio', niveles: [{ id: 'si', etiqueta: 'Sí cumple', significado: 'Cumple el ítem' }, { id: 'no', etiqueta: 'No cumple', significado: 'No cumple el ítem' }] };

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { URL_MAX_LARGO, normalizarUrlProducto } from './url-segura';
 
 /**
  * Schema de validación para el contenido de un artefacto de tipo PERSONA.
@@ -28,16 +29,13 @@ export const PersonaSchema = z.object({
     .describe('Ocupación, profesión o cargo de la persona.'),
   fotografiaUrl: z
     .string()
-.refine((value) => {
-  // Se permiten imágenes locales comprimidas en formato data URL.
-  if (/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(value)) {
-    return value.length <= 2_200_000;
-  }
-
-  // Validar URL HTTP(S) sin depender del tipo global URL.
-  return /^https?:\/\/[^\s/?#]+(?:[/?#][^\s]*)?$/i.test(value);
-}, 'Debe ser una URL HTTP(S) válida o una imagen local permitida.')
-.optional(),
+    .max(2_200_000)
+    .refine((value) => {
+      // Se permiten imágenes locales comprimidas en formato data URL.
+      if (/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(value)) return true;
+      return value.length <= URL_MAX_LARGO && normalizarUrlProducto(value) !== null;
+    }, 'Debe ser una URL http o https válida o una imagen local permitida.')
+    .optional(),
   acercaDe: z
     .string()
     .max(2000)
