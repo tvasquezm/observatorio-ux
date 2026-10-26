@@ -31,7 +31,9 @@ export function PersonaCard({ persona, acciones }: Props) {
   return (
     <article className="panel persona-profile tv-persona" aria-labelledby={`persona-name-${persona.id}`}>
       <header className="tv-persona-head">
-        <span className="tv-avatar tv-avatar--lg" aria-hidden="true">{iniciales(c.nombreCompleto)}</span>
+        {c.fotografiaUrl
+          ? <img className="tv-avatar tv-avatar--lg tv-avatar--foto" src={c.fotografiaUrl} alt={`Fotografía de ${c.nombreCompleto}`} loading="lazy" />
+          : <span className="tv-avatar tv-avatar--lg" aria-hidden="true">{iniciales(c.nombreCompleto)}</span>}
         <div className="persona-profile-identity">
           <h3 id={`persona-name-${persona.id}`}>{c.nombreCompleto}</h3>
           <p>{demografia || 'Sin datos demográficos registrados'}</p>
@@ -71,7 +73,7 @@ export function PersonaCard({ persona, acciones }: Props) {
         <summary>Ver perfil completo</summary>
         <TechniqueProcess compact title="Proceso de la persona" steps={procesoPersona(c)} />
         <dl className="persona-detail-grid">
-          {DETALLE_TEXTO.map((campo) => (
+          {DETALLE_TEXTO.filter(campo => campo !== 'fotografiaUrl').map((campo) => (
             <div key={campo}><dt>{ETIQUETAS_CAMPOS[campo]}</dt><dd>{c[campo]?.trim() || 'Sin registrar.'}</dd></div>
           ))}
           {DETALLE_LISTA.map((campo) => {

@@ -29,8 +29,12 @@ export const PersonaSchema = z.object({
     .describe('Ocupación, profesión o cargo de la persona.'),
   fotografiaUrl: z
     .string()
-    .max(URL_MAX_LARGO)
-    .refine(v => normalizarUrlProducto(v) !== null, 'Debe ser una URL http o https válida.')
+    .max(2_200_000)
+    .refine((value) => {
+      // Se permiten imágenes locales comprimidas en formato data URL.
+      if (/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(value)) return true;
+      return value.length <= URL_MAX_LARGO && normalizarUrlProducto(value) !== null;
+    }, 'Debe ser una URL http o https válida o una imagen local permitida.')
     .optional(),
   acercaDe: z
     .string()

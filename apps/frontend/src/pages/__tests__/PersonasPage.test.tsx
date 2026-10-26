@@ -126,7 +126,7 @@ describe('Personas — presentación y edición', () => {
     renderPage();
     fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
     await screen.findByRole('heading', { name: 'Paso 1 de 6: Identidad' });
-    const campo = screen.getByLabelText('URL de fotografía');
+    const campo = screen.getByLabelText(/URL de fotografía/);
     expect(screen.queryByText(/Esta URL no es válida/)).not.toBeInTheDocument();
     fireEvent.change(campo, { target: { value: 'javascript:alert(1)' } });
     expect(screen.getByText(/Esta URL no es válida/)).toHaveAttribute('role', 'alert');

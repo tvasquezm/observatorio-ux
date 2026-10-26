@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { acuerdoDifiere, escalaDe } from '@observatorio-ux/shared-types';
 import type { ConfiguracionFlujo, CriterioFlujo, DecisionCriterio, EscalaFlujo, HallazgoFlujo, RespuestaCriterio } from '@observatorio-ux/shared-types';
 import { criterioRespondido, respuestaVacia } from './flujo-utils';
+import { EvidenciaEditor } from './EvidenciaEditor';
 
 export interface EstadoGuardado { dirty: boolean; saving: boolean; error: string }
 /** Respuestas entregadas por cada evaluador; en el acuerdo del equipo se muestran en solo lectura. */
@@ -30,6 +31,10 @@ interface Props {
   renderProblemas?: (criterioId: string) => ReactNode;
   /** Impide cambiar de sección: lo que hay abierto en las filas se perdería. */
   bloqueado?: boolean;
+  /** Con proyecto y evaluación, el comentario de cada pregunta admite capturas de evidencia (solo en modo individual). */
+  proyectoId?: string;
+  evaluacionId?: string;
+  onEvidencePending?: (criterioId: string, pending: boolean) => void;
 }
 interface Subgrupo { escala: EscalaFlujo; criterios: CriterioFlujo[] }
 export interface Grupo { categoria: string; criterios: CriterioFlujo[]; subgrupos: Subgrupo[] }
@@ -57,7 +62,7 @@ type Marca = 'ninguna' | 'pendiente' | 'guardado' | 'error';
 const textoRespuesta = (r: RespuestaCriterio | undefined, niveles: EscalaFlujo['niveles']) => !r ? 'Sin evaluar' : r.noAplica ? 'No aplica' : niveles.find(n => n.id === r.valor)?.etiqueta ?? 'Sin evaluar';
 
 /** Tabla calificable: una por ítem, con título y enunciado siempre visibles. */
-export function MatrizItem({ criterios, config, respuestas, modo, individuales = [], onChange, hallazgos = [], editable = true, onAddHallazgo, guardado = { dirty: false, saving: false, error: '' }, foco, onFoco, problemasAbiertos, onToggleProblemas, renderProblemas, bloqueado = false }: Props) {
+export function MatrizItem({ criterios, config, respuestas, modo, individuales = [], onChange, hallazgos = [], editable = true, onAddHallazgo, guardado = { dirty: false, saving: false, error: '' }, foco, onFoco, problemasAbiertos, onToggleProblemas, renderProblemas, bloqueado = false, proyectoId, evaluacionId, onEvidencePending }: Props) {
   const id = useId();
   const esEquipo = modo === 'equipo';
   const propiasDe = (cid: string) => individuales.map(i => ({ i, r: i.respuestas.find(x => x.criterioId === cid) }));
@@ -121,6 +126,7 @@ export function MatrizItem({ criterios, config, respuestas, modo, individuales =
         {esEquipo && propias.filter(p => p.r?.notas.trim()).map(p => <p key={p.i.evaluadorId} className="hf-ayuda">Comentario individual de {p.i.nombre}: {p.r?.notas}</p>)}
         {esEquipo && r.valor !== null && !r.noAplica && <p className="hf-ayuda">{exige ? 'Obligatorio: la respuesta acordada difiere de alguna individual.' : 'Opcional: la respuesta acordada coincide con las individuales.'}</p>}
         <label className="field">Comentario{esEquipo ? ' del equipo' : ''} de {c.nombre}<textarea maxLength={10000} readOnly={!editable} required={exige} value={texto} onChange={e => onChange(esEquipo ? { ...r, justificacion: e.target.value } : { ...r, notas: e.target.value })} /></label>
+        {!esEquipo && proyectoId && evaluacionId && <EvidenciaEditor proyectoId={proyectoId} evaluacionId={evaluacionId} evidenciaIds={r.evidenciaIds ?? []} editable={editable} onChange={ids => onChange({ ...r, evidenciaIds: ids })} onPendingChange={v => onEvidencePending?.(c.id, v)} etiqueta="de la valoración" />}
         {r.motivo && <p className="hf-ayuda">Nota anterior: {r.motivo}</p>}
         <button type="button" className="secondary" onClick={() => alternar(c.id)}>Listo<span className="sr-only">: comentario de {c.nombre}</span></button>
       </td></tr>}

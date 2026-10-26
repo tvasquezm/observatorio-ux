@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { normalizarUrlProducto } from '@observatorio-ux/shared-types';
 import type { ProjectOutletContext } from '../layouts/ProjectDetailLayout';
 import {
   useCreatePersona,
@@ -26,9 +25,12 @@ import { TechniqueProcess } from '../shared/components/TechniqueProcess';
 import { PasosTecnica } from '../shared/components/PasosTecnica';
 import { useArtifactEditLock } from '../shared/hooks/useArtifactEditLock';
 import { useUnsavedChanges } from '../shared/hooks/useUnsavedChanges';
+import { normalizarUrlProducto } from '@observatorio-ux/shared-types';
+import { CampoUrl } from '../shared/components/ui/CampoUrl';
 import { PersonaCard } from '../features/persona/components/PersonaCard';
 import { ETIQUETAS_CAMPOS, procesoPersona } from '../features/persona/persona-visual';
 import { ComentariosTecnica } from '../features/comments/components/ComentariosTecnica';
+import { comprimirImagen } from '../shared/utils/comprimir-imagen';
 
 const CAMPOS_LISTA: (keyof PersonaContenido)[] = [
   'hobbies',
@@ -83,6 +85,8 @@ export function PersonasPage() {
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [editandoVersion, setEditandoVersion] = useState<number | null>(null);
   const [readOnly, setReadOnly] = useState(false);
+  const [errorImagen, setErrorImagen] = useState('');
+  const [subiendoImagen, setSubiendoImagen] = useState(false);
   const { confirmDiscard } = useUnsavedChanges(mostrarForm, { form, listInputs }, isCreating || isUpdating, editandoId ?? 'new');
 
   function resetForm() {
@@ -93,6 +97,8 @@ export function PersonasPage() {
     setEditandoVersion(null);
     setMostrarForm(false);
     setReadOnly(false);
+    setErrorImagen('');
+    setSubiendoImagen(false);
   }
 
   async function handleIniciarEditar(persona: PersonaArtifact) {
@@ -132,7 +138,7 @@ export function PersonasPage() {
     e.preventDefault();
     if (!nombreCompleto) return;
     const foto = contenidoEnVivo.fotografiaUrl?.trim();
-    const payload = { ...contenidoEnVivo, fotografiaUrl: foto ? (normalizarUrlProducto(foto) ?? foto) : undefined };
+    const payload = { ...contenidoEnVivo, fotografiaUrl: foto ? (foto.startsWith('data:') ? foto : (normalizarUrlProducto(foto) ?? foto)) : undefined };
 
     if (editandoId) {
       const idAEditar = editandoId;
@@ -147,7 +153,7 @@ export function PersonasPage() {
     }
   }
 
-  const isPending = isCreating || isUpdating;
+  const isPending = isCreating || isUpdating || subiendoImagen;
   const enFormulario = puedeEditar && mostrarForm;
   const bloqueado = readOnly || editLock.lockLost || isPending || isDeleting;
   const campos = (contenido: React.ReactNode) => (
@@ -184,7 +190,7 @@ export function PersonasPage() {
             etiqueta="+ Nueva persona"
             abierto={mostrarForm}
             puedeEditar={puedeEditar}
-            disabled={isCreating || isUpdating || isDeleting}
+            disabled={isCreating || isUpdating || isDeleting || subiendoImagen}
             onClick={async () => { if (mostrarForm) { if (await confirmDiscard()) resetForm(); } else setMostrarForm(true); }}
           />
         }
@@ -248,15 +254,35 @@ export function PersonasPage() {
                         onChange={(e) => setForm({ ...form, acercaDe: e.target.value })} />
                     </label>
                     {renderListFields(['hobbies', 'habilidades'])}
-                    <label className="field persona-field-wide">
-                      URL de fotografía
-                      <input type="text" inputMode="url" value={form.fotografiaUrl ?? ''} placeholder="miweb.cl/foto"
-                        onChange={(e) => setForm({ ...form, fotografiaUrl: e.target.value || undefined })}
-                        onBlur={(e) => { const url = normalizarUrlProducto(e.target.value); if (url && url !== form.fotografiaUrl) setForm({ ...form, fotografiaUrl: url }); }} />
-                      {form.fotografiaUrl?.trim() && !normalizarUrlProducto(form.fotografiaUrl) && (
+                    <div className="field persona-field-wide">
+                      <label htmlFor="persona-fotografia-archivo">Fotografía de la persona</label>
+                      <input id="persona-fotografia-archivo" type="file" accept="image/png,image/jpeg,image/webp" disabled={bloqueado || subiendoImagen}
+                        onChange={async (e) => {
+                          const archivo = e.currentTarget.files?.[0]; e.currentTarget.value = '';
+                          if (!archivo) return;
+                          setErrorImagen('');
+                          if (!['image/png', 'image/jpeg', 'image/webp'].includes(archivo.type)) { setErrorImagen('Selecciona una imagen PNG, JPEG o WebP.'); return; }
+                          if (archivo.size > 10 * 1024 * 1024) { setErrorImagen('La imagen no puede superar 10 MB.'); return; }
+                          setSubiendoImagen(true);
+                          try {
+                            const comprimida = await comprimirImagen(archivo);
+                            if (comprimida.size > 1500 * 1024) { setErrorImagen('La imagen sigue siendo demasiado grande después de optimizarla. Prueba con una imagen más pequeña (máximo 1,5 MB).'); return; }
+                            const dataUrl = await new Promise<string>((resolve, reject) => { const lector = new FileReader(); lector.onload = () => typeof lector.result === 'string' ? resolve(lector.result) : reject(new Error('No se pudo leer la imagen.')); lector.onerror = () => reject(new Error('No se pudo leer la imagen.')); lector.readAsDataURL(comprimida); });
+                            setForm(actual => ({ ...actual, fotografiaUrl: dataUrl }));
+                          } catch { setErrorImagen('No se pudo procesar la imagen seleccionada.'); }
+                          finally { setSubiendoImagen(false); }
+                        }} />
+                      <small>PNG, JPEG o WebP. Máximo 10 MB antes de optimizar.</small>
+                      {subiendoImagen && <p role="status">Procesando imagen…</p>}
+                      {errorImagen && <p role="alert">{errorImagen}</p>}
+                      <label htmlFor="persona-fotografia-url">O ingresa una URL de fotografía</label>
+                      <CampoUrl id="persona-fotografia-url" value={form.fotografiaUrl?.startsWith('data:') ? '' : form.fotografiaUrl ?? ''} placeholder="https://ejemplo.cl/foto.jpg"
+                        onChange={(url) => setForm({ ...form, fotografiaUrl: url || undefined })} />
+                      {form.fotografiaUrl?.trim() && !form.fotografiaUrl.startsWith('data:') && !normalizarUrlProducto(form.fotografiaUrl) && (
                         <span className="error-text" role="alert">Esta URL no es válida. Usa una dirección web (por ejemplo miweb.cl/foto) para poder guardar.</span>
                       )}
-                    </label>
+                      {form.fotografiaUrl && <div className="persona-fotografia-preview"><img src={form.fotografiaUrl} alt={`Vista previa de ${form.nombreCompleto || 'la persona'}`} style={{ maxWidth: 160, maxHeight: 160, objectFit: 'cover', borderRadius: 8 }} /><button type="button" className="text-button" disabled={bloqueado} onClick={() => setForm({ ...form, fotografiaUrl: undefined })}>Quitar fotografía</button></div>}
+                    </div>
                   </div>,
                 ),
               },

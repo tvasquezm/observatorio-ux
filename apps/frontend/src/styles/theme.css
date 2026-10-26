@@ -1423,6 +1423,50 @@ button { cursor: pointer; }
 .text-muted { color: var(--muted); }
 .text-muted-sm { color: var(--muted); font-size: 12px; }
 .error-text { color: var(--danger-text); }
+
+
+/* ---------- Campo de URL con el esquema (https://) fijo en un recuadro ---------- */
+.campo-url {
+  display: flex; align-items: stretch; margin-top: 6px; border: 1px solid var(--line); border-radius: 9px;
+  background: var(--surface-alt); overflow: hidden;
+}
+.campo-url:focus-within { outline: 2px solid var(--primary); outline-offset: 1px; }
+.campo-url__prefijo {
+  display: inline-flex; align-items: center; padding: 0 10px; border-right: 1px solid var(--line);
+  background: var(--surface-muted); color: var(--muted); font-size: 12px; font-weight: 750; white-space: nowrap; user-select: none;
+}
+.field .campo-url input:not(.sr-only) { flex: 1; min-width: 0; margin: 0; border: 0; border-radius: 0; background: transparent; }
+.field .campo-url input:not(.sr-only):focus,
+.field .campo-url input:not(.sr-only):focus-visible { outline: none; }
+
+/* ---------- Capturas de evidencia: aviso de error, acciones con ícono y vista ampliada ---------- */
+.evidencia-alerta {
+  display: flex; align-items: flex-start; gap: 8px; margin: 8px 0; padding: 10px 12px;
+  border: 1px solid var(--critical-line); border-left: 5px solid var(--critical-ink); border-radius: 8px;
+  background: var(--critical-surface); color: var(--critical-ink); font-size: 13px; font-weight: 700; line-height: 1.4;
+}
+.evidencia-item { margin-block: 12px; }
+.evidencia-barra { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.evidencia-accion {
+  display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; padding: 0;
+  border: 1px solid var(--line); border-radius: 9px; background: var(--surface); color: var(--ink); cursor: pointer;
+}
+.evidencia-accion:hover:not(:disabled) { background: var(--surface-muted); }
+.evidencia-accion:disabled { opacity: .5; cursor: default; }
+.evidencia-accion--danger { border-color: color-mix(in srgb, var(--danger-text) 35%, var(--line)); color: var(--danger-text); }
+.evidencia-accion--danger:hover:not(:disabled) { background: color-mix(in srgb, var(--danger-text) 10%, var(--surface)); }
+.evidencia-ampliar { position: absolute; top: 8px; right: 8px; z-index: 2; }
+.evidencia-visor-fondo {
+  position: fixed; inset: 0; z-index: 1050; display: flex; align-items: center; justify-content: center;
+  padding: 24px; background: rgba(0, 0, 0, .82);
+}
+.evidencia-visor-caja { position: relative; max-width: 100%; max-height: 100%; }
+.evidencia-visor-imagen { position: relative; display: inline-block; line-height: 0; }
+.evidencia-visor-imagen img {
+  display: block; width: auto; height: auto; max-width: calc(100vw - 48px); max-height: calc(100vh - 48px);
+  border-radius: 6px; background: #fff;
+}
+.evidencia-visor-cerrar { position: absolute; top: 8px; right: 8px; z-index: 3; }
 .hint-text { font-size: 12px; color: var(--muted); line-height: 1.5; }
 .mt-16 { margin-top: 16px; }
 .mb-16 { margin-bottom: 16px; }
@@ -3100,3 +3144,6 @@ div:has(> .project-section > .hf) > .project-heading p { margin:4px 0 0; font-si
 .hf .hf-matrices > .hf-navegar { display: flex; justify-content: space-between; gap: 8px; margin: 8px 0; }
 .hf .hf-matrices > .hf-navegar button { min-height: 40px; min-width: 150px; }
 @media (max-width: 650px) { .hf .hf-matrices > .hf-navegar button { flex: 1; min-width: 0; } }
+
+/* Fotografía real de la persona: conserva las dimensiones del avatar y recorta sin deformar. */
+.tv-avatar--foto { display: block; object-fit: cover; flex: 0 0 auto; }

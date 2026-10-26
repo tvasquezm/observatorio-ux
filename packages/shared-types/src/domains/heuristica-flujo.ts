@@ -29,7 +29,7 @@ export interface ConfiguracionFlujo {
   metodologia: MetodologiaFlujo;
   evaluadorIds: string[]; lectorIds: string[];
 }
-export interface RespuestaCriterio { criterioId: string; valor: string | null; noAplica: boolean; motivo: string; notas: string }
+export interface RespuestaCriterio { criterioId: string; valor: string | null; noAplica: boolean; motivo: string; notas: string; evidenciaIds?: string[] }
 export interface HallazgoFlujo {
   id: string; criterioIds: string[]; titulo: string; pantalla: string; descripcion: string;
   recomendacion: string; severidad: 0 | 1 | 2 | 3 | 4; prioridad: 'BAJA' | 'MEDIA' | 'ALTA' | 'URGENTE';

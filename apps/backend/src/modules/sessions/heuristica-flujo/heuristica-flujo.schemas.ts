@@ -29,7 +29,7 @@ export const configuracionSchema = z.strictObject({
   objetivo: texto, tareas: texto, pantallas: texto, exclusiones: texto, metodologia: metodologiaSchema,
   evaluadorIds: ids(5).min(1), lectorIds: ids(100),
 });
-export const respuestaSchema = z.strictObject({ criterioId: identificador, valor: identificador.nullable(), noAplica: z.boolean(), motivo: texto, notas: texto });
+export const respuestaSchema = z.strictObject({ criterioId: identificador, valor: identificador.nullable(), noAplica: z.boolean(), motivo: texto, notas: texto, evidenciaIds: ids(50).optional() });
 export const hallazgoSchema = z.strictObject({
   id: identificador, criterioIds: ids(500), titulo: z.string().max(300), pantalla: texto, descripcion: texto, recomendacion: texto,
   severidad: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3), z.literal(4)]), prioridad: z.enum(['BAJA', 'MEDIA', 'ALTA', 'URGENTE']), notas: texto, evidenciaIds: ids(50),
