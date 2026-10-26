@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **personas, momentos-criticos:** si otro miembro del equipo está editando, quien intenta editar ve "Editando: nombre"
+  (el 409 del bloqueo ahora incluye el nombre; solo lo ve quien tiene acceso al proyecto). Sin edición simultánea.
 * **evaluacion-heuristica:** las capturas de evidencia ahora se pueden ver en grande (clic sobre la imagen, lupa o Esc
   para cerrar), se quitan con un ícono de papelera y, si una imagen supera el máximo de 4 MB, aparece un cartel rojo
   con el peso real de la imagen (también cuando el servidor responde 413). Si la captura tiene anotaciones sin guardar,
