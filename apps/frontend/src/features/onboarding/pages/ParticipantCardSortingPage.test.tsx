@@ -211,7 +211,7 @@ describe('ParticipantCardSortingPage · progreso y confirmación', () => {
     localStorage.setItem(`cardSorting:progreso:${SESION_ID}`, JSON.stringify({ asignaciones: { c1: 'k1' }, categoriasCreadas: [] }));
     renderPage();
     expect(await screen.findByText('1 de 2 clasificadas')).toBeInTheDocument();
-    expect(screen.getByRole('progressbar', { name: 'Tarjetas clasificadas' })).toHaveAttribute('aria-valuenow', '1');
+    expect(screen.getByRole('img', { name: '1 de 2 tarjetas clasificadas' })).toBeInTheDocument();
     expect(screen.getByText(/Avance guardado en este dispositivo/, { selector: '.cs-progress-note' })).toBeInTheDocument();
   });
 

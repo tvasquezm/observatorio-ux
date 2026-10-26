@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState, type DragEvent } from 'react';
+import { AnilloAvance } from '../../../shared/components/AnilloAvance';
 import { MAX_CATEGORIA, normalizarTexto as normalizeCategory } from '../card-sorting-input';
 
 const COARSE_POINTER_QUERY = '(pointer: coarse)';
@@ -263,7 +264,6 @@ export function CardSortingWorkspace({
 
   const total = study.cardsDefinidas.length;
   const done = total - unassignedCards.length;
-  const percent = total > 0 ? Math.round((done / total) * 100) : 0;
 
   function renderCard(card: { id: string; etiqueta: string }) {
     const selected = selectedCardId === card.id;
@@ -336,20 +336,10 @@ export function CardSortingWorkspace({
     <section className="cs-workspace" aria-label={`Clasificación de tarjetas: ${study.nombre}`}>
       {total > 0 && (
         <div className="cs-progress" data-testid="cs-workspace-progress">
+          <AnilloAvance hecho={done} total={total} etiqueta="tarjetas clasificadas" tamano={36} />
           <div className="cs-progress-row">
             <strong>{done} de {total} clasificadas</strong>
             {notaProgreso && done > 0 && <span className="cs-progress-note">✓ {notaProgreso}</span>}
-          </div>
-          <div
-            className="cs-progress-track"
-            role="progressbar"
-            aria-label="Tarjetas clasificadas"
-            aria-valuemin={0}
-            aria-valuemax={total}
-            aria-valuenow={done}
-            aria-valuetext={`${done} de ${total} tarjetas clasificadas`}
-          >
-            <i style={{ width: `${percent}%` }} className={done === total ? 'complete' : undefined} />
           </div>
         </div>
       )}

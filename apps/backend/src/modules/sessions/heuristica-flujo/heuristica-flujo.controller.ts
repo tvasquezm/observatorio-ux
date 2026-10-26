@@ -8,7 +8,7 @@ import { Roles } from '../../../core/decorators/roles.decorator.js';
 import { JwtAuthGuard } from '../../../core/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../../../core/guards/roles.guard.js';
 import type { AuthenticatedUser } from '../../auth/types/authenticated-user.interface.js';
-import type { ArchivoSubido } from '../evaluacion-heuristica/heuristica-evidencia.service.js';
+import type { ArchivoSubido } from './evidencia.util.js';
 import { HeuristicaFlujoService } from './heuristica-flujo.service.js';
 
 @ApiTags('heuristica-flujo')

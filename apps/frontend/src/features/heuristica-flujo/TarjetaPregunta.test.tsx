@@ -18,7 +18,7 @@ function Tarjeta({ numero = 1, total = 3, auto = true, onAvanzar, onCambio }: { 
   const criterio = cfg.metodologia.criterios[0];
   const [r, setR] = useState(respuestaVacia(criterio.id));
   const [activo, setActivo] = useState(auto);
-  return <TarjetaPregunta config={cfg} criterio={criterio} numero={numero} total={total} respuesta={r} editable auto={activo} onAuto={setActivo} onChange={x => { setR(x); onCambio?.(x); }} onAvanzar={onAvanzar} />;
+  return <TarjetaPregunta proyectoId="proy-test-123" evaluacionId="eval-test-123" config={cfg} criterio={criterio} numero={numero} total={total} respuesta={r} editable auto={activo} onAuto={setActivo} onChange={x => { setR(x); onCambio?.(x); }} onAvanzar={onAvanzar} />;
 }
 const esperar = (ms: number) => act(() => { vi.advanceTimersByTime(ms); });
 const clic = (nombre: string) => fireEvent.click(screen.getByRole('radio', { name: nombre }));

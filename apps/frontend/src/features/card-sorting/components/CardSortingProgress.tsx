@@ -1,3 +1,4 @@
+import { AnilloAvance } from '../../../shared/components/AnilloAvance';
 import { Icon } from '../../../shared/components/ui/Icon';
 
 export interface ProgressStep {
@@ -16,24 +17,16 @@ interface Props {
 export function CardSortingProgress({ steps, problem }: Props) {
   const required = steps.filter((step) => !step.optional);
   const done = required.filter((step) => step.done).length;
-  const percent = required.length === 0 ? 0 : Math.round((done / required.length) * 100);
   const ready = problem === null;
 
   return (
     <aside className={`panel cs-progress${ready ? ' ready' : ''}`} aria-label="Avance del estudio">
       <div className="cs-progress-head">
-        <h2>Tu estudio</h2>
-        <span data-testid="cs-progress-count">{done} de {required.length}</span>
-      </div>
-      <div
-        className="cs-progress-bar"
-        role="progressbar"
-        aria-label="Avance del estudio"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={percent}
-      >
-        <i style={{ width: `${percent}%` }} />
+        <AnilloAvance hecho={done} total={required.length} etiqueta="pasos del estudio" tamano={48} />
+        <div className="cs-progress-titulo">
+          <h2>Tu estudio</h2>
+          <span data-testid="cs-progress-count">{done} de {required.length}</span>
+        </div>
       </div>
       <ol className="cs-progress-steps">
         {steps.map((step) => (

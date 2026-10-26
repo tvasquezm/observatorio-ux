@@ -45,16 +45,18 @@ export function procesoPersona(c: PersonaContenido): ProcessStep[] {
     { id: 'barreras', label: 'Frustraciones y conducta', detail: `${barreras} registrados`, done: barreras > 0 },
     {
       id: 'relacion',
+      opcional: true,
       label: 'Relación con el servicio',
       detail: c.rolEnServicio?.trim() || c.relacionConServicio?.trim() ? 'Descrita' : 'Sin describir',
       done: Boolean(c.rolEnServicio?.trim() || c.relacionConServicio?.trim()),
     },
     {
       id: 'evidencia',
+      opcional: true,
       label: 'Evidencia',
       detail: evidencia > 0 ? `${evidencia} ${evidencia === 1 ? 'fuente' : 'fuentes'}` : 'Sin evidencia',
       done: evidencia > 0,
     },
-    { id: 'validacion', label: 'Confirmación del perfil', detail: validada ? 'Perfil confirmado' : 'Aún sin confirmar', done: validada },
+    { id: 'validacion', opcional: true, label: 'Confirmación del perfil', detail: validada ? 'Perfil confirmado' : 'Aún sin confirmar', done: validada },
   ];
 }

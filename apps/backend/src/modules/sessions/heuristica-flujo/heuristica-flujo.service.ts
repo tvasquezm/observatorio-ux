@@ -7,8 +7,7 @@ import { Prisma, type EvaluacionHeuristicaCompleta, type EvidenciaHeuristicaComp
 import { PrismaService } from '../../../core/database/prisma.service.js';
 import { ProjectAccessService } from '../../../core/access/project-access.service.js';
 import type { AuthenticatedUser } from '../../auth/types/authenticated-user.interface.js';
-import type { ArchivoSubido } from '../evaluacion-heuristica/heuristica-evidencia.service.js';
-import { detectarMimeImagen } from '../evaluacion-heuristica/evidencia.util.js';
+import { detectarMimeImagen, type ArchivoSubido } from './evidencia.util.js';
 import { anotacionesSchema, comparacionSchema, configuracionBodySchema, configuracionSchema, consensoSchema, metodologiaSchema, revisionSchema, trabajoSchema, validar } from './heuristica-flujo.schemas.js';
 
 const json = (v: unknown) => JSON.parse(JSON.stringify(v)) as Prisma.InputJsonValue;
@@ -211,6 +210,13 @@ export class HeuristicaFlujoService {
     }
   }
 
+  private async validarEvidenciasRespuestas(e: EvaluacionFlujo, respuestas: RespuestaCriterio[], tx: Prisma.TransactionClient, autorId: string) {
+    const ids = [...new Set(respuestas.flatMap(r => r.evidenciaIds ?? []))];
+    if (!ids.length) return;
+    const evidencias = await tx.evidenciaHeuristicaCompleta.findMany({ where: { id: { in: ids }, evaluacionId: e.id, autorId }, select: { id: true } });
+    if (evidencias.length !== ids.length) throw new BadRequestException('Las capturas de una valoración deben pertenecer a esta evaluación y al autor del trabajo.');
+  }
+
   private async validarHallazgos(e: EvaluacionFlujo, hallazgos: HallazgoFlujo[], tx: Prisma.TransactionClient, autorId: string | null, completos: boolean) {
     const criterios = e.configuracion.metodologia.criterios;
     if (hallazgos.some(h => h.criterioIds.some(id => !criterios.some(c => c.id === id)))) throw new BadRequestException('Hallazgo con criterio desconocido.');
@@ -231,6 +237,7 @@ export class HeuristicaFlujoService {
     return this.bloqueada(proyectoId, id, user, b.revision, async (e, tx) => {
       const t = this.editable(e, user);
       this.validarRespuestas(e, b.respuestas, false);
+      await this.validarEvidenciasRespuestas(e, b.respuestas, tx, user.id);
       if (b.hallazgos.some(h => e.trabajos.some(otro => otro.evaluadorId !== user.id && otro.hallazgos.some(o => o.id === h.id)))) throw new BadRequestException('El identificador del hallazgo ya pertenece a otro trabajo.');
       await this.validarHallazgos(e, b.hallazgos, tx, user.id, false);
       t.respuestas = b.respuestas; t.hallazgos = b.hallazgos; t.guardadoEn = new Date().toISOString();
@@ -243,6 +250,7 @@ export class HeuristicaFlujoService {
     return this.bloqueada(proyectoId, id, user, b.revision, async (e, tx) => {
       const t = this.editable(e, user);
       this.validarRespuestas(e, t.respuestas, true);
+      await this.validarEvidenciasRespuestas(e, t.respuestas, tx, user.id);
       await this.validarHallazgos(e, t.hallazgos, tx, user.id, true);
       t.entregadoEn = new Date().toISOString();
       if (e.trabajos.every(t => t.entregadoEn)) e.fase = 'PENDIENTE_CONSENSO';

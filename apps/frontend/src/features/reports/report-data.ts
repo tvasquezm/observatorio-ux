@@ -3,7 +3,8 @@ import { listPersonas } from '../persona/api/persona.api';
 import { listJourneys } from '../journey-map/api/journey-map.api';
 import { listCriticalMoments } from '../momentos-criticos/api/momentos-criticos.api';
 import { getCardSortingEstudiosByProyecto, getCardSortingAnalytics } from '../card-sorting/api/card-sorting.api';
-import { listarSesionesHeuristicas } from '../evaluacion-heuristica/api/evaluacion-heuristica.api';
+import { listarEvaluaciones } from '../heuristica-flujo/flujo.api';
+import { evaluacionesVigentes } from '../heuristica-flujo/analitica';
 import { useAuthStore } from '../auth/store/useAuthStore';
 
 export const REPORT_METHODS = [
@@ -11,7 +12,7 @@ export const REPORT_METHODS = [
   { id: 'journey', label: 'Journey Map', detail: 'Fases, emociones y oportunidades' },
   { id: 'momentos', label: 'Momentos Críticos', detail: 'Incidentes, impacto y acciones sugeridas' },
   { id: 'cards', label: 'Card Sorting', detail: 'Estudios, categorías y resultados agregados' },
-  { id: 'heuristica', label: 'Evaluación Heurística', detail: 'Hallazgos, severidad y recomendaciones' },
+  { id: 'heuristica', label: 'Evaluación Heurística', detail: 'Problemas acordados, severidad y recomendaciones' },
 ] as const;
 export type ReportMethod = typeof REPORT_METHODS[number]['id'];
 
@@ -36,7 +37,7 @@ export async function loadProjectReport(projectId: string, selection: readonly R
     includes('journey') ? listJourneys(projectId) : undefined,
     includes('momentos') ? listCriticalMoments(projectId) : undefined,
     includes('cards') ? loadCards(projectId) : undefined,
-    includes('heuristica') ? listarSesionesHeuristicas(projectId) : undefined,
+    includes('heuristica') ? listarEvaluaciones(projectId).then(evaluacionesVigentes) : undefined,
   ]);
   // No se descarga un informe parcial si falla alguna de las técnicas elegidas.
   return { project, methods, personas, journeys, moments, cards, heuristics, generatedAt: new Date() };

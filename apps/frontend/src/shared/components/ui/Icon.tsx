@@ -26,7 +26,9 @@ export type IconName =
   | 'download'
   | 'refresh'
   | 'check'
-  | 'close';
+  | 'close'
+  | 'trash'
+  | 'zoom-in';
 
 const PATHS: Record<IconName, ReactElement> = {
   dashboard: (
@@ -151,6 +153,23 @@ const PATHS: Record<IconName, ReactElement> = {
     <>
       <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" />
       <path d="M19.5 4.5v4h-4" />
+    </>
+  ),
+  trash: (
+    <>
+      <path d="M4.5 7h15" />
+      <path d="M9.5 7V4.8a.8.8 0 0 1 .8-.8h3.4a.8.8 0 0 1 .8.8V7" />
+      <path d="m6.5 7 .8 12a1.5 1.5 0 0 0 1.5 1.4h6.4a1.5 1.5 0 0 0 1.5-1.4l.8-12" />
+      <path d="M10 11v5.5" />
+      <path d="M14 11v5.5" />
+    </>
+  ),
+  'zoom-in': (
+    <>
+      <circle cx="11" cy="11" r="6" />
+      <path d="m20 20-4.2-4.2" />
+      <path d="M11 8.5v5" />
+      <path d="M8.5 11h5" />
     </>
   ),
 };

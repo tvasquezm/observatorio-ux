@@ -12,7 +12,7 @@ describe('CardSortingProgress', () => {
   it('cuenta solo los pasos obligatorios y expone la barra', () => {
     render(<CardSortingProgress steps={steps} problem="Agrega al menos una tarjeta." />);
     expect(screen.getByTestId('cs-progress-count')).toHaveTextContent('1 de 2');
-    expect(screen.getByRole('progressbar', { name: 'Avance del estudio' })).toHaveAttribute('aria-valuenow', '50');
+    expect(screen.getByRole('img', { name: '1 de 2 pasos del estudio' })).toBeInTheDocument();
     expect(screen.getByText('Preguntas (opcional)')).toBeInTheDocument();
   });
 
