@@ -12,6 +12,7 @@ const state = vi.hoisted(() => ({
   update: vi.fn(),
   acquire: vi.fn(),
   release: vi.fn(),
+  remove: vi.fn(),
   confirm: vi.fn(),
   lockLost: false,
   error: null as Error | null,
@@ -20,7 +21,7 @@ vi.mock('../../features/momentos-criticos/hooks/useMomentosCriticosQueries', () 
   useCriticalMoments: () => ({ data: state.list(), isLoading: false, isError: false, error: null }),
   useCreateCriticalMoment: () => ({ mutate: state.create, isPending: false, error: state.error }),
   useUpdateCriticalMoment: () => ({ mutate: state.update, isPending: false, error: null }),
-  useDeleteCriticalMoment: () => ({ mutate: vi.fn(), isPending: false, error: null }),
+  useDeleteCriticalMoment: () => ({ mutate: state.remove, isPending: false, error: null }),
 }));
 vi.mock('../../features/auth/store/useAuthStore', () => ({
   useAuthStore: (selector: (s: unknown) => unknown) => selector({ user: { id: 'u1', rol: state.role } }),
@@ -84,6 +85,13 @@ function abrirNuevo() {
   renderPage();
   fireEvent.click(screen.getByRole('button', { name: '+ Nuevo momento crítico' }));
 }
+function siguiente(veces: number) {
+  for (let i = 0; i < veces; i++) fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+}
+function llenarPerfil() {
+  fireEvent.change(screen.getByLabelText('Nombre del perfil de usuario'), { target: { value: 'Ana' } });
+  fireEvent.change(screen.getByLabelText('Rol'), { target: { value: 'Compradora' } });
+}
 beforeEach(() => {
   vi.clearAllMocks();
   state.role = 'ESTUDIANTE';
@@ -97,12 +105,13 @@ beforeEach(() => {
 describe('Momentos críticos', () => {
   it('valida todos los campos con el mismo contrato que la API y conserva el borrador', () => {
     abrirNuevo();
-    fireEvent.change(screen.getByLabelText('Nombre del perfil de usuario'), { target: { value: '  ' } });
+    llenarPerfil();
     fireEvent.change(screen.getByLabelText('Nombre del incidente 1'), { target: { value: 'Pago' } });
+    siguiente(4);
     fireEvent.click(screen.getByRole('button', { name: 'Guardar momento crítico' }));
     expect(state.create).not.toHaveBeenCalled();
     expect(screen.getByRole('alert')).toHaveTextContent(/descripción.*vacía/i);
-    expect(screen.getByLabelText('Nombre del perfil de usuario')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText('Descripción incidente 1')).toHaveAttribute('aria-invalid', 'true');
     expect(screen.getByLabelText('Nombre del incidente 1')).toHaveValue('Pago');
     const completo = MomentosCriticosSchema.parse(contenido);
     for (const campo of ['nombre', 'descripcion', 'causa', 'accionesSugeridas'] as const) {
@@ -120,6 +129,7 @@ describe('Momentos críticos', () => {
     state.list.mockReturnValue([momento]);
     renderPage();
     fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+    siguiente(4);
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Actualizar momento crítico' })).not.toBeDisabled(),
     );
@@ -161,6 +171,7 @@ describe('Momentos críticos', () => {
   });
   it('no permite quitar el último incidente y mantiene alineadas sus acciones', () => {
     abrirNuevo();
+    siguiente(1);
     expect(screen.getByRole('button', { name: 'Quitar incidente' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: '+ Agregar incidente' }));
     fireEvent.change(screen.getByLabelText('Acciones sugeridas incidente 2'), {
@@ -209,6 +220,102 @@ describe('Momentos críticos', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
     await waitFor(() => expect(screen.queryByLabelText('Nombre del incidente 1')).not.toBeInTheDocument());
     expect(state.release).toHaveBeenCalled();
+  });
+  it('no permite guardar sin nombre y rol del perfil y explica el motivo', () => {
+    abrirNuevo();
+    siguiente(4);
+    expect(screen.getByRole('button', { name: 'Guardar momento crítico' })).toBeDisabled();
+    expect(screen.getByText(/Falta el nombre y el rol del perfil/)).toBeInTheDocument();
+    llenarPerfil();
+    expect(screen.getByRole('button', { name: 'Guardar momento crítico' })).not.toBeDisabled();
+    expect(screen.queryByText(/Falta el nombre y el rol del perfil/)).not.toBeInTheDocument();
+  });
+  it('avisa que el momento crítico está listo solo cuando todos los pasos están completos', () => {
+    abrirNuevo();
+    expect(screen.getByRole('img', { name: '0 de 5' })).toBeInTheDocument();
+    expect(screen.queryByText('Momento crítico completo: ya puedes guardarlo')).not.toBeInTheDocument();
+    llenarPerfil();
+    fireEvent.change(screen.getByLabelText('Nombre del incidente 1'), { target: { value: 'Pago' } });
+    fireEvent.change(screen.getByLabelText('Descripción incidente 1'), { target: { value: 'No avanza' } });
+    fireEvent.change(screen.getByLabelText('Causa incidente 1'), { target: { value: 'Botón oculto' } });
+    expect(screen.queryByText('Momento crítico completo: ya puedes guardarlo')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Acciones sugeridas incidente 1'), { target: { value: 'Mostrar el botón' } });
+    expect(screen.getByRole('img', { name: '5 de 5, completo' })).toBeInTheDocument();
+    expect(screen.getByText('Momento crítico completo: ya puedes guardarlo')).toBeInTheDocument();
+  });
+  it('mientras el formulario está abierto oculta la lista y el resumen', () => {
+    state.list.mockReturnValue([momento]);
+    renderPage();
+    expect(screen.getByRole('region', { name: 'Resumen de incidentes' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '+ Nuevo momento crítico' }));
+    expect(screen.queryByRole('region', { name: 'Resumen de incidentes' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Ver causa y acciones')).not.toBeInTheDocument();
+  });
+  it('pone el botón de nuevo en la cabecera y mantiene una sola instancia del proceso', () => {
+    state.list.mockReturnValue([momento]);
+    renderPage();
+    const nuevo = screen.getByRole('button', { name: '+ Nuevo momento crítico' });
+    expect(nuevo.closest('.page-head')).not.toBeNull();
+    expect(nuevo.closest('.panel-head')).toBeNull();
+    expect(screen.getAllByRole('region', { name: 'Proceso de momentos críticos' })).toHaveLength(1);
+    fireEvent.click(nuevo);
+    expect(screen.getByRole('button', { name: 'Cancelar' }).closest('.page-head')).not.toBeNull();
+    expect(screen.getAllByRole('region', { name: 'Proceso de momentos críticos' })).toHaveLength(1);
+  });
+  it('indica solo lectura en la cabecera cuando no puede editar', () => {
+    state.role = 'DOCENTE';
+    state.list.mockReturnValue([momento]);
+    renderPage();
+    expect(screen.getByText('Solo lectura')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '+ Nuevo momento crítico' })).not.toBeInTheDocument();
+  });
+  it('ofrece Editar secundario y Eliminar de peligro, en ese orden, sin enlaces de texto', () => {
+    state.list.mockReturnValue([momento]);
+    renderPage();
+    const card = screen.getByRole('article', { name: 'Ana' });
+    const editar = within(card).getByRole('button', { name: 'Editar' });
+    const eliminar = within(card).getByRole('button', { name: 'Eliminar' });
+    expect(editar).toHaveClass('secondary');
+    expect(eliminar).toHaveClass('danger');
+    expect(editar.compareDocumentPosition(eliminar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(card.querySelector('.link-btn')).toBeNull();
+    expect(editar.closest('.technique-item-actions')).not.toBeNull();
+  });
+  it('pide confirmación antes de eliminar y no elimina si se cancela', async () => {
+    state.list.mockReturnValue([momento]);
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar' }));
+    await waitFor(() => expect(state.confirm).toHaveBeenCalledWith('¿Estás seguro de eliminar este momento crítico?'));
+    expect(state.remove).not.toHaveBeenCalled();
+  });
+  it('elimina cuando se confirma', async () => {
+    state.list.mockReturnValue([momento]);
+    state.confirm.mockResolvedValue(true);
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar' }));
+    await waitFor(() => expect(state.remove).toHaveBeenCalledWith('a1'));
+  });
+  it('no muestra acciones de elemento sin permiso de edición', () => {
+    state.role = 'DOCENTE';
+    state.list.mockReturnValue([momento]);
+    renderPage();
+    expect(screen.queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Eliminar' })).not.toBeInTheDocument();
+  });
+  it('titula la lista con contador de incidentes y deja la vista de matriz como control secundario', () => {
+    state.list.mockReturnValue([momento]);
+    renderPage();
+    const cabecera = screen.getByRole('heading', { name: 'Incidentes y acciones' }).closest('.technique-list-head')!;
+    expect(within(cabecera as HTMLElement).getByText('3', { selector: '.short-id' })).toBeInTheDocument();
+    const vista = within(cabecera as HTMLElement).getByRole('button', { name: 'Ver Matriz 3x3' });
+    expect(vista).toHaveClass('secondary');
+    expect(vista.closest('.technique-list-view')).not.toBeNull();
+  });
+  it('muestra el vacío estándar cuando no hay momentos críticos', () => {
+    renderPage();
+    const vacio = screen.getByText('Aún no hay momentos críticos').closest('.technique-empty');
+    expect(vacio).not.toBeNull();
+    expect(within(vacio as HTMLElement).getByText(/Registra el perfil de un usuario/)).toBeInTheDocument();
   });
   it('mantiene el borrador ante errores de guardado', () => {
     state.error = new Error('Sin conexión');

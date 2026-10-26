@@ -4,6 +4,9 @@ export type MimeEvidencia = 'image/png' | 'image/jpeg' | 'image/webp';
 
 const FORMATO_NO_PERMITIDO = 'Formato no permitido. Usa PNG, JPEG o WebP.';
 
+/** Tamaño en MB con una decimal y coma (p. ej. 6,2). */
+export const formatearMB = (bytes: number): string => (bytes / (1024 * 1024)).toFixed(1).replace('.', ',');
+
 /** Lee solo los primeros bytes. FileReader porque File.arrayBuffer no existe en jsdom ni en navegadores antiguos. */
 function leerCabecera(blob: Blob, bytes = 12): Promise<Uint8Array> {
   return new Promise((resolve, reject) => {
@@ -34,7 +37,7 @@ export async function detectarMimeEvidencia(blob: Blob): Promise<MimeEvidencia |
 export async function validarImagenEvidencia(file: File, opciones: { omitirTamano?: boolean } = {}): Promise<string | null> {
   if (file.type === 'image/svg+xml' || /\.svg$/i.test(file.name)) return 'No se aceptan imágenes SVG. Usa PNG, JPEG o WebP.';
   if (file.size === 0) return 'La imagen está vacía.';
-  if (!opciones.omitirTamano && file.size > EVIDENCIA_MAX_BYTES) return `La imagen supera el máximo de ${EVIDENCIA_MAX_MB} MB, incluso comprimida. Recórtala o divídela.`;
+  if (!opciones.omitirTamano && file.size > EVIDENCIA_MAX_BYTES) return `La imagen pesa ${formatearMB(file.size)} MB y supera el máximo de ${EVIDENCIA_MAX_MB} MB, incluso comprimida. Recórtala o divídela.`;
   const mime = await detectarMimeEvidencia(file);
   return mime ? null : FORMATO_NO_PERMITIDO;
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { EVIDENCIA_MAX_BYTES } from '@observatorio-ux/shared-types';
-import { detectarMimeEvidencia, normalizarTipoEvidencia, validarImagenEvidencia } from './evidencia-validar';
+import { detectarMimeEvidencia, formatearMB, normalizarTipoEvidencia, validarImagenEvidencia } from './evidencia-validar';
 
 const PNG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0];
 const JPEG = [0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -25,6 +25,11 @@ describe('validarImagenEvidencia', () => {
     const grande = new File([new Uint8Array([...PNG, ...new Array(EVIDENCIA_MAX_BYTES)])], 'a.png', { type: 'image/png' });
     expect(await validarImagenEvidencia(grande)).toMatch(/4 MB/);
     expect(await validarImagenEvidencia(grande, { omitirTamano: true })).toBeNull();
+  });
+  it('informa el peso real en el mensaje de tamaño', async () => {
+    const grande = new File([new Uint8Array(6 * 1024 * 1024)], 'a.png', { type: 'image/png' });
+    expect(await validarImagenEvidencia(grande)).toMatch(/pesa 6,0 MB y supera el máximo de 4 MB/);
+    expect(formatearMB(1.5 * 1024 * 1024)).toBe('1,5');
   });
   it('acepta una imagen real aunque no declare tipo', async () => {
     expect(await validarImagenEvidencia(archivo(PNG, 'image.png', ''))).toBeNull();

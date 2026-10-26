@@ -5,7 +5,7 @@ import { listPersonas } from '../persona/api/persona.api';
 import { listJourneys } from '../journey-map/api/journey-map.api';
 import { listCriticalMoments } from '../momentos-criticos/api/momentos-criticos.api';
 import { getCardSortingEstudiosByProyecto, getCardSortingAnalytics } from '../card-sorting/api/card-sorting.api';
-import { listarSesionesHeuristicas } from '../evaluacion-heuristica/api/evaluacion-heuristica.api';
+import { listarEvaluaciones } from '../heuristica-flujo/flujo.api';
 import { buildReportDefinition } from '../../shared/utils/pdf';
 
 vi.mock('../projects/api/projects.api', () => ({ getProject: vi.fn() }));
@@ -13,7 +13,7 @@ vi.mock('../persona/api/persona.api', () => ({ listPersonas: vi.fn() }));
 vi.mock('../journey-map/api/journey-map.api', () => ({ listJourneys: vi.fn() }));
 vi.mock('../momentos-criticos/api/momentos-criticos.api', () => ({ listCriticalMoments: vi.fn() }));
 vi.mock('../card-sorting/api/card-sorting.api', () => ({ getCardSortingEstudiosByProyecto: vi.fn(), getCardSortingAnalytics: vi.fn() }));
-vi.mock('../evaluacion-heuristica/api/evaluacion-heuristica.api', () => ({ listarSesionesHeuristicas: vi.fn() }));
+vi.mock('../heuristica-flujo/flujo.api', () => ({ listarEvaluaciones: vi.fn() }));
 vi.mock('../auth/store/useAuthStore', () => ({ useAuthStore: { getState: () => ({ user: { id: 'owner', rol: 'DOCENTE' } }) } }));
 
 beforeEach(() => {
@@ -23,13 +23,13 @@ beforeEach(() => {
   vi.mocked(listJourneys).mockResolvedValue([]);
   vi.mocked(listCriticalMoments).mockResolvedValue([]);
   vi.mocked(getCardSortingEstudiosByProyecto).mockResolvedValue([]);
-  vi.mocked(listarSesionesHeuristicas).mockResolvedValue([]);
+  vi.mocked(listarEvaluaciones).mockResolvedValue([]);
 });
 
 describe('informes por técnicas', () => {
   it('una técnica no consulta ni imprime las otras cuatro', async () => {
     const report = await loadProjectReport('p1', ['heuristica']);
-    expect(listarSesionesHeuristicas).toHaveBeenCalledWith('p1');
+    expect(listarEvaluaciones).toHaveBeenCalledWith('p1');
     for (const request of [listPersonas, listJourneys, listCriticalMoments, getCardSortingEstudiosByProyecto]) expect(request).not.toHaveBeenCalled();
     const pdf = JSON.stringify(buildReportDefinition(report));
     expect(pdf).toContain('Evaluación Heurística');
@@ -41,7 +41,7 @@ describe('informes por técnicas', () => {
   it('el completo consulta las cinco técnicas y conserva un orden estable', async () => {
     const report = await loadProjectReport('p1', REPORT_METHODS.map(({ id }) => id).reverse());
     expect(report.methods.map(({ id }) => id)).toEqual(REPORT_METHODS.map(({ id }) => id));
-    for (const request of [listPersonas, listJourneys, listCriticalMoments, getCardSortingEstudiosByProyecto, listarSesionesHeuristicas]) expect(request).toHaveBeenCalledWith('p1');
+    for (const request of [listPersonas, listJourneys, listCriticalMoments, getCardSortingEstudiosByProyecto, listarEvaluaciones]) expect(request).toHaveBeenCalledWith('p1');
   });
 
   it('incluye los nuevos campos de Personas en el informe descargable', async () => {
@@ -102,5 +102,19 @@ describe('informes por técnicas', () => {
     const report = await loadProjectReport('p1', ['cards']);
     expect(report.cards).toEqual([]);
     expect(getCardSortingAnalytics).not.toHaveBeenCalled();
+  });
+
+  it('incluye los problemas acordados de la evaluación heurística nueva y omite la versión anterior', async () => {
+    const config = { nombre: 'Revisión del portal', producto: { nombre: 'Portal' }, metodologia: { nombre: 'Nielsen', criterios: [{ id: 'c1', nombre: 'Visibilidad del estado' }], escala: { tipo: 'cualitativa', sentido: 'sin_orden', niveles: [{ id: 'ok', etiqueta: 'Cumple' }] } }, evaluadorIds: [] };
+    const informe = (titulo: string) => ({ version: 1, configuracion: config, evaluadores: [], finalizadoEn: '2026-10-01', consenso: { criterios: [], aprobadoPor: [], hallazgos: [{ id: 'h1', titulo, criterioIds: ['c1'], pantalla: 'Inicio', descripcion: 'No se ve el avance', recomendacion: 'Mostrar una barra de progreso', severidad: 3, prioridad: 'ALTA', decision: 'ACEPTADO', origenIds: [], justificacion: '', notas: '', evidenciaIds: [] }] } });
+    vi.mocked(listarEvaluaciones).mockResolvedValue([
+      { id: 'v1', anteriorId: null, version: 1, fase: 'FINALIZADA', configuracion: config, informe: informe('Problema antiguo') },
+      { id: 'v2', anteriorId: 'v1', version: 2, fase: 'FINALIZADA', configuracion: config, informe: informe('Falta barra de progreso') },
+    ] as never);
+    const report = await loadProjectReport('p1', ['heuristica']);
+    expect(report.heuristics).toHaveLength(1);
+    const content = JSON.stringify(buildReportDefinition(report).content);
+    for (const value of ['Revisión del portal', 'Falta barra de progreso', 'Mostrar una barra de progreso', 'Visibilidad del estado']) expect(content).toContain(value);
+    expect(content).not.toContain('Problema antiguo');
   });
 });

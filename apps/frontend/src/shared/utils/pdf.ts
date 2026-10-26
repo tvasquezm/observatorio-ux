@@ -1,4 +1,5 @@
 import type { Content, ContentCanvas, TDocumentDefinitions } from 'pdfmake/interfaces';
+import { resumirEvaluacion, type FaseHeuristica } from '@observatorio-ux/shared-types';
 import type { ProjectReport, ReportMethod } from '../../features/reports/report-data';
 import { INK, MUTED, TEAL, paragraph, table, textValue, title } from './pdf-base';
 import { cuerpoVista } from '../../features/card-sorting/card-sorting-pdf-content';
@@ -16,6 +17,7 @@ export function brandBand(width: number, height: number): ContentCanvas {
     return { type: 'rect' as const, x: index * width / 128, y: 0, w: width / 128 + 0.1, h: height, color: `#${color}`, lineWidth: 0 };
   }), { type: 'rect', x: 0, y: height - 3, w: width, h: 3, color: '#a7c51f', lineWidth: 0 }] };
 }
+const fases: Record<FaseHeuristica, string> = { BORRADOR: 'Borrador', EN_EVALUACION: 'En evaluación', PENDIENTE_CONSENSO: 'Pendiente de consenso', CONSOLIDADA: 'Consolidada', FINALIZADA: 'Finalizada' };
 const severityLabels = ['Sin problema', 'Cosmético', 'Menor', 'Mayor', 'Crítico'];
 const severityColors = ['#526a73', '#526a73', '#85601b', '#a44626', '#922f3d'];
 export const date = (value: string | Date): string => new Intl.DateTimeFormat('es-CL', { dateStyle: 'medium' }).format(new Date(value));
@@ -107,21 +109,29 @@ function sections(report: ProjectReport): Record<ReportMethod, Content[]> {
         ],
       } as Content] : [paragraph('Aún no hay respuestas completadas para calcular resultados.')]),
     ]) ?? [],
-    heuristica: report.heuristics?.flatMap((session, i) => {
-      const findings = Array.isArray(session.resultado) ? session.resultado : [];
+    heuristica: report.heuristics?.flatMap((evaluacion, i): Content[] => {
+      const { configuracion: config, informe } = evaluacion;
+      const cabecera = [
+        title(`${i + 1}. ${config.nombre || config.producto.nombre}`),
+        paragraph(`${config.producto.nombre} · ${config.metodologia.nombre} · Versión ${evaluacion.version} · ${fases[evaluacion.fase]}`),
+      ];
+      if (!informe) return [...cabecera, paragraph('Esta evaluación todavía no está consolidada: aún no hay problemas acordados.')];
+      const resumen = resumirEvaluacion(informe.configuracion, informe.consenso);
+      const nombreCriterio = (id: string) => informe.configuracion.metodologia.criterios.find((criterio) => criterio.id === id)?.nombre ?? id;
+      const problemas = informe.consenso.hallazgos.filter((h) => h.decision === 'ACEPTADO').sort((a, b) => b.severidad - a.severidad);
       return [
-        title(`${i + 1}. Evaluación del ${date(session.createdAt)}`),
-        paragraph(`${session.estado === 'COMPLETADO' ? 'Completada' : 'En curso'} · ${findings.length} hallazgos${session.completadoAt ? ` · Finalizada el ${date(session.completadoAt)}` : ''}`),
-        ...(findings.length ? [
-          table(['Severidad', 'Hallazgos'], severityLabels.map((label, level) => [`${level} · ${label}`, findings.filter((finding) => finding.severidad === level).length]), ['*', 90]),
-          ...[...findings].sort((a, b) => b.severidad - a.severidad).map((finding, index): Content => ({
+        ...cabecera,
+        paragraph(`${problemas.length} problemas acordados · ${informe.finalizadoEn ? `Finalizada el ${date(informe.finalizadoEn)}` : 'Informe preliminar, pendiente de cierre'}`),
+        ...(problemas.length ? [
+          table(['Severidad', 'Problemas'], severityLabels.map((label, level) => [`${level} · ${label}`, resumen.porSeveridad[level] ?? 0]), ['*', 90]),
+          ...problemas.map((problema, index): Content => ({
             stack: [
-              title(`Hallazgo ${index + 1} · ${finding.heuristicaId}`),
-              { text: `SEVERIDAD ${finding.severidad} · ${severityLabels[finding.severidad] ?? 'Sin clasificar'}`, bold: true, color: severityColors[finding.severidad] ?? INK, margin: [0, 0, 0, 8] },
-              details([['Descripción', finding.descripcion], ['Evidencia', finding.evidencia], ['Recomendación', finding.recomendacion]]),
-            ], unbreakable: JSON.stringify(finding).length < 1600,
+              title(`Problema ${index + 1} · ${problema.titulo}`),
+              { text: `SEVERIDAD ${problema.severidad} · ${severityLabels[problema.severidad] ?? 'Sin clasificar'} · PRIORIDAD ${problema.prioridad}`, bold: true, color: severityColors[problema.severidad] ?? INK, margin: [0, 0, 0, 8] },
+              details([['Pantalla o tarea', problema.pantalla], ['Criterios', problema.criterioIds.map(nombreCriterio)], ['Problema', problema.descripcion], ['Recomendación', problema.recomendacion]]),
+            ], unbreakable: JSON.stringify(problema).length < 1600,
           })),
-        ] : [paragraph('Esta sesión todavía no contiene hallazgos.')]),
+        ] : [paragraph('La revisión acordada no identificó problemas de usabilidad.')]),
       ];
     }) ?? [],
   };

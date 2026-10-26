@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { EVIDENCIA_MAX_BYTES } from '@observatorio-ux/shared-types';
 import { EvidenciaEditor } from './EvidenciaEditor';
 
 const api = vi.hoisted(() => ({ cargarEvidencia: vi.fn(), subirEvidenciaFlujo: vi.fn(), guardarAnotaciones: vi.fn() }));
@@ -142,5 +143,59 @@ describe('EvidenciaEditor', () => {
     fireEvent.drop(raiz, { dataTransfer: { files: [png()] } });
     expect(api.subirEvidenciaFlujo).not.toHaveBeenCalled();
     expect(onChange).not.toHaveBeenCalled();
+  });
+  it('muestra un cartel rojo con el peso real cuando la imagen supera el máximo', async () => {
+    const { zona } = abrirVacio();
+    const grande = new Uint8Array(EVIDENCIA_MAX_BYTES + 1024 * 1024); grande.set(PNG);
+    fireEvent.drop(zona(), { dataTransfer: { files: [new File([grande], 'grande.png', { type: 'image/png' })] } });
+    const alerta = await screen.findByRole('alert');
+    expect(alerta).toHaveClass('evidencia-alerta');
+    expect(alerta).toHaveTextContent(/Imagen demasiado pesada/);
+    expect(alerta).toHaveTextContent(/pesa 5,0 MB y supera el máximo de 4 MB/);
+    expect(api.subirEvidenciaFlujo).not.toHaveBeenCalled();
+  });
+  it('traduce un 413 del servidor al mismo aviso de tamaño', async () => {
+    api.subirEvidenciaFlujo.mockRejectedValue(Object.assign(new Error('Error HTTP 413'), { status: 413 }));
+    const { zona } = abrirVacio();
+    fireEvent.drop(zona(), { dataTransfer: { files: [png()] } });
+    const alerta = await screen.findByRole('alert');
+    expect(alerta).toHaveClass('evidencia-alerta');
+    expect(alerta).toHaveTextContent(/supera el máximo de 4 MB/);
+  });
+  it('quita la captura con un ícono accesible', async () => {
+    const onChange = vi.fn();
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <EvidenciaEditor proyectoId="p1" evaluacionId="ev1" evidenciaIds={['cap1']} editable onChange={onChange} />
+    </QueryClientProvider>);
+    await screen.findByAltText('Captura de evidencia');
+    const quitar = screen.getByRole('button', { name: 'Quitar captura del problema' });
+    expect(quitar.textContent).toBe('');
+    expect(quitar.querySelector('svg')).not.toBeNull();
+    await userEvent.click(quitar);
+    expect(onChange).toHaveBeenCalledWith([]);
+  });
+  it('no deja quitar una captura con anotaciones pendientes y explica por qué', async () => {
+    abrir();
+    await screen.findByAltText('Captura de evidencia');
+    await userEvent.click(screen.getByRole('button', { name: 'Agregar anotación' }));
+    const quitar = screen.getByRole('button', { name: 'Quitar captura del problema' });
+    expect(quitar).toBeDisabled();
+    expect(quitar).toHaveAttribute('title', expect.stringMatching(/anotaciones pendientes/));
+  });
+  it('abre la captura en grande desde la lupa y se cierra con Esc', async () => {
+    abrir();
+    await screen.findByAltText('Captura de evidencia');
+    await userEvent.click(screen.getByRole('button', { name: 'Ampliar captura' }));
+    expect(screen.getByRole('dialog', { name: 'Captura ampliada' })).toBeInTheDocument();
+    expect(screen.getByAltText('Captura de evidencia ampliada')).toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+  it('en solo lectura, un clic sobre la captura la abre en grande y un clic en el fondo la cierra', async () => {
+    abrir(false);
+    await screen.findByAltText('Captura de evidencia');
+    await userEvent.click(screen.getByLabelText('Vista de las anotaciones'));
+    await userEvent.click(screen.getByRole('dialog', { name: 'Captura ampliada' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });

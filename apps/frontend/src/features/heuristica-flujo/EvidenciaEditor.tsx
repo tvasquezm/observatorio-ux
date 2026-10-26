@@ -1,9 +1,11 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { ClipboardEvent, DragEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { EVIDENCIA_MAX_MB } from '@observatorio-ux/shared-types';
+import { EVIDENCIA_MAX_BYTES, EVIDENCIA_MAX_MB } from '@observatorio-ux/shared-types';
 import type { AnotacionEvidencia, EvidenciaFlujo } from '@observatorio-ux/shared-types';
 import { useAuthStore } from '../auth/store/useAuthStore';
+import { Icon } from '../../shared/components/ui/Icon';
 import { comprimirImagen } from '../../shared/utils/comprimir-imagen';
 import { cargarEvidencia, guardarAnotaciones, subirEvidenciaFlujo } from './evidencia.api';
 import { normalizarTipoEvidencia, validarImagenEvidencia } from './evidencia-validar';
@@ -29,6 +31,35 @@ function Marca({ anotacion: a }: { anotacion: AnotacionEvidencia }) {
   return <rect x={x} y={y} width={w} height={h} stroke={a.tipo === 'destacado' ? 'none' : a.color} strokeWidth="5" fill={a.tipo === 'destacado' ? a.color : 'none'} fillOpacity="0.3" />;
 }
 
+/** Distancia (0–1) bajo la cual un gesto sobre la captura cuenta como clic y no como trazo. */
+const UMBRAL_CLIC = 0.01;
+
+/** Captura a pantalla casi completa, con las anotaciones actuales. Se cierra con Esc, con el fondo o con el botón. */
+function VisorAmpliado({ url, anotaciones, conMarcas, onClose }: { url: string; anotaciones: AnotacionEvidencia[]; conMarcas: boolean; onClose: () => void }) {
+  const cerrarRef = useRef<HTMLButtonElement>(null);
+  const alCerrar = useRef(onClose); alCerrar.current = onClose;
+  useEffect(() => {
+    const previo = document.activeElement as HTMLElement | null;
+    cerrarRef.current?.focus();
+    const tecla = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); alCerrar.current(); } };
+    document.addEventListener('keydown', tecla);
+    const overflow = document.body.style.overflow; document.body.style.overflow = 'hidden';
+    return () => { document.removeEventListener('keydown', tecla); document.body.style.overflow = overflow; previo?.focus?.(); };
+  }, []);
+  return createPortal(
+    <div className="evidencia-visor-fondo" role="dialog" aria-modal="true" aria-label="Captura ampliada" onClick={onClose}>
+      <div className="evidencia-visor-caja" onClick={e => e.stopPropagation()}>
+        <button ref={cerrarRef} type="button" className="evidencia-accion evidencia-visor-cerrar" aria-label="Cerrar vista ampliada" title="Cerrar (Esc)" onClick={onClose}><Icon name="close" size={20} /></button>
+        <div className="evidencia-visor-imagen">
+          <img src={url} alt="Captura de evidencia ampliada" />
+          {conMarcas && <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>{anotaciones.map(a => <Marca key={a.id} anotacion={a} />)}</svg>}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 function Lienzo({ proyectoId, evaluacionId, meta, blob, editable, onPendingChange }: Omit<Props, 'evidenciaIds' | 'onChange'> & { meta: EvidenciaFlujo; blob: Blob }) {
   const qc = useQueryClient();
   const userId = useAuthStore(s => s.user?.id);
@@ -44,6 +75,7 @@ function Lienzo({ proyectoId, evaluacionId, meta, blob, editable, onPendingChang
   const [estado, setEstado] = useState('');
   const [error, setError] = useState('');
   const [preview, setPreview] = useState<AnotacionEvidencia | null>(null);
+  const [ampliada, setAmpliada] = useState(false);
   const inicio = useRef<{ x: number; y: number } | null>(null);
   const pendingRef = useRef(onPendingChange); pendingRef.current = onPendingChange;
   const dirty = JSON.stringify(anotaciones) !== guardadas;
@@ -84,11 +116,19 @@ function Lienzo({ proyectoId, evaluacionId, meta, blob, editable, onPendingChang
   return <section className="panel" aria-label="Editor de captura">
     <label className="field"><input type="checkbox" checked={original} onChange={e => setOriginal(e.target.checked)} /> Mostrar imagen original</label>
     <div style={{ position: 'relative', width: '100%', maxWidth: 720, marginBlock: 12 }}>
-      <img src={url} alt="Captura de evidencia" style={{ display: 'block', width: '100%', height: 'auto' }} />
-      {!original && <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-label="Vista de las anotaciones" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', touchAction: editable ? 'none' : 'auto', cursor: editable ? 'crosshair' : 'default' }}
-        onPointerDown={e => { if (!editable || guardando) return; inicio.current = punto(e); e.currentTarget.setPointerCapture(e.pointerId); }}
+      <img src={url} alt="Captura de evidencia" style={{ display: 'block', width: '100%', height: 'auto', cursor: 'zoom-in' }} onClick={() => setAmpliada(true)} />
+      <button type="button" className="evidencia-accion evidencia-ampliar" aria-label="Ampliar captura" title="Ver en grande" onClick={() => setAmpliada(true)}><Icon name="zoom-in" size={20} /></button>
+      {!original && <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-label="Vista de las anotaciones" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', touchAction: editable ? 'none' : 'auto', cursor: editable ? 'crosshair' : 'zoom-in' }}
+        onClick={() => { if (!editable) setAmpliada(true); }}
+        onPointerDown={e => { if (!editable || guardando) return; inicio.current = punto(e); e.currentTarget.setPointerCapture?.(e.pointerId); }}
         onPointerMove={e => { if (!inicio.current) return; const p = punto(e); setPreview({ ...borrador, ...inicio.current, x2: p.x, y2: p.y }); }}
-        onPointerUp={e => { if (!inicio.current) return; const p = punto(e); const a = { ...borrador, ...inicio.current, x2: p.x, y2: p.y }; inicio.current = null; setPreview(null); agregar(a); }}
+        onPointerUp={e => {
+          if (!inicio.current) return;
+          const ini = inicio.current; const p = punto(e); inicio.current = null; setPreview(null);
+          // Un clic sin arrastre abre la captura en grande; la herramienta Texto sí usa el clic para ubicar el texto.
+          if (borrador.tipo !== 'texto' && Math.hypot(p.x - ini.x, p.y - ini.y) < UMBRAL_CLIC) { setAmpliada(true); return; }
+          agregar({ ...borrador, ...ini, x2: p.x, y2: p.y });
+        }}
         onPointerCancel={() => { inicio.current = null; setPreview(null); }}>
         {anotaciones.map(a => <Marca key={a.id} anotacion={a} />)}{preview && <Marca anotacion={preview} />}
       </svg>}
@@ -107,6 +147,7 @@ function Lienzo({ proyectoId, evaluacionId, meta, blob, editable, onPendingChang
     <ol aria-label="Anotaciones de la captura">{anotaciones.map((a, i) => <li key={a.id}>{TIPOS[a.tipo]}{a.texto && `: ${a.texto}`}{editable && <><button type="button" className="text-button" disabled={guardando} aria-label={`Editar anotación ${i + 1}`} onClick={() => { setBorrador({ ...a }); setEditando(a.id); }}>Editar</button><button type="button" className="text-button" disabled={guardando} aria-label={`Eliminar anotación ${i + 1}`} onClick={() => cambiar(anotaciones.filter(n => n.id !== a.id))}>Eliminar</button></>}</li>)}</ol>
     {editable && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}><button type="button" className="secondary" disabled={!historial.length || guardando} onClick={() => { setAnotaciones(historial[historial.length - 1]); setHistorial(h => h.slice(0, -1)); setEstado(''); }}>Deshacer</button><button type="button" className="primary" disabled={!dirty || guardando} onClick={() => void guardar()}>{guardando ? 'Guardando anotaciones…' : 'Guardar anotaciones'}</button></div>}
     {error && <p role="alert">{error}{editable && <button type="button" className="text-button" disabled={guardando} onClick={() => void recuperar()}>Recuperar anotaciones guardadas</button>}</p>}<p role="status">{estado || (dirty ? 'Anotaciones pendientes de guardar.' : '')}</p>
+    {ampliada && url && <VisorAmpliado url={url} anotaciones={anotaciones} conMarcas={!original} onClose={() => setAmpliada(false)} />}
   </section>;
 }
 
@@ -122,6 +163,7 @@ export function EvidenciaEditor({ proyectoId, evaluacionId, evidenciaIds, editab
   const [subiendo, setSubiendo] = useState(false);
   const [arrastrando, setArrastrando] = useState(false);
   const [error, setError] = useState('');
+  const [errorTamano, setErrorTamano] = useState(false);
   const [pendientes, setPendientes] = useState<Record<string, boolean>>({});
   const pendingRef = useRef(onPendingChange); pendingRef.current = onPendingChange;
   const idsRef = useRef(evidenciaIds); idsRef.current = evidenciaIds;
@@ -131,23 +173,28 @@ export function EvidenciaEditor({ proyectoId, evaluacionId, evidenciaIds, editab
   const puedeSubir = editable && !!onChange;
   useEffect(() => { pendingRef.current?.(pending); }, [pending]);
   useEffect(() => () => pendingRef.current?.(false), []);
+  const fallar = (texto: string, tamano = false) => { setError(texto); setErrorTamano(tamano); };
   /** Única entrada de subida (selector, pegar y arrastrar): con guardia, en serie y hasta el cupo. */
   async function subirArchivos(archivos: File[]) {
     if (!puedeSubir || ocupado.current || !archivos.length) return;
-    ocupado.current = true; setSubiendo(true); setError('');
+    ocupado.current = true; setSubiendo(true); fallar('');
     let ids = idsRef.current;
     try {
       for (const original of archivos) {
-        if (ids.length >= max) { setError(`Máximo ${max} capturas en este problema.`); break; }
+        if (ids.length >= max) { fallar(`Máximo ${max} capturas en este problema.`); break; }
         const formato = await validarImagenEvidencia(original, { omitirTamano: true });
-        if (formato) { setError(formato); break; }
+        if (formato) { fallar(formato); break; }
         const archivo = await comprimirImagen(await normalizarTipoEvidencia(original));
         const problema = await validarImagenEvidencia(archivo);
-        if (problema) { setError(problema); break; }
+        if (problema) { fallar(problema, archivo.size > EVIDENCIA_MAX_BYTES); break; }
         const e = await subirEvidenciaFlujo(proyectoId, evaluacionId, archivo);
         ids = [...ids, e.id]; changeRef.current?.(ids);
       }
-    } catch (e) { setError(mensaje(e)); } finally { ocupado.current = false; setSubiendo(false); }
+    } catch (e) {
+      // Un 413 del proxy o del servidor llega sin JSON útil: se explica con el mismo aviso de tamaño.
+      if ((e as { status?: number }).status === 413) fallar(`La imagen supera el máximo de ${EVIDENCIA_MAX_MB} MB. Recórtala o divídela.`, true);
+      else fallar(mensaje(e));
+    } finally { ocupado.current = false; setSubiendo(false); }
   }
   function pegar(e: ClipboardEvent<HTMLDivElement>) {
     const archivos = Array.from(e.clipboardData?.files ?? []);
@@ -163,7 +210,13 @@ export function EvidenciaEditor({ proyectoId, evaluacionId, evidenciaIds, editab
     onPaste={pegar} onDragOver={e => { if (puedeSubir) { e.preventDefault(); setArrastrando(true); } }}
     onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setArrastrando(false); }} onDrop={soltar}>
     {puedeSubir && <label className="field">Adjuntar captura{etiqueta ? ` ${etiqueta}` : ''}<input type="file" accept="image/png,image/jpeg,image/webp" disabled={subiendo || evidenciaIds.length >= max} onChange={e => { const archivo = e.target.files?.[0]; e.target.value = ''; if (archivo) void subirArchivos([archivo]); }} /><small>PNG, JPEG o WebP. Máximo {EVIDENCIA_MAX_MB} MB por imagen. También puedes arrastrar la imagen aquí o pegarla con Ctrl+V después de hacer clic en esta zona.</small></label>}
-    {subiendo && <p role="status">Subiendo captura…</p>}{error && <p role="alert">{error}</p>}
-    {evidenciaIds.map(id => <div key={id}><Captura proyectoId={proyectoId} evaluacionId={evaluacionId} id={id} editable={editable && !sinAnotar} onPendingChange={v => setPendientes(p => p[id] === v ? p : { ...p, [id]: v })} />{editable && onChange && <button type="button" className="text-button" disabled={subiendo || pendientes[id]} onClick={() => onChange(evidenciaIds.filter(n => n !== id))}>{etiqueta ? `Quitar captura ${etiqueta}` : 'Quitar captura del problema'}</button>}</div>)}
+    {subiendo && <p role="status">Subiendo captura…</p>}{error && <p role="alert" className="evidencia-alerta"><span aria-hidden="true">⚠</span><span>{errorTamano && <strong>Imagen demasiado pesada. </strong>}{error}</span></p>}
+    {evidenciaIds.map((id, i) => {
+      const quitar = etiqueta ? `Quitar captura ${etiqueta}` : 'Quitar captura del problema';
+      return <div key={id} className="evidencia-item">
+        {editable && onChange && <div className="evidencia-barra"><span className="text-muted-xs">Captura {i + 1}</span><button type="button" className="evidencia-accion evidencia-accion--danger" disabled={subiendo || !!pendientes[id]} aria-label={quitar} title={pendientes[id] ? 'Guarda o elimina las anotaciones pendientes antes de quitar la captura' : 'Quitar captura'} onClick={() => onChange(evidenciaIds.filter(n => n !== id))}><Icon name="trash" size={20} /></button></div>}
+        <Captura proyectoId={proyectoId} evaluacionId={evaluacionId} id={id} editable={editable && !sinAnotar} onPendingChange={v => setPendientes(p => p[id] === v ? p : { ...p, [id]: v })} />
+      </div>;
+    })}
   </div>;
 }
