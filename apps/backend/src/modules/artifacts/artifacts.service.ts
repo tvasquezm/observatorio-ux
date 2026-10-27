@@ -189,7 +189,7 @@ export class ArtifactsService {
     await this.assertPuedeEditar(user, artifact.proyectoId);
     const latest = await this.getLatestVersion(artifact.artefactoLogicoId, artifact);
 
-    this.assertNotLockedByOther(latest, user);
+    await this.assertLockLibreParaAdquirir(latest, user);
 
     const ttlMs = this.resolveTtlMs(ttlSegundos);
     const lockedUntil = new Date(Date.now() + ttlMs);
@@ -212,7 +212,11 @@ export class ArtifactsService {
     });
 
     if (result.count === 0) {
-      throw new ConflictException('El artefacto está bloqueado por otro usuario.');
+      const actual = await this.prisma.uxArtifact.findUnique({
+        where: { id: latest.id },
+        select: { lockedById: true },
+      });
+      throw new ConflictException(await this.mensajeEditando(actual?.lockedById));
     }
 
     return this.prisma.uxArtifact.findUniqueOrThrow({ where: { id: latest.id } });
@@ -308,6 +312,33 @@ export class ArtifactsService {
 
   private isLockActive(lockedUntil: Date | null): boolean {
     return !!lockedUntil && lockedUntil > new Date();
+  }
+
+  /**
+   * Igual que assertNotLockedByOther, pero el 409 incluye el nombre de quien
+   * edita ("Editando: Ana") para que el equipo sepa a quién consultar.
+   * Solo se llama tras findOne, que ya exige acceso al proyecto.
+   */
+  private async assertLockLibreParaAdquirir(
+    artifact: { lockedById: string | null; lockedUntil: Date | null },
+    user: AuthenticatedUser,
+  ): Promise<void> {
+    const lockedByOther = artifact.lockedById && artifact.lockedById !== user.id;
+    if (lockedByOther && this.isLockActive(artifact.lockedUntil)) {
+      throw new ConflictException(await this.mensajeEditando(artifact.lockedById));
+    }
+  }
+
+  private async mensajeEditando(lockedById: string | null | undefined): Promise<string> {
+    const editor = lockedById
+      ? await this.prisma.usuario.findUnique({
+          where: { id: lockedById },
+          select: { nombre: true },
+        })
+      : null;
+    return editor?.nombre
+      ? `Editando: ${editor.nombre}`
+      : 'El artefacto está bloqueado por otro usuario.';
   }
 
   private assertNotLockedByOther(

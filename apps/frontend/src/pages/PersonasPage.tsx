@@ -85,6 +85,7 @@ export function PersonasPage() {
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [editandoVersion, setEditandoVersion] = useState<number | null>(null);
   const [readOnly, setReadOnly] = useState(false);
+  const [editandoPor, setEditandoPor] = useState('');
   const [errorImagen, setErrorImagen] = useState('');
   const [subiendoImagen, setSubiendoImagen] = useState(false);
   const { confirmDiscard } = useUnsavedChanges(mostrarForm, { form, listInputs }, isCreating || isUpdating, editandoId ?? 'new');
@@ -97,6 +98,7 @@ export function PersonasPage() {
     setEditandoVersion(null);
     setMostrarForm(false);
     setReadOnly(false);
+    setEditandoPor('');
     setErrorImagen('');
     setSubiendoImagen(false);
   }
@@ -117,10 +119,13 @@ export function PersonasPage() {
     setListInputs(inputsState);
     setMostrarForm(true);
     setReadOnly(false);
+    setEditandoPor('');
 
     void editLock.acquire(artefactoId).catch((err) => {
-      const msg = err instanceof ArtifactsApiError && err.status === 409
-        ? 'Otro usuario está editando esta persona ahora mismo.'
+      const conflicto = err instanceof ArtifactsApiError && err.status === 409;
+      if (conflicto && err.message.startsWith('Editando:')) setEditandoPor(err.message);
+      const msg = conflicto
+        ? (err.message.startsWith('Editando:') ? `${err.message}. Intenta más tarde.` : 'Otro usuario está editando esta persona ahora mismo.')
         : 'No se pudo bloquear la persona para editar.';
       notify.error(msg);
       setReadOnly(true);
@@ -215,7 +220,7 @@ export function PersonasPage() {
           </div>
           {(readOnly || editLock.lockLost) && (
             <p className="inline-state inline-state--error" role="alert">
-              Esta persona está bloqueada por otro usuario. No puedes editarla en este momento.
+              {editandoPor ? `${editandoPor}. ` : 'Esta persona está bloqueada por otro usuario. '}No puedes editarla en este momento.
             </p>
           )}
           <PasosTecnica
