@@ -1,17 +1,21 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, UnsupportedMediaTypeException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
-import { METODOLOGIAS_HEURISTICAS, acuerdoDifiere, ganadorVotoRedactor, comprobarCompatibilidad, escalaDe, EVIDENCIA_MAX_BYTES, EVIDENCIA_MAX_MB, origenHallazgo } from '@observatorio-ux/shared-types';
+import { METODOLOGIAS_HEURISTICAS, acuerdoDifiere, ganadorVotoRedactor, redactorDe, comprobarCompatibilidad, escalaDe, EVIDENCIA_MAX_BYTES, EVIDENCIA_MAX_MB, origenHallazgo } from '@observatorio-ux/shared-types';
 import type { ConfiguracionFlujo, ConsensoFlujo, DecisionCriterio, EvaluacionFlujo, EvidenciaFlujo, HallazgoFlujo, InformeFlujo, RespuestaCriterio, TrabajoFlujo } from '@observatorio-ux/shared-types';
 import { Prisma, type EvaluacionHeuristicaCompleta, type EvidenciaHeuristicaCompleta } from '../../../generated/prisma/client.js';
 import { PrismaService } from '../../../core/database/prisma.service.js';
 import { ProjectAccessService } from '../../../core/access/project-access.service.js';
 import type { AuthenticatedUser } from '../../auth/types/authenticated-user.interface.js';
 import { detectarMimeImagen, type ArchivoSubido } from './evidencia.util.js';
-import { anotacionesSchema, comparacionSchema, configuracionBodySchema, configuracionSchema, consensoSchema, metodologiaSchema, revisionSchema, trabajoSchema, validar, votoRedactorSchema, decidirRedactorSchema } from './heuristica-flujo.schemas.js';
+import { anotacionesSchema, comparacionSchema, configuracionBodySchema, configuracionSchema, consensoSchema, metodologiaSchema, revisionSchema, trabajoSchema, validar, votoRedactorSchema, decidirRedactorSchema, pedirCambiosSchema } from './heuristica-flujo.schemas.js';
 
 const json = (v: unknown) => JSON.parse(JSON.stringify(v)) as Prisma.InputJsonValue;
 const consensoVacio = (): ConsensoFlujo => ({ criterios: [], hallazgos: [], aprobadoPor: [] });
+/** Lo que invalida confirmaciones: valor de cada criterio y decisión de cada hallazgo. Comentarios y textos no cuentan. */
+const firmaDecisiones = (c: Pick<ConsensoFlujo, 'criterios' | 'hallazgos'>) => JSON.stringify([
+  c.criterios.map(x => [x.criterioId, x.valor, x.noAplica]).sort(), c.hallazgos.map(h => [h.id, h.decision]).sort(),
+]);
 const fecha = (v: Date | null) => v?.toISOString() ?? null;
 function leer(fila: EvaluacionHeuristicaCompleta): EvaluacionFlujo {
   return { ...fila, fase: fila.fase as EvaluacionFlujo['fase'], configuracion: fila.configuracion as unknown as ConfiguracionFlujo,
@@ -283,9 +287,10 @@ export class HeuristicaFlujoService {
     const b = validar(consensoSchema, body);
     return this.bloqueada(proyectoId, id, user, b.revision, async (e, tx) => {
       this.fase(e, 'PENDIENTE_CONSENSO');
-      if (e.coordinadorId !== user.id && !e.configuracion.evaluadorIds.includes(user.id)) throw new ForbiddenException();
-      e.consenso = { criterios: b.criterios, hallazgos: b.hallazgos, aprobadoPor: [], positivos: b.positivos ?? [], conclusion: b.conclusion ?? '', mejoras: b.mejoras ?? [],
-        ...(e.consenso.redactorId ? { redactorId: e.consenso.redactorId } : {}), ...(e.consenso.votosRedactor ? { votosRedactor: e.consenso.votosRedactor } : {}) };
+      if (redactorDe(e.consenso, e.coordinadorId) !== user.id) throw new ForbiddenException('Solo quien redacta el acuerdo puede guardarlo.');
+      const cambioDecision = firmaDecisiones(e.consenso) !== firmaDecisiones(b);
+      e.consenso = { criterios: b.criterios, hallazgos: b.hallazgos, aprobadoPor: cambioDecision ? [] : e.consenso.aprobadoPor, positivos: b.positivos ?? [], conclusion: b.conclusion ?? '', mejoras: b.mejoras ?? [],
+        ...(e.consenso.redactorId ? { redactorId: e.consenso.redactorId } : {}), ...(e.consenso.votosRedactor ? { votosRedactor: e.consenso.votosRedactor } : {}), ...(e.consenso.pedidosCambios ? { pedidosCambios: e.consenso.pedidosCambios } : {}) };
       await this.validarConsenso(e, tx, false);
       return this.persistir(e, tx, user);
     });
@@ -318,12 +323,24 @@ export class HeuristicaFlujoService {
     });
   }
 
+  async pedirCambios(proyectoId: string, id: string, body: unknown, user: AuthenticatedUser) {
+    const b = validar(pedirCambiosSchema, body);
+    return this.bloqueada(proyectoId, id, user, b.revision, async (e, tx) => {
+      this.fase(e, 'PENDIENTE_CONSENSO'); this.trabajo(e, user);
+      if (redactorDe(e.consenso, e.coordinadorId) === user.id) throw new ConflictException('Quien redacta edita el acuerdo directamente.');
+      e.consenso = { ...e.consenso, aprobadoPor: e.consenso.aprobadoPor.filter(x => x !== user.id),
+        pedidosCambios: [...(e.consenso.pedidosCambios ?? []).filter(p => p.evaluadorId !== user.id), { evaluadorId: user.id, comentario: b.comentario, creadoEn: new Date().toISOString() }] };
+      return this.persistir(e, tx, user);
+    });
+  }
+
   async aprobar(proyectoId: string, id: string, body: unknown, user: AuthenticatedUser) {
     const b = validar(revisionSchema, body);
     return this.bloqueada(proyectoId, id, user, b.revision, async (e, tx) => {
       this.fase(e, 'PENDIENTE_CONSENSO'); this.trabajo(e, user);
       await this.validarConsenso(e, tx, true);
       e.consenso.aprobadoPor = [...new Set([...e.consenso.aprobadoPor, user.id])];
+      if (e.consenso.pedidosCambios) e.consenso.pedidosCambios = e.consenso.pedidosCambios.filter(p => p.evaluadorId !== user.id);
       return this.persistir(e, tx, user);
     });
   }

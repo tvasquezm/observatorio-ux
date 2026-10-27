@@ -284,7 +284,7 @@ describe('Flujo heurístico: privacidad, transiciones y consenso', () => {
     expect(String(prisma.$queryRaw.mock.calls[0]?.[0])).toContain('FOR UPDATE');
   });
 
-  it('exige cada origen una sola vez y revoca aprobaciones al editar consenso', async () => {
+  it('exige cada origen una sola vez y revoca aprobaciones solo si cambia una decisión', async () => {
     const { service } = preparar();
     let e = await entregarTodos(service, 5, true);
     const b = decisiones(e);
@@ -294,7 +294,11 @@ describe('Flujo heurístico: privacidad, transiciones y consenso', () => {
     e = await service.guardarConsenso('p', e.id, { ...b, revision: e.revision }, coordinador);
     e = await service.aprobar('p', e.id, { revision: e.revision }, experto);
     expect(e.consenso.aprobadoPor).toEqual([experto.id]);
-    e = await service.guardarConsenso('p', e.id, { ...b, revision: e.revision }, usuario('e2'));
+    const comentario = b.hallazgos.map((h, i) => i === 0 ? { ...h, justificacion: 'Texto distinto, misma decisión' } : h);
+    e = await service.guardarConsenso('p', e.id, { ...b, hallazgos: comentario, revision: e.revision }, coordinador);
+    expect(e.consenso.aprobadoPor).toEqual([experto.id]);
+    const decision = b.hallazgos.map((h, i) => i === 0 ? { ...h, decision: 'DESCARTADO' as const } : h);
+    e = await service.guardarConsenso('p', e.id, { ...b, hallazgos: decision, revision: e.revision }, coordinador);
     expect(e.consenso.aprobadoPor).toEqual([]);
   });
 
@@ -581,12 +585,13 @@ describe('Consenso: acuerdo sobre la tabla y hallazgos nuevos del equipo', () =>
     expect(guardado.consenso.hallazgos).toHaveLength(50);
   });
 
-  it('solo participantes editan el consenso y uno consolidado no se modifica', async () => {
+  it('solo el redactor edita el consenso y uno consolidado no se modifica', async () => {
     const { service, e: previa, respuestas } = await entregaUnica();
     const body = (revision: number) => ({ revision, criterios: respuestas.map(r => ({ ...r, justificacion: '' })), hallazgos: [nuevo('nuevo-1')] });
     await expect(service.guardarConsenso('p', previa.id, body(previa.revision), lector)).rejects.toBeInstanceOf(ForbiddenException);
     await expect(service.guardarConsenso('p', previa.id, body(previa.revision), usuario('ajeno'))).rejects.toBeInstanceOf(ForbiddenException);
-    let e = await service.guardarConsenso('p', previa.id, body(previa.revision), experto);
+    await expect(service.guardarConsenso('p', previa.id, body(previa.revision), experto)).rejects.toBeInstanceOf(ForbiddenException);
+    let e = await service.guardarConsenso('p', previa.id, body(previa.revision), coordinador);
     e = await service.aprobar('p', e.id, { revision: e.revision }, experto);
     e = await service.consolidar('p', e.id, { revision: e.revision }, coordinador);
     await expect(service.guardarConsenso('p', e.id, body(e.revision), coordinador)).rejects.toBeInstanceOf(ConflictException);
@@ -649,5 +654,43 @@ describe('Consenso: votación del redactor', () => {
     e = await votar(service, e, 'e3', 'e2');
     e = await service.guardarConsenso('p', e.id, decisiones(e), coordinador);
     expect(e.consenso).toMatchObject({ redactorId: 'e2', votosRedactor: { e1: 'e2', e3: 'e2' } });
+  });
+});
+
+describe('Consenso: redactor único y pedido de cambios', () => {
+  it('con redactor elegido solo él guarda; el coordinador deja de poder', async () => {
+    const { service } = preparar();
+    let e = await entregarTodos(service, 3);
+    e = await service.votarRedactor('p', e.id, { revision: e.revision, candidatoId: 'e2' }, usuario('e1'));
+    e = await service.votarRedactor('p', e.id, { revision: e.revision, candidatoId: 'e2' }, usuario('e3'));
+    await expect(service.guardarConsenso('p', e.id, decisiones(e), coordinador)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.guardarConsenso('p', e.id, decisiones(e), usuario('e1'))).rejects.toBeInstanceOf(ForbiddenException);
+    e = await service.guardarConsenso('p', e.id, decisiones(e), usuario('e2'));
+    expect(e.consenso.redactorId).toBe('e2');
+  });
+
+  it('pedir cambios guarda el comentario, retira la confirmación propia y confirmar lo retira', async () => {
+    const { service } = preparar();
+    let e = await entregarTodos(service, 3);
+    e = await service.guardarConsenso('p', e.id, decisiones(e), coordinador);
+    e = await service.aprobar('p', e.id, { revision: e.revision }, usuario('e1'));
+    e = await service.pedirCambios('p', e.id, { revision: e.revision, comentario: '  Revisar el criterio 2 ' }, usuario('e1'));
+    expect(e.consenso.aprobadoPor).toEqual([]);
+    expect(e.consenso.pedidosCambios).toMatchObject([{ evaluadorId: 'e1', comentario: 'Revisar el criterio 2' }]);
+    e = await service.guardarConsenso('p', e.id, { ...decisiones(e) }, coordinador);
+    expect(e.consenso.pedidosCambios).toHaveLength(1);
+    e = await service.aprobar('p', e.id, { revision: e.revision }, usuario('e1'));
+    expect(e.consenso.pedidosCambios).toEqual([]);
+  });
+
+  it('valida pedir cambios: comentario, fase, experto asignado y que no sea el redactor', async () => {
+    const { service } = preparar();
+    const e = await entregarTodos(service, 3);
+    const pedir = (quien: AuthenticatedUser, comentario: string) => service.pedirCambios('p', e.id, { revision: e.revision, comentario }, quien);
+    await expect(pedir(usuario('e1'), '   ')).rejects.toBeInstanceOf(BadRequestException);
+    await expect(pedir(lector, 'x')).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(pedir(coordinador, 'x')).rejects.toBeInstanceOf(ForbiddenException);
+    const nueva = await service.crear('p', configuracion(3), coordinador);
+    await expect(service.pedirCambios('p', nueva.id, { revision: nueva.revision, comentario: 'x' }, usuario('e1'))).rejects.toBeInstanceOf(ConflictException);
   });
 });

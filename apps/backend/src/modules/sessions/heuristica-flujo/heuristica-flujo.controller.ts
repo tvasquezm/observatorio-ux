@@ -84,6 +84,10 @@ export class HeuristicaFlujoController {
   decidirRedactor(@Param('proyectoId', ParseUUIDPipe) proyectoId: string, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() user: AuthenticatedUser) {
     return this.service.decidirRedactor(proyectoId, id, body, user);
   }
+  @Post('evaluaciones/:id/pedir-cambios')
+  pedirCambios(@Param('proyectoId', ParseUUIDPipe) proyectoId: string, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.pedirCambios(proyectoId, id, body, user);
+  }
   @Post('evaluaciones/:id/aprobar')
   aprobar(@Param('proyectoId', ParseUUIDPipe) proyectoId: string, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() user: AuthenticatedUser) {
     return this.service.aprobar(proyectoId, id, body, user);

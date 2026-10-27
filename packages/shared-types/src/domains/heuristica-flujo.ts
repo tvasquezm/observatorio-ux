@@ -49,7 +49,10 @@ export interface ConsensoFlujo {
   redactorId?: string;
   /** Voto de cada experto por el redactor: evaluadorId -> candidatoId. */
   votosRedactor?: Record<string, string>;
+  /** Último pedido de cambios de cada experto (uno por persona). Se retira al confirmar. */
+  pedidosCambios?: PedidoCambios[];
 }
+export interface PedidoCambios { evaluadorId: string; comentario: string; creadoEn: string }
 /** Redactor vigente: el elegido o, si no hay, el coordinador. */
 export function redactorDe(consenso: Pick<ConsensoFlujo, 'redactorId'>, coordinadorId: string): string {
   return consenso.redactorId ?? coordinadorId;
