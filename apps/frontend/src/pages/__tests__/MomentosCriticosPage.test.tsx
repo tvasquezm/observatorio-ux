@@ -169,6 +169,14 @@ describe('Momentos críticos', () => {
     await screen.findByText(/está bloqueado por otro usuario/i);
     expect(screen.getByLabelText('Nombre del perfil de usuario')).toBeDisabled();
   });
+  it('muestra quién está editando cuando el 409 trae el nombre', async () => {
+    state.acquire.mockRejectedValue(new ArtifactsApiError(409, 'Editando: Luis Soto'));
+    state.list.mockReturnValue([momento]);
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+    expect(await screen.findByText(/Editando: Luis Soto\./)).toBeInTheDocument();
+    expect(screen.getByLabelText('Nombre del perfil de usuario')).toBeDisabled();
+  });
   it('no permite quitar el último incidente y mantiene alineadas sus acciones', () => {
     abrirNuevo();
     siguiente(1);

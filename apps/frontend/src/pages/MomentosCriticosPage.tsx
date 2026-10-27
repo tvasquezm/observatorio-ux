@@ -80,6 +80,7 @@ export function MomentosCriticosPage() {
   const [vistaMatriz, setVistaMatriz] = useState(false);
   const [editando, setEditando] = useState<MomentosCriticosArtifact | null>(null);
   const [readOnly, setReadOnly] = useState(false);
+  const [editandoPor, setEditandoPor] = useState('');
   const [lockPending, setLockPending] = useState(false);
   const [errores, setErrores] = useState<Record<string, string>>({});
   const [busqueda, setBusqueda] = useState('');
@@ -97,6 +98,7 @@ export function MomentosCriticosPage() {
     setEditando(null);
     setMostrarForm(false);
     setReadOnly(false);
+    setEditandoPor('');
     setLockPending(false);
     setErrores({});
   }
@@ -116,6 +118,7 @@ export function MomentosCriticosPage() {
     setAccionesInputs(acciones);
     setErrores({});
     setMostrarForm(true);
+    setEditandoPor('');
     setLockPending(true);
     const request = ++editRequest.current;
     try {
@@ -123,10 +126,15 @@ export function MomentosCriticosPage() {
       if (request === editRequest.current && !acquired) setReadOnly(true);
     } catch (err) {
       if (request !== editRequest.current) return;
+      const conflicto = err instanceof ArtifactsApiError && err.status === 409;
+      const conNombre = conflicto && err.message.startsWith('Editando:');
+      if (conNombre) setEditandoPor(err.message);
       notify.error(
-        err instanceof ArtifactsApiError && err.status === 409
-          ? 'Otro usuario está editando este momento crítico ahora mismo.'
-          : 'No se pudo bloquear el momento crítico para editar.',
+        conNombre
+          ? `${err.message}. Intenta más tarde.`
+          : conflicto
+            ? 'Otro usuario está editando este momento crítico ahora mismo.'
+            : 'No se pudo bloquear el momento crítico para editar.',
       );
       setReadOnly(true);
     } finally {
@@ -285,8 +293,10 @@ export function MomentosCriticosPage() {
               {lockPending && <p role="status">Obteniendo permiso de edición…</p>}
               {(readOnly || editLock.lockLost) && (
                 <p role="alert" className="error-text">
-                  Este momento crítico está bloqueado por otro usuario o perdió el permiso de edición. No puedes
-                  guardar; conserva tu información y vuelve a abrirlo.
+                  {editandoPor
+                    ? `${editandoPor}. `
+                    : 'Este momento crítico está bloqueado por otro usuario o perdió el permiso de edición. '}
+                  No puedes guardar; conserva tu información y vuelve a abrirlo.
                 </p>
               )}
               {Object.keys(errores).length > 0 && (

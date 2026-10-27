@@ -4,6 +4,7 @@ import { createMemoryRouter, Outlet, RouterProvider } from 'react-router-dom';
 import { PersonaSchema } from '@observatorio-ux/shared-types';
 import { PersonasPage } from '../PersonasPage';
 import { ConfirmDialog } from '../../shared/components/ui/ConfirmDialog';
+import { ArtifactsApiError } from '../../shared/api/artifacts.api';
 
 const state = vi.hoisted(() => ({
   role: 'ESTUDIANTE' as 'ESTUDIANTE' | 'DOCENTE',
@@ -173,5 +174,12 @@ describe('Personas — presentación y edición', () => {
     expect(screen.getByLabelText('Nombre completo')).toBeDisabled();
     irAlUltimoPaso(5);
     expect(screen.getByRole('button', { name: 'Actualizar persona' })).toBeDisabled();
+  });
+
+  it('muestra quién está editando cuando el 409 trae el nombre', async () => {
+    state.acquire.mockRejectedValue(new ArtifactsApiError(409, 'Editando: Luis Soto'));
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+    expect(await screen.findByText(/Editando: Luis Soto\. No puedes editarla/)).toBeInTheDocument();
   });
 });

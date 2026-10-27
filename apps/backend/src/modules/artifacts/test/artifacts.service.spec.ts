@@ -32,6 +32,7 @@ describe('ArtifactsService', () => {
   let prisma: {
     proyecto: { findUnique: jest.Mock };
     proyectoMiembro: { findUnique: jest.Mock };
+    usuario: { findUnique: jest.Mock };
     uxArtifact: {
       create: jest.Mock;
       findMany: jest.Mock;
@@ -51,6 +52,7 @@ describe('ArtifactsService', () => {
     prisma = {
       proyecto: { findUnique: jest.fn() },
       proyectoMiembro: { findUnique: jest.fn() },
+      usuario: { findUnique: jest.fn() },
       uxArtifact: {
         create: jest.fn(),
         findMany: jest.fn(),
@@ -545,6 +547,55 @@ describe('ArtifactsService', () => {
         ConflictException,
       );
       expect(prisma.uxArtifact.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('el 409 por lock ajeno vigente incluye el nombre de quien edita', async () => {
+      prisma.uxArtifact.findUnique.mockResolvedValue(baseArtifact);
+      prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
+      prisma.uxArtifact.findFirst.mockResolvedValue({
+        ...baseArtifact,
+        lockedById: otherUser.id,
+        lockedUntil: new Date(Date.now() + 60_000),
+      });
+      prisma.usuario.findUnique.mockResolvedValue({ nombre: 'Ana Pérez' });
+
+      await expect(service.acquireLock('art-1', ownerUser)).rejects.toThrow(
+        'Editando: Ana Pérez',
+      );
+      expect(prisma.usuario.findUnique).toHaveBeenCalledWith({
+        where: { id: otherUser.id },
+        select: { nombre: true },
+      });
+    });
+
+    it('el 409 de la carrera de updateMany también incluye el nombre', async () => {
+      prisma.uxArtifact.findUnique
+        .mockResolvedValueOnce(baseArtifact)
+        .mockResolvedValueOnce({ lockedById: otherUser.id });
+      prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
+      prisma.uxArtifact.findFirst.mockResolvedValue(baseArtifact);
+      prisma.uxArtifact.updateMany.mockResolvedValue({ count: 0 });
+      prisma.usuario.findUnique.mockResolvedValue({ nombre: 'Luis Soto' });
+
+      await expect(service.acquireLock('art-1', ownerUser)).rejects.toThrow(
+        'Editando: Luis Soto',
+      );
+    });
+
+    it('sin lock ajeno vigente no consulta el nombre de ningún usuario', async () => {
+      prisma.uxArtifact.findUnique.mockResolvedValue(baseArtifact);
+      prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
+      prisma.uxArtifact.findFirst.mockResolvedValue({
+        ...baseArtifact,
+        lockedById: otherUser.id,
+        lockedUntil: new Date(Date.now() - 60_000),
+      });
+      prisma.uxArtifact.updateMany.mockResolvedValue({ count: 1 });
+      prisma.uxArtifact.findUniqueOrThrow.mockResolvedValue(baseArtifact);
+
+      await service.acquireLock('art-1', ownerUser);
+
+      expect(prisma.usuario.findUnique).not.toHaveBeenCalled();
     });
 
     it('PERMITE adquirir el lock si el de otro usuario ya expiró', async () => {
