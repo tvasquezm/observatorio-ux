@@ -583,6 +583,40 @@ describe('consenso en equipo sobre la tabla', () => {
     await new Promise(r => setTimeout(r, 1200));
     expect(api).not.toHaveBeenCalled();
   });
+  it('un experto vota por el redactor con la revisión vigente', async () => {
+    const e = equipoEval('no_cumple');
+    api.mockResolvedValue({ ...e, revision: 2, consenso: { ...e.consenso, votosRedactor: { u2: 'u2' } } });
+    renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u2" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.getByText('Redactor actual: Ana (el coordinador, hasta que el equipo vote).')).toBeInTheDocument();
+    expect(screen.getByText('Beto: aún no votó')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Decidir redactor' })).toBeNull();
+    await userEvent.selectOptions(screen.getByLabelText('Mi voto'), 'u2');
+    await userEvent.click(screen.getByRole('button', { name: 'Votar por este redactor' }));
+    await waitFor(() => expect(api).toHaveBeenCalledWith('p1', '/evaluaciones/e1/redactor/voto', 'POST', { revision: 1, candidatoId: 'u2' }));
+  });
+  it('el coordinador decide solo con empate o votos faltantes', async () => {
+    const e = equipoEval('no_cumple');
+    e.consenso.votosRedactor = { u1: 'u1', u2: 'u2' };
+    api.mockResolvedValue({ ...e, revision: 2, consenso: { ...e.consenso, redactorId: 'u2' } });
+    const { unmount } = renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    await userEvent.selectOptions(screen.getByLabelText('Redactor que decide el coordinador'), 'u2');
+    await userEvent.click(screen.getByRole('button', { name: 'Decidir redactor' }));
+    await waitFor(() => expect(api).toHaveBeenCalledWith('p1', '/evaluaciones/e1/redactor/decidir', 'POST', { revision: 1, redactorId: 'u2' }));
+    unmount();
+    const mayoria = equipoEval('no_cumple');
+    mayoria.consenso.votosRedactor = { u1: 'u2', u2: 'u2' };
+    renderFlow(<ConsensoEditor evaluacion={mayoria} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: 'Decidir redactor' })).toBeNull();
+    expect(screen.getByText(/El equipo ya eligió por mayoría/)).toBeInTheDocument();
+  });
+  it('avisa cuando cambia quien redacta tras actualizar', async () => {
+    const e = equipoEval('no_cumple');
+    function Editor() { const [v, setV] = useState(e); return <><button type="button" onClick={() => setV({ ...e, revision: 2, consenso: { ...e.consenso, redactorId: 'u2' } })}>Simular cambio</button><ConsensoEditor evaluacion={v} usuarioId="u1" onSaved={setV} onBack={vi.fn()} /></>; }
+    renderFlow(<Editor />);
+    expect(screen.queryByText(/Cambió quien redacta/)).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Simular cambio' }));
+    expect(await screen.findByText('Cambió quien redacta el acuerdo: ahora redacta Beto.')).toBeInTheDocument();
+  });
   it('agrega un hallazgo nuevo del equipo, lo rotula y permite quitarlo', async () => {
     renderFlow(<ConsensoEditor evaluacion={equipoEval('no_cumple')} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
     await userEvent.click(screen.getByRole('tab', { name: 'Revisar los problemas' }));

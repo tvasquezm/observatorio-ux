@@ -1,16 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { RecorridoSencillo } from './RecorridoSencillo';
 import { MAX_HALLAZGOS_NUEVOS_EQUIPO, origenHallazgo, redactorDe } from '@observatorio-ux/shared-types';
-import type { DecisionHallazgo, EvaluacionFlujo, MejoraAntesDespues } from '@observatorio-ux/shared-types';
+import type { DecisionHallazgo, EvaluacionFlujo, MejoraAntesDespues, MiembroEquipoFlujo } from '@observatorio-ux/shared-types';
 import { Field } from './ConfiguracionEditor';
 import { EvidenciaEditor } from './EvidenciaEditor';
 import { MatrizItem } from './MatrizItem';
+import { RedactorPanel } from './RedactorPanel';
 import { HallazgoEditor, SaveStatus } from './TrabajoEditor';
 import { flujoRequest } from './flujo.api';
 import { hallazgoVacio, precargarConsenso } from './flujo-utils';
 import { useFlujoDraft } from './useFlujoDraft';
 
-export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack }: { evaluacion: EvaluacionFlujo; usuarioId: string; onSaved: (e: EvaluacionFlujo) => void; onBack: () => void }) {
+export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo }: { evaluacion: EvaluacionFlujo; usuarioId: string; onSaved: (e: EvaluacionFlujo) => void; onBack: () => void; equipo?: MiembroEquipoFlujo[] }) {
   const redactorId = redactorDe(evaluacion.consenso, evaluacion.coordinadorId);
   const soloLectura = usuarioId !== redactorId;
   const [subiendo, setSubiendo] = useState<Record<string, boolean>>({});
@@ -30,7 +31,7 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack }: { eva
   const acordadas = criterios.filter(c => { const r = state.draft.criterios.find(x => x.criterioId === c.id); return !!r && (r.noAplica || r.valor !== null); }).length;
   const confirmaron = evaluacion.trabajos.filter(t => evaluacion.consenso.aprobadoPor.includes(t.evaluadorId) && !state.dirty);
   const faltan = evaluacion.trabajos.filter(t => !confirmaron.includes(t));
-  const nombreDe = (id: string) => id === usuarioId ? 'Tú' : evaluacion.trabajos.find(t => t.evaluadorId === id)?.nombre ?? 'El coordinador';
+  const nombreDe = (id: string) => equipo?.find(m => m.id === id)?.nombre ?? evaluacion.trabajos.find(t => t.evaluadorId === id)?.nombre ?? 'El coordinador';
   const nuevos = state.draft.hallazgos.filter(h => origenHallazgo(h) === 'equipo').length;
   const originales = evaluacion.trabajos.flatMap(t => t.hallazgos.map(h => ({ ...h, evaluador: t.nombre })));
   const cubiertos = new Set(state.draft.hallazgos.flatMap(h => h.origenIds));
@@ -49,6 +50,7 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack }: { eva
       <p>Confirmaron {confirmaron.length} de {evaluacion.trabajos.length} evaluadores{confirmaron.length ? `: ${confirmaron.map(t => t.nombre).join(', ')}` : ''}.</p>
       {faltan.length > 0 && <p>Falta confirmar: {faltan.map(t => t.nombre).join(', ')}.</p>}
       <p>{soloLectura ? `Redacta el acuerdo: ${nombreDe(redactorId)}. Solo esa persona puede editarlo; tú puedes leerlo y confirmarlo.` : 'Tú redactas el acuerdo.'}</p></section>
+    <RedactorPanel evaluacion={evaluacion} usuarioId={usuarioId} nombreDe={nombreDe} guardar={state.save} getRevision={state.getRevision} onSaved={onSaved} />
     <RecorridoSencillo pasos={[{ titulo: 'Acordar las respuestas', ayuda: 'Lean las respuestas de cada persona y elijan una respuesta común. Expliquen por qué están de acuerdo.', contenido: (<>
     <fieldset disabled={bloqueo}><legend>Acuerdo por pregunta</legend>
       <MatrizItem criterios={criterios} config={evaluacion.configuracion} modo="equipo" respuestas={state.draft.criterios} editable={!soloLectura}
