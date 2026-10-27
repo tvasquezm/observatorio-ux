@@ -208,9 +208,10 @@ describe('MatrizItem con el formulario de problemas dentro de la fila', () => {
     expect(screen.getAllByText(/^Formulario de /)).toHaveLength(1);
   });
   it('el contador de problemas abre y cierra la fila', async () => {
-    render(<ConProblemas m={dos()} />);
+    const m = dos(); render(<ConProblemas m={m} />);
     await userEvent.click(screen.getAllByRole('button', { name: /^Agregar problema/ })[0]);
     const contador = screen.getByRole('button', { name: /^1 problema/ });
+    expect(contador).toHaveAccessibleName(`1 problema de ${m.criterios[0].nombre}`);
     expect(contador).toHaveAttribute('aria-expanded', 'true');
     await userEvent.click(contador);
     expect(contador).toHaveAttribute('aria-expanded', 'false');
