@@ -37,11 +37,13 @@ async function siguiente(veces = 1) {
 }
 
 async function pegarTarjetas(texto: string) {
+  await siguiente();
   await userEvent.type(screen.getByLabelText('Pegar lista de tarjetas'), texto);
-  await userEvent.click(screen.getByRole('button', { name: /^Agregar \d+ tarjeta/, hidden: true }));
+  await userEvent.click(screen.getByRole('button', { name: /^Agregar \d+ tarjeta/ }));
 }
 
 async function agregarUna(etiqueta: string, texto: string) {
+  if (screen.getByLabelText(etiqueta).closest('[hidden]')) await siguiente();
   await userEvent.type(screen.getByLabelText(etiqueta), `${texto}{Enter}`);
 }
 
@@ -115,6 +117,7 @@ describe('CardSortingPage · intención de tarjetas y categorías', () => {
 
   it('avisa de repetidas sin importar tildes ni mayúsculas, antes de agregarlas', async () => {
     renderPage();
+    await siguiente();
     await userEvent.type(screen.getByLabelText('Pegar lista de tarjetas'), 'Navegación{Enter}navegacion');
     expect(screen.getByTestId('cs-paste-preview-tarjetas')).toHaveTextContent('1 por agregar · 1 repetida se omitirá');
   });
@@ -131,7 +134,6 @@ describe('CardSortingPage · intención de tarjetas y categorías', () => {
   it('al agregar omite las repetidas y deja una sola tarjeta', async () => {
     renderPage();
     await pegarTarjetas('A{Enter}a');
-    await siguiente();
     expect(screen.getAllByRole('button', { name: /^Quitar / })).toHaveLength(1);
     await userEvent.type(screen.getByLabelText('Pegar lista de tarjetas'), 'A');
     expect(screen.getByTestId('cs-paste-preview-tarjetas')).toHaveTextContent('0 por agregar · 1 repetida se omitirá');
