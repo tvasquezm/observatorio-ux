@@ -88,6 +88,10 @@ export class HeuristicaFlujoController {
   pedirCambios(@Param('proyectoId', ParseUUIDPipe) proyectoId: string, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() user: AuthenticatedUser) {
     return this.service.pedirCambios(proyectoId, id, body, user);
   }
+  @Post('evaluaciones/:id/entregar-acuerdo')
+  entregarAcuerdo(@Param('proyectoId', ParseUUIDPipe) proyectoId: string, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.entregarAcuerdo(proyectoId, id, body, user);
+  }
   @Post('evaluaciones/:id/aprobar')
   aprobar(@Param('proyectoId', ParseUUIDPipe) proyectoId: string, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() user: AuthenticatedUser) {
     return this.service.aprobar(proyectoId, id, body, user);

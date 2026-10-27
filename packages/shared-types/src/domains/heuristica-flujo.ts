@@ -53,6 +53,11 @@ export interface ConsensoFlujo {
   pedidosCambios?: PedidoCambios[];
 }
 export interface PedidoCambios { evaluadorId: string; comentario: string; creadoEn: string }
+export type SeccionAcuerdo = 'criterios' | 'hallazgos' | 'positivos' | 'mejoras';
+/** Un elemento del acuerdo al que le falta algo para poder entregarse o confirmarse. `id` es el del criterio, hallazgo (propio u original sin resolver), aspecto positivo o mejora. */
+export interface PendienteAcuerdo { seccion: SeccionAcuerdo; id: string; nombre: string; faltas: string[] }
+/** Cuerpo del 400 al entregar o confirmar un acuerdo incompleto. */
+export interface AcuerdoIncompleto { message: string; codigo: 'ACUERDO_INCOMPLETO'; pendientes: PendienteAcuerdo[] }
 /** Redactor vigente: el elegido o, si no hay, el coordinador. */
 export function redactorDe(consenso: Pick<ConsensoFlujo, 'redactorId'>, coordinadorId: string): string {
   return consenso.redactorId ?? coordinadorId;

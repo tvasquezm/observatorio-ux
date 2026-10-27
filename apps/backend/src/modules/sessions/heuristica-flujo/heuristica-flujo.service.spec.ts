@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { EVIDENCIA_MAX_BYTES, METODOLOGIAS_HEURISTICAS, origenHallazgo, redactorDe, resumirCumplimiento, resumirEvaluacion } from '@observatorio-ux/shared-types';
-import type { ConfiguracionFlujo, DecisionHallazgo, EvaluacionFlujo, HallazgoFlujo } from '@observatorio-ux/shared-types';
+import type { AcuerdoIncompleto, ConfiguracionFlujo, DecisionHallazgo, EvaluacionFlujo, HallazgoFlujo } from '@observatorio-ux/shared-types';
 import type { AuthenticatedUser } from '../../auth/types/authenticated-user.interface.js';
 import { Prisma, type EvaluacionHeuristicaCompleta } from '../../../generated/prisma/client.js';
 import { PrismaService } from '../../../core/database/prisma.service.js';
@@ -76,6 +76,13 @@ async function entregarTodos(service: HeuristicaFlujoService, cantidad = 1, conH
 function decisiones(e: EvaluacionFlujo) {
   return { revision: e.revision, criterios: e.trabajos[0].respuestas.map(r => ({ ...r, justificacion: 'Revisado y acordado explícitamente' })), hallazgos: e.trabajos.flatMap(t => t.hallazgos).map(h => ({ ...h, origenIds: [h.id], decision: 'ACEPTADO', justificacion: 'Confirmado en revisión' })) };
 }
+
+async function cuerpoIncompleto(accion: Promise<unknown>) {
+  const error = await accion.then(() => null, (x: unknown) => x);
+  expect(error).toBeInstanceOf(BadRequestException);
+  return (error as BadRequestException).getResponse() as AcuerdoIncompleto;
+}
+const pendientesDe = async (accion: Promise<unknown>) => (await cuerpoIncompleto(accion)).pendientes;
 
 describe('Flujo heurístico: privacidad, transiciones y consenso', () => {
   const configuracionMinima = (cantidad = 1) => {
@@ -196,7 +203,9 @@ describe('Flujo heurístico: privacidad, transiciones y consenso', () => {
     e = await service.entregar('p', e.id, { revision: e.revision }, experto);
     await expect(service.guardarConsenso('p', e.id, { revision: e.revision, criterios: [{ ...respuestas[0], noAplica: true, justificacion: '' }], hallazgos: [] }, coordinador)).rejects.toBeInstanceOf(BadRequestException);
     e = await service.guardarConsenso('p', e.id, { revision: e.revision, criterios: respuestas.map(r => ({ ...r, valor: 'no_cumple', justificacion: '' })), hallazgos: [] }, coordinador);
-    await expect(service.aprobar('p', e.id, { revision: e.revision }, experto)).rejects.toThrow('Justifica cada decisión de criterio que difiere de alguna respuesta individual.');
+    const pendientes = await pendientesDe(service.aprobar('p', e.id, { revision: e.revision }, experto));
+    expect(pendientes).toHaveLength(respuestas.length);
+    expect(pendientes.every(p => p.seccion === 'criterios' && p.faltas.length === 1 && p.faltas[0].includes('justificar'))).toBe(true);
   });
 
   it('excluye No aplica sin motivo del índice numérico y conserva como pendientes los NA con valor', () => {
@@ -473,7 +482,7 @@ describe('Consenso: aspectos positivos y conclusión', () => {
     const { service } = preparar();
     let e = await entregarTodos(service, 1);
     e = await service.guardarConsenso('p', e.id, { ...decisiones(e), positivos: [{ id: 'pos1', titulo: '  ', descripcion: 'Sin título' }] }, coordinador);
-    await expect(service.aprobar('p', e.id, { revision: e.revision }, usuario(e.configuracion.evaluadorIds[0]))).rejects.toThrow('Completa el título de cada aspecto positivo.');
+    expect(await pendientesDe(service.aprobar('p', e.id, { revision: e.revision }, usuario(e.configuracion.evaluadorIds[0])))).toEqual([{ seccion: 'positivos', id: 'pos1', nombre: 'Aspecto positivo sin título', faltas: ['Falta el título.'] }]);
   });
 });
 
@@ -511,7 +520,7 @@ describe('Consenso: mejoras antes/después con capturas', () => {
     for (const id of [ajena.id, randomUUID()]) await expect(service.guardarConsenso('p', e.id, { ...decisiones(e), mejoras: [mejora([id], [])] }, coordinador)).rejects.toBeInstanceOf(BadRequestException);
     const propia = await subir(service, e.id, experto);
     e = await service.guardarConsenso('p', e.id, { ...decisiones(e), mejoras: [mejora([propia.id], [], '  ')] }, coordinador);
-    await expect(service.aprobar('p', e.id, { revision: e.revision }, experto)).rejects.toThrow('Completa el título de cada mejora.');
+    expect(await pendientesDe(service.aprobar('p', e.id, { revision: e.revision }, experto))).toEqual([{ seccion: 'mejoras', id: 'm1', nombre: 'Mejora sin título', faltas: ['Falta el título.'] }]);
   });
 });
 
@@ -572,7 +581,7 @@ describe('Consenso: acuerdo sobre la tabla y hallazgos nuevos del equipo', () =>
   it('hallazgo original sin resolver sigue rechazando la confirmación aunque haya uno nuevo válido', async () => {
     const { service, e: previa, respuestas } = await entregaUnica([hallazgo('original-1')]);
     const e = await service.guardarConsenso('p', previa.id, { revision: previa.revision, criterios: respuestas.map(r => ({ ...r, justificacion: '' })), hallazgos: [nuevo('nuevo-1')] }, coordinador);
-    await expect(service.aprobar('p', e.id, { revision: e.revision }, experto)).rejects.toThrow('Resuelve todos los hallazgos originales');
+    expect(await pendientesDe(service.aprobar('p', e.id, { revision: e.revision }, experto))).toEqual([{ seccion: 'hallazgos', id: 'original-1', nombre: 'Problema', faltas: [expect.stringContaining('Sin resolver')] }]);
   });
 
   it('rechaza un origen inexistente y respeta el tope de hallazgos nuevos', async () => {
@@ -692,5 +701,66 @@ describe('Consenso: redactor único y pedido de cambios', () => {
     await expect(pedir(coordinador, 'x')).rejects.toBeInstanceOf(ForbiddenException);
     const nueva = await service.crear('p', configuracion(3), coordinador);
     await expect(service.pedirCambios('p', nueva.id, { revision: nueva.revision, comentario: 'x' }, usuario('e1'))).rejects.toBeInstanceOf(ConflictException);
+  });
+});
+
+describe('Acuerdo: entrega con pendientes por sección', () => {
+  it('entregar o confirmar con faltantes responde la lista por sección y no guarda nada', async () => {
+    const { service } = preparar();
+    let e = await entregarTodos(service, 3, true);
+    e = await service.guardarConsenso('p', e.id, { revision: e.revision, criterios: [], hallazgos: [], positivos: [{ id: 'pos1', titulo: ' ', descripcion: '' }] }, coordinador);
+    const cuerpo = await cuerpoIncompleto(service.entregarAcuerdo('p', e.id, { revision: e.revision }, coordinador));
+    const criterios = METODOLOGIAS_HEURISTICAS[0].criterios.length;
+    expect(cuerpo.codigo).toBe('ACUERDO_INCOMPLETO');
+    expect(cuerpo.pendientes.filter(p => p.seccion === 'criterios')).toHaveLength(criterios);
+    expect(cuerpo.pendientes.filter(p => p.seccion === 'hallazgos').map(p => p.id).sort()).toEqual(['e1-h', 'e2-h', 'e3-h']);
+    expect(cuerpo.pendientes.filter(p => p.seccion === 'positivos')).toHaveLength(1);
+    expect(cuerpo.message).toBe(`Faltan ${criterios + 4} elementos para entregar el acuerdo: Criterios (${criterios}), Hallazgos (3), Aspectos positivos (1).`);
+    expect(await pendientesDe(service.aprobar('p', e.id, { revision: e.revision }, usuario('e1')))).toEqual(cuerpo.pendientes);
+    const despues = await service.obtener('p', e.id, coordinador);
+    expect(despues.revision).toBe(e.revision);
+    expect(despues.consenso.aprobadoPor).toEqual([]);
+  });
+
+  it('sin redactor elegido entrega el coordinador y queda confirmado automáticamente', async () => {
+    const { service } = preparar();
+    let e = await entregarTodos(service, 3, true);
+    e = await service.guardarConsenso('p', e.id, decisiones(e), coordinador);
+    e = await service.entregarAcuerdo('p', e.id, { revision: e.revision }, coordinador);
+    expect(e.consenso.aprobadoPor).toEqual([coordinador.id]);
+  });
+
+  it('con redactor elegido solo él entrega; los demás confirman y el coordinador consolida', async () => {
+    const { service } = preparar();
+    let e = await entregarTodos(service, 3, true);
+    e = await service.votarRedactor('p', e.id, { revision: e.revision, candidatoId: 'e2' }, usuario('e1'));
+    e = await service.votarRedactor('p', e.id, { revision: e.revision, candidatoId: 'e2' }, usuario('e3'));
+    e = await service.guardarConsenso('p', e.id, decisiones(e), usuario('e2'));
+    for (const quien of [coordinador, usuario('e1'), lector]) await expect(service.entregarAcuerdo('p', e.id, { revision: e.revision }, quien)).rejects.toBeInstanceOf(ForbiddenException);
+    e = await service.entregarAcuerdo('p', e.id, { revision: e.revision }, usuario('e2'));
+    expect(e.consenso.aprobadoPor).toEqual(['e2']);
+    for (const id of ['e1', 'e3']) e = await service.aprobar('p', e.id, { revision: e.revision }, usuario(id));
+    e = await service.consolidar('p', e.id, { revision: e.revision }, coordinador);
+    expect(e.fase).toBe('CONSOLIDADA');
+  });
+
+  it('valida fase y revisión al entregar', async () => {
+    const { service } = preparar();
+    const previa = await service.comenzar('p', configuracion(1), coordinador);
+    await expect(service.entregarAcuerdo('p', previa.id, { revision: previa.revision }, coordinador)).rejects.toBeInstanceOf(ConflictException);
+    const e = await entregarTodos(service, 1);
+    await expect(service.entregarAcuerdo('p', e.id, { revision: e.revision + 1 }, coordinador)).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('cambiar una decisión después de entregar retira la confirmación del redactor; un comentario no', async () => {
+    const { service } = preparar();
+    let e = await entregarTodos(service, 3, true);
+    const b = decisiones(e);
+    e = await service.guardarConsenso('p', e.id, b, coordinador);
+    e = await service.entregarAcuerdo('p', e.id, { revision: e.revision }, coordinador);
+    e = await service.guardarConsenso('p', e.id, { ...b, revision: e.revision, hallazgos: b.hallazgos.map((h, i) => i === 0 ? { ...h, justificacion: 'Otro texto, misma decisión' } : h) }, coordinador);
+    expect(e.consenso.aprobadoPor).toEqual([coordinador.id]);
+    e = await service.guardarConsenso('p', e.id, { ...b, revision: e.revision, hallazgos: b.hallazgos.map((h, i) => i === 0 ? { ...h, decision: 'DESCARTADO' as const } : h) }, coordinador);
+    expect(e.consenso.aprobadoPor).toEqual([]);
   });
 });
