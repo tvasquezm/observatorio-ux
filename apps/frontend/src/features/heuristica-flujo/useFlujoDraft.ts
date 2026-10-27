@@ -21,6 +21,7 @@ export function useFlujoDraft<T>(evaluacion: EvaluacionFlujo, usuarioId: string,
   const [saved, setSaved] = useState(restored.current?.base ?? JSON.stringify(initial));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [conflict, setConflict] = useState(false);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
   const [remote, setRemote] = useState<unknown>(null);
   const latest = useRef(draft);
@@ -66,6 +67,7 @@ export function useFlujoDraft<T>(evaluacion: EvaluacionFlujo, usuarioId: string,
     if (JSON.stringify(latest.current) === savedRef.current) return;
     failed.current = false;
     setError('');
+    setConflict(false);
     setSaving(true);
     const promise = (async () => {
       try {
@@ -81,6 +83,7 @@ export function useFlujoDraft<T>(evaluacion: EvaluacionFlujo, usuarioId: string,
         }
       } catch (e) {
         failed.current = true;
+        if (mounted.current) setConflict((e as { status?: number })?.status === 409);
         if (mounted.current) setError(e instanceof Error ? e.message : 'No se pudo guardar. Tu borrador se conserva.');
         throw e;
       } finally { running.current = null; if (mounted.current) setSaving(false); }
@@ -93,11 +96,14 @@ export function useFlujoDraft<T>(evaluacion: EvaluacionFlujo, usuarioId: string,
     const timer = window.setTimeout(() => { void save().catch(() => {}); }, 800);
     return () => window.clearTimeout(timer);
   }, [draft, dirty, autoSave]);
-  return { draft, setDraft, dirty, saving, error, lastSaved, save, getRevision: () => revision.current,
+  return { draft, setDraft, dirty, saving, error, conflict, lastSaved, save, getRevision: () => revision.current,
     remote, reloadRevision: async () => {
       const result = await flujoRequest<EvaluacionFlujo>(evaluacion.proyectoId, `/evaluaciones/${evaluacion.id}`);
       setRemote(path === 'configuracion' ? result.configuracion : path === 'trabajo' ? result.trabajos.find(t => t.evaluadorId === usuarioId) : path === 'consenso' ? result.consenso : result.comparacion);
       revision.current = result.revision;
+      failed.current = false;
+      setError('');
+      setConflict(false);
       onSaved(result);
     },
     confirmLeave: () => dirty || saving || extraPending ? confirm('Hay cambios sin guardar o evidencia pendiente. ¿Salir conservando el borrador de texto en esta pestaña?') : Promise.resolve(true) };
