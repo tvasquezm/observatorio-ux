@@ -259,7 +259,7 @@ describe('configuración y consenso', () => {
     await userEvent.click(crear);
     expect(screen.getByRole('button', { name: /Reabrir orígenes de decisión 1/ })).toHaveClass('danger');
     await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
-    expect(screen.getByRole('button', { name: 'Confirmar acuerdo' })).toHaveClass('secondary');
+    expect(screen.getByRole('button', { name: 'Entregar acuerdo' })).toHaveClass('secondary');
   });
   it('recarga decisiones remotas antes de aprobar desde editor limpio', async () => {
     const e = evaluation({ fase: 'PENDIENTE_CONSENSO' });
@@ -565,7 +565,8 @@ describe('consenso en equipo sobre la tabla', () => {
     expect(screen.queryByRole('button', { name: 'Crear decisión de los originales seleccionados' })).toBeNull();
     await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
     expect(screen.getByLabelText('Conclusión y recomendaciones finales')).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Confirmar acuerdo' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Estoy de acuerdo' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Pido cambios' })).toBeEnabled();
   });
   it('con redactor elegido edita solo esa persona; el coordinador queda en lectura', () => {
     const elegido = () => { const e = equipoEval('no_cumple'); e.consenso.redactorId = 'u2'; return e; };
@@ -616,6 +617,48 @@ describe('consenso en equipo sobre la tabla', () => {
     expect(screen.queryByText(/Cambió quien redacta/)).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Simular cambio' }));
     expect(await screen.findByText('Cambió quien redacta el acuerdo: ahora redacta Beto.')).toBeInTheDocument();
+  });
+  it('lista los pendientes por sección y bloquea la entrega hasta completarlos', async () => {
+    renderFlow(<ConsensoEditor evaluacion={equipoEval('no_cumple')} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
+    expect(screen.getByText('Faltan 1 elemento por completar.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Criterios (1)' })).toBeInTheDocument();
+    expect(screen.getByText(/: Falta evaluarlo\./)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Entregar acuerdo' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Estoy de acuerdo' })).toBeNull();
+  });
+  it('el redactor entrega el acuerdo completo con la revisión vigente', async () => {
+    const e = equipoEval('cumple');
+    api.mockResolvedValue({ ...e, revision: 2 });
+    renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
+    expect(screen.getByText('No hay pendientes: el acuerdo está completo.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Entregar acuerdo' }));
+    await waitFor(() => expect(api).toHaveBeenCalledWith('p1', '/evaluaciones/e1/entregar-acuerdo', 'POST', { revision: 2 }));
+  });
+  it('un experto que no redacta confirma con "Estoy de acuerdo" o pide cambios con comentario', async () => {
+    const e = equipoEval('cumple');
+    e.consenso.criterios = [{ criterioId: e.configuracion.metodologia.criterios[0].id, valor: 'cumple', noAplica: false, motivo: '', notas: '', justificacion: '' }];
+    api.mockResolvedValue({ ...e, revision: 2 });
+    renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u2" onSaved={vi.fn()} onBack={vi.fn()} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
+    expect(screen.queryByRole('button', { name: 'Entregar acuerdo' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Pido cambios' }));
+    const enviar = screen.getByRole('button', { name: 'Enviar pedido de cambios' });
+    expect(enviar).toBeDisabled();
+    await userEvent.type(screen.getByLabelText('Qué cambios pides'), '  Revisar el criterio 1 ');
+    await userEvent.click(enviar);
+    await waitFor(() => expect(api).toHaveBeenCalledWith('p1', '/evaluaciones/e1/pedir-cambios', 'POST', { revision: 1, comentario: 'Revisar el criterio 1' }));
+    await waitFor(() => expect(screen.queryByLabelText('Qué cambios pides')).toBeNull());
+    await userEvent.click(screen.getByRole('button', { name: 'Estoy de acuerdo' }));
+    await waitFor(() => expect(api).toHaveBeenCalledWith('p1', '/evaluaciones/e1/aprobar', 'POST', { revision: 1 }));
+  });
+  it('muestra los cambios pedidos con su autor', async () => {
+    const e = equipoEval('no_cumple');
+    e.consenso.pedidosCambios = [{ evaluadorId: 'u2', comentario: 'Revisar el criterio 1', creadoEn: '2026-10-27T12:00:00Z' }];
+    renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
+    expect(screen.getByText('Beto pidió cambios: Revisar el criterio 1')).toBeInTheDocument();
   });
   it('agrega un hallazgo nuevo del equipo, lo rotula y permite quitarlo', async () => {
     renderFlow(<ConsensoEditor evaluacion={equipoEval('no_cumple')} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);

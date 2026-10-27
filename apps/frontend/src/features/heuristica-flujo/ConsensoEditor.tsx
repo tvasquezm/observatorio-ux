@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { RecorridoSencillo } from './RecorridoSencillo';
-import { MAX_HALLAZGOS_NUEVOS_EQUIPO, origenHallazgo, redactorDe } from '@observatorio-ux/shared-types';
-import type { DecisionHallazgo, EvaluacionFlujo, MejoraAntesDespues, MiembroEquipoFlujo } from '@observatorio-ux/shared-types';
+import { ETIQUETA_SECCION_ACUERDO, MAX_HALLAZGOS_NUEVOS_EQUIPO, origenHallazgo, pendientesAcuerdo, redactorDe } from '@observatorio-ux/shared-types';
+import type { DecisionHallazgo, EvaluacionFlujo, MejoraAntesDespues, MiembroEquipoFlujo, SeccionAcuerdo } from '@observatorio-ux/shared-types';
 import { Field } from './ConfiguracionEditor';
 import { EvidenciaEditor } from './EvidenciaEditor';
 import { MatrizItem } from './MatrizItem';
@@ -20,6 +20,8 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const bloqueo = busy || soloLectura;
+  const [pidiendo, setPidiendo] = useState(false);
+  const [comentario, setComentario] = useState('');
   const [seleccion, setSeleccion] = useState<string[]>([]);
   const [aviso, setAviso] = useState('');
   const [nuevaId, setNuevaId] = useState<string | null>(null);
@@ -32,14 +34,22 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
   const confirmaron = evaluacion.trabajos.filter(t => evaluacion.consenso.aprobadoPor.includes(t.evaluadorId) && !state.dirty);
   const faltan = evaluacion.trabajos.filter(t => !confirmaron.includes(t));
   const nombreDe = (id: string) => equipo?.find(m => m.id === id)?.nombre ?? evaluacion.trabajos.find(t => t.evaluadorId === id)?.nombre ?? 'El coordinador';
+  const esExperto = evaluacion.configuracion.evaluadorIds.includes(usuarioId);
+  const pendientes = pendientesAcuerdo({ ...evaluacion, consenso: { ...evaluacion.consenso, ...state.draft } });
+  const completo = pendientes.length === 0;
   const nuevos = state.draft.hallazgos.filter(h => origenHallazgo(h) === 'equipo').length;
   const originales = evaluacion.trabajos.flatMap(t => t.hallazgos.map(h => ({ ...h, evaluador: t.nombre })));
   const cubiertos = new Set(state.draft.hallazgos.flatMap(h => h.origenIds));
   const update = (h: DecisionHallazgo) => state.setDraft({ ...state.draft, hallazgos: state.draft.hallazgos.map(x => x.id === h.id ? h : x) });
-  async function action(action: 'aprobar' | 'consolidar') {
+  async function action(action: 'aprobar' | 'consolidar' | 'entregar-acuerdo') {
     setBusy(true); setError('');
     try { await state.save(); onSaved(await flujoRequest<EvaluacionFlujo>(evaluacion.proyectoId, `/evaluaciones/${evaluacion.id}/${action}`, 'POST', { revision: state.getRevision() })); }
     catch (e) { setError(e instanceof Error ? e.message : 'No se pudo completar la acción'); } finally { setBusy(false); }
+  }
+  async function pedirCambios() {
+    setBusy(true); setError('');
+    try { await state.save(); onSaved(await flujoRequest<EvaluacionFlujo>(evaluacion.proyectoId, `/evaluaciones/${evaluacion.id}/pedir-cambios`, 'POST', { revision: state.getRevision(), comentario: comentario.trim() })); setPidiendo(false); setComentario(''); }
+    catch (e) { setError(e instanceof Error ? e.message : 'No se pudo enviar el pedido de cambios'); } finally { setBusy(false); }
   }
   return <>
     <button type="button" className="secondary hf-volver" onClick={async () => { if (await state.confirmLeave()) onBack(); }}><span aria-hidden="true">←</span> Volver</button>
@@ -116,10 +126,23 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
       <Field label="Conclusión y recomendaciones finales"><textarea maxLength={10000} disabled={bloqueo} value={state.draft.conclusion} onChange={e => state.setDraft({ ...state.draft, conclusion: e.target.value })} /></Field>
     </section>
     <SaveStatus {...state} />
+    <section className="panel" aria-label="Pendientes del acuerdo"><div className="panel-head"><h2>Pendientes para entregar el acuerdo</h2></div>
+      {completo ? <p role="status">No hay pendientes: el acuerdo está completo.</p> : <>
+        <p role="status">Faltan {pendientes.length} {pendientes.length === 1 ? 'elemento' : 'elementos'} por completar.</p>
+        {(Object.keys(ETIQUETA_SECCION_ACUERDO) as SeccionAcuerdo[]).map(sec => { const items = pendientes.filter(p => p.seccion === sec); return items.length ? <div key={sec}><h3>{ETIQUETA_SECCION_ACUERDO[sec]} ({items.length})</h3><ul>{items.map(p => <li key={`${sec}:${p.id}`}>{p.nombre}: {p.faltas.join(' ')}</li>)}</ul></div> : null; })}
+      </>}
+    </section>
     <section className="panel"><div className="panel-head"><h2>Confirmación de todos los expertos</h2></div><p>Editar el consenso revoca las confirmaciones previas. {state.dirty ? 'Hay cambios pendientes: las aprobaciones visibles corresponden a la versión guardada.' : ''}</p>
       <ul>{evaluacion.trabajos.map(t => <li key={t.evaluadorId}>{t.nombre}: {evaluacion.consenso.aprobadoPor.includes(t.evaluadorId) && !state.dirty ? 'Confirmado' : 'Confirmación pendiente'}</li>)}</ul>
-      <div className="hf-actions">{evaluacion.configuracion.evaluadorIds.includes(usuarioId) && <button type="button" className="secondary" disabled={busy || state.saving} onClick={() => void action('aprobar')}>Confirmar acuerdo</button>}
+      {!!evaluacion.consenso.pedidosCambios?.length && <><h3>Cambios pedidos</h3><ul>{evaluacion.consenso.pedidosCambios.map(p => <li key={p.evaluadorId}>{nombreDe(p.evaluadorId)} pidió cambios: {p.comentario}</li>)}</ul></>}
+      {!soloLectura && <p className="hf-ayuda">Al entregar el acuerdo quedas confirmado automáticamente. Los demás expertos podrán confirmarlo o pedir cambios.</p>}
+      <div className="hf-actions">{!soloLectura && <button type="button" className="secondary" disabled={busy || state.saving || !completo} onClick={() => void action('entregar-acuerdo')}>Entregar acuerdo</button>}
+      {soloLectura && esExperto && <><button type="button" className="secondary" disabled={busy || state.saving || !completo} onClick={() => void action('aprobar')}>Estoy de acuerdo</button>
+        <button type="button" className="secondary" disabled={busy || pidiendo} onClick={() => setPidiendo(true)}>Pido cambios</button></>}
       {evaluacion.coordinadorId === usuarioId && <button type="button" className="primary" disabled={busy || state.saving || state.dirty || !evaluacion.configuracion.evaluadorIds.every(id => evaluacion.consenso.aprobadoPor.includes(id))} onClick={() => void action('consolidar')}>Preparar informe</button>}</div>
+      {soloLectura && esExperto && pidiendo && <div className="hf-pedir-cambios"><label className="field">Qué cambios pides<textarea maxLength={2000} disabled={busy} value={comentario} onChange={e => setComentario(e.target.value)} /></label>
+        <div className="hf-actions"><button type="button" className="primary" disabled={busy || !comentario.trim()} onClick={() => void pedirCambios()}>Enviar pedido de cambios</button>
+        <button type="button" className="ghost" disabled={busy} onClick={() => { setPidiendo(false); setComentario(''); }}>Cancelar</button></div></div>}
     </section>
     </>) }]} />
     {error && <p role="alert" className="hf-error">{error}</p>}

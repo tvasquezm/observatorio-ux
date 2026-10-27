@@ -53,7 +53,7 @@ test('guía una evaluación desde su creación hasta el informe', async ({ page 
   await page.getByLabel('Justificación de aceptación, fusión o descarte', { exact: true }).fill('El equipo lo comprobó al navegar.');
   await page.getByRole('tab', { name: 'Preparar el informe', exact: true }).click();
   await page.getByLabel('Conclusión y recomendaciones finales', { exact: true }).fill('La navegación permite encontrar información.');
-  await page.getByRole('button', { name: 'Confirmar acuerdo', exact: true }).click();
+  await page.getByRole('button', { name: 'Entregar acuerdo', exact: true }).click();
   await page.getByRole('button', { name: 'Preparar informe', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Resultado de la revisión', exact: true })).toBeVisible();
   await expect(page.getByText('La navegación permite encontrar información.', { exact: true })).toBeVisible();
