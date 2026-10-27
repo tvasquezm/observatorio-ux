@@ -13,6 +13,35 @@ export function pendientesTrabajo(config: ConfiguracionFlujo, respuestas: Respue
   }
   return pendientes;
 }
+export const fechaChile = (iso: string | null): string => iso ? new Date(iso).toLocaleString('es-CL', { timeZone: 'America/Santiago', dateStyle: 'medium', timeStyle: 'short' }) : 'fecha no registrada';
+
+export interface ComparacionTrabajo { guardadoPor: string; guardadoEn: string; cambios: string[] }
+
+/** Diferencias entre el trabajo guardado en el servidor y el borrador local, en lenguaje legible. */
+export function compararTrabajo(config: ConfiguracionFlujo, remoto: TrabajoFlujo, borrador: { respuestas: RespuestaCriterio[]; hallazgos: HallazgoFlujo[] }): ComparacionTrabajo {
+  const valorTexto = (c: CriterioFlujo, r: RespuestaCriterio | undefined) => {
+    if (r?.noAplica) return 'No aplica';
+    if (!r || r.valor === null) return 'Sin responder';
+    return escalaDe(config.metodologia, c).niveles.find(n => n.id === r.valor)?.etiqueta ?? r.valor;
+  };
+  const cambios: string[] = [];
+  for (const [i, c] of config.metodologia.criterios.entries()) {
+    const rs = remoto.respuestas.find(r => r.criterioId === c.id);
+    const rb = borrador.respuestas.find(r => r.criterioId === c.id);
+    const [vs, vb] = [valorTexto(c, rs), valorTexto(c, rb)];
+    if (vs !== vb) cambios.push(`Pregunta ${i + 1} (${c.nombre}): en el servidor dice «${vs}» y en tu borrador «${vb}».`);
+    else if ((rs?.notas ?? '') !== (rb?.notas ?? '')) cambios.push(`Pregunta ${i + 1} (${c.nombre}): las notas son distintas.`);
+  }
+  const nombre = (h: HallazgoFlujo) => h.titulo.trim() ? `«${h.titulo}»` : 'sin título';
+  for (const hs of remoto.hallazgos) {
+    const hb = borrador.hallazgos.find(h => h.id === hs.id);
+    if (!hb) { cambios.push(`El problema ${nombre(hs)} está en el servidor y no en tu borrador.`); continue; }
+    const campos = [hs.titulo !== hb.titulo && 'título', hs.descripcion !== hb.descripcion && 'descripción', hs.severidad !== hb.severidad && 'severidad', hs.recomendacion !== hb.recomendacion && 'recomendación'].filter(Boolean);
+    if (campos.length) cambios.push(`Problema ${nombre(hb)}: cambió ${campos.join(', ')}.`);
+  }
+  for (const hb of borrador.hallazgos) if (!remoto.hallazgos.some(h => h.id === hb.id)) cambios.push(`Tu borrador tiene el problema ${nombre(hb)}, que aún no está en el servidor.`);
+  return { guardadoPor: remoto.nombre, guardadoEn: fechaChile(remoto.guardadoEn), cambios };
+}
 /** "Sin problemas", "1 problema" o "n problemas" registrados en `donde` (esta pregunta, este ítem). */
 export function textoProblemas(n: number, donde: string): string {
   return n === 0 ? `Sin problemas registrados en ${donde}.` : n === 1 ? `1 problema registrado en ${donde}.` : `${n} problemas registrados en ${donde}.`;

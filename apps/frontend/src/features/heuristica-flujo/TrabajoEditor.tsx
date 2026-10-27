@@ -1,6 +1,6 @@
 import { useId, useState } from 'react';
 import { escalaDe } from '@observatorio-ux/shared-types';
-import type { ConfiguracionFlujo, EvaluacionFlujo, HallazgoFlujo, RespuestaCriterio } from '@observatorio-ux/shared-types';
+import type { ConfiguracionFlujo, EvaluacionFlujo, HallazgoFlujo, RespuestaCriterio, TrabajoFlujo } from '@observatorio-ux/shared-types';
 import { AnilloAvance } from '../../shared/components/AnilloAvance';
 import { Field } from './campos';
 import { NavegadorPreguntas } from './NavegadorPreguntas';
@@ -8,7 +8,8 @@ import { EvidenciaEditor } from './EvidenciaEditor';
 import { MatrizItem } from './MatrizItem';
 import { useFlujoDraft } from './useFlujoDraft';
 import { flujoRequest } from './flujo.api';
-import { criterioRespondido, guardarSesion, hallazgoVacio, leerSesion, pendientesTrabajo } from './flujo-utils';
+import { compararTrabajo, criterioRespondido, guardarSesion, hallazgoVacio, leerSesion, pendientesTrabajo } from './flujo-utils';
+import type { ComparacionTrabajo } from './flujo-utils';
 
 export function ValoracionEditor({ config, respuesta, onChange }: { config: ConfiguracionFlujo; respuesta: RespuestaCriterio; onChange: (r: RespuestaCriterio) => void }) {
   const criterio = config.metodologia.criterios.find(c => c.id === respuesta.criterioId);
@@ -33,9 +34,9 @@ export function HallazgoEditor({ value, config, onChange }: { value: HallazgoFlu
   </>;
 }
 
-export function SaveStatus({ dirty, saving, error, conflict = false, lastSaved, save, reloadRevision, remote }: { dirty: boolean; saving: boolean; error: string; conflict?: boolean; lastSaved: string | null; save: () => Promise<void>; reloadRevision?: () => Promise<void>; remote?: unknown }) {
+export function SaveStatus({ dirty, saving, error, conflict = false, lastSaved, save, reloadRevision, comparacion }: { dirty: boolean; saving: boolean; error: string; conflict?: boolean; lastSaved: string | null; save: () => Promise<void>; reloadRevision?: () => Promise<void>; comparacion?: ComparacionTrabajo }) {
   const [reloadError, setReloadError] = useState('');
-  return <div className="hf-actions"><button type="button" className="ghost" disabled={saving} onClick={() => void save().catch(() => {})}>Guardar cambios</button><span role="status" className="hf-status">{saving ? 'Guardando…' : dirty ? 'Cambios sin guardar' : 'Cambios guardados'}{lastSaved && ` · Último guardado: ${new Date(lastSaved).toLocaleString()}`}</span>{error && <><p role="alert" className="hf-error">{conflict ? 'Otra persona guardó cambios antes que tú. Tu borrador sigue aquí: recarga para continuar sin perder lo que escribiste.' : `${error} El borrador se conserva. Reintenta Guardar.`}</p>{reloadRevision && <button type="button" className={conflict ? 'primary' : 'secondary'} disabled={saving} onClick={() => { setReloadError(''); void reloadRevision().catch(e => setReloadError(e instanceof Error ? e.message : 'No se pudo recargar')); }}>Recargar revisión conservando mi borrador</button>}</>}{reloadError && <p role="alert">{reloadError}</p>}{remote != null && <details><summary>Revisar datos guardados en servidor antes de reintentar</summary><p>Tu borrador permanece en el editor. Guardar lo aplicará a la revisión recargada.</p><pre>{JSON.stringify(remote, null, 2)}</pre></details>}</div>;
+  return <div className="hf-actions"><button type="button" className="ghost" disabled={saving} onClick={() => void save().catch(() => {})}>Guardar cambios</button><span role="status" className="hf-status">{saving ? 'Guardando…' : dirty ? 'Cambios sin guardar' : 'Cambios guardados'}{lastSaved && ` · Último guardado: ${new Date(lastSaved).toLocaleString()}`}</span>{error && <><p role="alert" className="hf-error">{conflict ? 'Otra persona guardó cambios antes que tú. Tu borrador sigue aquí: recarga para continuar sin perder lo que escribiste.' : `${error} El borrador se conserva. Reintenta Guardar.`}</p>{reloadRevision && <button type="button" className={conflict ? 'primary' : 'secondary'} disabled={saving} onClick={() => { setReloadError(''); void reloadRevision().catch(e => setReloadError(e instanceof Error ? e.message : 'No se pudo recargar')); }}>Recargar revisión conservando mi borrador</button>}</>}{reloadError && <p role="alert">{reloadError}</p>}{comparacion && <details open><summary>Revisar qué hay guardado en el servidor antes de reintentar</summary><p>Guardado por {comparacion.guardadoPor} el {comparacion.guardadoEn}. Tu borrador permanece en el editor. Guardar lo aplicará a la revisión recargada.</p>{comparacion.cambios.length ? <ul>{comparacion.cambios.map(t => <li key={t}>{t}</li>)}</ul> : <p>No hay diferencias con tu borrador.</p>}</details>}</div>;
 }
 export function TrabajoEditor({ evaluacion, usuarioId, onSaved, onBack }: { evaluacion: EvaluacionFlujo; usuarioId: string; onSaved: (e: EvaluacionFlujo) => void; onBack: () => void }) {
   const [problemasAbiertos, setProblemasAbiertos] = useState<ReadonlySet<string>>(new Set());
@@ -99,7 +100,7 @@ export function TrabajoEditor({ evaluacion, usuarioId, onSaved, onBack }: { eval
         {problemas}
       </div></div>
       <footer className="hf-pie-trabajo">
-      {editable && <><SaveStatus {...state} /><button type="button" className={indice >= totalPreguntas - 1 ? 'primary' : 'secondary'} disabled={state.saving || pending || busy} onClick={async () => {
+      {editable && <><SaveStatus {...state} comparacion={state.remote ? compararTrabajo(evaluacion.configuracion, state.remote as TrabajoFlujo, state.draft) : undefined} /><button type="button" className={indice >= totalPreguntas - 1 ? 'primary' : 'secondary'} disabled={state.saving || pending || busy} onClick={async () => {
         setError(''); setMostrarFaltantes(true); const errores = pendientesTrabajo(evaluacion.configuracion, state.draft.respuestas, state.draft.hallazgos);
         if (errores.length) { irAPendiente(); return; }
         setMostrarFaltantes(false);
