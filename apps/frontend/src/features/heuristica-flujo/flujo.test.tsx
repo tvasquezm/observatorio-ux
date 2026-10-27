@@ -555,6 +555,34 @@ describe('consenso en equipo sobre la tabla', () => {
     renderFlow(<ConsensoEditor evaluacion={equipoEval('no_cumple', ['u2'])} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
     expect(screen.getByText('Confirmaron 1 de 2 evaluadores: Beto.')).toBeInTheDocument();
   });
+  it('un no redactor ve el acuerdo en solo lectura, quién redacta y quién falta', async () => {
+    renderFlow(<ConsensoEditor evaluacion={equipoEval('no_cumple')} usuarioId="u2" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.getByText('Redacta el acuerdo: Ana. Solo esa persona puede editarlo; tú puedes leerlo y confirmarlo.')).toBeInTheDocument();
+    expect(screen.getByText('Falta confirmar: Ana, Beto.')).toBeInTheDocument();
+    expect(screen.getAllByRole('radio').every(r => (r as HTMLInputElement).disabled)).toBe(true);
+    await userEvent.click(screen.getByRole('tab', { name: 'Revisar los problemas' }));
+    expect(screen.queryByRole('button', { name: 'Agregar hallazgo nuevo del equipo' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Crear decisión de los originales seleccionados' })).toBeNull();
+    await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
+    expect(screen.getByLabelText('Conclusión y recomendaciones finales')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Confirmar acuerdo' })).toBeEnabled();
+  });
+  it('con redactor elegido edita solo esa persona; el coordinador queda en lectura', () => {
+    const elegido = () => { const e = equipoEval('no_cumple'); e.consenso.redactorId = 'u2'; return e; };
+    const { unmount } = renderFlow(<ConsensoEditor evaluacion={elegido()} usuarioId="u2" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.getByText('Tú redactas el acuerdo.')).toBeInTheDocument();
+    expect(screen.getAllByRole('radio').every(r => !(r as HTMLInputElement).disabled)).toBe(true);
+    unmount();
+    renderFlow(<ConsensoEditor evaluacion={elegido()} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.getByText('Redacta el acuerdo: Beto. Solo esa persona puede editarlo; tú puedes leerlo y confirmarlo.')).toBeInTheDocument();
+    expect(screen.getAllByRole('radio').every(r => (r as HTMLInputElement).disabled)).toBe(true);
+  });
+  it('un no redactor no precarga ni autoguarda el acuerdo', async () => {
+    renderFlow(<ConsensoEditor evaluacion={equipoEval('cumple')} usuarioId="u2" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.getByText('0 de 1 preguntas acordadas')).toBeInTheDocument();
+    await new Promise(r => setTimeout(r, 1200));
+    expect(api).not.toHaveBeenCalled();
+  });
   it('agrega un hallazgo nuevo del equipo, lo rotula y permite quitarlo', async () => {
     renderFlow(<ConsensoEditor evaluacion={equipoEval('no_cumple')} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
     await userEvent.click(screen.getByRole('tab', { name: 'Revisar los problemas' }));
