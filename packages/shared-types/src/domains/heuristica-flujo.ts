@@ -43,7 +43,24 @@ export interface DecisionCriterio extends RespuestaCriterio { justificacion: str
 export interface DecisionHallazgo extends HallazgoFlujo { origenIds: string[]; decision: 'PENDIENTE' | 'ACEPTADO' | 'DESCARTADO'; justificacion: string }
 export interface AspectoPositivo { id: string; titulo: string; descripcion: string }
 export interface MejoraAntesDespues { id: string; titulo: string; descripcion: string; antesIds: string[]; despuesIds: string[] }
-export interface ConsensoFlujo { criterios: DecisionCriterio[]; hallazgos: DecisionHallazgo[]; aprobadoPor: string[]; positivos?: AspectoPositivo[]; conclusion?: string; mejoras?: MejoraAntesDespues[] }
+export interface ConsensoFlujo {
+  criterios: DecisionCriterio[]; hallazgos: DecisionHallazgo[]; aprobadoPor: string[]; positivos?: AspectoPositivo[]; conclusion?: string; mejoras?: MejoraAntesDespues[];
+  /** Redactor único del acuerdo. Si falta, redacta el coordinador (ver `redactorDe`). */
+  redactorId?: string;
+  /** Voto de cada experto por el redactor: evaluadorId -> candidatoId. */
+  votosRedactor?: Record<string, string>;
+}
+/** Redactor vigente: el elegido o, si no hay, el coordinador. */
+export function redactorDe(consenso: Pick<ConsensoFlujo, 'redactorId'>, coordinadorId: string): string {
+  return consenso.redactorId ?? coordinadorId;
+}
+/** Candidato con mayoría simple estricta (más de la mitad de los expertos). Empate o votos faltantes sin mayoría: null (decide el coordinador). */
+export function ganadorVotoRedactor(votos: Record<string, string>, evaluadorIds: string[]): string | null {
+  const cuenta = new Map<string, number>();
+  for (const id of evaluadorIds) { const v = votos[id]; if (v) cuenta.set(v, (cuenta.get(v) ?? 0) + 1); }
+  for (const [candidato, n] of cuenta) if (n * 2 > evaluadorIds.length) return candidato;
+  return null;
+}
 export type EstadoComparacion = 'SOLUCIONADO' | 'PERMANECE' | 'MEJORO' | 'EMPEORO' | 'NUEVO' | 'NO_VERIFICADO' | 'NO_COMPARABLE';
 export interface VinculoComparacion { anteriorId: string | null; actualId: string | null; estado: EstadoComparacion; justificacion: string }
 export interface ComparacionFlujo { previaId: string; compatible: boolean; motivos: string[]; vinculos: VinculoComparacion[]; confirmadoPor: string | null; confirmadoEn: string | null }

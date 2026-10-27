@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { EVIDENCIA_MAX_BYTES, METODOLOGIAS_HEURISTICAS, origenHallazgo, resumirCumplimiento, resumirEvaluacion } from '@observatorio-ux/shared-types';
+import { EVIDENCIA_MAX_BYTES, METODOLOGIAS_HEURISTICAS, origenHallazgo, redactorDe, resumirCumplimiento, resumirEvaluacion } from '@observatorio-ux/shared-types';
 import type { ConfiguracionFlujo, DecisionHallazgo, EvaluacionFlujo, HallazgoFlujo } from '@observatorio-ux/shared-types';
 import type { AuthenticatedUser } from '../../auth/types/authenticated-user.interface.js';
 import { Prisma, type EvaluacionHeuristicaCompleta } from '../../../generated/prisma/client.js';
@@ -590,5 +590,64 @@ describe('Consenso: acuerdo sobre la tabla y hallazgos nuevos del equipo', () =>
     e = await service.aprobar('p', e.id, { revision: e.revision }, experto);
     e = await service.consolidar('p', e.id, { revision: e.revision }, coordinador);
     await expect(service.guardarConsenso('p', e.id, body(e.revision), coordinador)).rejects.toBeInstanceOf(ConflictException);
+  });
+});
+
+describe('Consenso: votación del redactor', () => {
+  const votar = (service: HeuristicaFlujoService, e: EvaluacionFlujo, quien: string, candidatoId: string) => service.votarRedactor('p', e.id, { revision: e.revision, candidatoId }, usuario(quien));
+
+  it('sin votos no hay redactor elegido (el coordinador es el redactor por defecto)', async () => {
+    const { service } = preparar();
+    const e = await entregarTodos(service, 3);
+    expect(e.consenso.redactorId).toBeUndefined();
+    expect(redactorDe(e.consenso, e.coordinadorId)).toBe(coordinador.id);
+  });
+
+  it('mayoría simple de 3 expertos elige redactor y conserva los votos', async () => {
+    const { service } = preparar();
+    let e = await entregarTodos(service, 3);
+    e = await votar(service, e, 'e1', 'e2');
+    expect(e.consenso.redactorId).toBeUndefined();
+    e = await votar(service, e, 'e3', 'e2');
+    expect(e.consenso).toMatchObject({ redactorId: 'e2', votosRedactor: { e1: 'e2', e3: 'e2' } });
+  });
+
+  it('empate o voto faltante sin mayoría: solo el coordinador decide', async () => {
+    const { service } = preparar();
+    let e = await entregarTodos(service, 2);
+    e = await votar(service, e, 'e1', 'e1');
+    e = await votar(service, e, 'e2', 'e2');
+    expect(e.consenso.redactorId).toBeUndefined();
+    await expect(service.decidirRedactor('p', e.id, { revision: e.revision, redactorId: 'e1' }, experto)).rejects.toBeInstanceOf(ForbiddenException);
+    e = await service.decidirRedactor('p', e.id, { revision: e.revision, redactorId: 'e1' }, coordinador);
+    expect(e.consenso.redactorId).toBe('e1');
+  });
+
+  it('el coordinador no puede imponer redactor si el equipo ya eligió por mayoría', async () => {
+    const { service } = preparar();
+    let e = await entregarTodos(service, 3);
+    e = await votar(service, e, 'e1', 'e3');
+    e = await votar(service, e, 'e2', 'e3');
+    await expect(service.decidirRedactor('p', e.id, { revision: e.revision, redactorId: 'e1' }, coordinador)).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('valida candidato, votante y fase', async () => {
+    const { service } = preparar();
+    const previa = await service.crear('p', configuracion(3), coordinador);
+    await expect(service.votarRedactor('p', previa.id, { revision: previa.revision, candidatoId: 'e1' }, experto)).rejects.toBeInstanceOf(ConflictException);
+    const e = await entregarTodos(service, 3);
+    await expect(votar(service, e, 'e1', 'inventado')).rejects.toBeInstanceOf(BadRequestException);
+    await expect(votar(service, e, lector.id, 'e1')).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(votar(service, e, coordinador.id, 'e1')).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.votarRedactor('p', e.id, { revision: e.revision + 1, candidatoId: 'e1' }, experto)).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('guardar el acuerdo no borra redactor ni votos', async () => {
+    const { service } = preparar();
+    let e = await entregarTodos(service, 3);
+    e = await votar(service, e, 'e1', 'e2');
+    e = await votar(service, e, 'e3', 'e2');
+    e = await service.guardarConsenso('p', e.id, decisiones(e), coordinador);
+    expect(e.consenso).toMatchObject({ redactorId: 'e2', votosRedactor: { e1: 'e2', e3: 'e2' } });
   });
 });

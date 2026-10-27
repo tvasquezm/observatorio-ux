@@ -1,14 +1,14 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, UnsupportedMediaTypeException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
-import { METODOLOGIAS_HEURISTICAS, acuerdoDifiere, comprobarCompatibilidad, escalaDe, EVIDENCIA_MAX_BYTES, EVIDENCIA_MAX_MB, origenHallazgo } from '@observatorio-ux/shared-types';
+import { METODOLOGIAS_HEURISTICAS, acuerdoDifiere, ganadorVotoRedactor, comprobarCompatibilidad, escalaDe, EVIDENCIA_MAX_BYTES, EVIDENCIA_MAX_MB, origenHallazgo } from '@observatorio-ux/shared-types';
 import type { ConfiguracionFlujo, ConsensoFlujo, DecisionCriterio, EvaluacionFlujo, EvidenciaFlujo, HallazgoFlujo, InformeFlujo, RespuestaCriterio, TrabajoFlujo } from '@observatorio-ux/shared-types';
 import { Prisma, type EvaluacionHeuristicaCompleta, type EvidenciaHeuristicaCompleta } from '../../../generated/prisma/client.js';
 import { PrismaService } from '../../../core/database/prisma.service.js';
 import { ProjectAccessService } from '../../../core/access/project-access.service.js';
 import type { AuthenticatedUser } from '../../auth/types/authenticated-user.interface.js';
 import { detectarMimeImagen, type ArchivoSubido } from './evidencia.util.js';
-import { anotacionesSchema, comparacionSchema, configuracionBodySchema, configuracionSchema, consensoSchema, metodologiaSchema, revisionSchema, trabajoSchema, validar } from './heuristica-flujo.schemas.js';
+import { anotacionesSchema, comparacionSchema, configuracionBodySchema, configuracionSchema, consensoSchema, metodologiaSchema, revisionSchema, trabajoSchema, validar, votoRedactorSchema, decidirRedactorSchema } from './heuristica-flujo.schemas.js';
 
 const json = (v: unknown) => JSON.parse(JSON.stringify(v)) as Prisma.InputJsonValue;
 const consensoVacio = (): ConsensoFlujo => ({ criterios: [], hallazgos: [], aprobadoPor: [] });
@@ -284,8 +284,36 @@ export class HeuristicaFlujoService {
     return this.bloqueada(proyectoId, id, user, b.revision, async (e, tx) => {
       this.fase(e, 'PENDIENTE_CONSENSO');
       if (e.coordinadorId !== user.id && !e.configuracion.evaluadorIds.includes(user.id)) throw new ForbiddenException();
-      e.consenso = { criterios: b.criterios, hallazgos: b.hallazgos, aprobadoPor: [], positivos: b.positivos ?? [], conclusion: b.conclusion ?? '', mejoras: b.mejoras ?? [] };
+      e.consenso = { criterios: b.criterios, hallazgos: b.hallazgos, aprobadoPor: [], positivos: b.positivos ?? [], conclusion: b.conclusion ?? '', mejoras: b.mejoras ?? [],
+        ...(e.consenso.redactorId ? { redactorId: e.consenso.redactorId } : {}), ...(e.consenso.votosRedactor ? { votosRedactor: e.consenso.votosRedactor } : {}) };
       await this.validarConsenso(e, tx, false);
+      return this.persistir(e, tx, user);
+    });
+  }
+
+  private candidatoRedactor(e: EvaluacionFlujo, candidatoId: string) {
+    if (candidatoId !== e.coordinadorId && !e.configuracion.evaluadorIds.includes(candidatoId)) throw new BadRequestException('El redactor debe ser el coordinador o un experto de la evaluación.');
+  }
+
+  async votarRedactor(proyectoId: string, id: string, body: unknown, user: AuthenticatedUser) {
+    const b = validar(votoRedactorSchema, body);
+    return this.bloqueada(proyectoId, id, user, b.revision, async (e, tx) => {
+      this.fase(e, 'PENDIENTE_CONSENSO'); this.trabajo(e, user);
+      this.candidatoRedactor(e, b.candidatoId);
+      const votos = { ...(e.consenso.votosRedactor ?? {}), [user.id]: b.candidatoId };
+      const ganador = ganadorVotoRedactor(votos, e.configuracion.evaluadorIds);
+      e.consenso = { ...e.consenso, votosRedactor: votos, ...(ganador ? { redactorId: ganador } : {}) };
+      return this.persistir(e, tx, user);
+    });
+  }
+
+  async decidirRedactor(proyectoId: string, id: string, body: unknown, user: AuthenticatedUser) {
+    const b = validar(decidirRedactorSchema, body);
+    return this.bloqueada(proyectoId, id, user, b.revision, async (e, tx) => {
+      this.coordinador(e, user); this.fase(e, 'PENDIENTE_CONSENSO');
+      this.candidatoRedactor(e, b.redactorId);
+      if (ganadorVotoRedactor(e.consenso.votosRedactor ?? {}, e.configuracion.evaluadorIds)) throw new ConflictException('El equipo ya eligió redactor por mayoría.');
+      e.consenso = { ...e.consenso, redactorId: b.redactorId };
       return this.persistir(e, tx, user);
     });
   }
