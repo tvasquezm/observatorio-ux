@@ -15,6 +15,8 @@ export interface EscalaFlujo {
 export interface MetodologiaFlujo {
   id: string; nombre: string; autor: string; fuente: string; version: string; tipo: string; ambito: string;
   criterios: CriterioFlujo[]; escala: EscalaFlujo; protegida: boolean;
+  /** Enunciado de cada ítem, por `categoria`. Opcional: las evaluaciones guardadas sin él siguen válidas. */
+  enunciados?: Record<string, string>;
 }
 /** Escala efectiva de un criterio: la propia si existe, si no la de la metodología. */
 export function escalaDe(metodologia: Pick<MetodologiaFlujo, 'escala'>, criterio: Pick<CriterioFlujo, 'escala'>): EscalaFlujo {
@@ -27,7 +29,7 @@ export interface ConfiguracionFlujo {
   metodologia: MetodologiaFlujo;
   evaluadorIds: string[]; lectorIds: string[];
 }
-export interface RespuestaCriterio { criterioId: string; valor: string | null; noAplica: boolean; motivo: string; notas: string }
+export interface RespuestaCriterio { criterioId: string; valor: string | null; noAplica: boolean; motivo: string; notas: string; evidenciaIds?: string[] }
 export interface HallazgoFlujo {
   id: string; criterioIds: string[]; titulo: string; pantalla: string; descripcion: string;
   recomendacion: string; severidad: 0 | 1 | 2 | 3 | 4; prioridad: 'BAJA' | 'MEDIA' | 'ALTA' | 'URGENTE';

@@ -12,6 +12,15 @@ describe('Límites de entrada del flujo', () => {
     const c = config(); c.metodologia.criterios[0].peso = 0;
     expect(() => validar(configuracionSchema, c)).toThrow();
   });
+  it('normaliza la URL del producto y rechaza esquemas peligrosos', () => {
+    const conUrl = (url: string) => ({ ...config(), producto: { ...config().producto, url } });
+    expect(validar(configuracionSchema, conUrl('miweb.cl')).producto.url).toBe('https://miweb.cl');
+    expect(validar(configuracionSchema, conUrl('  HTTP://X.CL ')).producto.url).toBe('http://x.cl');
+    expect(validar(configuracionSchema, conUrl('')).producto.url).toBe('');
+    for (const url of ['javascript:alert(1)', 'data:text/html,x', 'file:///etc/passwd', 'ftp://x.cl', '//evil.com', 'https://user:pass@x.cl', 'http://intranet']) {
+      expect(() => validar(configuracionSchema, conUrl(url))).toThrow();
+    }
+  });
   it('admite escala propia opcional por criterio y rechaza una inválida', () => {
     expect(validar(configuracionSchema, config()).metodologia.criterios[0].escala).toBeUndefined();
     const c = config();

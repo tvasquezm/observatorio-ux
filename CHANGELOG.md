@@ -6,6 +6,39 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **evaluacion-heuristica:** las capturas de evidencia ahora se pueden ver en grande (clic sobre la imagen, lupa o Esc
+  para cerrar), se quitan con un ícono de papelera y, si una imagen supera el máximo de 4 MB, aparece un cartel rojo
+  con el peso real de la imagen (también cuando el servidor responde 413). Si la captura tiene anotaciones sin guardar,
+  el botón de quitar explica por qué está deshabilitado.
+* **formularios:** los campos de dirección web (foto de la Persona y URL del producto en la evaluación heurística) muestran
+  `https://` fijo en un recuadro pequeño; la persona solo escribe, por ejemplo, `www.utem.cl`. Si pega una URL completa
+  se respeta (incluido `http://`). Lo que se guarda sigue siendo la URL completa. Componente nuevo `CampoUrl`.
+* **evaluacion-heuristica:** al combinar metodologías se copian los enunciados de cada ítem; si dos metodologías usan el
+  mismo nombre de categoría, la segunda se prefija con el nombre de su metodología para no mezclar enunciados.
+* **personas:** la URL de fotografía muestra un aviso cuando no es una dirección web válida, antes de intentar guardar.
+* **evaluacion-heuristica:** se elimina código y estilos sin uso de la vista anterior por rondas (`esChecklist`,
+  `avancePorCategoria`, `etiquetasDiscrepancia`, `detectarDiscrepancias` y clases `hf-*` huérfanas).
+
+* **evaluacion-heuristica:** el acuerdo del equipo (consenso) usa la misma tabla de preguntas: cada fila muestra lo que
+  respondio cada evaluador con su nombre y la marca "Coinciden" o "Difieren", precarga la respuesta comun si todos
+  coinciden y tiene el filtro "Solo diferencias". El encabezado indica "N de M preguntas acordadas" y quienes
+  confirmaron. El comentario del equipo (justificacion) es por pregunta, con marca de guardado.
+* **evaluacion-heuristica:** el equipo puede agregar hallazgos nuevos durante el consenso (maximo 50). Salen en el
+  informe y en el PDF como "Nuevo del equipo"; el servidor deriva el origen (sin hallazgos individuales de origen =
+  equipo) y exige descripcion, decision y justificacion.
+* **evaluacion-heuristica:** al confirmar el consenso, la justificacion de una pregunta solo es obligatoria si la
+  respuesta acordada difiere de alguna respuesta individual; "No aplica" sigue sin exigirla.
+
+* **tecnicas:** al abrir un formulario (`+ Nuevo`, Editar o abrir una evaluación) la página baja hasta él y deja el
+  foco en su título, en las 5 técnicas. Respeta `prefers-reduced-motion` y no se mueve al cargar la página.
+* **evaluacion-heuristica:** nuevo selector "Escala de respuesta" al crear o editar el borrador de una revisión: la de la
+  metodología, Cumple/Parcial/No cumple, Sí/No, 1 a 5 o severidad 0 a 4 de Nielsen, con vista previa de los niveles.
+  Se aplica a todas las preguntas y reemplaza las escalas propias de cada criterio.
+* **url-segura:** los campos de dirección web (URL del producto en Evaluación heurística y URL de fotografía en
+  Personas) aceptan la dirección sin `http`: `miweb.cl` se guarda como `https://miweb.cl`. Solo se admiten
+  `http` y `https`; se rechazan `javascript:`, `data:`, `file:`, `ftp:`, `//host`, credenciales en la URL, hosts sin
+  punto (salvo `localhost`) y más de 2000 caracteres. El servidor vuelve a validar y normaliza, y el enlace de la
+  fuente en el informe solo se genera con una URL segura (`rel="noopener noreferrer"`).
 * **tecnicas:** las 5 técnicas (Personas, Journey Map, Momentos críticos, Card Sorting y Evaluación heurística) muestran
   sus partes en el mismo orden (cabecera, instrucciones, proceso, resumen, formulario, lista, comentarios), con `+ Nuevo`
   arriba a la derecha y las acciones de cada elemento (Consultar, Editar, Eliminar) en el mismo lugar con tres niveles de
@@ -157,6 +190,12 @@ All notable changes to this project will be documented in this file. See [commit
   negocio: Segregación de Auth — evaluadorToken y participanteToken ya no
   comparten secreto de firma). El backend no arranca sin ella. Agregarla a tu
   `.env` (y `apps/backend/.env` si no usás Docker) — ver `env.example`.
+
+### Bug Fixes
+
+* **seguridad/despliegue:** la política CSP de nginx (`default.conf`, `nginx.static.conf`) y de Vercel (`vercel.json`)
+  permitía `img-src 'self' data:` sin `blob:`, así que el navegador bloqueaba las capturas de evidencia (se muestran con
+  `URL.createObjectURL`). Ahora es `img-src 'self' data: blob:`.
 
 ## 1.0.0 (2026-08-03)
 

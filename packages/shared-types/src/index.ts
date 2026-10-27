@@ -9,5 +9,6 @@ export * from './domains/heuristica-flujo';
 export * from './domains/heuristica-metodologias';
 export * from './domains/heuristica-resultados';
 export * from './domains/persona';
+export * from './domains/url-segura';
 export * from './domains/journey-map';
 export * from './domains/momentos-criticos';

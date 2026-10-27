@@ -68,7 +68,7 @@ function ConfiguracionSesion({ evaluacion, usuarioId, biblioteca, equipo, onSave
   const state = useFlujoDraft(evaluacion, usuarioId, 'configuracion', evaluacion.configuracion, onSaved);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  return <><button type="button" className="secondary" onClick={async () => { if (await state.confirmLeave()) onBack(); }}>Volver</button><h2>Continuar revisión guardada</h2>
+  return <><button type="button" className="secondary hf-volver" onClick={async () => { if (await state.confirmLeave()) onBack(); }}><span aria-hidden="true">←</span> Volver</button><h2>Continuar revisión guardada</h2>
     <form noValidate onSubmit={async e => {
       e.preventDefault(); setError(''); const faltan = faltantesParaIniciar(state.draft);
       if (faltan.length) { setError(`Para comenzar, completa: ${faltan.join(', ')}.`); const producto = e.currentTarget.querySelector<HTMLInputElement>('#hf-producto'); if (!producto?.value.trim()) producto?.focus(); return; }
@@ -111,12 +111,12 @@ export function FlujoHeuristicaPage() {
   const back = () => setSelected(null);
   let content;
   if (selected && active.isLoading) content = <p role="status">Cargando evaluación…</p>;
-  else if (selected && active.error) content = <><button type="button" className="secondary" onClick={back}>Volver</button><p role="alert" className="hf-error">{active.error.message}</p><button type="button" className="secondary" onClick={() => void active.refetch()}>Reintentar</button></>;
+  else if (selected && active.error) content = <><button type="button" className="secondary hf-volver" onClick={back}><span aria-hidden="true">←</span> Volver</button><p role="alert" className="hf-error">{active.error.message}</p><button type="button" className="secondary" onClick={() => void active.refetch()}>Reintentar</button></>;
   else if (evaluacion && selected) {
     const common = { evaluacion, usuarioId, onSaved: saved, onBack: back };
-    if (evaluacion.fase === 'BORRADOR') content = evaluacion.coordinadorId === usuarioId && library.data && team.data ? <ConfiguracionSesion key={`${evaluacion.id}:configuracion`} {...common} biblioteca={library.data} equipo={team.data} /> : <><button type="button" className="secondary" onClick={back}>Volver</button><p>El coordinador está configurando la evaluación.</p></>;
+    if (evaluacion.fase === 'BORRADOR') content = evaluacion.coordinadorId === usuarioId && library.data && team.data ? <ConfiguracionSesion key={`${evaluacion.id}:configuracion`} {...common} biblioteca={library.data} equipo={team.data} /> : <><button type="button" className="secondary hf-volver" onClick={back}><span aria-hidden="true">←</span> Volver</button><p>El coordinador está configurando la evaluación.</p></>;
     else if (evaluacion.fase === 'EN_EVALUACION') content = <TrabajoEditor key={`${evaluacion.id}:trabajo`} {...common} />;
-    else if (evaluacion.fase === 'PENDIENTE_CONSENSO') content = evaluacion.coordinadorId === usuarioId || evaluacion.configuracion.evaluadorIds.includes(usuarioId) ? <ConsensoEditor key={`${evaluacion.id}:consenso`} {...common} /> : <><button type="button" className="secondary" onClick={back}>Volver</button><p>El equipo está acordando el consenso. El informe estará disponible al consolidar.</p></>;
+    else if (evaluacion.fase === 'PENDIENTE_CONSENSO') content = evaluacion.coordinadorId === usuarioId || evaluacion.configuracion.evaluadorIds.includes(usuarioId) ? <ConsensoEditor key={`${evaluacion.id}:consenso`} {...common} /> : <><button type="button" className="secondary hf-volver" onClick={back}><span aria-hidden="true">←</span> Volver</button><p>El equipo está acordando el consenso. El informe estará disponible al consolidar.</p></>;
     else content = <InformeView key={`${evaluacion.id}:informe`} {...common} historial={history.data ?? []} />;
   } else content = null;
   const avisos = <>

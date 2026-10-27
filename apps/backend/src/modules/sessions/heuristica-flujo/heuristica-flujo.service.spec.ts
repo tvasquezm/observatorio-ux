@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { EVIDENCIA_MAX_BYTES, METODOLOGIAS_HEURISTICAS, resumirCumplimiento, resumirEvaluacion } from '@observatorio-ux/shared-types';
-import type { ConfiguracionFlujo, EvaluacionFlujo, HallazgoFlujo } from '@observatorio-ux/shared-types';
+import { EVIDENCIA_MAX_BYTES, METODOLOGIAS_HEURISTICAS, origenHallazgo, resumirCumplimiento, resumirEvaluacion } from '@observatorio-ux/shared-types';
+import type { ConfiguracionFlujo, DecisionHallazgo, EvaluacionFlujo, HallazgoFlujo } from '@observatorio-ux/shared-types';
 import type { AuthenticatedUser } from '../../auth/types/authenticated-user.interface.js';
 import { Prisma, type EvaluacionHeuristicaCompleta } from '../../../generated/prisma/client.js';
 import { PrismaService } from '../../../core/database/prisma.service.js';
@@ -195,8 +195,8 @@ describe('Flujo heurístico: privacidad, transiciones y consenso', () => {
     e = await service.guardarTrabajo('p', e.id, { revision: e.revision, respuestas, hallazgos: [] }, experto);
     e = await service.entregar('p', e.id, { revision: e.revision }, experto);
     await expect(service.guardarConsenso('p', e.id, { revision: e.revision, criterios: [{ ...respuestas[0], noAplica: true, justificacion: '' }], hallazgos: [] }, coordinador)).rejects.toBeInstanceOf(BadRequestException);
-    e = await service.guardarConsenso('p', e.id, { revision: e.revision, criterios: respuestas.map(r => ({ ...r, justificacion: '' })), hallazgos: [] }, coordinador);
-    await expect(service.aprobar('p', e.id, { revision: e.revision }, experto)).rejects.toThrow('Justifica cada decisión de criterio.');
+    e = await service.guardarConsenso('p', e.id, { revision: e.revision, criterios: respuestas.map(r => ({ ...r, valor: 'no_cumple', justificacion: '' })), hallazgos: [] }, coordinador);
+    await expect(service.aprobar('p', e.id, { revision: e.revision }, experto)).rejects.toThrow('Justifica cada decisión de criterio que difiere de alguna respuesta individual.');
   });
 
   it('excluye No aplica sin motivo del índice numérico y conserva como pendientes los NA con valor', () => {
@@ -508,5 +508,87 @@ describe('Consenso: mejoras antes/después con capturas', () => {
     const propia = await subir(service, e.id, experto);
     e = await service.guardarConsenso('p', e.id, { ...decisiones(e), mejoras: [mejora([propia.id], [], '  ')] }, coordinador);
     await expect(service.aprobar('p', e.id, { revision: e.revision }, experto)).rejects.toThrow('Completa el título de cada mejora.');
+  });
+});
+
+describe('Consenso: acuerdo sobre la tabla y hallazgos nuevos del equipo', () => {
+  async function entregaUnica(hallazgos: HallazgoFlujo[] = []) {
+    const { service } = preparar();
+    let e = await service.comenzar('p', configuracion(), coordinador);
+    const respuestas = e.configuracion.metodologia.criterios.map(c => ({ criterioId: c.id, valor: 'cumple', noAplica: false, motivo: '', notas: '' }));
+    e = await service.guardarTrabajo('p', e.id, { revision: e.revision, respuestas, hallazgos }, experto);
+    e = await service.entregar('p', e.id, { revision: e.revision }, experto);
+    return { service, e, respuestas };
+  }
+  const nuevo = (id: string, extra: Partial<DecisionHallazgo> = {}): DecisionHallazgo => ({ ...hallazgo(id), origenIds: [], decision: 'ACEPTADO', justificacion: 'Lo vio el equipo al comparar', ...extra });
+
+  it('criterio con respuestas coincidentes consolida sin justificación', async () => {
+    const { service, e: previa, respuestas } = await entregaUnica();
+    let e = await service.guardarConsenso('p', previa.id, { revision: previa.revision, criterios: respuestas.map(r => ({ ...r, justificacion: '' })), hallazgos: [] }, coordinador);
+    e = await service.aprobar('p', e.id, { revision: e.revision }, experto);
+    e = await service.consolidar('p', e.id, { revision: e.revision }, coordinador);
+    expect(e.fase).toBe('CONSOLIDADA');
+  });
+
+  it('criterio que difiere sin justificación se rechaza y con justificación se acepta', async () => {
+    const { service, e: previa, respuestas } = await entregaUnica();
+    let e = await service.guardarConsenso('p', previa.id, { revision: previa.revision, criterios: respuestas.map(r => ({ ...r, valor: 'no_cumple', justificacion: '' })), hallazgos: [] }, coordinador);
+    await expect(service.aprobar('p', e.id, { revision: e.revision }, experto)).rejects.toBeInstanceOf(BadRequestException);
+    e = await service.guardarConsenso('p', e.id, { revision: e.revision, criterios: respuestas.map(r => ({ ...r, valor: 'no_cumple', justificacion: 'El equipo vio incumplimiento' })), hallazgos: [] }, coordinador);
+    e = await service.aprobar('p', e.id, { revision: e.revision }, experto);
+    expect(e.consenso.aprobadoPor).toEqual([experto.id]);
+  });
+
+  it('No aplica sin justificación mantiene la regla actual aunque difiera de lo individual', async () => {
+    const { service, e: previa, respuestas } = await entregaUnica();
+    let e = await service.guardarConsenso('p', previa.id, { revision: previa.revision, criterios: respuestas.map(r => ({ ...r, valor: null, noAplica: true, justificacion: '' })), hallazgos: [] }, coordinador);
+    e = await service.aprobar('p', e.id, { revision: e.revision }, experto);
+    expect(e.consenso.aprobadoPor).toEqual([experto.id]);
+  });
+
+  it('hallazgo nuevo válido del equipo se acepta, llega al informe y su origen se deriva del servidor', async () => {
+    const { service, e: previa, respuestas } = await entregaUnica();
+    let e = await service.guardarConsenso('p', previa.id, { revision: previa.revision, criterios: respuestas.map(r => ({ ...r, justificacion: '' })), hallazgos: [nuevo('nuevo-1')] }, coordinador);
+    e = await service.aprobar('p', e.id, { revision: e.revision }, experto);
+    e = await service.consolidar('p', e.id, { revision: e.revision }, coordinador);
+    expect(e.informe!.consenso.hallazgos.map(h => [h.id, origenHallazgo(h)])).toEqual([['nuevo-1', 'equipo']]);
+  });
+
+  it.each([
+    ['sin justificación', { justificacion: '  ' }],
+    ['pendiente', { decision: 'PENDIENTE' as const }],
+    ['sin descripción', { descripcion: ' ', decision: 'DESCARTADO' as const }],
+    ['sin título', { titulo: ' ', decision: 'DESCARTADO' as const }],
+  ])('hallazgo nuevo %s se guarda como borrador pero no se confirma', async (_, extra) => {
+    const { service, e: previa, respuestas } = await entregaUnica();
+    const e = await service.guardarConsenso('p', previa.id, { revision: previa.revision, criterios: respuestas.map(r => ({ ...r, justificacion: '' })), hallazgos: [nuevo('nuevo-1', extra)] }, coordinador);
+    await expect(service.aprobar('p', e.id, { revision: e.revision }, experto)).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('hallazgo original sin resolver sigue rechazando la confirmación aunque haya uno nuevo válido', async () => {
+    const { service, e: previa, respuestas } = await entregaUnica([hallazgo('original-1')]);
+    const e = await service.guardarConsenso('p', previa.id, { revision: previa.revision, criterios: respuestas.map(r => ({ ...r, justificacion: '' })), hallazgos: [nuevo('nuevo-1')] }, coordinador);
+    await expect(service.aprobar('p', e.id, { revision: e.revision }, experto)).rejects.toThrow('Resuelve todos los hallazgos originales');
+  });
+
+  it('rechaza un origen inexistente y respeta el tope de hallazgos nuevos', async () => {
+    const { service, e, respuestas } = await entregaUnica();
+    const base = { revision: e.revision, criterios: respuestas.map(r => ({ ...r, justificacion: '' })) };
+    await expect(service.guardarConsenso('p', e.id, { ...base, hallazgos: [nuevo('x', { origenIds: ['inventado'] })] }, coordinador)).rejects.toBeInstanceOf(BadRequestException);
+    const lote = (n: number) => Array.from({ length: n }, (_, i) => nuevo(`nuevo-${i}`));
+    await expect(service.guardarConsenso('p', e.id, { ...base, hallazgos: lote(51) }, coordinador)).rejects.toBeInstanceOf(BadRequestException);
+    const guardado = await service.guardarConsenso('p', e.id, { ...base, hallazgos: lote(50) }, coordinador);
+    expect(guardado.consenso.hallazgos).toHaveLength(50);
+  });
+
+  it('solo participantes editan el consenso y uno consolidado no se modifica', async () => {
+    const { service, e: previa, respuestas } = await entregaUnica();
+    const body = (revision: number) => ({ revision, criterios: respuestas.map(r => ({ ...r, justificacion: '' })), hallazgos: [nuevo('nuevo-1')] });
+    await expect(service.guardarConsenso('p', previa.id, body(previa.revision), lector)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.guardarConsenso('p', previa.id, body(previa.revision), usuario('ajeno'))).rejects.toBeInstanceOf(ForbiddenException);
+    let e = await service.guardarConsenso('p', previa.id, body(previa.revision), experto);
+    e = await service.aprobar('p', e.id, { revision: e.revision }, experto);
+    e = await service.consolidar('p', e.id, { revision: e.revision }, coordinador);
+    await expect(service.guardarConsenso('p', e.id, body(e.revision), coordinador)).rejects.toBeInstanceOf(ConflictException);
   });
 });
