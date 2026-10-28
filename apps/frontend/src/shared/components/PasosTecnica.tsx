@@ -11,10 +11,12 @@ export interface PasoTecnica {
 interface Props {
   pasos: PasoTecnica[];
   acciones?: ReactNode;
+  /** Índice del primer paso donde `acciones` ya se muestra junto a "Siguiente" (por defecto, solo en el último). */
+  accionesDesde?: number;
 }
 
 /** Todos los paneles quedan montados y ocultos: cambiar de paso conserva lo escrito. */
-export function PasosTecnica({ pasos, acciones }: Props) {
+export function PasosTecnica({ pasos, acciones, accionesDesde }: Props) {
   const [indice, setIndice] = useState(0);
   const titulo = useRef<HTMLHeadingElement>(null);
   const ultimo = indice === pasos.length - 1;
@@ -43,10 +45,13 @@ export function PasosTecnica({ pasos, acciones }: Props) {
         </button>
         {/* Con key distinta React no reutiliza el mismo <button>: si lo reutilizara, al pasar a
             type="submit" durante el clic de Siguiente el navegador enviaría el formulario. */}
-        {ultimo ? <Fragment key="acciones">{acciones}</Fragment> : (
+        {!ultimo && (
           <button key="siguiente" type="button" className="primary" onClick={() => ir(indice + 1)}>
             Siguiente
           </button>
+        )}
+        {(ultimo || (accionesDesde !== undefined && indice >= accionesDesde)) && (
+          <Fragment key="acciones">{acciones}</Fragment>
         )}
       </div>
     </section>

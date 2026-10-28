@@ -247,12 +247,14 @@ describe('CardSortingPage · avance del estudio', () => {
 
 
 describe('CardSortingPage · pasos', () => {
-  it('recorre Nombre y tipo, Tarjetas y Preguntas; Crear solo aparece en el último', async () => {
+  it('recorre Nombre y tipo, Tarjetas y Preguntas; Crear aparece desde el último paso obligatorio', async () => {
     renderPage();
     expect(screen.getByRole('heading', { name: 'Paso 1 de 3: Nombre y tipo' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Crear y abrir/ })).not.toBeInTheDocument();
     await siguiente();
     expect(screen.getByRole('heading', { name: 'Paso 2 de 3: Tarjetas' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Crear y abrir/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Siguiente' })).toBeInTheDocument();
     await siguiente();
     expect(screen.getByRole('heading', { name: 'Paso 3 de 3: Preguntas (opcional)' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Crear y abrir/ })).toBeInTheDocument();

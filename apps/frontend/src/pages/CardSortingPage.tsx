@@ -367,7 +367,7 @@ export function CardSortingPage() {
         <form onSubmit={handleSubmit} className="entity-card form cs-study-form" noValidate>
           <h3>Nuevo Card Sorting</h3>
 
-          <PasosTecnica pasos={pasos} acciones={(
+          <PasosTecnica pasos={pasos} accionesDesde={pasos.length - 2} acciones={(
             <button type="submit" className="primary" disabled={createStudy.isPending}>
               {createStudy.isPending ? 'Creando estudio…' : 'Crear y abrir el workspace →'}
             </button>

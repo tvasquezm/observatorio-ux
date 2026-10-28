@@ -42,6 +42,30 @@ describe('PasosTecnica', () => {
     expect(screen.queryByRole('button', { name: 'Siguiente' })).toBeNull();
   });
 
+  it('con accionesDesde muestra las acciones desde ese paso, junto a Siguiente', async () => {
+    render(<PasosTecnica pasos={pasos} accionesDesde={1} acciones={<button type="submit">Guardar</button>} />);
+    expect(screen.queryByRole('button', { name: 'Guardar' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+    expect(screen.getByRole('heading', { name: 'Paso 2 de 3: Objetivo' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Guardar' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Siguiente' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+    expect(screen.getByRole('button', { name: 'Guardar' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Siguiente' })).toBeNull();
+  });
+
+  it('con accionesDesde, avanzar con Siguiente no envía el formulario', async () => {
+    const onSubmit = vi.fn((e: FormEvent) => e.preventDefault());
+    render(
+      <form onSubmit={onSubmit}>
+        <PasosTecnica pasos={pasos} accionesDesde={1} acciones={<button type="submit">Guardar</button>} />
+      </form>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
   it('no envía el formulario al pasar al último paso, solo al pulsar la acción final', async () => {
     const onSubmit = vi.fn((e: FormEvent) => e.preventDefault());
     render(
