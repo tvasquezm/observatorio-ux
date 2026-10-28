@@ -11,7 +11,7 @@ import { ConsensoEditor } from './ConsensoEditor';
 import { InformeView } from './InformeView';
 import { ConfiguracionEditor } from './ConfiguracionEditor';
 import { FlujoHeuristicaPage } from './FlujoHeuristicaPage';
-import { pendientesTrabajo, precargarConsenso, textoCumplimiento } from './flujo-utils';
+import { participacionInforme, pendientesTrabajo, precargarConsenso, textoCumplimiento, textoEscala } from './flujo-utils';
 import { useAuthStore } from '../auth/store/useAuthStore';
 
 const api = vi.hoisted(() => vi.fn());
@@ -676,6 +676,32 @@ describe('consenso en equipo sobre la tabla', () => {
     renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
     await userEvent.click(screen.getByRole('tab', { name: 'Revisar los problemas' }));
     expect(screen.getByRole('button', { name: 'Agregar hallazgo nuevo del equipo' })).toBeDisabled();
+  });
+  it('informe: bloque abierto en 3 grupos, escala traducida, fechas de Chile, confirmaciones y redactor', () => {
+    const e = final('grupos');
+    e.informe!.evaluadores = [{ id: 'u1', nombre: 'Ana' }, { id: 'u2', nombre: 'Beto' }];
+    e.consenso.aprobadoPor = ['u1']; e.consenso.redactorId = 'u2'; e.informe!.consenso = e.consenso;
+    e.informe!.iniciadoEn = '2026-10-09T12:00:00Z'; e.informe!.consolidadoEn = '2026-10-10T03:30:00Z'; e.informe!.finalizadoEn = null;
+    e.informe!.configuracion = { ...e.informe!.configuracion, objetivo: '', exclusiones: '' };
+    renderFlow(<InformeView evaluacion={e} historial={[]} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    const bloque = screen.getByText('Ver qué se revisó y quién participó').closest('details')!;
+    expect(bloque).toHaveAttribute('open');
+    for (const g of ['Qué se evaluó', 'Con qué criterios', 'Quién participó']) expect(within(bloque).getByRole('heading', { name: g })).toBeInTheDocument();
+    expect(bloque).not.toHaveTextContent(/categorica|sin_orden|mayor_mejor|menor_mejor| \| /);
+    expect(bloque).not.toHaveTextContent(/Z\b/);
+    expect(within(bloque).getByText('Objetivo').nextSibling).toHaveTextContent('No indicado');
+    expect(within(bloque).queryByText('Exclusiones')).toBeNull();
+    expect(within(bloque).getByText('Redactor del acuerdo').nextSibling).toHaveTextContent('Beto');
+    expect(within(bloque).getByText('Informe finalizado').nextSibling).toHaveTextContent('Pendiente');
+    expect(within(bloque).getByText('Acuerdo consolidado').nextSibling).toHaveTextContent(/oct/i);
+    const lista = within(bloque).getByRole('list', { name: 'Confirmación por persona' });
+    expect(lista).toHaveTextContent('Ana: confirmó el acuerdo'); expect(lista).toHaveTextContent('Beto: falta confirmar');
+  });
+  it('participacionInforme: redactor por defecto es el coordinador y textoEscala traduce valores internos', () => {
+    const e = final('p'); e.informe!.evaluadores = [{ id: 'u1', nombre: 'Ana' }];
+    expect(participacionInforme(e.informe!, 'u1').redactor).toBe('Ana');
+    expect(participacionInforme(e.informe!, 'coord-externo').redactor).toBe('El coordinador');
+    expect(textoEscala({ tipo: 'categorica', niveles: [], sentido: 'sin_orden', fuente: 'x' })).toBe('Categorías, sin orden entre los niveles');
   });
   it('el informe rotula el hallazgo sin origen individual como Nuevo del equipo', () => {
     const e = final('equipo'); e.consenso.hallazgos[0].origenIds = []; e.informe!.consenso = e.consenso;

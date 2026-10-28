@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { escalaDe, origenHallazgo, resumirCumplimiento, resumirEvaluacion } from '@observatorio-ux/shared-types';
 import type { ComparacionFlujo, EstadoComparacion, EvaluacionFlujo, VinculoComparacion } from '@observatorio-ux/shared-types';
@@ -6,9 +7,12 @@ import { Field, Fuente } from './ConfiguracionEditor';
 import { EvidenciaEditor } from './EvidenciaEditor';
 import { SaveStatus } from './TrabajoEditor';
 import { flujoRequest } from './flujo.api';
-import { textoCumplimiento } from './flujo-utils';
+import { fechaChile, participacionInforme, textoCumplimiento, textoEscala } from './flujo-utils';
 import { useFlujoDraft } from './useFlujoDraft';
 
+function Dato({ etiqueta, valor }: { etiqueta: string; valor: ReactNode }) {
+  return <div><dt>{etiqueta}</dt><dd className="hx-dato">{valor || 'No indicado'}</dd></div>;
+}
 function ComparacionEditor({ actual, anterior, comparacion, usuarioId, onSaved, registerGuard }: { actual: EvaluacionFlujo; anterior: EvaluacionFlujo; comparacion: ComparacionFlujo; usuarioId: string; onSaved: (e: EvaluacionFlujo) => void; registerGuard: (guard: (() => Promise<boolean>) | null) => void }) {
   const anteriores = anterior.informe?.consenso.hallazgos.filter(h => h.decision === 'ACEPTADO') ?? [];
   const actuales = actual.informe?.consenso.hallazgos.filter(h => h.decision === 'ACEPTADO') ?? [];
@@ -44,6 +48,7 @@ export function InformeView({ evaluacion, historial, usuarioId, onSaved, onBack 
   const cumplimiento = resumirCumplimiento(config, informe.consenso);
   const positivos = informe.consenso.positivos ?? [];
   const mejoras = informe.consenso.mejoras ?? [];
+  const participacion = participacionInforme(informe, evaluacion.coordinadorId);
   const conclusion = (informe.consenso.conclusion ?? '').trim();
   const opciones = historial.filter(e => e.id !== evaluacion.id && e.fase === 'FINALIZADA' && e.configuracion.producto.clave === config.producto.clave);
   async function action(action: 'finalizar' | 'version') {
@@ -59,13 +64,31 @@ export function InformeView({ evaluacion, historial, usuarioId, onSaved, onBack 
       {resumen.formula && <p>Índice: {resumen.indice ?? 'No calculable'} · Fórmula: {resumen.formula} · Denominador: {resumen.denominador}</p>}
       </details>
     </section>
-    <details className="panel"><summary>Ver qué se revisó y quién participó</summary><dl className="hx-stats">
-      <div><dt>Producto</dt><dd>{config.producto.nombre} · {config.producto.clave} · {config.producto.version}</dd></div><div><dt>URL y dispositivo</dt><dd>{config.producto.url} · {config.producto.dispositivo}</dd></div>
-      <div><dt>Objetivo</dt><dd>{config.objetivo}</dd></div><div><dt>Tareas</dt><dd>{config.tareas}</dd></div><div><dt>Pantallas</dt><dd>{config.pantallas}</dd></div><div><dt>Exclusiones</dt><dd>{config.exclusiones || 'Ninguna declarada'}</dd></div>
-      <div><dt>Metodología</dt><dd>{config.metodologia.nombre} · {config.metodologia.autor} · {config.metodologia.version}</dd></div><div><dt>Escala</dt><dd>{config.metodologia.escala.tipo} · {config.metodologia.escala.sentido} · {config.metodologia.escala.fuente}</dd></div>
-      <div><dt>Evaluadores</dt><dd>{informe.evaluadores.map(e => e.nombre).join(', ')}</dd></div><div><dt>Confirmaciones</dt><dd>{informe.consenso.aprobadoPor.length}/{informe.evaluadores.length}</dd></div>
-      <div><dt>Fechas</dt><dd>Inicio: {informe.iniciadoEn ?? '—'} · Consolidación: {informe.consolidadoEn} · Finalización: {informe.finalizadoEn ?? 'Pendiente'}</dd></div>
-    </dl></details>
+    <details className="panel" open><summary>Ver qué se revisó y quién participó</summary>
+      <section aria-labelledby="inf-que"><h3 id="inf-que">Qué se evaluó</h3><dl className="hx-stats">
+        <Dato etiqueta="Producto" valor={[config.producto.nombre, config.producto.version && `versión ${config.producto.version}`].filter(Boolean).join(', ')} />
+        <Dato etiqueta="Dirección web" valor={config.producto.url} /><Dato etiqueta="Dispositivo" valor={config.producto.dispositivo} />
+        <Dato etiqueta="Objetivo" valor={config.objetivo.trim()} /><Dato etiqueta="Tareas" valor={config.tareas.trim()} /><Dato etiqueta="Pantallas" valor={config.pantallas.trim()} />
+        {config.exclusiones.trim() && <Dato etiqueta="Exclusiones" valor={config.exclusiones} />}
+      </dl></section>
+      <section aria-labelledby="inf-crit"><h3 id="inf-crit">Con qué criterios</h3><dl className="hx-stats">
+        <Dato etiqueta="Metodología" valor={[config.metodologia.nombre, config.metodologia.version].filter(Boolean).join(', ')} />
+        {config.metodologia.autor && <Dato etiqueta="Autoría" valor={config.metodologia.autor} />}
+        <Dato etiqueta="Criterios" valor={String(config.metodologia.criterios.length)} />
+        <Dato etiqueta="Escala de respuesta" valor={textoEscala(config.metodologia.escala)} />
+        <Dato etiqueta="Niveles" valor={config.metodologia.escala.niveles.map(n => n.etiqueta).join(', ')} />
+        {config.metodologia.escala.fuente && <Dato etiqueta="Origen de la escala" valor={config.metodologia.escala.fuente} />}
+      </dl></section>
+      <section aria-labelledby="inf-quien"><h3 id="inf-quien">Quién participó</h3><dl className="hx-stats">
+        <Dato etiqueta="Evaluadores" valor={informe.evaluadores.map(e => e.nombre).join(', ')} />
+        <Dato etiqueta="Redactor del acuerdo" valor={participacion.redactor} />
+        <Dato etiqueta="Confirmaciones" valor={`${participacion.confirmaciones.filter(c => c.confirmo).length} de ${participacion.confirmaciones.length}`} />
+        <Dato etiqueta="Inicio de la revisión" valor={informe.iniciadoEn ? fechaChile(informe.iniciadoEn) : ''} />
+        <Dato etiqueta="Acuerdo consolidado" valor={fechaChile(informe.consolidadoEn)} />
+        <Dato etiqueta="Informe finalizado" valor={informe.finalizadoEn ? fechaChile(informe.finalizadoEn) : 'Pendiente'} />
+      </dl>
+      <ul aria-label="Confirmación por persona">{participacion.confirmaciones.map(c => <li key={c.id}>{c.nombre}: {c.confirmo ? 'confirmó el acuerdo' : 'falta confirmar'}</li>)}</ul></section>
+    </details>
     {cumplimiento && <section className="panel"><div className="panel-head"><h2>Cumplimiento</h2></div><p>Solo cuentan las respuestas marcadas como favorables o desfavorables; no aplica y sin evaluar quedan fuera del porcentaje.</p>
       <div className="hf-table"><table><thead><tr><th>Categoría</th><th>Cumplimiento</th></tr></thead><tbody>{cumplimiento.porCategoria.map(c => <tr key={c.categoria}><td>{c.categoria}</td><td>{textoCumplimiento(c)}</td></tr>)}<tr><th scope="row">Total</th><td>{textoCumplimiento(cumplimiento.total)}</td></tr></tbody></table></div></section>}
     <details className="panel"><summary>Ver respuestas y razones del equipo, pregunta por pregunta</summary><div className="hf-table"><table><thead><tr><th>Criterio / origen</th><th>Acuerdo</th><th>Justificación</th></tr></thead><tbody>{config.metodologia.criterios.map(c => { const r = informe.consenso.criterios.find(r => r.criterioId === c.id); return <tr key={c.id}><td>{c.nombre}<br />{c.origen.autor} · {c.origen.version}<br /><Fuente value={c.origen.fuente} /></td><td>{r?.noAplica ? `No aplica${r.motivo ? `: ${r.motivo}` : ''}` : escalaDe(config.metodologia, c).niveles.find(n => n.id === r?.valor)?.etiqueta ?? 'Pendiente'}</td><td>{r?.justificacion}<br />{r?.notas}</td></tr>; })}</tbody></table></div></details>

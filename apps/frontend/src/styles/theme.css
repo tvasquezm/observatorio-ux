@@ -2856,6 +2856,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .hx-stats { display: flex; flex-wrap: wrap; gap: 8px 28px; margin: 14px 0 0; }
 .hx-stats dt { color: var(--ink-soft); font-size: 12px; }
 .hx-stats dd { margin: 2px 0 0; color: var(--heading); font-size: 18px; font-weight: 700; }
+.hx-stats dd.hx-dato { font-size: 14px; font-weight: 400; max-width: 60ch; overflow-wrap: anywhere; }
 .hx-bars { display: grid; gap: 6px; margin: 14px 0 0; padding: 0; list-style: none; }
 .hx-bars li { display: grid; grid-template-columns: minmax(0, 260px) minmax(60px, 1fr) 28px; align-items: center; gap: 10px; font-size: 13px; }
 .hx-bars li > span:first-child { color: var(--ink-soft); overflow-wrap: anywhere; }

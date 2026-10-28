@@ -1,5 +1,5 @@
-import { acuerdoDifiere, escalaDe, normalizarUrlProducto } from '@observatorio-ux/shared-types';
-import type { ConfiguracionFlujo, CriterioFlujo, CumplimientoGrupo, DecisionCriterio, HallazgoFlujo, RespuestaCriterio, TrabajoFlujo } from '@observatorio-ux/shared-types';
+import { acuerdoDifiere, escalaDe, normalizarUrlProducto, redactorDe } from '@observatorio-ux/shared-types';
+import type { ConfiguracionFlujo, CriterioFlujo, CumplimientoGrupo, DecisionCriterio, EscalaFlujo, HallazgoFlujo, InformeFlujo, RespuestaCriterio, TrabajoFlujo } from '@observatorio-ux/shared-types';
 
 export function pendientesTrabajo(config: ConfiguracionFlujo, respuestas: RespuestaCriterio[], hallazgos: HallazgoFlujo[]) {
   const pendientes = config.metodologia.criterios.flatMap((c, i) => {
@@ -14,6 +14,19 @@ export function pendientesTrabajo(config: ConfiguracionFlujo, respuestas: Respue
   return pendientes;
 }
 export const fechaChile = (iso: string | null): string => iso ? new Date(iso).toLocaleString('es-CL', { timeZone: 'America/Santiago', dateStyle: 'medium', timeStyle: 'short' }) : 'fecha no registrada';
+
+const TIPO_ESCALA: Record<EscalaFlujo['tipo'], string> = { categorica: 'Categorías', ordinal: 'Ordinal (con orden)', numerica: 'Numérica', cualitativa: 'Cualitativa' };
+const SENTIDO_ESCALA: Record<EscalaFlujo['sentido'], string> = { mayor_mejor: 'un valor mayor es mejor', menor_mejor: 'un valor menor es mejor', sin_orden: 'sin orden entre los niveles' };
+/** Escala en lenguaje legible: nunca muestra valores internos como `categorica` o `sin_orden`. */
+export function textoEscala(escala: EscalaFlujo): string {
+  return `${TIPO_ESCALA[escala.tipo] ?? escala.tipo}, ${SENTIDO_ESCALA[escala.sentido] ?? escala.sentido}`;
+}
+/** Quién redactó y quién confirmó el acuerdo de un informe. Quien no está entre los evaluadores (coordinador) se nombra como `El coordinador`. */
+export function participacionInforme(informe: InformeFlujo, coordinadorId: string): { redactor: string; confirmaciones: Array<{ id: string; nombre: string; confirmo: boolean }> } {
+  const nombre = (id: string) => informe.evaluadores.find(e => e.id === id)?.nombre ?? 'El coordinador';
+  const confirmaciones = informe.evaluadores.map(e => ({ id: e.id, nombre: e.nombre, confirmo: informe.consenso.aprobadoPor.includes(e.id) }));
+  return { redactor: nombre(redactorDe(informe.consenso, coordinadorId)), confirmaciones };
+}
 
 export interface ComparacionTrabajo { guardadoPor: string; guardadoEn: string; cambios: string[] }
 
