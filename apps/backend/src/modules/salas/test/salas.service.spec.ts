@@ -21,10 +21,14 @@ describe('SalasService', () => {
     };
     proyecto: {
       findMany: jest.Mock;
+      findUnique: jest.Mock;
+      create: jest.Mock;
+      update: jest.Mock;
       updateMany: jest.Mock;
       deleteMany: jest.Mock;
     };
-    proyectoMiembro: { deleteMany: jest.Mock };
+    equipoMiembro: { findMany: jest.Mock };
+    proyectoMiembro: { deleteMany: jest.Mock; createMany: jest.Mock };
     participanteWhitelist: { deleteMany: jest.Mock };
     uxArtifact: { deleteMany: jest.Mock };
     researchSession: { deleteMany: jest.Mock };
@@ -60,10 +64,17 @@ describe('SalasService', () => {
       },
       proyecto: {
         findMany: jest.fn(),
+        findUnique: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
         updateMany: jest.fn(),
         deleteMany: jest.fn(),
       },
-      proyectoMiembro: { deleteMany: jest.fn() },
+      equipoMiembro: { findMany: jest.fn().mockResolvedValue([]) },
+      proyectoMiembro: {
+        deleteMany: jest.fn(),
+        createMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
       participanteWhitelist: { deleteMany: jest.fn() },
       uxArtifact: { deleteMany: jest.fn() },
       researchSession: { deleteMany: jest.fn() },
@@ -347,6 +358,82 @@ describe('SalasService', () => {
       });
       expect(prisma.sala.delete).toHaveBeenCalledWith({ where: { id: 'sala-1' } });
       expect(result).toEqual({ eliminadoDefinitivamente: true, proyectosEliminados: 2 });
+    });
+  });
+
+  describe('sincronización de equipos del docente con proyectos', () => {
+    const sala = { id: 'sala-1', profesorId: docente.id, deletedAt: null };
+    const filtroEquipos = {
+      where: {
+        equipo: { salaId: 'sala-1', creadoPor: { rol: { in: ['DOCENTE', 'ADMIN'] } } },
+      },
+      select: { usuarioId: true },
+    };
+
+    beforeEach(() => {
+      prisma.sala.findUnique.mockResolvedValue(sala);
+    });
+
+    it('createProyectoEnSala agrega a los miembros de equipos del docente sin duplicar', async () => {
+      prisma.proyecto.create.mockResolvedValue({ id: 'p-1' });
+      prisma.equipoMiembro.findMany.mockResolvedValue([
+        { usuarioId: 'u-1' },
+        { usuarioId: 'u-2' },
+        { usuarioId: 'u-1' },
+      ]);
+
+      const result = await service.createProyectoEnSala('sala-1', { nombre: 'P' } as any, docente);
+
+      expect(result).toEqual({ id: 'p-1' });
+      expect(prisma.equipoMiembro.findMany).toHaveBeenCalledWith(filtroEquipos);
+      expect(prisma.proyectoMiembro.createMany).toHaveBeenCalledWith({
+        data: [
+          { proyectoId: 'p-1', usuarioId: 'u-1' },
+          { proyectoId: 'p-1', usuarioId: 'u-2' },
+        ],
+        skipDuplicates: true,
+      });
+    });
+
+    it('createProyectoEnSala sin equipos del docente no crea membresías', async () => {
+      prisma.proyecto.create.mockResolvedValue({ id: 'p-1' });
+      prisma.equipoMiembro.findMany.mockResolvedValue([]);
+
+      await service.createProyectoEnSala('sala-1', { nombre: 'P' } as any, docente);
+
+      expect(prisma.proyectoMiembro.createMany).not.toHaveBeenCalled();
+    });
+
+    it('vincularProyecto agrega a los miembros de equipos del docente al proyecto', async () => {
+      prisma.proyecto.findUnique.mockResolvedValue({
+        id: 'p-9',
+        creadoPorId: docente.id,
+        salaId: null,
+      });
+      prisma.proyecto.update.mockResolvedValue({ id: 'p-9', salaId: 'sala-1' });
+      prisma.equipoMiembro.findMany.mockResolvedValue([{ usuarioId: 'u-3' }]);
+
+      const result = await service.vincularProyecto('sala-1', 'p-9', docente);
+
+      expect(result).toEqual({ id: 'p-9', salaId: 'sala-1' });
+      expect(prisma.equipoMiembro.findMany).toHaveBeenCalledWith(filtroEquipos);
+      expect(prisma.proyectoMiembro.createMany).toHaveBeenCalledWith({
+        data: [{ proyectoId: 'p-9', usuarioId: 'u-3' }],
+        skipDuplicates: true,
+      });
+    });
+
+    it('vincularProyecto rechazado no sincroniza membresías', async () => {
+      prisma.proyecto.findUnique.mockResolvedValue({
+        id: 'p-9',
+        creadoPorId: 'otro-docente',
+        salaId: null,
+      });
+
+      await expect(service.vincularProyecto('sala-1', 'p-9', docente)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(prisma.proyectoMiembro.createMany).not.toHaveBeenCalled();
     });
   });
 });
