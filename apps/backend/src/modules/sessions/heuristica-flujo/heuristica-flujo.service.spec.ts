@@ -661,7 +661,7 @@ describe('Consenso: votación del redactor', () => {
     let e = await entregarTodos(service, 3);
     e = await votar(service, e, 'e1', 'e2');
     e = await votar(service, e, 'e3', 'e2');
-    e = await service.guardarConsenso('p', e.id, decisiones(e), coordinador);
+    e = await service.guardarConsenso('p', e.id, decisiones(e), usuario('e2'));
     expect(e.consenso).toMatchObject({ redactorId: 'e2', votosRedactor: { e1: 'e2', e3: 'e2' } });
   });
 });
