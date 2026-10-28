@@ -13,7 +13,7 @@ export function pendientesTrabajo(config: ConfiguracionFlujo, respuestas: Respue
   }
   return pendientes;
 }
-export const fechaChile = (iso: string | null): string => iso ? new Date(iso).toLocaleString('es-CL', { timeZone: 'America/Santiago', dateStyle: 'medium', timeStyle: 'short' }) : 'fecha no registrada';
+export const fechaChile = (iso: string | null): string => iso ? new Date(iso).toLocaleString('es-CL', { timeZone: 'America/Santiago', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: false }) : 'fecha no registrada';
 
 const TIPO_ESCALA: Record<EscalaFlujo['tipo'], string> = { categorica: 'Categorías', ordinal: 'Ordinal (con orden)', numerica: 'Numérica', cualitativa: 'Cualitativa' };
 const SENTIDO_ESCALA: Record<EscalaFlujo['sentido'], string> = { mayor_mejor: 'un valor mayor es mejor', menor_mejor: 'un valor menor es mejor', sin_orden: 'sin orden entre los niveles' };
