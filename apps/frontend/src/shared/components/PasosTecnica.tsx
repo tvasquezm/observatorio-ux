@@ -1,4 +1,4 @@
-import { Fragment, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 export interface PasoTecnica {
@@ -6,6 +6,8 @@ export interface PasoTecnica {
   titulo: string;
   ayuda: string;
   contenido: ReactNode;
+  /** La técnica puede quedar lista sin este paso. */
+  opcional?: boolean;
 }
 
 interface Props {
@@ -13,13 +15,19 @@ interface Props {
   acciones?: ReactNode;
   /** Índice del primer paso donde `acciones` ya se muestra junto a "Siguiente" (por defecto, solo en el último). */
   accionesDesde?: number;
+  /** Avisa el paso abierto (índice desde 0), también al montar. */
+  onCambioPaso?: (indice: number) => void;
 }
 
 /** Todos los paneles quedan montados y ocultos: cambiar de paso conserva lo escrito. */
-export function PasosTecnica({ pasos, acciones, accionesDesde }: Props) {
+export function PasosTecnica({ pasos, acciones, accionesDesde, onCambioPaso }: Props) {
   const [indice, setIndice] = useState(0);
   const titulo = useRef<HTMLHeadingElement>(null);
   const ultimo = indice === pasos.length - 1;
+
+  useEffect(() => {
+    onCambioPaso?.(indice);
+  }, [indice, onCambioPaso]);
 
   function ir(destino: number) {
     setIndice(destino);
@@ -31,6 +39,7 @@ export function PasosTecnica({ pasos, acciones, accionesDesde }: Props) {
       <header className="tv-pasos-cabecera">
         <h4 ref={titulo} tabIndex={-1} className="tv-pasos-titulo">
           Paso {indice + 1} de {pasos.length}: {pasos[indice].titulo}
+          {pasos[indice].opcional ? ' (opcional)' : ''}
         </h4>
         <p className="tv-pasos-ayuda">{pasos[indice].ayuda}</p>
       </header>

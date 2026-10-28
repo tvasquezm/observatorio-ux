@@ -11,6 +11,23 @@ const pasos = [
 ];
 
 describe('PasosTecnica', () => {
+  it('marca (opcional) en el título de un paso opcional', async () => {
+    render(<PasosTecnica pasos={pasos.map((p) => (p.id === 'b' ? { ...p, opcional: true } : p))} />);
+    expect(screen.getByRole('heading', { name: 'Paso 1 de 3: Perfil' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+    expect(screen.getByRole('heading', { name: 'Paso 2 de 3: Objetivo (opcional)' })).toBeInTheDocument();
+  });
+
+  it('avisa el paso abierto al montar y al cambiar', async () => {
+    const alCambiar = vi.fn();
+    render(<PasosTecnica pasos={pasos} onCambioPaso={alCambiar} />);
+    expect(alCambiar).toHaveBeenLastCalledWith(0);
+    await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+    expect(alCambiar).toHaveBeenLastCalledWith(1);
+    await userEvent.click(screen.getByRole('button', { name: 'Anterior' }));
+    expect(alCambiar).toHaveBeenLastCalledWith(0);
+  });
+
   it('muestra un paso a la vez con su título y ayuda', () => {
     render(<PasosTecnica pasos={pasos} />);
     expect(screen.getByRole('heading', { name: 'Paso 1 de 3: Perfil' })).toBeInTheDocument();

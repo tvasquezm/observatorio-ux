@@ -202,18 +202,18 @@ describe('CardSortingPage · preguntas del evaluador', () => {
 describe('CardSortingPage · avance del estudio', () => {
   it('parte sin completar y avanza al escribir nombre y tarjetas', async () => {
     renderPage();
-    expect(screen.getByRole('img', { name: '1 de 3' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: '1 de 3 obligatorios' })).toBeInTheDocument();
     expect(screen.queryByText('Estudio completo: ya puedes crearlo')).not.toBeInTheDocument();
     await userEvent.type(screen.getByLabelText(/Nombre del estudio/), 'Estudio');
     await pegarTarjetas('A{Enter}B');
-    expect(screen.getByRole('img', { name: '3 de 3, completo' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: '3 de 3 obligatorios, completo' })).toBeInTheDocument();
     expect(screen.getByText('Estudio completo: ya puedes crearlo')).toBeInTheDocument();
   });
 
   it('un estudio cerrado suma el paso de categorías', async () => {
     renderPage();
     await userEvent.click(screen.getByRole('radio', { name: /Cerrado/ }));
-    expect(screen.getByRole('img', { name: '1 de 4' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: '1 de 4 obligatorios' })).toBeInTheDocument();
   });
 
   it('el botón cambia a "De a una": Enter agrega, y quitar la borra', async () => {

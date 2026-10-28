@@ -135,6 +135,7 @@ export function JourneyMapPage() {
   const [journeyConsultado, setJourneyConsultado] =
     useState<JourneyMapArtifact | null>(null);
   const [mostrarForm, setMostrarForm] = useState(false);
+  const [pasoActual, setPasoActual] = useState(0);
 
   const { confirmDiscard } = useUnsavedChanges(
     mostrarForm,
@@ -266,6 +267,11 @@ export function JourneyMapPage() {
 
   const isPending = isCreating;
   const enFormulario = puedeEditar && mostrarForm;
+  const opcionalesJourney = new Set(
+    procesoJourney({ ...form, evidencia: separarPorComas(evidenciaInput) })
+      .filter((paso) => paso.opcional)
+      .map((paso) => paso.id),
+  );
   const perfilCompleto =
     form.perfilUsuario.nombre.trim() !== '' && form.perfilUsuario.rol.trim() !== '';
 
@@ -310,6 +316,7 @@ export function JourneyMapPage() {
             title="Proceso del Journey Map"
             textoListo="Journey Map completo: ya puedes guardarlo"
             steps={procesoJourney({ ...form, evidencia: separarPorComas(evidenciaInput) })}
+            pasoActual={pasoActual}
           />
         )
       }
@@ -320,9 +327,11 @@ export function JourneyMapPage() {
               <h3>Nuevo Journey Map</h3>
 
               <PasosTecnica
+                onCambioPaso={setPasoActual}
                 pasos={[
                   {
                     id: 'perfil',
+                    opcional: opcionalesJourney.has('perfil'),
                     titulo: 'Perfil de usuario',
                     ayuda: 'Define quién recorre el camino.',
                     contenido: (
@@ -365,6 +374,7 @@ export function JourneyMapPage() {
                   },
                   {
                     id: 'objetivo',
+                    opcional: opcionalesJourney.has('objetivo'),
                     titulo: 'Objetivo y evento de inicio',
                     ayuda: 'Cuenta qué busca lograr la persona y qué situación da comienzo al recorrido.',
                     contenido: (
@@ -399,6 +409,7 @@ export function JourneyMapPage() {
                   },
                   {
                     id: 'fases',
+                    opcional: opcionalesJourney.has('fases'),
                     titulo: 'Fases del recorrido',
                     ayuda: 'Nombra cada fase y anota lo que la persona hace, dónde interactúa y qué piensa. Separa los elementos con coma.',
                     contenido: (
@@ -446,6 +457,7 @@ export function JourneyMapPage() {
                   },
                   {
                     id: 'dolor',
+                    opcional: opcionalesJourney.has('dolor'),
                     titulo: 'Emociones y puntos de dolor',
                     ayuda: 'Indica cómo se siente la persona en cada fase y qué le cuesta o le resulta bien.',
                     contenido: (
@@ -483,6 +495,7 @@ export function JourneyMapPage() {
                   },
                   {
                     id: 'oportunidades',
+                    opcional: opcionalesJourney.has('oportunidades'),
                     titulo: 'Oportunidades de mejora',
                     ayuda: 'Propón qué se podría mejorar en cada fase a partir de lo que encontraste.',
                     contenido: (
@@ -504,6 +517,7 @@ export function JourneyMapPage() {
                   },
                   {
                     id: 'evidencia',
+                    opcional: opcionalesJourney.has('evidencia'),
                     titulo: 'Evidencia',
                     ayuda: 'Anota las fuentes que sustentan el mapa. Al terminar, guárdalo para revisarlo con tu equipo.',
                     contenido: (
