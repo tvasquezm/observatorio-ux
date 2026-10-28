@@ -142,6 +142,40 @@ describe('flujo individual', () => {
     await userEvent.click(add);
     expect(screen.getByRole('button', { name: 'Quitar problema 1' })).toHaveClass('danger');
   });
+  it('guarda un problema, lo colapsa con aviso y permite editarlo', async () => {
+    const e = evaluation();
+    api.mockImplementation(async (_p, _path, _method, body) => ({ ...e, revision: 2, trabajos: [{ ...e.trabajos[0], respuestas: body.respuestas, hallazgos: body.hallazgos }] }));
+    renderFlow(<Harness initial={e} />);
+    await userEvent.click(screen.getByRole('button', { name: `Agregar problema para ${e.configuracion.metodologia.criterios[0].nombre}` }));
+    await userEvent.type(screen.getByLabelText('Título del problema'), 'Sin foco visible');
+    await userEvent.type(screen.getByLabelText('Descripción del problema'), 'No se ve el foco al tabular');
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar problema 1' }));
+    expect(await screen.findByText('Problema guardado con éxito')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Título del problema')).toBeNull();
+    expect(api).toHaveBeenCalledWith('p1', '/evaluaciones/e1/trabajo', 'PATCH', expect.objectContaining({ hallazgos: [expect.objectContaining({ titulo: 'Sin foco visible' })] }));
+    await userEvent.click(screen.getByRole('button', { name: 'Editar problema 1' }));
+    expect(screen.getByLabelText('Título del problema')).toHaveValue('Sin foco visible');
+    expect(screen.queryByText('Problema guardado con éxito')).toBeNull();
+  });
+  it('no colapsa un problema incompleto y dice qué falta', async () => {
+    const e = evaluation(); renderFlow(<Harness initial={e} />);
+    await userEvent.click(screen.getByRole('button', { name: `Agregar problema para ${e.configuracion.metodologia.criterios[0].nombre}` }));
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar problema 1' }));
+    expect(screen.getByText('Problema 1: completa título y descripción.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Título del problema')).toBeInTheDocument();
+    expect(screen.queryByText('Problema guardado con éxito')).toBeNull();
+  });
+  it('si falla el guardado conserva el problema abierto y el texto', async () => {
+    const e = evaluation(); api.mockRejectedValue(new Error('boom'));
+    renderFlow(<Harness initial={e} />);
+    await userEvent.click(screen.getByRole('button', { name: `Agregar problema para ${e.configuracion.metodologia.criterios[0].nombre}` }));
+    await userEvent.type(screen.getByLabelText('Título del problema'), 'Sin foco visible');
+    await userEvent.type(screen.getByLabelText('Descripción del problema'), 'No se ve el foco');
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar problema 1' }));
+    expect(await screen.findByText('No se pudo guardar el problema. Tu borrador se conserva.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Título del problema')).toHaveValue('Sin foco visible');
+    expect(screen.queryByText('Problema guardado con éxito')).toBeNull();
+  });
   it('reabre el problema incompleto aunque se haya cerrado manualmente', async () => {
     const e = evaluation(); renderFlow(<Harness initial={e} />);
     await userEvent.click(screen.getByRole('radio', { name: e.configuracion.metodologia.escala.niveles[0].etiqueta }));

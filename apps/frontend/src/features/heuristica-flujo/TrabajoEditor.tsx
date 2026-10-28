@@ -41,6 +41,8 @@ export function SaveStatus({ dirty, saving, error, conflict = false, lastSaved, 
 export function TrabajoEditor({ evaluacion, usuarioId, onSaved, onBack }: { evaluacion: EvaluacionFlujo; usuarioId: string; onSaved: (e: EvaluacionFlujo) => void; onBack: () => void }) {
   const [problemasAbiertos, setProblemasAbiertos] = useState<ReadonlySet<string>>(new Set());
   const [mostrarFaltantes, setMostrarFaltantes] = useState(false);
+  const [colapsados, setColapsados] = useState<ReadonlySet<string>>(new Set());
+  const [errorProblema, setErrorProblema] = useState<Record<string, string>>({});
   const claveIndice = `heuristica:preg:${evaluacion.id}:${usuarioId}`;
   const totalPreguntas = evaluacion.configuracion.metodologia.criterios.length;
   const [indice, setIndiceInterno] = useState(() => { const n = Number(leerSesion(claveIndice)); return Number.isInteger(n) && n >= 0 && n < totalPreguntas ? n : 0; });
@@ -78,10 +80,23 @@ export function TrabajoEditor({ evaluacion, usuarioId, onSaved, onBack }: { eval
       if (h) { const i = evaluacion.configuracion.metodologia.criterios.findIndex(c => c.id === h.criterioIds[0]); setIndice(Math.max(0, i)); if (h.criterioIds.length) abrirProblemas(h.criterioIds[0]); }
     }
   }
-  const bloqueProblema = (h: HallazgoFlujo, i: number) => <fieldset key={h.id}><legend>Problema {i + 1}: {h.titulo || 'Sin título'}</legend><fieldset disabled={!editable || busy}><legend>Datos del problema</legend><HallazgoEditor value={h} config={evaluacion.configuracion} onChange={update} /></fieldset>
+  async function guardarProblema(h: HallazgoFlujo, i: number) {
+    const campos = [!h.titulo.trim() && 'título', !h.descripcion.trim() && 'descripción', !h.criterioIds.length && 'pregunta relacionada'].filter(Boolean);
+    if (campos.length) { setErrorProblema(prev => ({ ...prev, [h.id]: `Problema ${i + 1}: completa ${campos.join(' y ')}.` })); return; }
+    try { await state.save(); } catch { setErrorProblema(prev => ({ ...prev, [h.id]: 'No se pudo guardar el problema. Tu borrador se conserva.' })); return; }
+    setErrorProblema(prev => ({ ...prev, [h.id]: '' }));
+    setColapsados(prev => new Set(prev).add(h.id));
+  }
+  const bloqueProblema = (h: HallazgoFlujo, i: number) => {
+    const quitar = editable && <button type="button" className="danger" disabled={!!evidencePending[h.id] || busy} onClick={() => state.setDraft({ ...state.draft, hallazgos: state.draft.hallazgos.filter(x => x.id !== h.id) })}>Quitar problema {i + 1}</button>;
+    if (colapsados.has(h.id)) return <fieldset key={h.id}><legend>Problema {i + 1}: {h.titulo}</legend><p>Severidad {h.severidad}</p><p role="status">Problema guardado con éxito</p>{editable && <button type="button" className="secondary" onClick={() => setColapsados(prev => { const n = new Set(prev); n.delete(h.id); return n; })}>Editar problema {i + 1}</button>}{quitar}</fieldset>;
+    return <fieldset key={h.id}><legend>Problema {i + 1}: {h.titulo || 'Sin título'}</legend><fieldset disabled={!editable || busy}><legend>Datos del problema</legend><HallazgoEditor value={h} config={evaluacion.configuracion} onChange={update} /></fieldset>
         <EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={h.evidenciaIds} editable={editable && !busy} onChange={ids => state.setDraft(prev => ({ ...prev, hallazgos: prev.hallazgos.map(x => x.id === h.id ? { ...x, evidenciaIds: ids } : x) }))} onPendingChange={value => setEvidencePending(prev => prev[h.id] === value ? prev : { ...prev, [h.id]: value })} />
-        {editable && <button type="button" className="danger" disabled={!!evidencePending[h.id] || busy} onClick={() => state.setDraft({ ...state.draft, hallazgos: state.draft.hallazgos.filter(x => x.id !== h.id) })}>Quitar problema {i + 1}</button>}
+        {editable && <button type="button" className="secondary" disabled={!!evidencePending[h.id] || busy || state.saving} onClick={() => void guardarProblema(h, i)}>Guardar problema {i + 1}</button>}
+        {errorProblema[h.id] && <p role="alert" className="hf-error">{errorProblema[h.id]}</p>}
+        {quitar}
       </fieldset>;
+  };
   const problemasDe = (criterioId: string) => state.draft.hallazgos.map((h, i) => h.criterioIds[0] === criterioId ? bloqueProblema(h, i) : null);
   const sinPregunta = state.draft.hallazgos.filter(h => !h.criterioIds.length);
   const problemas = sinPregunta.length > 0 && <details className="hf-problemas" open><summary>Problemas sin pregunta relacionada &middot; {sinPregunta.length}</summary>{state.draft.hallazgos.map((h, i) => h.criterioIds.length ? null : bloqueProblema(h, i))}</details>;
