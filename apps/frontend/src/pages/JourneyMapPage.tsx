@@ -565,13 +565,19 @@ export function JourneyMapPage() {
               <div key={journey.id} className="entity-card">
                 <div className="row-between">
                   <div>
-                    <b>{journey.contenido.perfilUsuario.nombre}</b>
-
-                    <small className="text-muted">
-                      {journey.contenido.perfilUsuario.rol}
-                      {' · '}
-                      {journey.contenido.fases.length} fases
-                    </small>
+                    <div>
+                      <small className="text-muted">Persona: </small>
+                      <b>{journey.contenido.perfilUsuario.nombre}</b>
+                    </div>
+                    <div>
+                      <small className="text-muted">Rol: </small>
+                      <span>{journey.contenido.perfilUsuario.rol}</span>
+                    </div>
+                    <div>
+                      <small className="text-muted">
+                        {journey.contenido.fases.length} fases
+                      </small>
+                    </div>
                   </div>
 
                   <TechniqueItemActions
@@ -585,9 +591,15 @@ export function JourneyMapPage() {
                 </div>
 
                 {journey.contenido.objetivo && (
-                  <p>{journey.contenido.objetivo}</p>
+                  <p>
+                    <small className="text-muted">Objetivo: </small>
+                    {journey.contenido.objetivo}
+                  </p>
                 )}
 
+                <small className="text-muted">
+                  Emoción en cada fase (un punto por fase)
+                </small>
                 <JourneyEmotionStrip fases={journey.contenido.fases} />
 
                 {journeyConsultado?.id === journey.id && (

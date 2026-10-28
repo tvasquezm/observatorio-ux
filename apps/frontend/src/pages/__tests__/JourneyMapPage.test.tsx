@@ -128,6 +128,18 @@ describe('Journey Map — esqueleto estándar', () => {
 });
 
 describe('Journey Map: lista estándar', () => {
+  it('separa y etiqueta persona, rol, fases y objetivo, y explica los puntos de emoción', () => {
+    state.list.mockReturnValue([journey]);
+    mostrar();
+    expect(screen.getByText('Persona:')).toBeInTheDocument();
+    expect(screen.getByText('Ana Pérez')).toBeInTheDocument();
+    expect(screen.getByText('Rol:')).toBeInTheDocument();
+    expect(screen.getByText('Solicitante')).toBeInTheDocument();
+    expect(screen.getByText('3 fases')).toBeInTheDocument();
+    expect(screen.getByText('Objetivo:')).toBeInTheDocument();
+    expect(screen.getByText('Emoción en cada fase (un punto por fase)')).toBeInTheDocument();
+  });
+
   it('muestra el título con contador y Consultar secundario en la cabecera de la tarjeta', () => {
     state.list.mockReturnValue([journey]);
     mostrar();
