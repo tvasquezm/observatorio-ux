@@ -157,6 +157,39 @@ describe('flujo individual', () => {
     expect(screen.getByLabelText('Título del problema')).toHaveValue('Sin foco visible');
     expect(screen.queryByText('Problema guardado con éxito')).toBeNull();
   });
+  describe('mensaje al entregar', () => {
+    const toasts: string[] = [];
+    const escucha = (ev: Event) => { toasts.push((ev as CustomEvent<{ message: string }>).detail.message); };
+    beforeEach(() => { toasts.length = 0; window.addEventListener('app:toast', escucha); return () => window.removeEventListener('app:toast', escucha); });
+    async function entregar(respuestaEntrega: (e: EvaluacionFlujo) => EvaluacionFlujo | Error) {
+      const e = evaluation();
+      api.mockImplementation(async (_p, path, _m, body) => {
+        if (path.endsWith('/trabajo')) return { ...e, revision: 2, trabajos: [{ ...e.trabajos[0], respuestas: body.respuestas, hallazgos: body.hallazgos }] };
+        const r = respuestaEntrega(e); if (r instanceof Error) throw r; return r;
+      });
+      renderFlow(<Harness initial={e} />);
+      await userEvent.click(screen.getByRole('radio', { name: e.configuracion.metodologia.escala.niveles[0].etiqueta }));
+      await userEvent.click(screen.getByRole('button', { name: 'Entregar mi evaluación' }));
+    }
+    const entregada = (e: EvaluacionFlujo, over: Partial<EvaluacionFlujo> = {}): EvaluacionFlujo => ({ ...e, revision: 3, trabajos: [{ ...e.trabajos[0], entregadoEn: e.updatedAt }], avanceEquipo: [{ evaluadorId: 'u1', nombre: 'Ana', evaluados: 1, total: 1, entregadoEn: e.updatedAt, guardadoEn: null }, { evaluadorId: 'u2', nombre: 'Beto', evaluados: 0, total: 1, entregadoEn: null, guardadoEn: null }], ...over });
+    it('avisa que entregaste y nombra a quien falta, con aviso emergente', async () => {
+      await entregar(e => entregada(e));
+      expect(await screen.findByText('Entregaste tu evaluación')).toBeInTheDocument();
+      expect(screen.getByText('Falta que entreguen: Beto.')).toBeInTheDocument();
+      expect(toasts).toEqual(['Entregaste tu evaluación. Tus respuestas quedaron cerradas; falta que entregue el resto del equipo.']);
+    });
+    it('si fue la última entrega el aviso emergente habla del acuerdo del equipo', async () => {
+      await entregar(e => entregada(e, { fase: 'PENDIENTE_CONSENSO' }));
+      await waitFor(() => expect(toasts).toHaveLength(1));
+      expect(toasts[0]).toContain('ahora el equipo acuerda el resultado');
+    });
+    it('si falla la entrega no hay aviso de éxito', async () => {
+      await entregar(() => new Error('Sin conexión'));
+      expect(await screen.findByText('Sin conexión')).toBeInTheDocument();
+      expect(screen.queryByText('Entregaste tu evaluación')).toBeNull();
+      expect(toasts).toEqual([]);
+    });
+  });
   it('el aviso de listo y el botón Entregar principal aparecen solo sin pendientes', async () => {
     const e = evaluation(); renderFlow(<Harness initial={e} />);
     const entregar = screen.getByRole('button', { name: 'Entregar mi evaluación' });
