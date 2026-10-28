@@ -59,6 +59,7 @@ export function TrabajoEditor({ evaluacion, usuarioId, onSaved, onBack }: { eval
   const editable = evaluacion.fase === 'EN_EVALUACION' && !!trabajo && !trabajo.entregadoEn;
   const update = (h: HallazgoFlujo) => state.setDraft({ ...state.draft, hallazgos: state.draft.hallazgos.map(x => x.id === h.id ? h : x) });
   const faltantes = mostrarFaltantes ? pendientesTrabajo(evaluacion.configuracion, state.draft.respuestas, state.draft.hallazgos) : [];
+  const listoParaEntregar = pendientesTrabajo(evaluacion.configuracion, state.draft.respuestas, state.draft.hallazgos).length === 0;
   const abrirProblemas = (criterioId: string) => setProblemasAbiertos(prev => new Set(prev).add(criterioId));
   const alternarProblemas = (criterioId: string) => {
     if (problemasAbiertos.has(criterioId) && state.draft.hallazgos.some(h => h.criterioIds[0] === criterioId && evidencePending[h.id])) return;
@@ -115,12 +116,12 @@ export function TrabajoEditor({ evaluacion, usuarioId, onSaved, onBack }: { eval
         {problemas}
       </div></div>
       <footer className="hf-pie-trabajo">
-      {editable && <><SaveStatus {...state} comparacion={state.remote ? compararTrabajo(evaluacion.configuracion, state.remote as TrabajoFlujo, state.draft) : undefined} /><button type="button" className={indice >= totalPreguntas - 1 ? 'primary' : 'secondary'} disabled={state.saving || pending || busy} onClick={async () => {
+      {editable && <><SaveStatus {...state} comparacion={state.remote ? compararTrabajo(evaluacion.configuracion, state.remote as TrabajoFlujo, state.draft) : undefined} /><button type="button" className={listoParaEntregar ? 'primary' : 'secondary'} disabled={state.saving || pending || busy} onClick={async () => {
         setError(''); setMostrarFaltantes(true); const errores = pendientesTrabajo(evaluacion.configuracion, state.draft.respuestas, state.draft.hallazgos);
         if (errores.length) { irAPendiente(); return; }
         setMostrarFaltantes(false);
         setBusy(true); try { await state.save(); onSaved(await flujoRequest<EvaluacionFlujo>(evaluacion.proyectoId, `/evaluaciones/${evaluacion.id}/entregar`, 'POST', { revision: state.getRevision() })); } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo entregar'); } finally { setBusy(false); }
-      }}>Entregar mi evaluación</button>{pending && <p role="status">Guarda las anotaciones y espera las capturas antes de entregar o cambiar de pregunta.</p>}</>}
+      }}>Entregar mi evaluación</button>{listoParaEntregar && !pending && <p role="status">Estás listo para entregar</p>}{pending && <p role="status">Guarda las anotaciones y espera las capturas antes de entregar o cambiar de pregunta.</p>}</>}
       {faltantes.length > 0 && <div role="alert" className="hf-error"><strong>Antes de entregar, revisa este pendiente:</strong><p>{faltantes[0]}</p><button type="button" className="secondary" onClick={irAPendiente}>Revisar pendiente</button></div>}
       </footer>
     </div>}

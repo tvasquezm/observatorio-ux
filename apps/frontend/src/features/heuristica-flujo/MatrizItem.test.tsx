@@ -228,6 +228,18 @@ describe('MatrizItem con el formulario de problemas dentro de la fila', () => {
     await userEvent.click(screen.getByRole('button', { name: /^1 problema/ }));
     expect(screen.getByText(/^Formulario de /)).toBeInTheDocument();
   });
+  it('Listo es acción principal en la fila de problemas', async () => {
+    render(<ConProblemas m={dos()} />);
+    await userEvent.click(screen.getAllByRole('button', { name: /^Agregar problema/ })[0]);
+    expect(screen.getByRole('button', { name: /^Listo\s?: problemas de / })).toHaveClass('primary');
+  });
+  it('Listo es acción principal en el comentario y Sección siguiente sigue secundaria', async () => {
+    const m = metodo('nielsen10');
+    render(<ConGuardado m={m} />);
+    await userEvent.click(screen.getAllByRole('button', { name: /^Comentario/ })[0]);
+    expect(screen.getByRole('button', { name: /^Listo/ })).toHaveClass('primary');
+    expect(screen.getByRole('button', { name: /^Sección siguiente/ })).toHaveClass('secondary');
+  });
   it('con trabajo pendiente Listo queda deshabilitado', async () => {
     const { rerender } = render(<ConProblemas m={dos()} />);
     await userEvent.click(screen.getAllByRole('button', { name: /^Agregar problema/ })[0]);

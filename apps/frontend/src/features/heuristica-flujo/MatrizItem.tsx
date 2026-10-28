@@ -128,9 +128,9 @@ export function MatrizItem({ criterios, config, respuestas, modo, individuales =
         <label className="field">Comentario{esEquipo ? ' del equipo' : ''} de {c.nombre}<textarea maxLength={10000} readOnly={!editable} required={exige} value={texto} onChange={e => onChange(esEquipo ? { ...r, justificacion: e.target.value } : { ...r, notas: e.target.value })} /></label>
         {!esEquipo && proyectoId && evaluacionId && <EvidenciaEditor proyectoId={proyectoId} evaluacionId={evaluacionId} evidenciaIds={r.evidenciaIds ?? []} editable={editable} onChange={ids => onChange({ ...r, evidenciaIds: ids })} onPendingChange={v => onEvidencePending?.(c.id, v)} etiqueta="de la valoración" />}
         {r.motivo && <p className="hf-ayuda">Nota anterior: {r.motivo}</p>}
-        <button type="button" className="secondary" onClick={() => alternar(c.id)}>Listo<span className="sr-only">: comentario de {c.nombre}</span></button>
+        <button type="button" className="primary" onClick={() => alternar(c.id)}>Listo<span className="sr-only">: comentario de {c.nombre}</span></button>
       </td></tr>}
-      {problemasVisibles && <tr id={`${nombre}-pr`} className="hf-fila-problemas"><td colSpan={niveles.length + 3}>{renderProblemas?.(c.id)}<button type="button" className="secondary" disabled={bloqueado} onClick={() => onToggleProblemas?.(c.id)}>Listo<span className="sr-only">: problemas de {c.nombre}</span></button></td></tr>}
+      {problemasVisibles && <tr id={`${nombre}-pr`} className="hf-fila-problemas"><td colSpan={niveles.length + 3}>{renderProblemas?.(c.id)}<button type="button" className="primary" disabled={bloqueado} onClick={() => onToggleProblemas?.(c.id)}>Listo<span className="sr-only">: problemas de {c.nombre}</span></button></td></tr>}
     </Fragment>;
   }
 

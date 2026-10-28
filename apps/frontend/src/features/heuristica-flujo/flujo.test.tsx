@@ -157,6 +157,18 @@ describe('flujo individual', () => {
     expect(screen.getByLabelText('Título del problema')).toHaveValue('Sin foco visible');
     expect(screen.queryByText('Problema guardado con éxito')).toBeNull();
   });
+  it('el aviso de listo y el botón Entregar principal aparecen solo sin pendientes', async () => {
+    const e = evaluation(); renderFlow(<Harness initial={e} />);
+    const entregar = screen.getByRole('button', { name: 'Entregar mi evaluación' });
+    expect(entregar).toHaveClass('secondary');
+    expect(screen.queryByText('Estás listo para entregar')).toBeNull();
+    await userEvent.click(screen.getByRole('radio', { name: e.configuracion.metodologia.escala.niveles[0].etiqueta }));
+    expect(screen.getByText('Estás listo para entregar')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Entregar mi evaluación' })).toHaveClass('primary');
+    await userEvent.click(screen.getByRole('button', { name: `Agregar problema para ${e.configuracion.metodologia.criterios[0].nombre}` }));
+    expect(screen.queryByText('Estás listo para entregar')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Entregar mi evaluación' })).toHaveClass('secondary');
+  });
   it('no colapsa un problema incompleto y dice qué falta', async () => {
     const e = evaluation(); renderFlow(<Harness initial={e} />);
     await userEvent.click(screen.getByRole('button', { name: `Agregar problema para ${e.configuracion.metodologia.criterios[0].nombre}` }));
