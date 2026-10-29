@@ -170,7 +170,7 @@ function Lienzo({ proyectoId, evaluacionId, meta, blob, editable, onPendingChang
         <input type="color" className="evidencia-color" aria-label="Color" title="Color" value={color} disabled={guardando} onChange={e => setColor(e.target.value)} />
       </div>
     </>}
-    <label className="field"><input type="checkbox" checked={original} onChange={e => setOriginal(e.target.checked)} /> Mostrar imagen original</label>
+    <div className="evidencia-original"><label><input type="checkbox" checked={original} onChange={e => setOriginal(e.target.checked)} aria-describedby="evidencia-original-ayuda" /> Mostrar imagen original</label><span id="evidencia-original-ayuda" className="text-muted-xs">Oculta las marcas para ver la captura sin anotar</span></div>
     <div style={{ position: 'relative', width: '100%', maxWidth: 720, marginBlock: 12 }}>
       <img src={url} alt="Captura de evidencia" style={{ display: 'block', width: '100%', height: 'auto', cursor: 'zoom-in' }} onClick={() => setAmpliada(true)} />
       <button type="button" className="evidencia-accion evidencia-ampliar" aria-label="Ampliar captura" title="Ver en grande" onClick={() => setAmpliada(true)}><Icon name="zoom-in" size={20} /></button>
@@ -192,10 +192,10 @@ function Lienzo({ proyectoId, evaluacionId, meta, blob, editable, onPendingChang
       }}
       onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setResaltada(null); }}>
       <span className="evidencia-muestra" style={{ background: a.color }} aria-hidden="true" />
-      <span className="evidencia-nombre">{TIPOS[a.tipo]}{a.texto && `: ${a.texto}`}</span>
+      {(!editable || a.tipo === 'texto' || a.texto) && <span className="evidencia-nombre">{TIPOS[a.tipo]}{a.texto && `: ${a.texto}`}</span>}
       {editable && a.tipo !== 'texto' && <>
-        <input type="color" className="evidencia-color" aria-label={`Color de la anotación ${i + 1}`} value={a.color} disabled={guardando} onChange={e => modificar(a.id, { color: e.target.value })} />
         <select className="input-sm" aria-label={`Forma de la anotación ${i + 1}`} value={a.tipo} disabled={guardando} onChange={e => modificar(a.id, { tipo: e.target.value as Forma })}>{FORMAS.map(f => <option key={f} value={f}>{TIPOS[f]}</option>)}</select>
+        <input type="color" className="evidencia-color" aria-label={`Color de la anotación ${i + 1}`} value={a.color} disabled={guardando} onChange={e => modificar(a.id, { color: e.target.value })} />
       </>}
       {editable && <button type="button" className="evidencia-accion evidencia-accion--danger" disabled={guardando} aria-label={`Eliminar anotación ${i + 1}`} title="Eliminar anotación" onClick={() => cambiar(anotaciones.filter(n => n.id !== a.id))}><Icon name="trash" size={20} /></button>}
     </li>)}</ol>

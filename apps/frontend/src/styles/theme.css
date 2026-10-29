@@ -1467,6 +1467,11 @@ button { cursor: pointer; }
 .evidencia-tarjeta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }
 .evidencia-tarjeta:hover, .evidencia-tarjeta:focus-within { border-color: var(--primary); }
 .evidencia-tarjeta:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.evidencia-original { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 8px 0; }
+.evidencia-original label { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.evidencia-original input[type="checkbox"] { width: 16px !important; height: 16px !important; min-height: 0 !important; margin: 0; padding: 0; accent-color: var(--primary); }
+.evidencia-herramientas input.evidencia-color, .evidencia-tarjeta input.evidencia-color, .evidencia-visor-barra input.evidencia-color { flex: none; width: 28px !important; height: 28px !important; min-height: 0 !important; padding: 2px; border-radius: 7px; }
+.evidencia-tarjeta select { flex: 1 1 120px; width: auto !important; max-width: 220px; }
 .evidencia-muestra { flex: none; width: 14px; height: 14px; border: 1px solid var(--line); border-radius: 50%; }
 .evidencia-nombre { flex: 1 1 120px; font-size: 14px; }
 .evidencia-marca--resaltada { filter: drop-shadow(0 0 4px rgba(0, 0, 0, .55)); }
