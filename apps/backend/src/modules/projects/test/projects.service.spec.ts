@@ -22,6 +22,9 @@ describe('ProjectsService', () => {
     proyectoMiembro: {
       findUnique: jest.Mock;
     };
+    sala: {
+      findUnique: jest.Mock;
+    };
     participanteWhitelist: {
       findUnique: jest.Mock;
       create: jest.Mock;
@@ -56,6 +59,9 @@ describe('ProjectsService', () => {
       proyectoMiembro: {
         findUnique: jest.fn(),
       },
+      sala: {
+        findUnique: jest.fn(),
+      },
       participanteWhitelist: {
         findUnique: jest.fn(),
         create: jest.fn(),
@@ -82,6 +88,54 @@ describe('ProjectsService', () => {
 
       expect(prisma.proyecto.create).toHaveBeenCalledWith({
         data: expect.objectContaining({ creadoPorId: DUEÑO_ID }),
+      });
+    });
+
+    describe('con salaId (DOCENTE o ADMIN)', () => {
+      const SALA_ID = 'sala-1';
+
+      it('el docente dueño de la sala crea el proyecto en ella', async () => {
+        prisma.sala.findUnique.mockResolvedValue({ id: SALA_ID, profesorId: DUEÑO_ID, deletedAt: null });
+        prisma.proyecto.create.mockResolvedValue(proyectoDeEjemplo);
+
+        await service.create(userDueño, { nombre: 'Observatorio UX', salaId: SALA_ID } as any);
+
+        expect(prisma.proyecto.create).toHaveBeenCalledWith({
+          data: expect.objectContaining({ creadoPorId: DUEÑO_ID, salaId: SALA_ID }),
+        });
+      });
+
+      it('RECHAZA (403) al docente que no es dueño de la sala y no crea nada', async () => {
+        prisma.sala.findUnique.mockResolvedValue({ id: SALA_ID, profesorId: 'otro-docente', deletedAt: null });
+
+        await expect(
+          service.create(userDueño, { nombre: 'Observatorio UX', salaId: SALA_ID } as any),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+        expect(prisma.proyecto.create).not.toHaveBeenCalled();
+      });
+
+      it('devuelve 404 si la sala no existe o está eliminada', async () => {
+        prisma.sala.findUnique.mockResolvedValueOnce(null);
+        await expect(
+          service.create(userDueño, { nombre: 'Observatorio UX', salaId: SALA_ID } as any),
+        ).rejects.toBeInstanceOf(NotFoundException);
+
+        prisma.sala.findUnique.mockResolvedValueOnce({ id: SALA_ID, profesorId: DUEÑO_ID, deletedAt: new Date() });
+        await expect(
+          service.create(userDueño, { nombre: 'Observatorio UX', salaId: SALA_ID } as any),
+        ).rejects.toBeInstanceOf(NotFoundException);
+        expect(prisma.proyecto.create).not.toHaveBeenCalled();
+      });
+
+      it('ADMIN puede crear el proyecto en la sala de cualquier docente', async () => {
+        prisma.sala.findUnique.mockResolvedValue({ id: SALA_ID, profesorId: 'otro-docente', deletedAt: null });
+        prisma.proyecto.create.mockResolvedValue(proyectoDeEjemplo);
+
+        await service.create(userAdmin, { nombre: 'Observatorio UX', salaId: SALA_ID } as any);
+
+        expect(prisma.proyecto.create).toHaveBeenCalledWith({
+          data: expect.objectContaining({ creadoPorId: 'admin-1', salaId: SALA_ID }),
+        });
       });
     });
   });
