@@ -496,4 +496,81 @@ describe('EvidenciaEditor', () => {
     await userEvent.click(screen.getByRole('dialog', { name: 'Captura ampliada' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
+  describe('visor ampliado editable', () => {
+    async function visor() {
+      abrir();
+      await screen.findByAltText('Captura de evidencia');
+      await userEvent.click(screen.getByRole('button', { name: 'Ampliar captura' }));
+      return screen.getByRole('dialog', { name: 'Captura ampliada' });
+    }
+    function gesto(de: [number, number], a: [number, number]) {
+      const svg = screen.getByLabelText('Anotaciones de la captura ampliada');
+      svg.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1000, height: 1000, right: 1000, bottom: 1000, x: 0, y: 0, toJSON: () => ({}) });
+      const ev = (tipo: string, [x, y]: [number, number]) => act(() => { svg.dispatchEvent(new MouseEvent(tipo, { clientX: x, clientY: y, bubbles: true })); });
+      ev('pointerdown', de); ev('pointermove', a); ev('pointerup', a);
+    }
+    const guardadaVisor = async () => { await userEvent.keyboard('{Escape}'); await userEvent.click(screen.getByRole('button', { name: 'Guardar anotaciones' })); return api.guardarAnotaciones.mock.calls[0][3][0]; };
+    it('dibuja en el visor, aparece en el editor y un clic sin arrastrar no hace nada', async () => {
+      const d = await visor();
+      gesto([300, 300], [300, 300]);
+      expect(screen.getByRole('dialog', { name: 'Captura ampliada' })).toBeInTheDocument();
+      expect(screen.queryAllByRole('listitem')).toHaveLength(0);
+      gesto([100, 100], [500, 500]);
+      expect(within(d).getByLabelText('Anotaciones de la captura ampliada')).toBeInTheDocument();
+      expect(screen.getAllByRole('listitem')).toHaveLength(1);
+      expect(screen.getByRole('listitem')).toHaveTextContent('Rectángulo');
+    });
+    it('usa la forma y el color elegidos en la barra del visor', async () => {
+      await visor();
+      await userEvent.click(screen.getByRole('button', { name: 'Flecha (captura ampliada)' }));
+      fireEvent.change(screen.getByLabelText('Color (captura ampliada)'), { target: { value: '#00ff00' } });
+      gesto([200, 300], [600, 700]);
+      const a = await guardadaVisor();
+      expect(a).toMatchObject({ tipo: 'flecha', color: '#00ff00', x: 0.2, y: 0.3, x2: 0.6, y2: 0.7 });
+    });
+    it('cambia forma y color de la anotación seleccionada', async () => {
+      await visor();
+      gesto([100, 100], [500, 500]);
+      gesto([300, 300], [300, 300]);
+      await userEvent.click(screen.getByRole('button', { name: 'Círculo (captura ampliada)' }));
+      fireEvent.change(screen.getByLabelText('Color (captura ampliada)'), { target: { value: '#0000ff' } });
+      const a = await guardadaVisor();
+      expect(a).toMatchObject({ tipo: 'circulo', color: '#0000ff' });
+    });
+    it('mueve y redimensiona con el ratón en el visor', async () => {
+      await visor();
+      gesto([100, 100], [500, 500]);
+      gesto([300, 300], [400, 350]);
+      gesto([600, 550], [700, 650]);
+      const a = await guardadaVisor();
+      expect(a.x).toBeCloseTo(0.2); expect(a.y).toBeCloseTo(0.15); expect(a.x2).toBeCloseTo(0.7); expect(a.y2).toBeCloseTo(0.65);
+    });
+    it('elimina la seleccionada y Deshacer del visor comparte el historial del editor', async () => {
+      await visor();
+      gesto([100, 100], [500, 500]);
+      gesto([300, 300], [300, 300]);
+      await userEvent.click(screen.getByRole('button', { name: 'Eliminar anotación seleccionada' }));
+      expect(screen.queryAllByRole('listitem')).toHaveLength(0);
+      await userEvent.click(screen.getByRole('button', { name: 'Deshacer (captura ampliada)' }));
+      expect(screen.getAllByRole('listitem')).toHaveLength(1);
+      await userEvent.click(screen.getByRole('button', { name: 'Deshacer (captura ampliada)' }));
+      expect(screen.queryAllByRole('listitem')).toHaveLength(0);
+      expect(screen.getByRole('button', { name: 'Deshacer (captura ampliada)' })).toBeDisabled();
+    });
+    it('muestra una anotación antigua de texto y no ofrece eliminarla sin selección', async () => {
+      api.cargarEvidencia.mockResolvedValue({ meta: { ...meta, anotaciones: [{ id: 't1', tipo: 'texto', x: 0.2, y: 0.2, x2: 0.2, y2: 0.2, color: '#d83232', texto: 'Revisar botón' }] }, blob: new Blob(['png'], { type: 'image/png' }) });
+      await visor();
+      expect(screen.getByLabelText('Anotaciones de la captura ampliada')).toHaveTextContent('Revisar botón');
+      expect(screen.getByRole('button', { name: 'Eliminar anotación seleccionada' })).toBeDisabled();
+      await userEvent.keyboard('{Escape}');
+      await userEvent.click(screen.getByRole('button', { name: 'Eliminar anotación 1' }));
+      expect(screen.queryAllByRole('listitem')).toHaveLength(0);
+    });
+    it('en solo lectura el visor no ofrece herramientas', async () => {
+      abrir(false);
+      await screen.findByAltText('Captura de evidencia');
+      await userEvent.click(screen.getByRole('button', { name: 'Ampliar captura' }));
+      expect(screen.queryByRole('toolbar', { name: /ampliada/ })).not.toBeInTheDocument();
+    });
+  });
 });
