@@ -51,6 +51,8 @@ export interface ConsensoFlujo {
   votosRedactor?: Record<string, string>;
   /** Último pedido de cambios de cada experto (uno por persona). Se retira al confirmar. */
   pedidosCambios?: PedidoCambios[];
+  /** Quién guardó el acuerdo por última vez y cuándo (ISO). No son decisiones: no reinician confirmaciones. */
+  guardadoPor?: string; guardadoEn?: string;
 }
 export interface PedidoCambios { evaluadorId: string; comentario: string; creadoEn: string }
 export type SeccionAcuerdo = 'criterios' | 'hallazgos' | 'positivos' | 'mejoras';

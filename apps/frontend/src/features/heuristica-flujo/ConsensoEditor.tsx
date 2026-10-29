@@ -9,7 +9,7 @@ import { RedactorPanel } from './RedactorPanel';
 import { HallazgoEditor, SaveStatus } from './TrabajoEditor';
 import { notify } from '../../shared/api/toast';
 import { flujoRequest } from './flujo.api';
-import { coincidenciasProblemas, hallazgoVacio, precargarConsenso } from './flujo-utils';
+import { coincidenciasProblemas, fechaChile, hallazgoVacio, precargarConsenso } from './flujo-utils';
 import { useFlujoDraft } from './useFlujoDraft';
 
 export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo }: { evaluacion: EvaluacionFlujo; usuarioId: string; onSaved: (e: EvaluacionFlujo) => void; onBack: () => void; equipo?: MiembroEquipoFlujo[] }) {
@@ -75,7 +75,8 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
     <section className="panel hf-progreso" aria-label="Progreso del acuerdo"><p><strong>{acordadas} de {criterios.length} preguntas acordadas</strong></p>
       <p>Confirmaron {confirmaron.length} de {evaluacion.trabajos.length} evaluadores{confirmaron.length ? `: ${confirmaron.map(t => t.nombre).join(', ')}` : ''}.</p>
       {faltan.length > 0 && <p>Falta confirmar: {faltan.map(t => t.nombre).join(', ')}.</p>}
-      <p>{soloLectura ? `Redacta el acuerdo: ${nombreDe(redactorId)}. Solo esa persona puede editarlo; tú puedes leerlo y confirmarlo.` : 'Tú redactas el acuerdo.'}</p></section>
+      <p>{soloLectura ? `Redacta el acuerdo: ${nombreDe(redactorId)}. Solo esa persona puede editarlo; tú puedes leerlo y confirmarlo.` : 'Tú redactas el acuerdo.'}</p>
+      {evaluacion.consenso.guardadoPor && evaluacion.consenso.guardadoEn && <p>{`Última edición por ${nombreDe(evaluacion.consenso.guardadoPor)} · ${fechaChile(evaluacion.consenso.guardadoEn)}`}</p>}</section>
     <RedactorPanel evaluacion={evaluacion} usuarioId={usuarioId} nombreDe={nombreDe} guardar={state.save} getRevision={state.getRevision} onSaved={onSaved} />
     <RecorridoSencillo pasos={[{ titulo: 'Acordar las respuestas', ayuda: 'Lean las respuestas de cada persona y elijan una respuesta común. Expliquen por qué están de acuerdo.', contenido: (<>
     <fieldset disabled={bloqueo}><legend>Acuerdo por pregunta</legend>

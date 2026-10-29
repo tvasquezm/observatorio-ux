@@ -224,6 +224,14 @@ describe('Flujo heurístico: privacidad, transiciones y consenso', () => {
     expect(resumirCumplimiento(c, consenso)!.total).toMatchObject({ sinEvaluar: 1, noAplica: 0 });
   });
 
+  it('registra quién y cuándo guardó el acuerdo y un no redactor sigue sin poder guardarlo', async () => {
+    const { service } = preparar();
+    let e = await entregarTodos(service, 2);
+    e = await service.guardarConsenso('p', e.id, decisiones(e), coordinador);
+    expect(e.consenso).toMatchObject({ guardadoPor: coordinador.id, guardadoEn: expect.any(String) });
+    await expect(service.guardarConsenso('p', e.id, { ...decisiones(e), revision: e.revision }, experto)).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
   it.each([1,5])('cierra %i expertos NA solamente con aprobación explícita e informe independiente', async cantidad => {
     const { service, filas } = preparar();
     let e = await entregarTodos(service, cantidad);

@@ -662,6 +662,14 @@ describe('consenso en equipo sobre la tabla', () => {
     renderFlow(<ConsensoEditor evaluacion={equipoEval('no_cumple', ['u2'])} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
     expect(screen.getByText('Confirmaron 1 de 2 evaluadores: Beto.')).toBeInTheDocument();
   });
+  it('muestra quién guardó el acuerdo por última vez y cuándo, y nada si no hay datos', () => {
+    const base = equipoEval('no_cumple');
+    const { unmount } = renderFlow(<ConsensoEditor evaluacion={{ ...base, consenso: { ...base.consenso, guardadoPor: 'u1', guardadoEn: '2026-10-28T15:00:00.000Z' } }} usuarioId="u2" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.getByText(/^Última edición por Ana · \d{1,2} /)).toBeInTheDocument();
+    unmount();
+    renderFlow(<ConsensoEditor evaluacion={base} usuarioId="u2" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.queryByText(/^Última edición por/)).toBeNull();
+  });
   it('un no redactor ve el acuerdo en solo lectura, quién redacta y quién falta', async () => {
     renderFlow(<ConsensoEditor evaluacion={equipoEval('no_cumple')} usuarioId="u2" onSaved={vi.fn()} onBack={vi.fn()} />);
     expect(screen.getByText('Redacta el acuerdo: Ana. Solo esa persona puede editarlo; tú puedes leerlo y confirmarlo.')).toBeInTheDocument();
@@ -868,6 +876,22 @@ describe('consenso en equipo sobre la tabla', () => {
       await comentar('Acordado');
       await waitFor(() => expect(api).toHaveBeenCalledTimes(2), { timeout: 3000 });
       expect(api).toHaveBeenLastCalledWith('p1', '/evaluaciones/e1/consenso', 'PATCH', expect.objectContaining({ criterios: [expect.objectContaining({ justificacion: 'Acordado' })] }));
+    });
+    it('tras un error que no es 409 no ofrece recargar la revisión', async () => {
+      const e = equipoEval('no_cumple');
+      api.mockRejectedValueOnce(new Error('Datos inválidos.'));
+      renderFlow(<Editor inicial={e} />);
+      await userEvent.click(screen.getByRole('radio', { name: 'Cumple' }));
+      await screen.findAllByText(/El borrador se conserva/, undefined, { timeout: 3000 });
+      expect(screen.queryAllByRole('button', { name: 'Recargar revisión conservando mi borrador' })).toHaveLength(0);
+    });
+    it('tras un 409 ofrece recargar la revisión conservando el borrador', async () => {
+      const e = equipoEval('no_cumple');
+      api.mockRejectedValueOnce(Object.assign(new Error('Otra persona guardó antes.'), { status: 409 }));
+      renderFlow(<Editor inicial={e} />);
+      await userEvent.click(screen.getByRole('radio', { name: 'Cumple' }));
+      await screen.findAllByText(/Otra persona guardó cambios antes que tú/, undefined, { timeout: 3000 });
+      expect(screen.getAllByRole('button', { name: 'Recargar revisión conservando mi borrador' }).length).toBeGreaterThan(0);
     });
     it('tras un 409 no reintenta con la revisión vieja hasta recargar', async () => {
       const e = equipoEval('no_cumple');
