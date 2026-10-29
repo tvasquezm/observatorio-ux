@@ -71,6 +71,8 @@ export function MatrizItem({ criterios, config, respuestas, modo, individuales =
   const grupos = agruparPorItem(config, esEquipo && soloDif ? criterios.filter(c => !coincidenDe(c.id)) : criterios);
   const [actual, setActual] = useState(() => Math.max(0, grupos.findIndex(g => g.criterios.some(c => c.id === foco))));
   const [abiertos, setAbiertos] = useState<Set<string>>(new Set());
+  const [completasAlInicio] = useState(() => new Set(esEquipo ? agruparPorItem(config, criterios).filter(g => g.criterios.every(c => criterioRespondido(config, c, respuestas.find(r => r.criterioId === c.id)))).map(g => g.categoria) : []));
+  const [categoriaAbierta, setCategoriaAbierta] = useState<Record<string, boolean>>({});
   const textoDe = (r: RespuestaCriterio) => esEquipo ? (r as Partial<DecisionCriterio>).justificacion ?? '' : r.notas;
   const notasDe = () => Object.fromEntries(respuestas.map(r => [r.criterioId, textoDe(r)]));
   const [guardadas, setGuardadas] = useState<Record<string, string>>(() => guardado.dirty ? {} : notasDe());
@@ -152,6 +154,18 @@ export function MatrizItem({ criterios, config, respuestas, modo, individuales =
       : visibles.map(g => {
         const respondidos = g.criterios.filter(c => criterioRespondido(config, c, respuestas.find(r => r.criterioId === c.id))).length;
         const enunciado = config.metodologia.enunciados?.[g.categoria] ?? (g.criterios.length === 1 ? g.criterios[0].descripcion : '');
+        const completa = respondidos === g.criterios.length;
+        const cuerpo = <>
+          {enunciado && <p className="hf-enunciado">{enunciado}</p>}
+          <p className="hf-avance">{respondidos} de {g.criterios.length} {esEquipo ? 'acordadas' : 'respondidos'}{completa ? ' · ✓ Categoría completa' : ''}</p>
+          {g.subgrupos.map(s => tabla(s, `${g.categoria}${g.subgrupos.length > 1 ? `: ${s.escala.niveles.map(n => n.etiqueta).join(', ')}` : ''}`, false))}
+        </>;
+        if (esEquipo) return <section className="hf-cat" key={g.categoria} aria-labelledby={`${id}-t-${g.categoria}`}>
+          <details open={categoriaAbierta[g.categoria] ?? !completasAlInicio.has(g.categoria)} onToggle={e => { const abierta = e.currentTarget.open; setCategoriaAbierta(m => m[g.categoria] === abierta ? m : { ...m, [g.categoria]: abierta }); }}>
+            <summary><h3 ref={titulo} tabIndex={-1} id={`${id}-t-${g.categoria}`} style={{ display: 'inline', marginRight: 8 }}>{g.categoria}</h3><span>{completa ? '· ✓ Completa' : `· Faltan ${g.criterios.length - respondidos}`}</span></summary>
+            {cuerpo}
+          </details>
+        </section>;
         return <section className="hf-cat" key={g.categoria} aria-labelledby={`${id}-t-${g.categoria}`}>
           <h3 ref={titulo} tabIndex={-1} id={`${id}-t-${g.categoria}`}>{g.categoria}</h3>
           {enunciado && <p className="hf-enunciado">{enunciado}</p>}

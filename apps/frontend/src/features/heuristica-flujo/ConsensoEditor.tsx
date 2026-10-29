@@ -7,6 +7,7 @@ import { EvidenciaEditor } from './EvidenciaEditor';
 import { MatrizItem } from './MatrizItem';
 import { RedactorPanel } from './RedactorPanel';
 import { HallazgoEditor, SaveStatus } from './TrabajoEditor';
+import { notify } from '../../shared/api/toast';
 import { flujoRequest } from './flujo.api';
 import { coincidenciasProblemas, hallazgoVacio, precargarConsenso } from './flujo-utils';
 import { useFlujoDraft } from './useFlujoDraft';
@@ -25,7 +26,10 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
   const [seleccion, setSeleccion] = useState<string[]>([]);
   const [aviso, setAviso] = useState('');
   const [nuevaId, setNuevaId] = useState<string | null>(null);
+  const [positivosPlegados, setPositivosPlegados] = useState<ReadonlySet<string>>(new Set());
+  const [positivoSinTitulo, setPositivoSinTitulo] = useState<string | null>(null);
   const decisiones = useRef<Record<string, HTMLFieldSetElement | null>>({});
+  const confirmacion = useRef<HTMLElement>(null);
   useEffect(() => { if (!nuevaId) return; decisiones.current[nuevaId]?.focus(); setNuevaId(null); }, [nuevaId]);
   // Si todos coinciden en una pregunta, la respuesta común queda precargada (el borrador queda sin guardar y se autoguarda).
   useEffect(() => { if (soloLectura) return; if (precargarConsenso(evaluacion.configuracion, evaluacion.trabajos, state.draft.criterios) !== state.draft.criterios) state.setDraft(prev => ({ ...prev, criterios: precargarConsenso(evaluacion.configuracion, evaluacion.trabajos, prev.criterios) })); }, [evaluacion.configuracion, evaluacion.trabajos, state.draft.criterios, soloLectura]);
@@ -33,6 +37,7 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
   const acordadas = criterios.filter(c => { const r = state.draft.criterios.find(x => x.criterioId === c.id); return !!r && (r.noAplica || r.valor !== null); }).length;
   const confirmaron = evaluacion.trabajos.filter(t => evaluacion.consenso.aprobadoPor.includes(t.evaluadorId) && !state.dirty);
   const faltan = evaluacion.trabajos.filter(t => !confirmaron.includes(t));
+  const yaConfirmo = evaluacion.consenso.aprobadoPor.includes(usuarioId) && !state.dirty;
   const nombreDe = (id: string) => equipo?.find(m => m.id === id)?.nombre ?? evaluacion.trabajos.find(t => t.evaluadorId === id)?.nombre ?? 'El coordinador';
   const esExperto = evaluacion.configuracion.evaluadorIds.includes(usuarioId);
   const pendientes = pendientesAcuerdo({ ...evaluacion, consenso: { ...evaluacion.consenso, ...state.draft } });
@@ -45,7 +50,16 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
   const update = (h: DecisionHallazgo) => state.setDraft({ ...state.draft, hallazgos: state.draft.hallazgos.map(x => x.id === h.id ? h : x) });
   async function action(action: 'aprobar' | 'consolidar' | 'entregar-acuerdo') {
     setBusy(true); setError('');
-    try { await state.save(); onSaved(await flujoRequest<EvaluacionFlujo>(evaluacion.proyectoId, `/evaluaciones/${evaluacion.id}/${action}`, 'POST', { revision: state.getRevision() })); }
+    try {
+      await state.save();
+      const r = await flujoRequest<EvaluacionFlujo>(evaluacion.proyectoId, `/evaluaciones/${evaluacion.id}/${action}`, 'POST', { revision: state.getRevision() });
+      onSaved(r);
+      if (action === 'aprobar' || action === 'entregar-acuerdo') {
+        const faltan = r.trabajos.filter(t => !r.consenso.aprobadoPor.includes(t.evaluadorId)).map(t => t.nombre);
+        notify.success(action === 'entregar-acuerdo' ? 'Entregaste el acuerdo. Los demás expertos pueden confirmarlo o pedir cambios.' : faltan.length ? `Confirmaste el acuerdo. Falta que confirme: ${faltan.join(', ')}.` : 'Confirmaste el acuerdo. Ya confirmaron todas las personas.');
+        confirmacion.current?.focus(); confirmacion.current?.scrollIntoView?.({ block: 'center' });
+      }
+    }
     catch (e) { setError(e instanceof Error ? e.message : 'No se pudo completar la acción'); } finally { setBusy(false); }
   }
   async function pedirCambios() {
@@ -102,9 +116,11 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
     </fieldset>)}</section>
     </div>) }, { titulo: 'Preparar el informe', ayuda: 'Escriban qué recomiendan mejorar. Cada persona debe confirmar el acuerdo antes de que el coordinador prepare el informe.', contenido: (<>
     <details className="panel"><summary>Agregar lo que funciona bien (opcional)</summary>
-      <fieldset disabled={bloqueo}><legend>Lo que funciona bien en el producto</legend>{state.draft.positivos.map((p, i) => <fieldset key={p.id}><legend>Aspecto positivo {i + 1}: {p.titulo || 'Sin título'}</legend>
+      <fieldset disabled={bloqueo}><legend>Lo que funciona bien en el producto</legend>{state.draft.positivos.map((p, i) => positivosPlegados.has(p.id) ? <fieldset key={p.id}><legend>Aspecto positivo {i + 1}: {p.titulo}</legend><p role="status">Aspecto positivo guardado con éxito</p><button type="button" className="secondary" onClick={() => setPositivosPlegados(prev => { const n = new Set(prev); n.delete(p.id); return n; })}>Editar aspecto positivo {i + 1}</button><button type="button" className="danger" onClick={() => state.setDraft({ ...state.draft, positivos: state.draft.positivos.filter(x => x.id !== p.id) })}>Quitar aspecto positivo {i + 1}</button></fieldset> : <fieldset key={p.id}><legend>Aspecto positivo {i + 1}: {p.titulo || 'Sin título'}</legend>
         <Field label={`Título del aspecto positivo ${i + 1}`}><input maxLength={300} value={p.titulo} onChange={e => state.setDraft({ ...state.draft, positivos: state.draft.positivos.map(x => x.id === p.id ? { ...x, titulo: e.target.value } : x) })} /></Field>
         <Field label={`Descripción del aspecto positivo ${i + 1}`}><textarea maxLength={10000} value={p.descripcion} onChange={e => state.setDraft({ ...state.draft, positivos: state.draft.positivos.map(x => x.id === p.id ? { ...x, descripcion: e.target.value } : x) })} /></Field>
+        <button type="button" className="secondary" onClick={() => { if (!p.titulo.trim()) { setPositivoSinTitulo(p.id); return; } setPositivoSinTitulo(null); setPositivosPlegados(prev => new Set(prev).add(p.id)); }}>Guardar aspecto positivo {i + 1}</button>
+        {positivoSinTitulo === p.id && !p.titulo.trim() && <p role="alert" className="hf-error">Escribe un título para guardar el aspecto positivo.</p>}
         <button type="button" className="danger" onClick={() => state.setDraft({ ...state.draft, positivos: state.draft.positivos.filter(x => x.id !== p.id) })}>Quitar aspecto positivo {i + 1}</button>
       </fieldset>)}
       <button type="button" className="secondary" disabled={state.draft.positivos.length >= 200} onClick={() => state.setDraft({ ...state.draft, positivos: [...state.draft.positivos, { id: crypto.randomUUID(), titulo: '', descripcion: '' }] })}>Agregar aspecto positivo</button></fieldset>
@@ -134,12 +150,12 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
         {(Object.keys(ETIQUETA_SECCION_ACUERDO) as SeccionAcuerdo[]).map(sec => { const items = pendientes.filter(p => p.seccion === sec); return items.length ? <div key={sec}><h3>{ETIQUETA_SECCION_ACUERDO[sec]} ({items.length})</h3><ul>{items.map(p => <li key={`${sec}:${p.id}`}>{p.nombre}: {p.faltas.join(' ')}</li>)}</ul></div> : null; })}
       </>}
     </section>
-    <section className="panel"><div className="panel-head"><h2>Confirmación de todos los expertos</h2></div><p>Editar el consenso revoca las confirmaciones previas. {state.dirty ? 'Hay cambios pendientes: las aprobaciones visibles corresponden a la versión guardada.' : ''}</p>
+    <section className="panel" ref={confirmacion} tabIndex={-1}><div className="panel-head"><h2>Confirmación de todos los expertos</h2></div>{yaConfirmo && <p role="status"><strong>Ya confirmaste el acuerdo</strong></p>}<p>Editar el consenso revoca las confirmaciones previas. {state.dirty ? 'Hay cambios pendientes: las aprobaciones visibles corresponden a la versión guardada.' : ''}</p>
       <ul>{evaluacion.trabajos.map(t => <li key={t.evaluadorId}>{t.nombre}: {evaluacion.consenso.aprobadoPor.includes(t.evaluadorId) && !state.dirty ? 'Confirmado' : 'Confirmación pendiente'}</li>)}</ul>
       {!!evaluacion.consenso.pedidosCambios?.length && <><h3>Cambios pedidos</h3><ul>{evaluacion.consenso.pedidosCambios.map(p => <li key={p.evaluadorId}>{nombreDe(p.evaluadorId)} pidió cambios: {p.comentario}</li>)}</ul></>}
       {!soloLectura && <p className="hf-ayuda">Al entregar el acuerdo quedas confirmado automáticamente. Los demás expertos podrán confirmarlo o pedir cambios.</p>}
       <div className="hf-actions">{!soloLectura && <button type="button" className="secondary" disabled={busy || state.saving || !completo} onClick={() => void action('entregar-acuerdo')}>Entregar acuerdo</button>}
-      {soloLectura && esExperto && <><button type="button" className="secondary" disabled={busy || state.saving || !completo} onClick={() => void action('aprobar')}>Estoy de acuerdo</button>
+      {soloLectura && esExperto && <><button type="button" className="secondary" disabled={busy || state.saving || !completo || yaConfirmo} onClick={() => void action('aprobar')}>Estoy de acuerdo</button>
         <button type="button" className="secondary" disabled={busy || pidiendo} onClick={() => setPidiendo(true)}>Pido cambios</button></>}
       {evaluacion.coordinadorId === usuarioId && <button type="button" className="primary" disabled={busy || state.saving || state.dirty || !evaluacion.configuracion.evaluadorIds.every(id => evaluacion.consenso.aprobadoPor.includes(id))} onClick={() => void action('consolidar')}>Preparar informe</button>}</div>
       {soloLectura && esExperto && pidiendo && <div className="hf-pedir-cambios"><label className="field">Qué cambios pides<textarea maxLength={2000} disabled={busy} value={comentario} onChange={e => setComentario(e.target.value)} /></label>
