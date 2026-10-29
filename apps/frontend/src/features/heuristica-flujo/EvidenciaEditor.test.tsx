@@ -566,6 +566,43 @@ describe('EvidenciaEditor', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Eliminar anotación 1' }));
       expect(screen.queryAllByRole('listitem')).toHaveLength(0);
     });
+    it('con el teclado, flechas mueven y Mayús+flechas redimensionan la seleccionada, y Deshacer lo revierte', async () => {
+      await visor();
+      gesto([100, 100], [500, 500]);
+      gesto([300, 300], [300, 300]);
+      const dialogo = screen.getByRole('dialog', { name: 'Captura ampliada' });
+      fireEvent.keyDown(dialogo.querySelector('.evidencia-visor-caja')!, { key: 'ArrowRight' });
+      fireEvent.keyDown(dialogo.querySelector('.evidencia-visor-caja')!, { key: 'ArrowDown', shiftKey: true });
+      await userEvent.click(screen.getByRole('button', { name: 'Guardar anotaciones (captura ampliada)' }));
+      const a = api.guardarAnotaciones.mock.calls[0][3][0];
+      expect(a.x).toBeCloseTo(0.11); expect(a.y).toBeCloseTo(0.1); expect(a.x2).toBeCloseTo(0.51); expect(a.y2).toBeCloseTo(0.51);
+    });
+    it('Esc sigue cerrando el visor y avisa si quedan cambios sin guardar', async () => {
+      await visor();
+      gesto([100, 100], [500, 500]);
+      await userEvent.keyboard('{Escape}');
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(screen.getByRole('status')).toHaveTextContent('Cerraste la captura ampliada con anotaciones pendientes de guardar.');
+      expect(screen.getByRole('button', { name: 'Guardar anotaciones' })).toBeEnabled();
+    });
+    it('guarda desde el visor sin tocar el original y sin aviso al cerrar', async () => {
+      await visor();
+      gesto([100, 100], [500, 500]);
+      await userEvent.click(screen.getByRole('button', { name: 'Guardar anotaciones (captura ampliada)' }));
+      expect(api.guardarAnotaciones).toHaveBeenCalledTimes(1);
+      expect(api.subirEvidenciaFlujo).not.toHaveBeenCalled();
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Guardar anotaciones (captura ampliada)' })).toBeDisabled());
+      await userEvent.keyboard('{Escape}');
+      expect(screen.getByRole('status')).not.toHaveTextContent('pendientes');
+      expect(screen.getByRole('button', { name: 'Guardar anotaciones' })).toBeDisabled();
+    });
+    it('lo hecho en el editor llega al visor', async () => {
+      abrir();
+      await screen.findByAltText('Captura de evidencia');
+      rectangulo();
+      await userEvent.click(screen.getByRole('button', { name: 'Ampliar captura' }));
+      expect(screen.getByLabelText('Anotaciones de la captura ampliada').querySelectorAll('rect')).toHaveLength(1);
+    });
     it('en solo lectura el visor no ofrece herramientas', async () => {
       abrir(false);
       await screen.findByAltText('Captura de evidencia');

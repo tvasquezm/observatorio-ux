@@ -29,6 +29,7 @@ const mensaje = (e: unknown) => e instanceof Error ? e.message : 'No se pudo gua
 interface EdicionVisor {
   forma: Forma; color: string; deshabilitado: boolean; puedeDeshacer: boolean;
   seleccionada?: AnotacionEvidencia; preview: AnotacionEvidencia | null;
+  dirty: boolean; onGuardar: () => void; onTecla: (d: { x: number; y: number }, redimensionar: boolean) => void;
   onForma: (f: Forma) => void; onColor: (c: string) => void; onDeshacer: () => void; onEliminar: () => void;
   gestos: Pick<SVGProps<SVGSVGElement>, 'onPointerDown' | 'onPointerMove' | 'onPointerUp' | 'onPointerCancel'>;
 }
@@ -47,13 +48,19 @@ function VisorAmpliado({ url, anotaciones, conMarcas, onClose, edicion }: { url:
   }, []);
   return createPortal(
     <div className="evidencia-visor-fondo" role="dialog" aria-modal="true" aria-label="Captura ampliada" onClick={onClose}>
-      <div className="evidencia-visor-caja" onClick={e => e.stopPropagation()}>
+      <div className="evidencia-visor-caja" onClick={e => e.stopPropagation()} onKeyDown={edicion ? e => {
+        const d = FLECHAS[e.key];
+        if (!d || !edicion.seleccionada || edicion.deshabilitado || e.altKey || e.ctrlKey || e.metaKey || /^(INPUT|SELECT|TEXTAREA)$/.test((e.target as HTMLElement).tagName)) return;
+        e.preventDefault(); edicion.onTecla(d, e.shiftKey);
+      } : undefined}>
         <button ref={cerrarRef} type="button" className="evidencia-accion evidencia-visor-cerrar" aria-label="Cerrar vista ampliada" title="Cerrar (Esc)" onClick={onClose}><Icon name="close" size={20} /></button>
         {edicion && conMarcas && <div className="evidencia-herramientas evidencia-visor-barra" role="toolbar" aria-label="Herramientas de anotación de la captura ampliada">
           {FORMAS.map(f => <button key={f} type="button" className="evidencia-accion" aria-label={`${TIPOS[f]} (captura ampliada)`} title={TIPOS[f]} aria-pressed={(edicion.seleccionada?.tipo ?? edicion.forma) === f} disabled={edicion.deshabilitado} onClick={() => edicion.onForma(f)}><Icon name={ICONO_FORMA[f]} size={20} /></button>)}
           <input type="color" className="evidencia-color" aria-label="Color (captura ampliada)" title="Color" value={edicion.seleccionada?.color ?? edicion.color} disabled={edicion.deshabilitado} onChange={e => edicion.onColor(e.target.value)} />
           <button type="button" className="secondary" aria-label="Deshacer (captura ampliada)" disabled={!edicion.puedeDeshacer || edicion.deshabilitado} onClick={edicion.onDeshacer}>Deshacer</button>
           <button type="button" className="evidencia-accion evidencia-accion--danger" aria-label="Eliminar anotación seleccionada" title="Eliminar anotación seleccionada" disabled={!edicion.seleccionada || edicion.deshabilitado} onClick={edicion.onEliminar}><Icon name="trash" size={20} /></button>
+          <button type="button" className="primary" aria-label="Guardar anotaciones (captura ampliada)" disabled={!edicion.dirty || edicion.deshabilitado} onClick={edicion.onGuardar}>{edicion.deshabilitado ? 'Guardando…' : 'Guardar'}</button>
+          {edicion.dirty && <span role="status" className="hint-text">Anotaciones pendientes de guardar.</span>}
         </div>}
         <div className="evidencia-visor-imagen">
           <img src={url} alt="Captura de evidencia ampliada" />
@@ -141,6 +148,8 @@ function Lienzo({ proyectoId, evaluacionId, meta, blob, editable, onPendingChang
       onPointerCancel: () => { gesto.current = null; setPreview(null); setVivo(null); },
     };
   }
+  /** Cerrar el visor no descarta nada: si quedan cambios sin guardar, el editor lo avisa. */
+  function cerrarVisor() { setAmpliada(false); if (dirty) setEstado('Cerraste la captura ampliada con anotaciones pendientes de guardar.'); }
   function deshacer() { setAnotaciones(historial[historial.length - 1]); setHistorial(h => h.slice(0, -1)); setEstado(''); }
   async function guardar() {
     setGuardando(true); setError('');
@@ -192,9 +201,9 @@ function Lienzo({ proyectoId, evaluacionId, meta, blob, editable, onPendingChang
     </li>)}</ol>
     {editable && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}><button type="button" className="secondary" disabled={!historial.length || guardando} onClick={deshacer}>Deshacer</button><button type="button" className="primary" disabled={!dirty || guardando} onClick={() => void guardar()}>{guardando ? 'Guardando anotaciones…' : 'Guardar anotaciones'}</button></div>}
     {error && <p role="alert">{error}{editable && <button type="button" className="text-button" disabled={guardando} onClick={() => void recuperar()}>Recuperar anotaciones guardadas</button>}</p>}<p role="status">{estado || (dirty ? 'Anotaciones pendientes de guardar.' : '')}</p>
-    {ampliada && url && <VisorAmpliado url={url} anotaciones={visibles} conMarcas={!original} onClose={() => setAmpliada(false)}
+    {ampliada && url && <VisorAmpliado url={url} anotaciones={visibles} conMarcas={!original} onClose={cerrarVisor}
       edicion={editable ? {
-        forma, color, deshabilitado: guardando, puedeDeshacer: historial.length > 0, seleccionada, preview, gestos: gestos(() => undefined),
+        forma, color, dirty, onGuardar: () => void guardar(), onTecla: (d, redim) => { if (seleccionada) cambiar(anotaciones.map(n => n.id === seleccionada.id ? ajustarConTeclado(seleccionada, d, redim) : n)); }, deshabilitado: guardando, puedeDeshacer: historial.length > 0, seleccionada, preview, gestos: gestos(() => undefined),
         onForma: f => { if (seleccionada) modificar(seleccionada.id, { tipo: f }); setForma(f); },
         onColor: c => { if (seleccionada) modificar(seleccionada.id, { color: c }); setColor(c); },
         onDeshacer: deshacer,
