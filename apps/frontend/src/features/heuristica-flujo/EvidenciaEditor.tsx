@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ClipboardEvent, DragEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -9,6 +9,8 @@ import { Icon } from '../../shared/components/ui/Icon';
 import { comprimirImagen } from '../../shared/utils/comprimir-imagen';
 import { cargarEvidencia, guardarAnotaciones, subirEvidenciaFlujo } from './evidencia.api';
 import { normalizarTipoEvidencia, validarImagenEvidencia } from './evidencia-validar';
+import { FLECHAS, Marca, Tiradores, ajustarConTeclado, avanzarGesto, iniciarGesto, puntoEnSvg, terminarGesto } from './anotaciones-interaccion';
+import type { Gesto } from './anotaciones-interaccion';
 
 interface Props {
   proyectoId: string; evaluacionId: string; evidenciaIds: string[]; editable: boolean;
@@ -22,90 +24,6 @@ type Forma = Exclude<AnotacionEvidencia['tipo'], 'texto'>;
 const FORMAS: Forma[] = ['rectangulo', 'circulo', 'flecha', 'destacado'];
 const ICONO_FORMA = { rectangulo: 'shape-rect', circulo: 'shape-circle', flecha: 'shape-arrow', destacado: 'shape-highlight' } as const;
 const mensaje = (e: unknown) => e instanceof Error ? e.message : 'No se pudo guardar la captura.';
-
-function MarcaBase({ anotacion: a }: { anotacion: AnotacionEvidencia }) {
-  const marker = useId().replace(/:/g, '');
-  const x = Math.min(a.x, a.x2) * 1000, y = Math.min(a.y, a.y2) * 1000;
-  const w = Math.abs(a.x2 - a.x) * 1000, h = Math.abs(a.y2 - a.y) * 1000;
-  if (a.tipo === 'texto') return <text x={a.x * 1000} y={a.y * 1000} fill={a.color} fontSize="25">{a.texto}</text>;
-  if (a.tipo === 'circulo') return <ellipse cx={x + w / 2} cy={y + h / 2} rx={w / 2} ry={h / 2} stroke={a.color} strokeWidth="5" fill="none" />;
-  if (a.tipo === 'flecha') return <g><defs><marker id={marker} markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill={a.color} /></marker></defs><line x1={a.x * 1000} y1={a.y * 1000} x2={a.x2 * 1000} y2={a.y2 * 1000} stroke={a.color} strokeWidth="5" markerEnd={`url(#${marker})`} /></g>;
-  return <rect x={x} y={y} width={w} height={h} stroke={a.tipo === 'destacado' ? 'none' : a.color} strokeWidth="5" fill={a.tipo === 'destacado' ? a.color : 'none'} fillOpacity="0.3" />;
-}
-
-function Marca({ anotacion, resaltada }: { anotacion: AnotacionEvidencia; resaltada?: boolean }) {
-  return <g className={resaltada ? 'evidencia-marca--resaltada' : undefined}><MarcaBase anotacion={anotacion} /></g>;
-}
-
-/** Distancia (0–1) bajo la cual un gesto sobre la captura cuenta como clic y no como trazo. */
-const UMBRAL_CLIC = 0.01;
-/** Radio (0–1) de agarre de un tirador y holgura al apuntar a una marca. */
-const RADIO_TIRADOR = 0.025;
-const HOLGURA_MARCA = 0.015;
-
-type Punto = { x: number; y: number };
-type Tirador = 'nw' | 'ne' | 'sw' | 'se' | 'ini' | 'fin';
-type Gesto =
-  | { tipo: 'dibujar'; ini: Punto }
-  | { tipo: 'mover'; origen: Punto; base: AnotacionEvidencia }
-  | { tipo: 'redimensionar'; origen: Punto; base: AnotacionEvidencia; tirador: Tirador };
-
-const limitar = (v: number) => Math.max(0, Math.min(1, v));
-const cajaDe = (a: AnotacionEvidencia) => ({ x1: Math.min(a.x, a.x2), y1: Math.min(a.y, a.y2), x2: Math.max(a.x, a.x2), y2: Math.max(a.y, a.y2) });
-const CURSOR_TIRADOR: Record<Tirador, string> = { nw: 'nwse-resize', se: 'nwse-resize', ne: 'nesw-resize', sw: 'nesw-resize', ini: 'pointer', fin: 'pointer' };
-
-function tiradoresDe(a: AnotacionEvidencia): { id: Tirador; x: number; y: number }[] {
-  if (a.tipo === 'flecha') return [{ id: 'ini', x: a.x, y: a.y }, { id: 'fin', x: a.x2, y: a.y2 }];
-  const c = cajaDe(a);
-  return [{ id: 'nw', x: c.x1, y: c.y1 }, { id: 'ne', x: c.x2, y: c.y1 }, { id: 'sw', x: c.x1, y: c.y2 }, { id: 'se', x: c.x2, y: c.y2 }];
-}
-
-function tiradorEn(a: AnotacionEvidencia, p: Punto): Tirador | undefined {
-  return tiradoresDe(a).find(t => Math.hypot(t.x - p.x, t.y - p.y) <= RADIO_TIRADOR)?.id;
-}
-
-function distanciaASegmento(p: Punto, a: AnotacionEvidencia) {
-  const dx = a.x2 - a.x, dy = a.y2 - a.y, largo = dx * dx + dy * dy;
-  const t = largo === 0 ? 0 : limitar(((p.x - a.x) * dx + (p.y - a.y) * dy) / largo);
-  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
-}
-
-function sobreMarca(a: AnotacionEvidencia, p: Punto) {
-  if (a.tipo === 'flecha') return distanciaASegmento(p, a) <= HOLGURA_MARCA;
-  const c = cajaDe(a);
-  if (a.tipo === 'circulo') {
-    const rx = (c.x2 - c.x1) / 2 + HOLGURA_MARCA, ry = (c.y2 - c.y1) / 2 + HOLGURA_MARCA;
-    return ((p.x - (c.x1 + c.x2) / 2) / rx) ** 2 + ((p.y - (c.y1 + c.y2) / 2) / ry) ** 2 <= 1;
-  }
-  return p.x >= c.x1 - HOLGURA_MARCA && p.x <= c.x2 + HOLGURA_MARCA && p.y >= c.y1 - HOLGURA_MARCA && p.y <= c.y2 + HOLGURA_MARCA;
-}
-
-/** Paso (0–1) de cada pulsación de flecha en una tarjeta. */
-const PASO_TECLADO = 0.01;
-const FLECHAS: Record<string, Punto> = { ArrowLeft: { x: -1, y: 0 }, ArrowRight: { x: 1, y: 0 }, ArrowUp: { x: 0, y: -1 }, ArrowDown: { x: 0, y: 1 } };
-
-/** Flechas mueven la marca; Mayús+flechas la redimensionan (esquina inferior derecha en formas, fin en la flecha). */
-function ajustarConTeclado(a: AnotacionEvidencia, d: Punto, redimensionar: boolean): AnotacionEvidencia {
-  const dx = d.x * PASO_TECLADO, dy = d.y * PASO_TECLADO;
-  if (!redimensionar) return aplicarGesto({ tipo: 'mover', origen: { x: 0, y: 0 }, base: a }, { x: dx, y: dy });
-  if (a.tipo === 'flecha') return aplicarGesto({ tipo: 'redimensionar', origen: { x: 0, y: 0 }, base: a, tirador: 'fin' }, { x: limitar(a.x2 + dx), y: limitar(a.y2 + dy) });
-  const c = cajaDe(a);
-  return aplicarGesto({ tipo: 'redimensionar', origen: { x: 0, y: 0 }, base: a, tirador: 'se' }, { x: Math.min(1, Math.max(c.x1 + PASO_TECLADO, c.x2 + dx)), y: Math.min(1, Math.max(c.y1 + PASO_TECLADO, c.y2 + dy)) });
-}
-
-/** Marca resultante de un gesto de mover o redimensionar, siempre dentro de 0–1. */
-function aplicarGesto(g: Exclude<Gesto, { tipo: 'dibujar' }>, p: Punto): AnotacionEvidencia {
-  const b = g.base;
-  if (g.tipo === 'mover') {
-    const c = cajaDe(b);
-    const dx = Math.max(-c.x1, Math.min(1 - c.x2, p.x - g.origen.x)), dy = Math.max(-c.y1, Math.min(1 - c.y2, p.y - g.origen.y));
-    return { ...b, x: b.x + dx, y: b.y + dy, x2: b.x2 + dx, y2: b.y2 + dy };
-  }
-  if (g.tirador === 'ini') return { ...b, x: p.x, y: p.y };
-  if (g.tirador === 'fin') return { ...b, x2: p.x, y2: p.y };
-  const c = cajaDe(b);
-  return { ...b, x: g.tirador.endsWith('w') ? c.x2 : c.x1, y: g.tirador.startsWith('n') ? c.y2 : c.y1, x2: p.x, y2: p.y };
-}
 
 /** Captura a pantalla casi completa, con las anotaciones actuales. Se cierra con Esc, con el fondo o con el botón. */
 function VisorAmpliado({ url, anotaciones, conMarcas, onClose }: { url: string; anotaciones: AnotacionEvidencia[]; conMarcas: boolean; onClose: () => void }) {
@@ -187,10 +105,6 @@ function Lienzo({ proyectoId, evaluacionId, meta, blob, editable, onPendingChang
     try { const data = await cargarEvidencia(proyectoId, evaluacionId, meta.id); qc.setQueryData(['flujo-evidencia', proyectoId, evaluacionId, meta.id, userId], data); setAnotaciones(data.meta.anotaciones); setGuardadas(JSON.stringify(data.meta.anotaciones)); setRevision(data.meta.revision); setHistorial([]); setError(''); setEstado('Anotaciones guardadas recuperadas.'); }
     catch (e) { setError(mensaje(e)); } finally { setGuardando(false); }
   }
-  function punto(e: React.PointerEvent<SVGSVGElement>) {
-    const r = e.currentTarget.getBoundingClientRect();
-    return { x: Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)), y: Math.max(0, Math.min(1, (e.clientY - r.top) / r.height)) };
-  }
   return <section className="panel" aria-label="Editor de captura">
     {editable && <>
       <div className="evidencia-guia"><strong>Dibuja sobre la captura para marcar el problema</strong><span>Un clic sin arrastrar abre la imagen en grande</span><span>El original se conserva</span></div>
@@ -207,36 +121,29 @@ function Lienzo({ proyectoId, evaluacionId, meta, blob, editable, onPendingChang
         onClick={() => { if (!editable) setAmpliada(true); }}
         onPointerDown={e => {
           if (!editable || guardando) return;
-          const p = punto(e); e.currentTarget.setPointerCapture?.(e.pointerId);
-          const tirador = seleccionada && tiradorEn(seleccionada, p);
-          if (seleccionada && tirador) { gesto.current = { tipo: 'redimensionar', origen: p, base: seleccionada, tirador }; return; }
+          const p = puntoEnSvg(e); e.currentTarget.setPointerCapture?.(e.pointerId);
           // Apuntar a una marca existente la selecciona y permite moverla; en vacío se dibuja una nueva.
-          const objetivo = [...anotaciones].reverse().find(a => a.tipo !== 'texto' && sobreMarca(a, p));
-          if (objetivo) { setSeleccion(objetivo.id); gesto.current = { tipo: 'mover', origen: p, base: objetivo }; return; }
-          setSeleccion(null); gesto.current = { tipo: 'dibujar', ini: p };
+          const inicio = iniciarGesto(anotaciones, seleccionada, p);
+          if (inicio.seleccion !== undefined) setSeleccion(inicio.seleccion);
+          gesto.current = inicio.gesto;
         }}
         onPointerMove={e => {
           const g = gesto.current; if (!g) return;
-          const p = punto(e);
-          if (g.tipo === 'dibujar') setPreview({ id: 'preview', tipo: forma, color, texto: '', ...g.ini, x2: p.x, y2: p.y });
-          else if (Math.hypot(p.x - g.origen.x, p.y - g.origen.y) >= UMBRAL_CLIC) setVivo(aplicarGesto(g, p));
+          const { preview: previa, vivo: movida } = avanzarGesto(g, puntoEnSvg(e), forma, color);
+          if (previa) setPreview(previa);
+          if (movida) setVivo(movida);
         }}
         onPointerUp={e => {
           const g = gesto.current; if (!g) return;
-          const p = punto(e); gesto.current = null; setPreview(null); setVivo(null);
-          if (g.tipo === 'dibujar') {
-            // Un clic sin arrastre abre la captura en grande.
-            if (Math.hypot(p.x - g.ini.x, p.y - g.ini.y) < UMBRAL_CLIC) { setAmpliada(true); return; }
-            agregar({ ...g.ini, x2: p.x, y2: p.y }); return;
-          }
-          // Un clic sin arrastre sobre una marca solo la selecciona.
-          if (Math.hypot(p.x - g.origen.x, p.y - g.origen.y) < UMBRAL_CLIC) return;
-          const nueva = aplicarGesto(g, p);
-          cambiar(anotaciones.map(n => n.id === nueva.id ? nueva : n));
+          const r = terminarGesto(g, puntoEnSvg(e)); gesto.current = null; setPreview(null); setVivo(null);
+          // Un clic sin arrastre abre la captura en grande; sobre una marca solo la selecciona.
+          if (r.tipo === 'clic') setAmpliada(true);
+          else if (r.tipo === 'trazo') agregar(r.trazo);
+          else if (r.tipo === 'modificada') cambiar(anotaciones.map(n => n.id === r.anotacion.id ? r.anotacion : n));
         }}
         onPointerCancel={() => { gesto.current = null; setPreview(null); setVivo(null); }}>
         {visibles.map(a => <Marca key={a.id} anotacion={a} resaltada={a.id === resaltada} />)}{preview && <Marca anotacion={preview} />}
-        {seleccionada && tiradoresDe(seleccionada).map(t => <rect key={t.id} className="evidencia-tirador" x={t.x * 1000 - 9} y={t.y * 1000 - 9} width="18" height="18" style={{ cursor: CURSOR_TIRADOR[t.id] }} />)}
+        {seleccionada && <Tiradores anotacion={seleccionada} />}
       </svg>}
     </div>
     <ol className="evidencia-lista" aria-label="Anotaciones de la captura">{anotaciones.map((a, i) => <li key={a.id} className="evidencia-tarjeta" tabIndex={0} aria-label={`Anotación ${i + 1}`}
