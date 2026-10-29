@@ -49,8 +49,8 @@ describe('EvidenciaEditor', () => {
   it('dibujar crea la anotación con la forma y el color elegidos', async () => {
     abrir();
     await screen.findByAltText('Captura de evidencia');
-    await userEvent.click(screen.getByRole('button', { name: 'Flecha' }));
-    expect(screen.getByRole('button', { name: 'Flecha' })).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Forma' }), 'flecha');
+    expect(screen.getByRole('combobox', { name: 'Forma' })).toHaveValue('flecha');
     fireEvent.change(screen.getByLabelText('Color'), { target: { value: '#00ff00' } });
     dibujar([200, 300], [600, 700]);
     expect(screen.getByLabelText('Forma de la anotación 1')).toHaveValue('flecha');
@@ -161,7 +161,7 @@ describe('EvidenciaEditor', () => {
   it('redimensiona una flecha moviendo su inicio o su fin', async () => {
     abrir();
     await screen.findByAltText('Captura de evidencia');
-    await userEvent.click(screen.getByRole('button', { name: 'Flecha' }));
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Forma' }), 'flecha');
     dibujar([200, 300], [600, 700]);
     dibujar([400, 500], [400, 500]);
     expect(tiradores()).toHaveLength(2);
@@ -242,7 +242,7 @@ describe('EvidenciaEditor', () => {
   it('Mayús+flechas mueven el fin de una flecha y las flechas la desplazan entera', async () => {
     abrir();
     await screen.findByAltText('Captura de evidencia');
-    await userEvent.click(screen.getByRole('button', { name: 'Flecha' }));
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Forma' }), 'flecha');
     dibujar([200, 300], [600, 700]);
     act(() => tarjeta().focus());
     fireEvent.keyDown(tarjeta(), { key: 'ArrowDown', shiftKey: true });

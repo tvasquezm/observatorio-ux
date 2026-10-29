@@ -166,7 +166,7 @@ function Lienzo({ proyectoId, evaluacionId, meta, blob, editable, onPendingChang
     {editable && <>
       <div className="evidencia-guia"><strong>Dibuja sobre la captura para marcar el problema</strong><span>Un clic sin arrastrar abre la imagen en grande</span><span>El original se conserva</span></div>
       <div className="evidencia-herramientas" role="toolbar" aria-label="Herramientas de anotación">
-        {FORMAS.map(f => <button key={f} type="button" className="evidencia-accion" aria-label={TIPOS[f]} title={TIPOS[f]} aria-pressed={forma === f} disabled={guardando} onClick={() => setForma(f)}><Icon name={ICONO_FORMA[f]} size={20} /></button>)}
+        <select className="input-sm" aria-label="Forma" title="Forma" value={forma} disabled={guardando} onChange={e => setForma(e.target.value as Forma)}>{FORMAS.map(f => <option key={f} value={f}>{TIPOS[f]}</option>)}</select>
         <input type="color" className="evidencia-color" aria-label="Color" title="Color" value={color} disabled={guardando} onChange={e => setColor(e.target.value)} />
         <button type="button" className="secondary" disabled={!historial.length || guardando} onClick={deshacer}>Deshacer</button><button type="button" className="primary" disabled={!dirty || guardando} onClick={() => void guardar()}>{guardando ? 'Guardando anotaciones…' : 'Guardar anotaciones'}</button>
       </div>
