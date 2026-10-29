@@ -547,15 +547,15 @@ describe('EvidenciaEditor', () => {
     });
     it('elimina la seleccionada y Deshacer del visor comparte el historial del editor', async () => {
       await visor();
-      gesto([100, 100], [500, 500]);
-      gesto([300, 300], [300, 300]);
+      gesto([100, 100], [200, 200]);
+      gesto([600, 600], [800, 800]);
+      gesto([700, 700], [700, 700]);
       await userEvent.click(screen.getByRole('button', { name: 'Eliminar anotación seleccionada' }));
-      expect(screen.queryAllByRole('listitem')).toHaveLength(0);
-      await userEvent.click(screen.getByRole('button', { name: 'Deshacer (captura ampliada)' }));
       expect(screen.getAllByRole('listitem')).toHaveLength(1);
       await userEvent.click(screen.getByRole('button', { name: 'Deshacer (captura ampliada)' }));
-      expect(screen.queryAllByRole('listitem')).toHaveLength(0);
-      expect(screen.getByRole('button', { name: 'Deshacer (captura ampliada)' })).toBeDisabled();
+      expect(screen.getAllByRole('listitem')).toHaveLength(2);
+      await userEvent.click(screen.getByRole('button', { name: 'Deshacer (captura ampliada)' }));
+      expect(screen.getAllByRole('listitem')).toHaveLength(1);
     });
     it('muestra una anotación antigua de texto y no ofrece eliminarla sin selección', async () => {
       api.cargarEvidencia.mockResolvedValue({ meta: { ...meta, anotaciones: [{ id: 't1', tipo: 'texto', x: 0.2, y: 0.2, x2: 0.2, y2: 0.2, color: '#d83232', texto: 'Revisar botón' }] }, blob: new Blob(['png'], { type: 'image/png' }) });
