@@ -127,7 +127,8 @@ describe('MatrizItem', () => {
     expect(screen.getByRole('button', { name: /Comentario guardado/ })).toBeInTheDocument();
     unmount();
     render(<Harness m={m} inicial={r} guardado={{ dirty: true, saving: false, error: 'Falló' }} />);
-    expect(screen.getByRole('alert')).toHaveTextContent('No se pudo guardar el comentario');
+    expect(screen.getByRole('alert')).toHaveTextContent('Comentario sin guardar: Falló');
+    expect(screen.getByRole('alert')).not.toHaveTextContent('No se pudo guardar el comentario');
   });
   it('sin permiso de edición no se puede calificar ni agregar problema', () => {
     render(<Harness m={metodo('nielsen10')} editable={false} />);

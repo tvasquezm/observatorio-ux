@@ -852,6 +852,34 @@ describe('consenso en equipo sobre la tabla', () => {
     renderFlow(<InformeView evaluacion={e} historial={[]} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
     expect(screen.getByText(/Origen: Nuevo del equipo/)).toBeInTheDocument();
   });
+  describe('autoguardado del acuerdo tras un error', () => {
+    function Editor({ inicial }: { inicial: EvaluacionFlujo }) { const [v, setV] = useState(inicial); return <ConsensoEditor evaluacion={v} usuarioId="u1" onSaved={setV} onBack={vi.fn()} />; }
+    const comentar = async (texto: string) => {
+      await userEvent.click(screen.getByRole('button', { name: /^Comentario del equipo de / }));
+      await userEvent.type(screen.getByLabelText(/^Comentario del equipo de /), texto);
+    };
+    it('tras un error que no es 409, un cambio nuevo vuelve a intentar el guardado', async () => {
+      const e = equipoEval('no_cumple');
+      api.mockRejectedValueOnce(new Error('Datos inválidos.'));
+      api.mockImplementation(async (_p, _path, _m, body) => ({ ...e, revision: 2, consenso: { ...e.consenso, ...body } }));
+      renderFlow(<Editor inicial={e} />);
+      await userEvent.click(screen.getByRole('radio', { name: 'Cumple' }));
+      await waitFor(() => expect(api).toHaveBeenCalledTimes(1), { timeout: 3000 });
+      await comentar('Acordado');
+      await waitFor(() => expect(api).toHaveBeenCalledTimes(2), { timeout: 3000 });
+      expect(api).toHaveBeenLastCalledWith('p1', '/evaluaciones/e1/consenso', 'PATCH', expect.objectContaining({ criterios: [expect.objectContaining({ justificacion: 'Acordado' })] }));
+    });
+    it('tras un 409 no reintenta con la revisión vieja hasta recargar', async () => {
+      const e = equipoEval('no_cumple');
+      api.mockRejectedValueOnce(Object.assign(new Error('Otra persona guardó antes.'), { status: 409 }));
+      renderFlow(<Editor inicial={e} />);
+      await userEvent.click(screen.getByRole('radio', { name: 'Cumple' }));
+      await waitFor(() => expect(api).toHaveBeenCalledTimes(1), { timeout: 3000 });
+      await comentar('Acordado');
+      await new Promise(r => setTimeout(r, 1200));
+      expect(api).toHaveBeenCalledTimes(1);
+    });
+  });
   it('precargarConsenso respeta lo ya acordado y devuelve el mismo arreglo si no hay nada que cargar', () => {
     const e = equipoEval('cumple'); const cid = e.configuracion.metodologia.criterios[0].id;
     const acordado = [{ criterioId: cid, valor: 'no_cumple', noAplica: false, motivo: '', notas: '', justificacion: 'x' }];

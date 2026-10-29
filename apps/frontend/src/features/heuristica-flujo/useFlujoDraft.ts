@@ -29,6 +29,7 @@ export function useFlujoDraft<T>(evaluacion: EvaluacionFlujo, usuarioId: string,
   const revision = useRef(restored.current?.revision ?? evaluacion.revision);
   const running = useRef<Promise<void> | null>(null);
   const failed = useRef(false);
+  const failedDraft = useRef('');
   const mounted = useRef(true);
   const confirm = useConfirm();
   latest.current = draft;
@@ -83,6 +84,7 @@ export function useFlujoDraft<T>(evaluacion: EvaluacionFlujo, usuarioId: string,
         }
       } catch (e) {
         failed.current = true;
+        failedDraft.current = JSON.stringify(latest.current);
         if (mounted.current) setConflict((e as { status?: number })?.status === 409);
         if (mounted.current) setError(e instanceof Error ? e.message : 'No se pudo guardar. Tu borrador se conserva.');
         throw e;
@@ -92,7 +94,9 @@ export function useFlujoDraft<T>(evaluacion: EvaluacionFlujo, usuarioId: string,
     return promise;
   }
   useEffect(() => {
-    if (!dirty || failed.current || !autoSave) return;
+    if (!dirty || !autoSave) return;
+    if (failed.current && !conflict && JSON.stringify(draft) !== failedDraft.current) failed.current = false;
+    if (failed.current) return;
     const timer = window.setTimeout(() => { void save().catch(() => {}); }, 800);
     return () => window.clearTimeout(timer);
   }, [draft, dirty, autoSave]);
