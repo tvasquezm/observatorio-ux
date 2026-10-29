@@ -3150,3 +3150,8 @@ div:has(> .project-section > .hf) > .project-heading p { margin:4px 0 0; font-si
 
 /* Fotografía real de la persona: conserva las dimensiones del avatar y recorta sin deformar. */
 .tv-avatar--foto { display: block; object-fit: cover; flex: 0 0 auto; }
+
+/* Revisar: separar "Sección siguiente" de "Entregar mi evaluación" (F7f). */
+.hf .hf-matrices > .hf-navegar { margin-bottom: 20px; }
+.hf .hf-pie-trabajo { border-top: 1px solid var(--line); margin-top: 8px; padding-top: 12px; row-gap: 12px; }
+.hf .hf-pie-trabajo > button { margin-left: auto; }
