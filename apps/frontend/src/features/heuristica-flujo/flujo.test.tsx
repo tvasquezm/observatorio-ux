@@ -1047,3 +1047,25 @@ describe('aviso de terminada y volver al inicio', () => {
     expect(toasts).toHaveLength(1);
   });
 });
+
+describe('revisión pendiente creada por otra persona', () => {
+  const equipo = [{ id: 'u1', nombre: 'Ana', rol: 'ESTUDIANTE' }, { id: 'u2', nombre: 'Beto', rol: 'ESTUDIANTE' }];
+  const abrir = async (e: EvaluacionFlujo) => {
+    api.mockImplementation(async (_p, path) => path === '/evaluaciones' ? [e] : path === '/metodologias' ? [config().metodologia] : path === '/equipo' ? equipo : []);
+    renderFlow(<FlujoHeuristicaPage />);
+    return within(await screen.findByRole('region', { name: 'Revisión sin terminar' }));
+  };
+  it('dice quién la creó cuando fue otra persona', async () => {
+    const banner = await abrir(evaluation({ coordinadorId: 'u2' }));
+    await waitFor(() => expect(banner.getByText(/creada por Beto/)).toBeInTheDocument());
+  });
+  it('si el creador no está en el equipo, dice otra persona del equipo', async () => {
+    const banner = await abrir(evaluation({ coordinadorId: 'u9' }));
+    expect(banner.getByText(/creada por otra persona del equipo/)).toBeInTheDocument();
+  });
+  it('si es propia, no menciona creador', async () => {
+    const banner = await abrir(evaluation({ coordinadorId: 'u1' }));
+    expect(banner.getByText(/Tienes una revisión sin terminar/)).toBeInTheDocument();
+    expect(banner.queryByText(/creada por/)).toBeNull();
+  });
+});
