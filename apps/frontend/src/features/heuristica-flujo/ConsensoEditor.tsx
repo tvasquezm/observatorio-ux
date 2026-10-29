@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { RecorridoSencillo } from './RecorridoSencillo';
 import { ETIQUETA_SECCION_ACUERDO, MAX_HALLAZGOS_NUEVOS_EQUIPO, origenHallazgo, pendientesAcuerdo, redactorDe } from '@observatorio-ux/shared-types';
 import type { DecisionHallazgo, EvaluacionFlujo, MejoraAntesDespues, MiembroEquipoFlujo, SeccionAcuerdo } from '@observatorio-ux/shared-types';
@@ -8,7 +8,7 @@ import { MatrizItem } from './MatrizItem';
 import { RedactorPanel } from './RedactorPanel';
 import { HallazgoEditor, SaveStatus } from './TrabajoEditor';
 import { flujoRequest } from './flujo.api';
-import { hallazgoVacio, precargarConsenso } from './flujo-utils';
+import { coincidenciasProblemas, hallazgoVacio, precargarConsenso } from './flujo-utils';
 import { useFlujoDraft } from './useFlujoDraft';
 
 export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo }: { evaluacion: EvaluacionFlujo; usuarioId: string; onSaved: (e: EvaluacionFlujo) => void; onBack: () => void; equipo?: MiembroEquipoFlujo[] }) {
@@ -39,6 +39,8 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
   const completo = pendientes.length === 0;
   const nuevos = state.draft.hallazgos.filter(h => origenHallazgo(h) === 'equipo').length;
   const originales = evaluacion.trabajos.flatMap(t => t.hallazgos.map(h => ({ ...h, evaluador: t.nombre })));
+  const coincidencias = coincidenciasProblemas(evaluacion.trabajos);
+  const textoCoincide = (id: string) => coincidencias.has(id) ? `Coincide con: ${coincidencias.get(id)!.join(', ')}` : '';
   const cubiertos = new Set(state.draft.hallazgos.flatMap(h => h.origenIds));
   const update = (h: DecisionHallazgo) => state.setDraft({ ...state.draft, hallazgos: state.draft.hallazgos.map(x => x.id === h.id ? h : x) });
   async function action(action: 'aprobar' | 'consolidar' | 'entregar-acuerdo') {
@@ -70,9 +72,9 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
     </fieldset>
     </>) }, { titulo: 'Revisar los problemas', ayuda: 'Seleccionen los problemas encontrados. Pueden unir los repetidos, aceptarlos o descartarlos con una razón. Los originales se conservan.', contenido: (<div className="hf-acordar-columnas">
     <section className="panel"><div className="panel-head"><h2>Problemas encontrados por el equipo</h2></div>
-      {originales.map(h => <details key={h.id}><summary>{h.evaluador}: {h.titulo} · {cubiertos.has(h.id) ? 'Vinculado a decisión' : 'Pendiente de decisión'}</summary><p>ID de origen: {h.id}</p><p>{h.pantalla}: {h.descripcion}</p><p>Severidad {h.severidad} · Prioridad {h.prioridad}</p><p>Recomendación: {h.recomendacion}</p><p>{h.notas}</p><EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={h.evidenciaIds} editable={false} /></details>)}
+      {originales.map(h => <details key={h.id}><summary>{h.evaluador}: {h.titulo} · {cubiertos.has(h.id) ? 'Vinculado a decisión' : 'Pendiente de decisión'}{coincidencias.has(h.id) && ` · ${textoCoincide(h.id)}`}</summary><p>ID de origen: {h.id}</p><p>{h.pantalla}: {h.descripcion}</p><p>Severidad {h.severidad} · Prioridad {h.prioridad}</p><p>Recomendación: {h.recomendacion}</p><p>{h.notas}</p><EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={h.evidenciaIds} editable={false} /></details>)}
       {!soloLectura && <>
-      <fieldset disabled={bloqueo}><legend>Seleccionar originales para aceptar, fusionar o descartar</legend>{originales.map(h => <label className="hf-check" key={h.id}><input type="checkbox" checked={seleccion.includes(h.id)} disabled={cubiertos.has(h.id)} onChange={e => setSeleccion(e.target.checked ? [...seleccion, h.id] : seleccion.filter(x => x !== h.id))} />{h.evaluador}: {h.titulo}</label>)}</fieldset>
+      <fieldset disabled={bloqueo}><legend>Seleccionar originales para aceptar, fusionar o descartar</legend>{originales.map(h => <Fragment key={h.id}><label className="hf-check"><input type="checkbox" checked={seleccion.includes(h.id)} disabled={cubiertos.has(h.id)} onChange={e => setSeleccion(e.target.checked ? [...seleccion, h.id] : seleccion.filter(x => x !== h.id))} />{h.evaluador}: {h.titulo}</label>{coincidencias.has(h.id) && <small className="hf-ayuda">{textoCoincide(h.id)}</small>}</Fragment>)}</fieldset>
       {!seleccion.length && <p className="hf-ayuda" id="hf-ayuda-crear">{originales.every(h => cubiertos.has(h.id)) ? 'Todos los problemas ya tienen una decisión.' : 'Marca al menos un problema para crear una decisión.'}</p>}
       <button type="button" className="primary" aria-describedby={seleccion.length ? undefined : 'hf-ayuda-crear'} disabled={!seleccion.length || busy} onClick={() => {
         const sources = originales.filter(x => seleccion.includes(x.id) && !cubiertos.has(x.id));

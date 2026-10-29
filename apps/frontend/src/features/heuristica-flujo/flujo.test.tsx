@@ -11,7 +11,7 @@ import { ConsensoEditor } from './ConsensoEditor';
 import { InformeView } from './InformeView';
 import { ConfiguracionEditor } from './ConfiguracionEditor';
 import { FlujoHeuristicaPage } from './FlujoHeuristicaPage';
-import { participacionInforme, pendientesTrabajo, precargarConsenso, textoCumplimiento, textoEscala } from './flujo-utils';
+import { coincidenciasProblemas, participacionInforme, pendientesTrabajo, precargarConsenso, textoCumplimiento, textoEscala } from './flujo-utils';
 import { useAuthStore } from '../auth/store/useAuthStore';
 
 const api = vi.hoisted(() => vi.fn());
@@ -566,6 +566,34 @@ describe('cumplimiento en el informe', () => {
     const base = { favorables: 0, desfavorables: 0, neutros: 0, sinEvaluar: 0, noAplica: 0, proporcion: null };
     expect(textoCumplimiento({ ...base, noAplica: 2 })).toBe('Sin criterios valorables · 2 no aplica');
     expect(textoCumplimiento({ ...base, favorables: 1, desfavorables: 2, sinEvaluar: 1 })).toBe('1 de 3 cumplen (33 %) · 1 sin evaluar');
+  });
+});
+describe('coincidencias de problemas', () => {
+  const problema = (id: string, criterioIds: string[], titulo: string) => ({ id, criterioIds, titulo, pantalla: 'Inicio', descripcion: 'Error', recomendacion: 'Mejorar', severidad: 2 as const, prioridad: 'MEDIA' as const, notas: '', evidenciaIds: [] });
+  function equipo(porPersona: Array<[string, string, ReturnType<typeof problema>[]]>) {
+    const e = evaluation({ fase: 'PENDIENTE_CONSENSO' });
+    e.trabajos = porPersona.map(([evaluadorId, nombre, hallazgos]) => ({ evaluadorId, nombre, respuestas: [], hallazgos, entregadoEn: e.updatedAt, guardadoEn: null }));
+    return e;
+  }
+  it('marca entre sí a personas distintas con problemas en la misma pregunta', () => {
+    const e = equipo([['u1', 'Ana', [problema('a1', ['c1'], 'Uno')]], ['u2', 'Beto', [problema('b1', ['c1', 'c2'], 'Dos')]], ['u3', 'Carla', [problema('k1', ['c9'], 'Tres')]]]);
+    const m = coincidenciasProblemas(e.trabajos);
+    expect(m.get('a1')).toEqual(['Beto']);
+    expect(m.get('b1')).toEqual(['Ana']);
+    expect(m.has('k1')).toBe(false);
+  });
+  it('no marca problemas de la misma persona ni con una sola persona', () => {
+    expect(coincidenciasProblemas(equipo([['u1', 'Ana', [problema('a1', ['c1'], 'Uno'), problema('a2', ['c1'], 'Dos')]]]).trabajos).size).toBe(0);
+  });
+  it('el acuerdo muestra "Coincide con" en el resumen y junto a la casilla sin cambiar su nombre', async () => {
+    const c = evaluation().configuracion.metodologia.criterios[0].id;
+    const e = equipo([['u1', 'Ana', [problema('a1', [c], 'Sin foco')]], ['u2', 'Beto', [problema('b1', [c], 'Foco oculto')]], ['u3', 'Carla', [problema('k1', ['otra'], 'Otro tema')]]]);
+    renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Revisar los problemas' }));
+    expect(screen.getByText(/Ana: Sin foco · Pendiente de decisión · Coincide con: Beto/)).toBeInTheDocument();
+    expect(screen.getByText(/Carla: Otro tema · Pendiente de decisión$/)).toBeInTheDocument();
+    expect(screen.getAllByText('Coincide con: Beto')).toHaveLength(1);
+    expect(screen.getByLabelText('Ana: Sin foco')).toBeInTheDocument();
   });
 });
 describe('consenso con checklist', () => {

@@ -84,6 +84,15 @@ export function faltantesParaIniciar(c: ConfiguracionFlujo): string[] {
   return [!c.producto.nombre.trim() && 'producto o sitio', !c.metodologia.criterios.length && 'una metodología con preguntas', !c.evaluadorIds.length && 'al menos una persona en «Personas que revisarán»', !!c.producto.url.trim() && !normalizarUrlProducto(c.producto.url) && 'una dirección web válida, por ejemplo miweb.cl (o déjala vacía)'].filter((v): v is string => !!v);
 }
 
+/** Por id de problema: nombres de las otras personas con algún problema en una pregunta compartida. Sin coincidencia, el id no aparece. */
+export function coincidenciasProblemas(trabajos: TrabajoFlujo[]): Map<string, string[]> {
+  const mapa = new Map<string, string[]>();
+  for (const t of trabajos) for (const h of t.hallazgos) {
+    const otros = trabajos.filter(o => o.evaluadorId !== t.evaluadorId && o.hallazgos.some(x => x.criterioIds.some(c => h.criterioIds.includes(c)))).map(o => o.nombre);
+    if (otros.length) mapa.set(h.id, otros);
+  }
+  return mapa;
+}
 /** Respuesta común de las preguntas donde todos los evaluadores coinciden y el consenso aún no tiene respuesta. Si no hay nada que precargar devuelve el mismo arreglo. */
 export function precargarConsenso(config: ConfiguracionFlujo, trabajos: TrabajoFlujo[], criterios: DecisionCriterio[]): DecisionCriterio[] {
   const nuevos: DecisionCriterio[] = [];
