@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { EVIDENCIA_MAX_BYTES } from '@observatorio-ux/shared-types';
@@ -15,6 +15,14 @@ function abrir(editable = true, onPendingChange = vi.fn()) {
     <EvidenciaEditor proyectoId="p1" evaluacionId="ev1" evidenciaIds={['cap1']} editable={editable} onChange={vi.fn()} onPendingChange={onPendingChange} />
   </QueryClientProvider>);
 }
+/** Dibuja sobre la captura simulando el puntero; el lienzo se mide como 1000×1000 para usar coordenadas ‰. */
+function dibujar(de: [number, number], a: [number, number]) {
+  const svg = screen.getByLabelText('Vista de las anotaciones');
+  svg.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1000, height: 1000, right: 1000, bottom: 1000, x: 0, y: 0, toJSON: () => ({}) });
+  const evento = (tipo: string, [x, y]: [number, number]) => act(() => { svg.dispatchEvent(new MouseEvent(tipo, { clientX: x, clientY: y, bubbles: true })); });
+  evento('pointerdown', de); evento('pointermove', a); evento('pointerup', a);
+}
+const rectangulo = () => dibujar([100, 100], [500, 500]);
 beforeEach(() => {
   vi.resetAllMocks();
   Object.defineProperty(URL, 'createObjectURL', { value: vi.fn(() => 'blob:captura'), configurable: true });
@@ -23,26 +31,206 @@ beforeEach(() => {
   api.guardarAnotaciones.mockImplementation(async (_p, _e, _i, anotaciones, revision) => ({ ...meta, anotaciones, revision: revision + 1 }));
 });
 describe('EvidenciaEditor', () => {
-  it('anota por teclado, permite deshacer y guarda separado de la imagen original', async () => {
+  it('anota dibujando, permite deshacer y guarda separado de la imagen original', async () => {
     const pending = vi.fn();
     abrir(true, pending);
     await screen.findByAltText('Captura de evidencia');
-    await userEvent.click(screen.getByRole('button', { name: 'Agregar anotación' }));
+    rectangulo();
     expect(screen.getByLabelText('Anotaciones de la captura')).toHaveTextContent('Rectángulo');
     expect(pending).toHaveBeenLastCalledWith(true);
     await userEvent.click(screen.getByRole('button', { name: 'Deshacer' }));
     expect(screen.queryByRole('button', { name: 'Eliminar anotación 1' })).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Agregar anotación' }));
+    rectangulo();
     await userEvent.click(screen.getByRole('button', { name: 'Guardar anotaciones' }));
-    expect(api.guardarAnotaciones).toHaveBeenCalledWith('p1', 'ev1', 'cap1', [expect.objectContaining({ tipo: 'rectangulo', x: 0.1, y: 0.1 })], 0);
+    expect(api.guardarAnotaciones).toHaveBeenCalledWith('p1', 'ev1', 'cap1', [expect.objectContaining({ tipo: 'rectangulo', x: 0.1, y: 0.1, x2: 0.5, y2: 0.5 })], 0);
     await screen.findByText('Anotaciones guardadas.');
     expect(api.subirEvidenciaFlujo).not.toHaveBeenCalled();
+  });
+  it('dibujar crea la anotación con la forma y el color elegidos', async () => {
+    abrir();
+    await screen.findByAltText('Captura de evidencia');
+    await userEvent.click(screen.getByRole('button', { name: 'Flecha' }));
+    expect(screen.getByRole('button', { name: 'Flecha' })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.change(screen.getByLabelText('Color'), { target: { value: '#00ff00' } });
+    dibujar([200, 300], [600, 700]);
+    expect(screen.getByLabelText('Forma de la anotación 1')).toHaveValue('flecha');
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar anotaciones' }));
+    expect(api.guardarAnotaciones).toHaveBeenCalledWith('p1', 'ev1', 'cap1', [expect.objectContaining({ tipo: 'flecha', color: '#00ff00', x: 0.2, y: 0.3, x2: 0.6, y2: 0.7 })], 0);
+  });
+  it('un clic sin arrastrar abre la captura en grande y no crea anotación', async () => {
+    abrir();
+    await screen.findByAltText('Captura de evidencia');
+    dibujar([300, 300], [300, 300]);
+    expect(screen.getByRole('dialog', { name: 'Captura ampliada' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Eliminar anotación 1' })).not.toBeInTheDocument();
+  });
+  it('ya no ofrece campos de posición, herramienta Texto ni agregar manual', async () => {
+    abrir();
+    await screen.findByAltText('Captura de evidencia');
+    expect(screen.queryByLabelText(/Inicio horizontal|Fin vertical/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Texto' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Agregar o editar anotaciones')).not.toBeInTheDocument();
+    expect(screen.getByText('Dibuja sobre la captura para marcar el problema')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /Rectángulo|Círculo|Flecha|Destacado/ })).toHaveLength(4);
+  });
+  it('cambia color y forma desde la tarjeta, entra al Deshacer y se guarda', async () => {
+    abrir();
+    await screen.findByAltText('Captura de evidencia');
+    rectangulo();
+    fireEvent.change(screen.getByLabelText('Color de la anotación 1'), { target: { value: '#0000ff' } });
+    await userEvent.selectOptions(screen.getByLabelText('Forma de la anotación 1'), 'circulo');
+    expect(screen.getByLabelText('Forma de la anotación 1')).toHaveValue('circulo');
+    await userEvent.click(screen.getByRole('button', { name: 'Deshacer' }));
+    expect(screen.getByLabelText('Forma de la anotación 1')).toHaveValue('rectangulo');
+    await userEvent.click(screen.getByRole('button', { name: 'Deshacer' }));
+    expect(screen.getByLabelText('Color de la anotación 1')).toHaveValue('#d83232');
+    fireEvent.change(screen.getByLabelText('Color de la anotación 1'), { target: { value: '#0000ff' } });
+    await userEvent.selectOptions(screen.getByLabelText('Forma de la anotación 1'), 'destacado');
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar anotaciones' }));
+    expect(api.guardarAnotaciones).toHaveBeenCalledWith('p1', 'ev1', 'cap1', [expect.objectContaining({ tipo: 'destacado', color: '#0000ff' })], 0);
+  });
+  it('resalta la marca al enfocar su tarjeta y lo quita al salir', async () => {
+    abrir();
+    await screen.findByAltText('Captura de evidencia');
+    rectangulo();
+    const svg = screen.getByLabelText('Vista de las anotaciones');
+    const tarjeta = screen.getByRole('listitem', { name: 'Anotación 1' });
+    expect(svg.querySelector('.evidencia-marca--resaltada')).toBeNull();
+    act(() => tarjeta.focus());
+    expect(svg.querySelector('.evidencia-marca--resaltada')).not.toBeNull();
+    act(() => tarjeta.blur());
+    expect(svg.querySelector('.evidencia-marca--resaltada')).toBeNull();
+    await userEvent.hover(tarjeta);
+    expect(svg.querySelector('.evidencia-marca--resaltada')).not.toBeNull();
+  });
+  const guardada = async (i = 0) => {
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar anotaciones' }));
+    const llamada = api.guardarAnotaciones.mock.calls.at(-1)!;
+    return llamada[3][i] as { x: number; y: number; x2: number; y2: number; tipo: string };
+  };
+  const tiradores = () => screen.getByLabelText('Vista de las anotaciones').querySelectorAll('.evidencia-tirador');
+  it('un clic sobre una marca la selecciona con tiradores y no abre la captura en grande', async () => {
+    abrir();
+    await screen.findByAltText('Captura de evidencia');
+    rectangulo();
+    expect(tiradores()).toHaveLength(0);
+    dibujar([300, 300], [300, 300]);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(tiradores()).toHaveLength(4);
+    expect(screen.getAllByRole('listitem')).toHaveLength(1);
+    dibujar([800, 800], [800, 800]);
+    expect(screen.getByRole('dialog', { name: 'Captura ampliada' })).toBeInTheDocument();
+    expect(tiradores()).toHaveLength(0);
+  });
+  it('mueve una anotación arrastrándola con el ratón', async () => {
+    abrir();
+    await screen.findByAltText('Captura de evidencia');
+    rectangulo();
+    dibujar([300, 300], [400, 350]);
+    expect(screen.getAllByRole('listitem')).toHaveLength(1);
+    const a = await guardada();
+    expect(a.x).toBeCloseTo(0.2); expect(a.y).toBeCloseTo(0.15); expect(a.x2).toBeCloseTo(0.6); expect(a.y2).toBeCloseTo(0.55);
+  });
+  it('al mover, la marca no sale de la captura (0–1) y conserva su tamaño', async () => {
+    abrir();
+    await screen.findByAltText('Captura de evidencia');
+    rectangulo();
+    dibujar([300, 300], [900, 900]);
+    const a = await guardada();
+    expect(a.x2).toBeCloseTo(1); expect(a.y2).toBeCloseTo(1); expect(a.x).toBeCloseTo(0.6); expect(a.y).toBeCloseTo(0.6);
+  });
+  it('redimensiona una forma con el tirador de su esquina', async () => {
+    abrir();
+    await screen.findByAltText('Captura de evidencia');
+    rectangulo();
+    dibujar([300, 300], [300, 300]);
+    dibujar([500, 500], [700, 800]);
+    expect(screen.getAllByRole('listitem')).toHaveLength(1);
+    const a = await guardada();
+    expect([a.x, a.y, a.x2, a.y2]).toEqual([0.1, 0.1, 0.7, 0.8]);
+  });
+  it('redimensiona desde la esquina superior izquierda manteniendo fija la opuesta', async () => {
+    abrir();
+    await screen.findByAltText('Captura de evidencia');
+    rectangulo();
+    dibujar([300, 300], [300, 300]);
+    dibujar([100, 100], [2000, -50]);
+    const a = await guardada();
+    expect(a.x).toBe(0.5); expect(a.y).toBe(0.5); expect(a.x2).toBe(1); expect(a.y2).toBe(0);
+  });
+  it('redimensiona una flecha moviendo su inicio o su fin', async () => {
+    abrir();
+    await screen.findByAltText('Captura de evidencia');
+    await userEvent.click(screen.getByRole('button', { name: 'Flecha' }));
+    dibujar([200, 300], [600, 700]);
+    dibujar([400, 500], [400, 500]);
+    expect(tiradores()).toHaveLength(2);
+    dibujar([600, 700], [800, 900]);
+    dibujar([200, 300], [100, 100]);
+    const a = await guardada();
+    expect([a.x, a.y, a.x2, a.y2]).toEqual([0.1, 0.1, 0.8, 0.9]);
+  });
+  it('cada gesto de mover o redimensionar es un solo paso de Deshacer', async () => {
+    abrir();
+    await screen.findByAltText('Captura de evidencia');
+    rectangulo();
+    dibujar([300, 300], [400, 300]);
+    dibujar([600, 500], [700, 700]);
+    await userEvent.click(screen.getByRole('button', { name: 'Deshacer' }));
+    const a = await guardada();
+    expect(a.x).toBeCloseTo(0.2); expect(a.x2).toBeCloseTo(0.6); expect(a.y2).toBeCloseTo(0.5);
+  });
+  it('deshacer paso a paso vuelve de redimensionar a mover, al trazo original y a vacío', async () => {
+    abrir();
+    await screen.findByAltText('Captura de evidencia');
+    rectangulo();
+    dibujar([300, 300], [400, 300]);
+    dibujar([600, 500], [700, 700]);
+    const deshacer = screen.getByRole('button', { name: 'Deshacer' });
+    await userEvent.click(deshacer);
+    await userEvent.click(deshacer);
+    const a = await guardada();
+    expect([a.x, a.y, a.x2, a.y2]).toEqual([0.1, 0.1, 0.5, 0.5]);
+  });
+  it('un gesto de arrastre completo agrega un solo paso al historial', async () => {
+    abrir();
+    await screen.findByAltText('Captura de evidencia');
+    rectangulo();
+    dibujar([300, 300], [400, 300]);
+    const deshacer = screen.getByRole('button', { name: 'Deshacer' });
+    await userEvent.click(deshacer);
+    await userEvent.click(deshacer);
+    expect(screen.queryByRole('listitem')).not.toBeInTheDocument();
+    expect(deshacer).toBeDisabled();
+  });
+  it('dibujar en vacío con una marca existente crea una nueva sin mover la anterior', async () => {
+    abrir();
+    await screen.findByAltText('Captura de evidencia');
+    rectangulo();
+    dibujar([700, 700], [900, 900]);
+    expect(screen.getAllByRole('listitem')).toHaveLength(2);
+    const primera = await guardada(0);
+    expect([primera.x, primera.y, primera.x2, primera.y2]).toEqual([0.1, 0.1, 0.5, 0.5]);
+  });
+  it('una anotación antigua de texto se muestra y se puede eliminar, pero no editar', async () => {
+    api.cargarEvidencia.mockResolvedValue({ meta: { ...meta, anotaciones: [{ id: 't1', tipo: 'texto', x: 0.2, y: 0.2, x2: 0.2, y2: 0.2, color: '#d83232', texto: 'Revisar botón' }] }, blob: new Blob(['png'], { type: 'image/png' }) });
+    abrir();
+    await screen.findByAltText('Captura de evidencia');
+    const tarjeta = screen.getByRole('listitem', { name: 'Anotación 1' });
+    expect(tarjeta).toHaveTextContent('Texto: Revisar botón');
+    expect(screen.getByLabelText('Vista de las anotaciones')).toHaveTextContent('Revisar botón');
+    expect(within(tarjeta).queryByLabelText('Forma de la anotación 1')).not.toBeInTheDocument();
+    expect(within(tarjeta).queryByLabelText('Color de la anotación 1')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Eliminar anotación 1' }));
+    expect(screen.queryByRole('listitem')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar anotaciones' }));
+    expect(api.guardarAnotaciones).toHaveBeenCalledWith('p1', 'ev1', 'cap1', [], 0);
   });
   it('conserva las anotaciones cuando falla el guardado y permite reintentar', async () => {
     api.guardarAnotaciones.mockRejectedValueOnce(new Error('Sin conexión'));
     abrir();
     await screen.findByAltText('Captura de evidencia');
-    await userEvent.click(screen.getByRole('button', { name: 'Agregar anotación' }));
+    rectangulo();
     await userEvent.click(screen.getByRole('button', { name: 'Guardar anotaciones' }));
     await screen.findByText('Sin conexión');
     expect(screen.getByRole('button', { name: 'Eliminar anotación 1' })).toBeInTheDocument();
@@ -52,7 +240,7 @@ describe('EvidenciaEditor', () => {
   it('solo lectura permite alternar el original pero no editar ni subir', async () => {
     abrir(false);
     await screen.findByAltText('Captura de evidencia');
-    expect(screen.queryByRole('button', { name: 'Agregar anotación' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('toolbar', { name: 'Herramientas de anotación' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Adjuntar captura')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('checkbox', { name: 'Mostrar imagen original' }));
   });
@@ -60,7 +248,7 @@ describe('EvidenciaEditor', () => {
     api.guardarAnotaciones.mockRejectedValue(new Error('La captura cambió. Recupera las anotaciones guardadas.'));
     abrir();
     await screen.findByAltText('Captura de evidencia');
-    await userEvent.click(screen.getByRole('button', { name: 'Agregar anotación' }));
+    rectangulo();
     await userEvent.click(screen.getByRole('button', { name: 'Guardar anotaciones' }));
     await screen.findByText('La captura cambió. Recupera las anotaciones guardadas.');
     expect(screen.getByRole('button', { name: 'Eliminar anotación 1' })).toBeInTheDocument();
@@ -74,7 +262,7 @@ describe('EvidenciaEditor', () => {
       <EvidenciaEditor proyectoId="p1" evaluacionId="ev1" evidenciaIds={['cap1']} editable sinAnotar etiqueta="antes de la mejora 1" onChange={onChange} />
     </QueryClientProvider>);
     await screen.findByAltText('Captura de evidencia');
-    expect(screen.queryByRole('button', { name: 'Agregar anotación' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('toolbar', { name: 'Herramientas de anotación' })).not.toBeInTheDocument();
     await userEvent.upload(screen.getByLabelText(/Adjuntar captura antes de la mejora 1/), png());
     await waitFor(() => expect(onChange).toHaveBeenCalledWith(['cap1', 'cap2']));
     await userEvent.click(screen.getByRole('button', { name: 'Quitar captura antes de la mejora 1' }));
@@ -177,7 +365,7 @@ describe('EvidenciaEditor', () => {
   it('no deja quitar una captura con anotaciones pendientes y explica por qué', async () => {
     abrir();
     await screen.findByAltText('Captura de evidencia');
-    await userEvent.click(screen.getByRole('button', { name: 'Agregar anotación' }));
+    rectangulo();
     const quitar = screen.getByRole('button', { name: 'Quitar captura del problema' });
     expect(quitar).toBeDisabled();
     expect(quitar).toHaveAttribute('title', expect.stringMatching(/anotaciones pendientes/));
