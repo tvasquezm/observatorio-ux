@@ -212,6 +212,116 @@ describe('EvidenciaEditor', () => {
     const primera = await guardada(0);
     expect([primera.x, primera.y, primera.x2, primera.y2]).toEqual([0.1, 0.1, 0.5, 0.5]);
   });
+  const tarjeta = (n = 1) => screen.getByRole('listitem', { name: `Anotación ${n}` });
+  it('con la tarjeta enfocada, las flechas mueven la anotación y entran al Deshacer', async () => {
+    abrir();
+    await screen.findByAltText('Captura de evidencia');
+    rectangulo();
+    act(() => tarjeta().focus());
+    fireEvent.keyDown(tarjeta(), { key: 'ArrowRight' });
+    fireEvent.keyDown(tarjeta(), { key: 'ArrowDown' });
+    expect(tiradores()).toHaveLength(4);
+    await userEvent.click(screen.getByRole('button', { name: 'Deshacer' }));
+    const a = await guardada();
+    expect(a.x).toBeCloseTo(0.11); expect(a.y).toBeCloseTo(0.1); expect(a.x2).toBeCloseTo(0.51); expect(a.y2).toBeCloseTo(0.5);
+  });
+  it('Mayús+flechas redimensionan sin mover el origen y respetan los bordes', async () => {
+    abrir();
+    await screen.findByAltText('Captura de evidencia');
+    rectangulo();
+    act(() => tarjeta().focus());
+    fireEvent.keyDown(tarjeta(), { key: 'ArrowRight', shiftKey: true });
+    fireEvent.keyDown(tarjeta(), { key: 'ArrowUp', shiftKey: true });
+    let a = await guardada();
+    expect(a.x).toBeCloseTo(0.1); expect(a.y).toBeCloseTo(0.1); expect(a.x2).toBeCloseTo(0.51); expect(a.y2).toBeCloseTo(0.49);
+    for (let i = 0; i < 100; i++) fireEvent.keyDown(tarjeta(), { key: 'ArrowRight', shiftKey: true });
+    for (let i = 0; i < 100; i++) fireEvent.keyDown(tarjeta(), { key: 'ArrowUp', shiftKey: true });
+    a = await guardada();
+    expect(a.x2).toBe(1); expect(a.y2).toBeCloseTo(0.11); expect(a.y).toBe(0.1);
+  });
+  it('Mayús+flechas mueven el fin de una flecha y las flechas la desplazan entera', async () => {
+    abrir();
+    await screen.findByAltText('Captura de evidencia');
+    await userEvent.click(screen.getByRole('button', { name: 'Flecha' }));
+    dibujar([200, 300], [600, 700]);
+    act(() => tarjeta().focus());
+    fireEvent.keyDown(tarjeta(), { key: 'ArrowDown', shiftKey: true });
+    fireEvent.keyDown(tarjeta(), { key: 'ArrowLeft' });
+    const a = await guardada();
+    expect(a.x).toBeCloseTo(0.19); expect(a.y).toBeCloseTo(0.3); expect(a.x2).toBeCloseTo(0.59); expect(a.y2).toBeCloseTo(0.71);
+  });
+  it('las flechas en el color o la forma de la tarjeta no mueven la anotación', async () => {
+    abrir();
+    await screen.findByAltText('Captura de evidencia');
+    rectangulo();
+    fireEvent.keyDown(screen.getByLabelText('Forma de la anotación 1'), { key: 'ArrowDown' });
+    fireEvent.keyDown(screen.getByLabelText('Color de la anotación 1'), { key: 'ArrowRight' });
+    expect(screen.getByRole('button', { name: 'Deshacer' }).getAttribute('disabled')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Deshacer' }));
+    expect(screen.queryByRole('listitem')).not.toBeInTheDocument();
+  });
+  it('Tab no queda atrapado: la tarjeta no intercepta otras teclas', async () => {
+    abrir();
+    await screen.findByAltText('Captura de evidencia');
+    rectangulo();
+    act(() => tarjeta().focus());
+    expect(fireEvent.keyDown(tarjeta(), { key: 'Tab' })).toBe(true);
+    expect(fireEvent.keyDown(tarjeta(), { key: 'ArrowLeft', ctrlKey: true })).toBe(true);
+    expect(fireEvent.keyDown(tarjeta(), { key: 'ArrowLeft' })).toBe(false);
+  });
+  it('en solo lectura y con anotaciones de texto las flechas no cambian nada', async () => {
+    api.cargarEvidencia.mockResolvedValue({ meta: { ...meta, anotaciones: [{ id: 't1', tipo: 'texto', x: 0.2, y: 0.2, x2: 0.2, y2: 0.2, color: '#d83232', texto: 'Revisar' }] }, blob: new Blob(['png'], { type: 'image/png' }) });
+    abrir();
+    await screen.findByAltText('Captura de evidencia');
+    act(() => tarjeta().focus());
+    fireEvent.keyDown(tarjeta(), { key: 'ArrowRight' });
+    expect(screen.getByRole('button', { name: 'Guardar anotaciones' })).toBeDisabled();
+  });
+  it('el teclado marca cambios sin guardar, avisa al salir y deja de avisar al guardar', async () => {
+    const pending = vi.fn();
+    abrir(true, pending);
+    await screen.findByAltText('Captura de evidencia');
+    rectangulo();
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar anotaciones' }));
+    await screen.findByText('Anotaciones guardadas.');
+    expect(pending).toHaveBeenLastCalledWith(false);
+    act(() => tarjeta().focus());
+    fireEvent.keyDown(tarjeta(), { key: 'ArrowRight' });
+    expect(pending).toHaveBeenLastCalledWith(true);
+    expect(screen.getByText('Anotaciones pendientes de guardar.')).toBeInTheDocument();
+    const salir = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(salir);
+    expect(salir.defaultPrevented).toBe(true);
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar anotaciones' }));
+    await screen.findByText('Anotaciones guardadas.');
+    const libre = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(libre);
+    expect(libre.defaultPrevented).toBe(false);
+  });
+  it('con 50 anotaciones no se crea la 51 pero sí se puede mover con teclado', async () => {
+    const cincuenta = Array.from({ length: 50 }, (_, i) => ({ id: `a${i}`, tipo: 'rectangulo' as const, x: 0.1, y: 0.1, x2: 0.2, y2: 0.2, color: '#d83232', texto: '' }));
+    api.cargarEvidencia.mockResolvedValue({ meta: { ...meta, anotaciones: cincuenta }, blob: new Blob(['png'], { type: 'image/png' }) });
+    abrir();
+    await screen.findByAltText('Captura de evidencia');
+    dibujar([700, 700], [900, 900]);
+    expect(screen.getByRole('alert')).toHaveTextContent('Máximo 50 anotaciones por captura.');
+    expect(screen.getAllByRole('listitem')).toHaveLength(50);
+    act(() => tarjeta(50).focus());
+    fireEvent.keyDown(tarjeta(50), { key: 'ArrowRight' });
+    expect(screen.getAllByRole('listitem')).toHaveLength(50);
+    expect(screen.getByText('Anotaciones pendientes de guardar.')).toBeInTheDocument();
+  });
+  it('el historial de Deshacer conserva solo 50 pasos con el teclado', async () => {
+    abrir();
+    await screen.findByAltText('Captura de evidencia');
+    rectangulo();
+    act(() => tarjeta().focus());
+    for (let i = 0; i < 60; i++) fireEvent.keyDown(tarjeta(), { key: i % 2 ? 'ArrowLeft' : 'ArrowRight' });
+    const deshacer = screen.getByRole('button', { name: 'Deshacer' });
+    for (let i = 0; i < 50; i++) await userEvent.click(deshacer);
+    expect(deshacer).toBeDisabled();
+    expect(screen.getAllByRole('listitem')).toHaveLength(1);
+  });
   it('una anotación antigua de texto se muestra y se puede eliminar, pero no editar', async () => {
     api.cargarEvidencia.mockResolvedValue({ meta: { ...meta, anotaciones: [{ id: 't1', tipo: 'texto', x: 0.2, y: 0.2, x2: 0.2, y2: 0.2, color: '#d83232', texto: 'Revisar botón' }] }, blob: new Blob(['png'], { type: 'image/png' }) });
     abrir();

@@ -1466,6 +1466,7 @@ button { cursor: pointer; }
 .evidencia-lista { display: grid; gap: 8px; max-width: 720px; margin: 8px 0; padding: 0; list-style: none; }
 .evidencia-tarjeta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }
 .evidencia-tarjeta:hover, .evidencia-tarjeta:focus-within { border-color: var(--primary); }
+.evidencia-tarjeta:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .evidencia-muestra { flex: none; width: 14px; height: 14px; border: 1px solid var(--line); border-radius: 50%; }
 .evidencia-nombre { flex: 1 1 120px; font-size: 14px; }
 .evidencia-marca--resaltada { filter: drop-shadow(0 0 4px rgba(0, 0, 0, .55)); }

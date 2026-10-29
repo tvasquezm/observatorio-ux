@@ -80,6 +80,19 @@ function sobreMarca(a: AnotacionEvidencia, p: Punto) {
   return p.x >= c.x1 - HOLGURA_MARCA && p.x <= c.x2 + HOLGURA_MARCA && p.y >= c.y1 - HOLGURA_MARCA && p.y <= c.y2 + HOLGURA_MARCA;
 }
 
+/** Paso (0–1) de cada pulsación de flecha en una tarjeta. */
+const PASO_TECLADO = 0.01;
+const FLECHAS: Record<string, Punto> = { ArrowLeft: { x: -1, y: 0 }, ArrowRight: { x: 1, y: 0 }, ArrowUp: { x: 0, y: -1 }, ArrowDown: { x: 0, y: 1 } };
+
+/** Flechas mueven la marca; Mayús+flechas la redimensionan (esquina inferior derecha en formas, fin en la flecha). */
+function ajustarConTeclado(a: AnotacionEvidencia, d: Punto, redimensionar: boolean): AnotacionEvidencia {
+  const dx = d.x * PASO_TECLADO, dy = d.y * PASO_TECLADO;
+  if (!redimensionar) return aplicarGesto({ tipo: 'mover', origen: { x: 0, y: 0 }, base: a }, { x: dx, y: dy });
+  if (a.tipo === 'flecha') return aplicarGesto({ tipo: 'redimensionar', origen: { x: 0, y: 0 }, base: a, tirador: 'fin' }, { x: limitar(a.x2 + dx), y: limitar(a.y2 + dy) });
+  const c = cajaDe(a);
+  return aplicarGesto({ tipo: 'redimensionar', origen: { x: 0, y: 0 }, base: a, tirador: 'se' }, { x: Math.min(1, Math.max(c.x1 + PASO_TECLADO, c.x2 + dx)), y: Math.min(1, Math.max(c.y1 + PASO_TECLADO, c.y2 + dy)) });
+}
+
 /** Marca resultante de un gesto de mover o redimensionar, siempre dentro de 0–1. */
 function aplicarGesto(g: Exclude<Gesto, { tipo: 'dibujar' }>, p: Punto): AnotacionEvidencia {
   const b = g.base;
@@ -227,7 +240,14 @@ function Lienzo({ proyectoId, evaluacionId, meta, blob, editable, onPendingChang
       </svg>}
     </div>
     <ol className="evidencia-lista" aria-label="Anotaciones de la captura">{anotaciones.map((a, i) => <li key={a.id} className="evidencia-tarjeta" tabIndex={0} aria-label={`Anotación ${i + 1}`}
-      onMouseEnter={() => setResaltada(a.id)} onMouseLeave={() => setResaltada(null)} onFocus={() => setResaltada(a.id)}
+      onMouseEnter={() => setResaltada(a.id)} onMouseLeave={() => setResaltada(null)} onFocus={() => { setResaltada(a.id); if (editable && a.tipo !== 'texto') setSeleccion(a.id); }}
+      onKeyDown={e => {
+        const d = FLECHAS[e.key];
+        if (!d || !editable || guardando || a.tipo === 'texto' || e.target !== e.currentTarget || e.altKey || e.ctrlKey || e.metaKey) return;
+        e.preventDefault();
+        const nueva = ajustarConTeclado(a, d, e.shiftKey);
+        if (JSON.stringify(nueva) !== JSON.stringify(a)) cambiar(anotaciones.map(n => n.id === a.id ? nueva : n));
+      }}
       onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setResaltada(null); }}>
       <span className="evidencia-muestra" style={{ background: a.color }} aria-hidden="true" />
       <span className="evidencia-nombre">{TIPOS[a.tipo]}{a.texto && `: ${a.texto}`}</span>
