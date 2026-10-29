@@ -1004,3 +1004,46 @@ describe('esqueleto estándar', () => {
     expect(resumen.closest('details')).not.toHaveAttribute('open');
   });
 });
+
+describe('aviso de terminada y volver al inicio', () => {
+  const toasts: string[] = [];
+  const escucha = (ev: Event) => { toasts.push((ev as CustomEvent<{ message: string }>).detail.message); };
+  beforeEach(() => { toasts.length = 0; window.addEventListener('app:toast', escucha); return () => window.removeEventListener('app:toast', escucha); });
+  const consolidada = () => { const e = final('c1'); e.fase = 'CONSOLIDADA'; return e; };
+  it('al finalizar avisa y vuelve al inicio', async () => {
+    const e = consolidada(); const fin = { ...e, fase: 'FINALIZADA' as const, revision: 2 };
+    api.mockResolvedValue(fin);
+    const onSaved = vi.fn(); const onBack = vi.fn();
+    renderFlow(<InformeView evaluacion={e} historial={[]} usuarioId="u1" onSaved={onSaved} onBack={onBack} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Finalizar informe' }));
+    await waitFor(() => expect(onBack).toHaveBeenCalledTimes(1));
+    expect(onSaved).toHaveBeenCalledWith(fin);
+    expect(toasts).toEqual(['Evaluación terminada. Puedes abrir el informe final desde Mis revisiones.']);
+  });
+  it('si falla al finalizar no vuelve ni avisa y muestra el error', async () => {
+    api.mockRejectedValue(new Error('Conflicto de revisión'));
+    const onBack = vi.fn();
+    renderFlow(<InformeView evaluacion={consolidada()} historial={[]} usuarioId="u1" onSaved={vi.fn()} onBack={onBack} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Finalizar informe' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Conflicto de revisión');
+    expect(onBack).not.toHaveBeenCalled(); expect(toasts).toEqual([]);
+  });
+  it('en la página, tras finalizar se ve Mis revisiones con la revisión Terminada', async () => {
+    const e = consolidada(); const fin = { ...e, fase: 'FINALIZADA' as const, revision: 2 };
+    let finalizada = false;
+    api.mockImplementation(async (_p, path, method) => {
+      if (method === 'POST' && path.endsWith('/finalizar')) { finalizada = true; return fin; }
+      if (path === '/evaluaciones') return [finalizada ? fin : e];
+      if (path === `/evaluaciones/${e.id}`) return finalizada ? fin : e;
+      if (path === '/metodologias') return [config().metodologia];
+      if (path === '/equipo') return [{ id: 'u1', nombre: 'Ana', rol: 'ESTUDIANTE' }];
+      return [];
+    });
+    renderFlow(<FlujoHeuristicaPage />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Abrir' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Finalizar informe' }));
+    expect(await screen.findByRole('heading', { name: 'Mis revisiones' })).toBeInTheDocument();
+    expect(await screen.findByText('Terminada')).toBeInTheDocument();
+    expect(toasts).toHaveLength(1);
+  });
+});

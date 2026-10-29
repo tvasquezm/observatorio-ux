@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { escalaDe, origenHallazgo, resumirCumplimiento, resumirEvaluacion } from '@observatorio-ux/shared-types';
 import type { ComparacionFlujo, EstadoComparacion, EvaluacionFlujo, VinculoComparacion } from '@observatorio-ux/shared-types';
+import { notify } from '../../shared/api/toast';
 import { Field, Fuente } from './ConfiguracionEditor';
 import { EvidenciaEditor } from './EvidenciaEditor';
 import { SaveStatus } from './TrabajoEditor';
@@ -53,7 +54,11 @@ export function InformeView({ evaluacion, historial, usuarioId, onSaved, onBack 
   const opciones = historial.filter(e => e.id !== evaluacion.id && e.fase === 'FINALIZADA' && e.configuracion.producto.clave === config.producto.clave);
   async function action(action: 'finalizar' | 'version') {
     setBusy(true); setError('');
-    try { onSaved(await flujoRequest<EvaluacionFlujo>(evaluacion.proyectoId, `/evaluaciones/${evaluacion.id}/${action}`, 'POST', { revision: evaluacion.revision })); }
+    try {
+      const r = await flujoRequest<EvaluacionFlujo>(evaluacion.proyectoId, `/evaluaciones/${evaluacion.id}/${action}`, 'POST', { revision: evaluacion.revision });
+      onSaved(r);
+      if (action === 'finalizar') { onBack(); notify.success('Evaluación terminada. Puedes abrir el informe final desde Mis revisiones.'); }
+    }
     catch (e) { setError(e instanceof Error ? e.message : 'No se pudo completar la acción'); } finally { setBusy(false); }
   }
   return <>
