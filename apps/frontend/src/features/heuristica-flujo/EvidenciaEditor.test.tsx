@@ -71,7 +71,7 @@ describe('EvidenciaEditor', () => {
     expect(screen.queryByRole('button', { name: 'Texto' })).not.toBeInTheDocument();
     expect(screen.queryByText('Agregar o editar anotaciones')).not.toBeInTheDocument();
     expect(screen.getByText('Dibuja sobre la captura para marcar el problema')).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: /Rectángulo|Círculo|Flecha|Destacado/ })).toHaveLength(4);
+    expect(within(screen.getByRole('combobox', { name: 'Forma' })).getAllByRole('option')).toHaveLength(4);
   });
   it('cambia color y forma desde la tarjeta, entra al Deshacer y se guarda', async () => {
     abrir();
