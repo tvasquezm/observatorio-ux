@@ -168,6 +168,7 @@ function Lienzo({ proyectoId, evaluacionId, meta, blob, editable, onPendingChang
       <div className="evidencia-herramientas" role="toolbar" aria-label="Herramientas de anotación">
         {FORMAS.map(f => <button key={f} type="button" className="evidencia-accion" aria-label={TIPOS[f]} title={TIPOS[f]} aria-pressed={forma === f} disabled={guardando} onClick={() => setForma(f)}><Icon name={ICONO_FORMA[f]} size={20} /></button>)}
         <input type="color" className="evidencia-color" aria-label="Color" title="Color" value={color} disabled={guardando} onChange={e => setColor(e.target.value)} />
+        <button type="button" className="secondary" disabled={!historial.length || guardando} onClick={deshacer}>Deshacer</button><button type="button" className="primary" disabled={!dirty || guardando} onClick={() => void guardar()}>{guardando ? 'Guardando anotaciones…' : 'Guardar anotaciones'}</button>
       </div>
     </>}
     <div className="evidencia-original"><label><input type="checkbox" checked={original} onChange={e => setOriginal(e.target.checked)} aria-describedby="evidencia-original-ayuda" /> Mostrar imagen original</label><span id="evidencia-original-ayuda" className="text-muted-xs">Oculta las marcas para ver la captura sin anotar</span></div>
@@ -199,7 +200,6 @@ function Lienzo({ proyectoId, evaluacionId, meta, blob, editable, onPendingChang
       </>}
       {editable && <button type="button" className="evidencia-accion evidencia-accion--danger" disabled={guardando} aria-label={`Eliminar anotación ${i + 1}`} title="Eliminar anotación" onClick={() => cambiar(anotaciones.filter(n => n.id !== a.id))}><Icon name="trash" size={20} /></button>}
     </li>)}</ol>
-    {editable && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}><button type="button" className="secondary" disabled={!historial.length || guardando} onClick={deshacer}>Deshacer</button><button type="button" className="primary" disabled={!dirty || guardando} onClick={() => void guardar()}>{guardando ? 'Guardando anotaciones…' : 'Guardar anotaciones'}</button></div>}
     {error && <p role="alert">{error}{editable && <button type="button" className="text-button" disabled={guardando} onClick={() => void recuperar()}>Recuperar anotaciones guardadas</button>}</p>}<p role="status">{estado || (dirty ? 'Anotaciones pendientes de guardar.' : '')}</p>
     {ampliada && url && <VisorAmpliado url={url} anotaciones={visibles} conMarcas={!original} onClose={cerrarVisor}
       edicion={editable ? {
