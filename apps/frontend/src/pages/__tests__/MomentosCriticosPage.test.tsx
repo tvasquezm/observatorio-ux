@@ -189,6 +189,12 @@ describe('Momentos críticos', () => {
     expect(screen.getByRole('button', { name: 'Quitar incidente' })).toBeDisabled();
     expect(screen.getByLabelText('Acciones sugeridas incidente 1')).toHaveValue('Segunda acción');
   });
+  it('muestra quién guardó la última versión y cuándo', () => {
+    state.list.mockReturnValue([{ ...momento, autor: { id: 'u1', nombre: 'Ana Pérez' }, createdAt: '2026-10-27T15:30:00Z' }]);
+    renderPage();
+    expect(screen.getByText(/^Última edición por Ana Pérez · \d{1,2} /)).toBeInTheDocument();
+    expect(screen.getByText(/Versión 3/)).toBeInTheDocument();
+  });
   it('permite a docentes leer detalles y distingue oportunidades positivas de problemas', () => {
     state.role = 'DOCENTE';
     state.list.mockReturnValue([momento]);

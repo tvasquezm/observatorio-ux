@@ -10,6 +10,7 @@
 // el navegador la reenvíe sola, y agrega el header CSRF (`csrfHeaders`,
 // ver ./csrf.ts) en cada mutación.
 
+import { fechaChile } from '../../features/heuristica-flujo/flujo-utils';
 import { evaluatorRequest } from './evaluator-client';
 
 export type TipoArtefacto = 'PERSONA' | 'JOURNEY_MAP' | 'MOMENTOS_CRITICOS';
@@ -22,6 +23,7 @@ export interface UxArtifact<TContenido = unknown> {
   version: number;
   contenido: TContenido;
   autorId: string;
+  autor?: { id: string; nombre: string } | null;
   createdAt: string;
   lockedById: string | null;
   lockedUntil: string | null;
@@ -66,6 +68,11 @@ export function listArtifacts<T = unknown>(
 ): Promise<UxArtifact<T>[]> {
   const query = tipo ? `?tipo=${tipo}` : '';
   return request<UxArtifact<T>[]>(`/projects/${proyectoId}/artifacts${query}`);
+}
+
+/** Quién guardó la versión mostrada y cuándo (hora de Chile). */
+export function textoUltimaEdicion(a: Pick<UxArtifact, 'autor' | 'createdAt'>): string {
+  return `Última edición por ${a.autor?.nombre ?? 'un miembro del equipo'} · ${fechaChile(a.createdAt)}`;
 }
 
 /** Se queda solo con la versión más reciente de cada artefacto lógico. */

@@ -222,6 +222,27 @@ describe('ArtifactsService', () => {
         expect.objectContaining({ where: expect.objectContaining({ proyectoId: 'proy-1' }) }),
       );
     });
+
+    it('incluye solo el id y el nombre del autor de cada versión', async () => {
+      prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
+      prisma.uxArtifact.findMany.mockResolvedValue([]);
+
+      await service.findAll('proy-1', undefined, ownerUser);
+
+      expect(prisma.uxArtifact.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ include: { autor: { select: { id: true, nombre: true } } } }),
+      );
+    });
+
+    it('RECHAZA a un usuario sin acceso al proyecto y no consulta los artefactos', async () => {
+      prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
+      prisma.proyectoMiembro.findUnique.mockResolvedValue(null);
+
+      await expect(service.findAll('proy-1', undefined, otherUser)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(prisma.uxArtifact.findMany).not.toHaveBeenCalled();
+    });
   });
 
   describe('findOne', () => {
