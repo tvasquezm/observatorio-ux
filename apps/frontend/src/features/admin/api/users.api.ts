@@ -16,7 +16,8 @@ export type UsuarioCuenta = Docente;
 export interface CreateDocenteDto {
   nombre: string;
   email: string;
-  password: string;
+  password?: string;
+  acceso?: 'PASSWORD' | 'GOOGLE';
 }
 
 export interface Estudiante {

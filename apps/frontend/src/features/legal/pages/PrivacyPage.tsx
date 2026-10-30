@@ -17,7 +17,7 @@ export function PrivacyPage() {
 
         <h2>Cookies</h2>
         <p>
-          Usamos 2 cookies, ambas necesarias para que la sesión funcione de forma segura. No
+          Usamos 2 cookies de sesión, ambas necesarias para que el acceso funcione de forma segura. No
           usamos cookies de analítica, publicidad ni seguimiento. Solo se crean cuando inicias
           sesión como docente, estudiante o administrador; los participantes no reciben cookies.
         </p>
@@ -32,7 +32,12 @@ export function PrivacyPage() {
             Protege tu cuenta de solicitudes falsas enviadas desde otros sitios. Se elimina al
             cerrar sesión.
           </dd>
+          <dt><code>googleLoginNonce</code> (solo cuando Google está configurado)</dt>
+          <dd>Vincula la solicitud de acceso con la respuesta de Google. Solo la lee el servidor y vence a los cinco minutos o al ingresar.</dd>
         </dl>
+
+        <h2>Acceso con Google</h2>
+        <p>Cuando la integración esté configurada, podrás usar el botón oficial de Google. Ese proveedor verifica tu identidad y entrega un identificador de cuenta y tu correo verificado. La plataforma conserva esa vinculación y exige que la administración haya autorizado tu cuenta previamente. Google aplica sus propias condiciones de privacidad al proceso de identificación.</p>
 
         <h2>Almacenamiento del navegador</h2>
         <p>Además de las cookies, la plataforma guarda en tu navegador, sin enviarlo a ningún tercero:</p>

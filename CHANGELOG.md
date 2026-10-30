@@ -6,6 +6,12 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **admin:** ordena el alta de docentes, incorpora búsqueda y filtro de cuentas y permite
+  preautorizar accesos con Google; la integración permanece desactivada sin `GOOGLE_CLIENT_ID`.
+* **pdf:** aplica tipografía Latin Modern, composición académica y tablas sobrias a los informes,
+  con fuentes locales incluidas en el frontend y en el backend compilado.
+
+
 * **personas, momentos-criticos:** si otro miembro del equipo está editando, quien intenta editar ve "Editando: nombre"
   (el 409 del bloqueo ahora incluye el nombre; solo lo ve quien tiene acceso al proyecto). Sin edición simultánea.
 * **evaluacion-heuristica:** las capturas de evidencia ahora se pueden ver en grande (clic sobre la imagen, lupa o Esc

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   useCreateDocente,
   useDocentes,
@@ -8,6 +9,7 @@ import {
 import { useConfirm } from '../../../shared/api/confirm';
 import { UserAccountsPanel } from '../components/UserAccountsPanel';
 import { AdminProjectsPanel } from '../components/AdminProjectsPanel';
+import './admin.css';
 
 export function CrearDocenteForm() {
   const { mutate: crear, isPending } = useCreateDocente();
@@ -15,59 +17,89 @@ export function CrearDocenteForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [credentials, setCredentials] = useState<{ email: string; password: string } | null>(null);
+  const [accessMode, setAccessMode] = useState<'PASSWORD' | 'GOOGLE'>('PASSWORD');
+  const [credentials, setCredentials] = useState<{ email: string; password?: string } | null>(null);
   const [copyMessage, setCopyMessage] = useState('');
+  const [formError, setFormError] = useState('');
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (!nombre.trim() || !email.trim() || !password) return;
+    if (isPending || credentials) return;
+    setFormError('');
+    if (!nombre.trim() || !email.trim() || (accessMode === 'PASSWORD' && !password)) {
+      setFormError('Completa los datos requeridos para crear la cuenta.');
+      return;
+    }
     crear(
-      { nombre: nombre.trim(), email: email.trim(), password },
+      { nombre: nombre.trim(), email: email.trim(), ...(accessMode === 'GOOGLE' ? { acceso: 'GOOGLE' as const } : { password }) },
       {
         onSuccess: (docente) => {
-          setCredentials({ email: docente.email, password });
+          setCredentials({ email: docente.email, ...(accessMode === 'PASSWORD' ? { password } : {}) });
           setCopyMessage('');
           setShowPassword(false);
           setNombre('');
           setEmail('');
           setPassword('');
         },
+        onError: (error) => setFormError(error instanceof Error ? error.message : 'No se pudo crear el docente. Inténtalo nuevamente.'),
       },
     );
   }
 
   return (
     <form onSubmit={handleSubmit} className="admin-create-form">
+      <fieldset className="admin-access-method" disabled={isPending || credentials !== null}>
+        <legend>Forma de acceso</legend>
+        <div className="admin-access-options">
+          <label><input type="radio" name="access-mode" checked={accessMode === 'PASSWORD'} onChange={() => setAccessMode('PASSWORD')} />Usar contraseña</label>
+          <label><input type="radio" name="access-mode" checked={accessMode === 'GOOGLE'} onChange={() => { setAccessMode('GOOGLE'); setPassword(''); setShowPassword(false); }} />Cuenta de Google</label>
+        </div>
+      </fieldset>
+      <fieldset disabled={isPending || credentials !== null}>
+      <legend>1. Datos de la persona</legend>
       <label className="field" htmlFor="docente-nombre">
         Nombre completo
-        <input id="docente-nombre" type="text" placeholder="Ej. Camila Rojas" value={nombre} onChange={(event) => setNombre(event.target.value)} required disabled={isPending} />
+        <input id="docente-nombre" type="text" autoComplete="name" placeholder="Ej. Camila Rojas" value={nombre} onChange={(event) => setNombre(event.target.value)} required disabled={isPending} />
       </label>
       <label className="field" htmlFor="docente-email">
         Correo institucional
-        <input id="docente-email" type="email" placeholder="camila.rojas@utem.cl" value={email} onChange={(event) => setEmail(event.target.value)} required disabled={isPending} />
+        <input id="docente-email" type="email" autoComplete="email" placeholder="camila.rojas@utem.cl" value={email} onChange={(event) => setEmail(event.target.value)} required disabled={isPending} />
       </label>
+      </fieldset>
+      <fieldset disabled={isPending || credentials !== null}>
+      <legend>2. Acceso inicial</legend>
+      {accessMode === 'GOOGLE' ? <div className="admin-google-note"><strong>Autorizar un correo de Google</strong><p>La persona usará «Continuar con Google» con este mismo correo de Gmail o Google Workspace. El acceso estará disponible cuando se configure la integración.</p><p>Su rol en el Observatorio será docente.</p></div> : <>
       <div className="field">
         <label htmlFor="docente-password">Contraseña temporal</label>
         <div className="password-field">
-          <input id="docente-password" type={showPassword ? 'text' : 'password'} autoComplete="new-password" placeholder="Mínimo 8 caracteres" value={password} onChange={(event) => setPassword(event.target.value)} required minLength={8} maxLength={72} disabled={isPending} />
+          <input id="docente-password" type={showPassword ? 'text' : 'password'} autoComplete="new-password" aria-describedby="docente-password-help" placeholder="Mínimo 8 caracteres" value={password} onChange={(event) => setPassword(event.target.value)} required minLength={8} maxLength={72} disabled={isPending} />
           <button type="button" className="secondary" aria-pressed={showPassword} aria-controls="docente-password" onClick={() => setShowPassword(!showPassword)}>{showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}</button>
         </div>
       </div>
-      <p className="form-help">El docente podrá ingresar y cambiar su contraseña desde Preferencias.</p>
-      <button type="submit" className="primary admin-submit" disabled={isPending}>
+      <button type="button" className="text-button" onClick={() => {
+        setPassword(Array.from(crypto.getRandomValues(new Uint8Array(16)), (value) => value.toString(16).padStart(2, '0')).join(''));
+      }}>Generar contraseña segura</button>
+      <p id="docente-password-help" className="form-help">Usa entre 8 y 72 caracteres. Después de crear la cuenta podrás copiar el acceso y compartirlo con la persona.</p>
+      </>}
+      </fieldset>
+      {formError && <p className="inline-state inline-state--error" role="alert">{formError}</p>}
+      <button type="submit" className="primary admin-submit" disabled={isPending || credentials !== null}>
         {isPending ? 'Creando docente…' : 'Crear docente'}
       </button>
       {credentials && <section className="inline-state credentials-result" aria-labelledby="credentials-title">
-        <h3 id="credentials-title">Docente creado: comparte su acceso</h3>
+        <h3 id="credentials-title">{credentials.password ? 'Docente creado: comparte su acceso' : 'Cuenta autorizada para Google'}</h3>
         <label className="field" htmlFor="created-email">Correo creado<input id="created-email" readOnly value={credentials.email} /></label>
-        <label className="field" htmlFor="created-password">Contraseña creada<input id="created-password" type={showPassword ? 'text' : 'password'} readOnly value={credentials.password} autoComplete="off" /></label>
+        {credentials.password && <><label className="field" htmlFor="created-password">Contraseña creada<input id="created-password" type={showPassword ? 'text' : 'password'} readOnly value={credentials.password} autoComplete="off" /></label>
+        <button type="button" className="secondary" aria-pressed={showPassword} aria-controls="created-password" onClick={() => setShowPassword(!showPassword)}>{showPassword ? 'Ocultar acceso creado' : 'Mostrar acceso creado'}</button>
         <p className="form-help">Este acceso se muestra solo ahora. Pide al docente cambiar la contraseña al ingresar.</p>
+        </>}
+        {!credentials.password && <p>La persona podrá entrar con ese correo cuando se active Google. No se ha creado una contraseña local.</p>}
         <div className="password-actions">
           <button type="button" className="secondary" onClick={async () => {
             setCopyMessage('');
-            try { await navigator.clipboard.writeText(`Correo: ${credentials.email}\nContraseña temporal: ${credentials.password}`); setCopyMessage('Credenciales copiadas.'); }
+            try { await navigator.clipboard.writeText(credentials.password ? `Correo: ${credentials.email}\nContraseña temporal: ${credentials.password}` : credentials.email); setCopyMessage('Credenciales copiadas.'); }
             catch { setCopyMessage('No se pudieron copiar. Selecciona los campos y cópialos manualmente.'); }
-          }}>Copiar correo y contraseña</button>
+          }}>{credentials.password ? 'Copiar correo y contraseña' : 'Copiar correo'}</button>
           <button type="button" className="secondary" onClick={() => { setCredentials(null); setCopyMessage(''); setShowPassword(false); }}>Cerrar credenciales</button>
         </div>
         {copyMessage && <p role="status">{copyMessage}</p>}
@@ -168,18 +200,18 @@ export function AdminProfesoresPage() {
         <div className="page-summary" aria-label="Resumen de usuarios"><span><strong>{docentes?.length ?? 0}</strong> docentes</span><span><strong>{estudiantes?.length ?? 0}</strong> estudiantes</span></div>
       </header>
 
-      <UserAccountsPanel />
-
-      <AdminProjectsPanel />
-
       <div className="admin-layout">
-        <aside className="panel admin-create-panel">
-          <span className="eyebrow">Nuevo acceso</span><h2>Crear docente</h2>
+        <section className="panel admin-create-panel" aria-labelledby="create-user-title">
+          <div className="admin-create-heading"><div><span className="eyebrow">Nuevo acceso</span><h2 id="create-user-title">Crear docente</h2></div><span className="admin-access-badge">Acceso docente</span></div>
           <p className="section-description">Entrega un acceso inicial para que una persona gestione investigación y docencia.</p>
           <CrearDocenteForm />
-        </aside>
+          <p className="admin-student-help">¿Necesitas incorporar estudiantes? <Link to="/salas">Agrégalos desde una sala</Link>.</p>
+        </section>
 
         <div className="admin-lists">
+          <UserAccountsPanel />
+          <details className="admin-directory">
+            <summary>Ver directorio de docentes y estudiantes</summary>
           <section className="panel" aria-labelledby="docentes-title">
             <div className="panel-head"><div><span className="eyebrow">Equipo docente</span><h2 id="docentes-title">Docentes registrados</h2></div><span className="count">{docentes?.length ?? 0}</span></div>
             <DocentesList />
@@ -188,8 +220,10 @@ export function AdminProfesoresPage() {
             <div className="panel-head"><div><span className="eyebrow">Participación</span><h2 id="estudiantes-title">Estudiantes registrados</h2></div><span className="count">{estudiantes?.length ?? 0}</span></div>
             <EstudiantesList />
           </section>
+          </details>
         </div>
       </div>
+      <AdminProjectsPanel />
     </div>
   );
 }

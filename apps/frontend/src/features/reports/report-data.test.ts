@@ -27,6 +27,15 @@ beforeEach(() => {
 });
 
 describe('informes por técnicas', () => {
+  it('no reserva una página por cada técnica vacía y restaura el formato tras el Journey', async () => {
+    const report = await loadProjectReport('p1', REPORT_METHODS.map(({ id }) => id));
+    const sections = (buildReportDefinition(report).content as Array<{ stack?: Array<{ text?: string }>; pageBreak?: string; pageOrientation?: string }>).filter(node => node.stack?.[0].text?.startsWith('SECCIÓN'));
+    expect(sections).toHaveLength(5);
+    expect(sections[1]).toMatchObject({ pageBreak: 'before', pageOrientation: 'landscape' });
+    expect(sections[2]).toMatchObject({ pageBreak: 'before', pageOrientation: 'portrait' });
+    expect(sections[3].pageBreak).toBeUndefined();
+    expect(sections[4].pageBreak).toBeUndefined();
+  });
   it('una técnica no consulta ni imprime las otras cuatro', async () => {
     const report = await loadProjectReport('p1', ['heuristica']);
     expect(listarEvaluaciones).toHaveBeenCalledWith('p1');

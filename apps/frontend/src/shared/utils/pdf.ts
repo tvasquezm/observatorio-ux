@@ -1,22 +1,16 @@
-import type { Content, ContentCanvas, TDocumentDefinitions } from 'pdfmake/interfaces';
+import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces';
 import { resumirEvaluacion, type FaseHeuristica } from '@observatorio-ux/shared-types';
 import type { ProjectReport, ReportMethod } from '../../features/reports/report-data';
 import { INK, MUTED, TEAL, paragraph, table, textValue, title } from './pdf-base';
+import { PDF_DEFAULT_STYLE, PDF_PAGE_MARGINS, PDF_STYLES, keepHeadingsWithContent } from './pdf-base';
 import { cuerpoVista } from '../../features/card-sorting/card-sorting-pdf-content';
 import { tablaDeVista, tablaSinConsenso } from '../../features/card-sorting/card-sorting-export';
 
 export { INK, MUTED, TEAL, paragraph, table, title };
+export { PDF_DEFAULT_STYLE, PDF_PAGE_MARGINS, PDF_STYLES, keepHeadingsWithContent };
 
 export type ReportBrand = { logo: string; logoWhite: string };
 
-// Vector rectangles keep the brand gradient sharp in print, without a raster background.
-export function brandBand(width: number, height: number): ContentCanvas {
-  return { canvas: [...Array.from({ length: 128 }, (_, index) => {
-    const progress = index / 127;
-    const color = [21, 32, 56].map((start, channel) => Math.round(start + ([38, 59, 196][channel] - start) * progress).toString(16).padStart(2, '0')).join('');
-    return { type: 'rect' as const, x: index * width / 128, y: 0, w: width / 128 + 0.1, h: height, color: `#${color}`, lineWidth: 0 };
-  }), { type: 'rect', x: 0, y: height - 3, w: width, h: 3, color: '#a7c51f', lineWidth: 0 }] };
-}
 const fases: Record<FaseHeuristica, string> = { BORRADOR: 'Borrador', EN_EVALUACION: 'En evaluación', PENDIENTE_CONSENSO: 'Pendiente de consenso', CONSOLIDADA: 'Consolidada', FINALIZADA: 'Finalizada' };
 const severityLabels = ['Sin problema', 'Cosmético', 'Menor', 'Mayor', 'Crítico'];
 const severityColors = ['#526a73', '#526a73', '#85601b', '#a44626', '#922f3d'];
@@ -27,13 +21,13 @@ function details(rows: Array<[string, unknown]>): Content {
   return {
     table: { widths: [118, '*'], body: rows.map(([label, value]) => [
       { text: label, bold: true, color: MUTED, fontSize: 9 },
-      { text: textValue(value) },
+      { text: textValue(value), fontSize: 9.5, lineHeight: 1.15 },
     ]) },
     layout: {
       hLineWidth: (index) => index === 0 ? 0 : 0.5,
       hLineColor: () => '#d7dde7', vLineWidth: () => 0,
       paddingLeft: () => 0, paddingRight: () => 14,
-      paddingTop: () => 7, paddingBottom: () => 7,
+      paddingTop: () => 3, paddingBottom: () => 3,
     }, margin: [0, 0, 0, 12],
   };
 }
@@ -78,14 +72,11 @@ function sections(report: ProjectReport): Record<ReportMethod, Content[]> {
       ]),
       table(['Fase', 'Puntos de contacto', 'Pensamientos', 'Emoción', 'Oportunidades'], journey.fases.map((phase, index) => [
         `${index + 1}. ${phase.nombre}`, phase.touchpoints, phase.pensamientos, phase.emocion, phase.oportunidades,
-      ]), [80, '*', '*', 55, '*']),
-      ...journey.fases.flatMap((phase, index) => [
-        title(`Fase ${index + 1}: ${phase.nombre}`),
-        details([
-          ['Actividades', phase.actividades], ['Dificultades / puntos de dolor', phase.dificultades],
-          ['Ganancias / aspectos positivos', phase.ganancias],
-        ]),
-      ]),
+      ]), [80, '*', '*', 55, '*'], true),
+      title('Actividades, dificultades y aspectos positivos'),
+      table(['Fase', 'Actividades', 'Dificultades / puntos de dolor', 'Ganancias / aspectos positivos'], journey.fases.map((phase, index) => [
+        `${index + 1}. ${phase.nombre}`, phase.actividades, phase.dificultades, phase.ganancias,
+      ]), [80, '*', '*', '*'], true),
     ]) ?? [],
     momentos: report.moments?.flatMap(({ contenido: moment, version }, i) => [
       title(`${i + 1}. Incidentes de ${moment.perfilUsuario.nombre}`),
@@ -139,22 +130,20 @@ function sections(report: ProjectReport): Record<ReportMethod, Content[]> {
 
 export function brandChrome(brand: ReportBrand | undefined, scope: string, generatedAt: Date): Pick<TDocumentDefinitions, 'background' | 'header' | 'footer'> {
   return {
-    background: (page, size) => page === 1 ? brandBand(size.width, 156) : null,
-    header: (page) => page === 1 ? {
-      stack: [
-        brand ? { image: 'brandLogoWhite', width: 268 } : { text: 'UXLab Observatorio', color: '#ffffff', bold: true, fontSize: 24 },
-      ], margin: [44, 40, 44, 0],
-    } : {
+    header: () => ({
       columns: [
-        brand ? { image: 'brandLogo', width: 124 } : { text: 'UXLAB / OBSERVATORIO', color: TEAL, bold: true, fontSize: 9 },
+        brand ? { image: 'brandLogo', width: 125 } : { text: 'UXLab Observatorio', color: INK, bold: true, fontSize: 10 },
         { text: scope, alignment: 'right', fontSize: 8, color: MUTED, margin: [0, 10, 0, 0] },
-      ], margin: [44, 28, 44, 0],
-    },
-    footer: (page, total) => ({
-      columns: [
-        { text: `Evidencia de investigación · ${date(generatedAt)}`, fontSize: 8, color: MUTED },
-        { text: `${page} / ${total}`, alignment: 'right', fontSize: 8, color: MUTED },
-      ], margin: [44, 18, 44, 0],
+      ], margin: [54, 25, 54, 0],
+    }),
+    footer: (page, total, size) => ({
+      stack: [
+        { canvas: [{ type: 'line', x1: 0, y1: 0, x2: size.width - 108, y2: 0, lineWidth: 0.4, lineColor: '#b4bbc5' }], margin: [0, 0, 0, 10] },
+        { columns: [
+          { text: `Evidencia de investigación · ${date(generatedAt)}`, fontSize: 8, color: MUTED },
+          { text: `${page} / ${total}`, alignment: 'right', fontSize: 8, color: MUTED },
+        ] },
+      ], margin: [54, 12, 54, 0],
     }),
   };
 }
@@ -168,13 +157,13 @@ export function buildReportDefinition(report: ProjectReport, brand?: ReportBrand
   const scope = report.methods.length === 5 ? 'INFORME COMPLETO' : 'INFORME POR TÉCNICAS';
   return {
     info: { title: `Informe UX · ${report.project.nombre}`, subject: report.methods.map(({ label }) => label).join(', '), creator: 'UXLab Observatorio' },
-    pageSize: 'A4', pageMargins: [44, 66, 44, 54],
-    defaultStyle: { font: 'Roboto', fontSize: 9.5, lineHeight: 1.2, color: INK },
+    pageSize: 'A4', pageMargins: PDF_PAGE_MARGINS,
+    defaultStyle: PDF_DEFAULT_STYLE,
     images: brand ? { brandLogo: brand.logo, brandLogoWhite: brand.logoWhite } : {},
     ...brandChrome(brand, scope, report.generatedAt),
     content: [
-      { text: 'INFORME DE INVESTIGACIÓN UX', style: 'eyebrow', margin: [0, 116, 0, 12] },
-      { text: report.project.nombre, fontSize: 32, bold: true, lineHeight: 1.08, margin: [0, 0, 0, 16] },
+      { text: 'INFORME DE INVESTIGACIÓN UX', style: 'eyebrow', alignment: 'center', margin: [0, 36, 0, 18] },
+      { text: report.project.nombre, style: 'coverTitle' },
       paragraph(report.project.descripcion || 'Informe de técnicas y evidencia registrada en el proyecto.'),
       { columns: [
         { stack: [{ text: 'FECHA DE EXPORTACIÓN', style: 'eyebrow' }, { text: date(report.generatedAt), margin: [0, 5, 0, 0] }] },
@@ -186,18 +175,20 @@ export function buildReportDefinition(report: ProjectReport, brand?: ReportBrand
       paragraph('Se incluyen las versiones vigentes guardadas y las sesiones accesibles para la cuenta que exporta. Los registros cuentan fichas, mapas, matrices, estudios o sesiones según la técnica; no representan participantes únicos.'),
       paragraph('La cobertura corresponde a los datos accesibles para la cuenta que exporta. Una técnica sin registros no implica que haya sido evaluada ni que esté libre de problemas.'),
       ...report.methods.flatMap(({ id, label, detail }, index): Content[] => [
-        { text: `SECCIÓN 0${index + 1}`, style: 'eyebrow', pageBreak: 'before', pageOrientation: id === 'journey' ? 'landscape' : 'portrait', margin: [0, 10, 0, 12] },
-        { text: label, fontSize: 27, bold: true, margin: [0, 0, 0, 8] },
-        { text: detail, color: MUTED, margin: [0, 0, 0, 18] },
-        { canvas: [
-          { type: 'rect', x: 0, y: 0, w: id === 'journey' ? 754 : 507, h: 1, color: '#d7dde7' },
-          { type: 'rect', x: 0, y: 0, w: 36, h: 3, color: '#a7c51f' },
-        ], margin: [0, 0, 0, 12] },
-        ...(blocks[id].length ? blocks[id] : [empty()]),
+        { stack: [
+          { text: `SECCIÓN 0${index + 1}`, style: 'eyebrow', margin: [0, 10, 0, 12] },
+          { text: label, style: 'sectionTitle' },
+          { text: detail, color: MUTED, margin: [0, 0, 0, 18] },
+          { canvas: [
+            { type: 'line', x1: 0, y1: 0, x2: id === 'journey' ? 733 : 487, y2: 0, lineWidth: .5, lineColor: '#b4bbc5' },
+          ], margin: [0, 0, 0, 12] },
+          ...(blocks[id].length ? [] : [empty()]),
+        ], unbreakable: true, pageBreak: counts[id] || id === 'journey' || report.methods[index - 1]?.id === 'journey' ? 'before' : undefined, pageOrientation: id === 'journey' ? 'landscape' : 'portrait' },
+        ...blocks[id],
       ]),
     ],
-    styles: { subheading: { fontSize: 14, bold: true, color: INK }, eyebrow: { fontSize: 9, bold: true, color: TEAL, characterSpacing: 1 } },
-    pageBreakBefore: (node, container) => Boolean(node.headlineLevel && !container.getFollowingNodesOnPage().length),
+    styles: PDF_STYLES,
+    pageBreakBefore: keepHeadingsWithContent,
   };
 }
 
@@ -215,7 +206,7 @@ export async function loadBrandImage(path: string): Promise<string> {
 
 let cargaPdf: ReturnType<typeof cargarPdfMakeSinCache> | null = null;
 
-// Una sola carga por sesión (pdfmake, fuentes y logos pesan ~1,8 MB); si falla se puede reintentar.
+// Una sola carga por sesión; si falla se puede reintentar.
 export function cargarPdfMake() {
   if (!cargaPdf) {
     cargaPdf = cargarPdfMakeSinCache().catch((error) => {
@@ -232,13 +223,15 @@ export function precargarPdf(): void {
 }
 
 async function cargarPdfMakeSinCache() {
-  const [pdfMakeModule, fontContainerModule, logo, logoWhite] = await Promise.all([
-    import('pdfmake/build/pdfmake'), import('pdfmake/build/vfs_fonts'),
+  const fontFiles = ['lmroman10-regular.otf', 'lmroman10-bold.otf', 'lmroman10-italic.otf', 'lmroman10-bolditalic.otf'];
+  const [pdfMakeModule, logo, logoWhite, ...fonts] = await Promise.all([
+    import('pdfmake/build/pdfmake'),
     loadBrandImage('/brand/uxlab-observatorio.png'), loadBrandImage('/brand/uxlab-observatorio-white.png'),
+    ...fontFiles.map((file) => loadBrandImage(`/fonts/${file}`)),
   ]);
   const pdfMake = pdfMakeModule.default ?? pdfMakeModule;
-  pdfMake.addVirtualFileSystem(fontContainerModule.default ?? fontContainerModule);
-  pdfMake.addFonts({ Roboto: { normal: 'Roboto-Regular.ttf', bold: 'Roboto-Medium.ttf', italics: 'Roboto-Italic.ttf', bolditalics: 'Roboto-MediumItalic.ttf' } });
+  pdfMake.addVirtualFileSystem(Object.fromEntries(fontFiles.map((file, index) => [file, fonts[index].split(',')[1]])));
+  pdfMake.addFonts({ LatinModern: { normal: fontFiles[0], bold: fontFiles[1], italics: fontFiles[2], bolditalics: fontFiles[3] } });
   return { pdfMake, brand: { logo, logoWhite } as ReportBrand };
 }
 
