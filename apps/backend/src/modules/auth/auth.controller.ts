@@ -1,13 +1,15 @@
-import { Body, Controller, Get, Post, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
 import { randomBytes } from 'crypto';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { CurrentUser } from './decorators/current-user.decorator.js';
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard.js';
 import { AuthService } from './auth.service.js';
+import { GoogleAuthService } from './google-auth.service.js';
 import {
   LoginDto,
+  GoogleLoginDto,
   ChangePasswordDto,
   ParticipantAccessDto,
   ParticipantTokenDto,
@@ -38,7 +40,30 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly config: ConfigService,
+    private readonly google: GoogleAuthService,
   ) {}
+
+  @Get('google/config')
+  googleConfig(@Res({ passthrough: true }) res: Response) {
+    res.setHeader('Cache-Control', 'no-store');
+    if (!this.google.clientId) return { enabled: false as const };
+    const nonce = randomBytes(32).toString('hex');
+    const nodeEnv = this.config.get<string>('app.nodeEnv', 'development');
+    res.cookie('googleLoginNonce', nonce, { ...cookieOptions(nodeEnv, true), maxAge: 5 * 60_000 });
+    return { enabled: true as const, clientId: this.google.clientId, nonce };
+  }
+
+  @Post('google')
+  @Throttle({ default: { limit: LOGIN_RATE_LIMIT, ttl: 60_000 } })
+  async googleLogin(@Body() dto: GoogleLoginDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const { access_token, user } = await this.google.login(dto.credential, req.cookies?.googleLoginNonce);
+    const nodeEnv = this.config.get<string>('app.nodeEnv', 'development');
+    res.clearCookie('googleLoginNonce', cookieOptions(nodeEnv, true));
+    res.cookie('evaluadorToken', access_token, cookieOptions(nodeEnv, true));
+    res.cookie('csrfToken', randomBytes(32).toString('hex'), cookieOptions(nodeEnv, false));
+    res.setHeader('Cache-Control', 'no-store');
+    return { user };
+  }
 
   // Límite estricto: es el blanco más obvio de fuerza bruta (probar
   // contraseñas contra un email conocido). 5 intentos / minuto por IP,

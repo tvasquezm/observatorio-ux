@@ -93,6 +93,7 @@ model Usuario {
   nombre       String
   email        String   @unique
   passwordHash String?
+  googleSubject String? @unique
   rol          Rol
   createdAt    DateTime @default(now())
 

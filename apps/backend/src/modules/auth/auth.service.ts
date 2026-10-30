@@ -305,6 +305,10 @@ export class AuthService {
       throw new UnauthorizedException('Correo o contraseña incorrectos.');
     }
 
+    return this.createEvaluatorSession(user);
+  }
+
+  async createEvaluatorSession(user: { id: string; nombre: string; email: string; rol: AuthenticatedUser['rol'] }) {
     if (user.rol === 'ESTUDIANTE') {
       await this.assertEstudianteTieneSalaActiva(user.email);
     }

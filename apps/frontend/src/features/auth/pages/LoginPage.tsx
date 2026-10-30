@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useLogin } from '../hooks/useAuthMutations';
 import { useAuthStore } from '../store/useAuthStore';
+import { GoogleSignIn } from '../components/GoogleSignIn';
+import './google-sign-in.css';
 
 export function LoginPage() {
   const [email, setEmail] = useState('');
@@ -31,6 +33,8 @@ export function LoginPage() {
         />
         <h1>Ingresa a tu cuenta</h1>
         <p>Accede para gestionar tus proyectos de investigación UX.</p>
+
+        <GoogleSignIn />
 
         <form onSubmit={handleSubmit}>
           <label className="field">
@@ -73,8 +77,7 @@ export function LoginPage() {
 
         <small className="login-note">Plataforma de investigación UX · uso académico</small>
         <small className="login-note">
-          Usamos 2 cookies necesarias para tu sesión y la seguridad. No usamos cookies de
-          seguimiento.{' '}
+          Usamos cookies necesarias para tu sesión y la seguridad. Al elegir Google, se verifica tu cuenta con ese proveedor.{' '}
           <Link to="/privacidad" target="_blank" rel="noopener noreferrer">Más información</Link>
         </small>
       </main>
