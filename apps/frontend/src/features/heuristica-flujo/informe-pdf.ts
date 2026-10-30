@@ -1,12 +1,16 @@
 import type { AnotacionEvidencia, EvaluacionFlujo } from '@observatorio-ux/shared-types';
 import { escalaDe, origenHallazgo, resumirCumplimiento, resumirEvaluacion, SEVERIDADES } from '@observatorio-ux/shared-types';
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces';
-import { brandChrome, cargarPdfMake, date, INK, MUTED, table, TEAL, type ReportBrand } from '../../shared/utils/pdf';
+import { brandChrome, cargarPdfMake, date, MUTED, table, type ReportBrand } from '../../shared/utils/pdf';
+import { PDF_DEFAULT_STYLE, PDF_PAGE_MARGINS, PDF_STYLES, keepHeadingsWithContent, title } from '../../shared/utils/pdf-base';
 import { cargarEvidencia } from './evidencia.api';
 import { textoCumplimiento } from './flujo-utils';
 
-const titulo = (text: string): Content => ({ text, fontSize: 14, bold: true, margin: [0, 18, 0, 8], color: TEAL });
-const campo = (text: string, value: string): Content => ({ text: `${text}: ${value || 'No registrado'}`, margin: [0, 2, 0, 4] });
+const titulo = title;
+const campo = (text: string, value: string): Content => ({ stack: [
+  { text, fontSize: 8.5, bold: true, color: MUTED, margin: [0, 0, 0, 3] },
+  { text: value || 'No registrado' },
+], unbreakable: value.length < 600, margin: [0, 4, 0, 9] });
 
 export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: Map<string, string | null>, generadoEn: Date, brand?: ReportBrand): TDocumentDefinitions {
   if (!['CONSOLIDADA', 'FINALIZADA'].includes(evaluacion.fase) || !evaluacion.informe) throw new Error('Primero consolida y aprueba la evaluación.');
@@ -47,19 +51,21 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
   ]);
   return {
     info: { title: `Evaluación heurística · ${config.nombre} · v${informe.version}`, creator: 'UXLab Observatorio', subject: 'Informe consolidado de evaluación heurística' },
-    pageSize: 'A4', pageMargins: [44, 66, 44, 54], defaultStyle: { font: 'Roboto', fontSize: 9.5, color: INK, lineHeight: 1.2 },
+    pageSize: 'A4', pageMargins: PDF_PAGE_MARGINS, defaultStyle: PDF_DEFAULT_STYLE,
     images: { ...(brand ? { brandLogo: brand.logo, brandLogoWhite: brand.logoWhite } : {}), ...imagenes },
     ...brandChrome(brand, 'EVALUACIÓN HEURÍSTICA', generadoEn),
     content: [
-      { text: finalizado ? 'Informe final' : 'Informe preliminar consolidado', style: 'eyebrow', margin: [0, 100, 0, 12] },
-      { text: config.nombre, fontSize: 25, bold: true, margin: [0, 0, 0, 12] },
-      campo('Versión del informe', String(informe.version)), campo('Producto', `${config.producto.nombre} · ${config.producto.version}`),
-      campo('Clave del producto', config.producto.clave), campo('Enlace del producto', config.producto.url), campo('Dispositivo', config.producto.dispositivo),
-      campo('Objetivo', config.objetivo), campo('Tareas', config.tareas), campo('Pantallas incluidas', config.pantallas), campo('Exclusiones', config.exclusiones || 'Ninguna declarada'),
-      campo('Metodología', `${config.metodologia.nombre} · ${config.metodologia.version}`), campo('Autoría', config.metodologia.autor), campo('Fuente', config.metodologia.fuente),
-      campo('Evaluadores', informe.evaluadores.map(e => e.nombre).join(', ')), campo('Inicio', informe.iniciadoEn ? date(informe.iniciadoEn) : 'No registrado'),
-      campo('Consolidación', date(informe.consolidadoEn)), campo('Cierre', informe.finalizadoEn ? date(informe.finalizadoEn) : 'Pendiente de cierre'), campo('Exportación', date(generadoEn)),
-      titulo('Escala de valoración'),
+      { text: finalizado ? 'Informe final' : 'Informe preliminar consolidado', style: 'eyebrow', alignment: 'center', margin: [0, 36, 0, 18] },
+      { text: config.nombre, style: 'coverTitle' },
+      { columns: [campo('Versión del informe', String(informe.version)), campo('Producto', `${config.producto.nombre} · ${config.producto.version}`)], columnGap: 20 },
+      { columns: [campo('Clave del producto', config.producto.clave), campo('Enlace del producto', config.producto.url), campo('Dispositivo', config.producto.dispositivo)], columnGap: 20 },
+      campo('Objetivo', config.objetivo), campo('Tareas', config.tareas),
+      { columns: [campo('Pantallas incluidas', config.pantallas), campo('Exclusiones', config.exclusiones || 'Ninguna declarada')], columnGap: 20 },
+      { columns: [campo('Metodología', `${config.metodologia.nombre} · ${config.metodologia.version}`), campo('Autoría', config.metodologia.autor)], columnGap: 20 },
+      campo('Fuente', config.metodologia.fuente), campo('Evaluadores', informe.evaluadores.map(e => e.nombre).join(', ')),
+      campo('Aprobación explícita', informe.evaluadores.filter(e => consenso.aprobadoPor.includes(e.id)).map(e => e.nombre).join(', ')),
+      { columns: [campo('Inicio', informe.iniciadoEn ? date(informe.iniciadoEn) : 'No registrado'), campo('Consolidación', date(informe.consolidadoEn)), campo('Cierre', informe.finalizadoEn ? date(informe.finalizadoEn) : 'Pendiente de cierre'), campo('Exportación', date(generadoEn))], columnGap: 16 },
+      { ...titulo('Escala de valoración'), pageBreak: 'before' },
       campo('Tipo y sentido', `${config.metodologia.escala.tipo} · ${config.metodologia.escala.sentido}`), campo('Origen de la escala', config.metodologia.escala.fuente),
       table(['Respuesta', 'Significado', 'Valor'], config.metodologia.escala.niveles.map(n => [n.etiqueta, n.significado, n.valor ?? 'Sin puntaje']), [100, '*', 70]),
       ...escalasPropias.flatMap((e): Content[] => [
@@ -82,9 +88,9 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
       ...(conclusion ? [titulo('Conclusión y recomendaciones finales'), { text: conclusion } as Content] : []),
       titulo('Decisiones de revisión'),
       table(['Problema', 'Decisión', 'Orígenes', 'Motivo'], consenso.hallazgos.map(h => [h.titulo, h.decision === 'ACEPTADO' ? 'Aceptado / fusionado' : 'Descartado', origenHallazgo(h) === 'equipo' ? 'Nuevo del equipo' : h.origenIds.join(', '), h.justificacion]), ['*', 90, 90, '*']),
-      campo('Aprobación explícita', informe.evaluadores.filter(e => consenso.aprobadoPor.includes(e.id)).map(e => e.nombre).join(', ')),
     ],
-    styles: { eyebrow: { fontSize: 9, bold: true, color: TEAL } },
+    styles: PDF_STYLES,
+    pageBreakBefore: keepHeadingsWithContent,
   };
 }
 

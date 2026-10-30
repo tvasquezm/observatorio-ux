@@ -23,7 +23,7 @@ export class UsersService {
     if (existente) {
       throw new ConflictException('Ese email ya está registrado.');
     }
-    const passwordHash = await bcrypt.hash(dto.password, 10);
+    const passwordHash = dto.acceso === 'GOOGLE' ? null : await bcrypt.hash(dto.password!, 10);
     const docente = await this.prisma.usuario.create({
       data: { nombre: dto.nombre.trim(), email, passwordHash, rol: 'DOCENTE' },
     });

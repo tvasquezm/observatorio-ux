@@ -12,6 +12,7 @@ export const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string().valid('development', 'test', 'production').required(),
   PORT: Joi.number().port().default(3000),
   DATABASE_URL: Joi.string().required(),
+  GOOGLE_CLIENT_ID: Joi.string().pattern(/^\d+-[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/).allow('').optional(),
   JWT_SECRET: Joi.string().when('NODE_ENV', {
     is: 'production',
     then: Joi.string().min(32),
