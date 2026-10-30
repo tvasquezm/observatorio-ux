@@ -7,6 +7,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service.js'; // o tu ruta de prisma service
+import { vincularEquiposAProyecto } from '../../core/access/equipo-proyecto.js';
 import { AuthenticatedUser } from '../auth/types/authenticated-user.interface.js';
 import {
   BulkCreateSalaEstudiantesDto,
@@ -436,7 +437,7 @@ export class SalasService {
   ) {
     await this.assertOwnerOrAdmin(salaId, user);
 
-    return this.prisma.proyecto.create({
+    const proyecto = await this.prisma.proyecto.create({
       data: {
         nombre: dto.nombre.trim(),
         descripcion: dto.descripcion?.trim(),
@@ -444,6 +445,8 @@ export class SalasService {
         salaId,
       },
     });
+    await vincularEquiposAProyecto(this.prisma, salaId, proyecto.id);
+    return proyecto;
   }
 
   async vincularProyecto(
@@ -467,10 +470,12 @@ export class SalasService {
       throw new ConflictException('Ese proyecto ya está vinculado a una sala.');
     }
 
-    return this.prisma.proyecto.update({
+    const actualizado = await this.prisma.proyecto.update({
       where: { id: proyectoId },
       data: { salaId },
     });
+    await vincularEquiposAProyecto(this.prisma, salaId, proyectoId);
+    return actualizado;
   }
 
   async desvincularProyecto(

@@ -1,3 +1,4 @@
+import { ForbiddenException } from '@nestjs/common';
 import { ActorSesion, EstadoSesion, TipoSesion } from '../../../../generated/prisma/client.js';
 import { PrismaService } from '../../../../core/database/prisma.service.js';
 import { ProjectAccessService } from '../../../../core/access/project-access.service.js';
@@ -26,6 +27,7 @@ describe('CardSortingService analytics y ciclo de vida', () => {
     const projectAccess = { assertAccess: jest.fn() };
     return {
       prisma,
+      projectAccess,
       service: new CardSortingService(
         prisma as unknown as PrismaService,
         projectAccess as unknown as ProjectAccessService,
@@ -201,6 +203,194 @@ describe('CardSortingService analytics y ciclo de vida', () => {
       participantesCount: 0,
       cardsCount: 0,
       estudio: { id: 'estudio-1', proyectoId: 'proyecto-1' },
+    });
+  });
+
+  describe('acceso a la analítica por proyecto', () => {
+    const miembro = { id: 'miembro-1', rol: 'ESTUDIANTE', actor: 'EVALUADOR' } as AuthenticatedUser;
+    const estudio = {
+      id: 'estudio-1',
+      nombre: 'Navegación principal',
+      proyectoId: 'proyecto-1',
+      evaluadorId: 'estudiante-1',
+      tipo: TipoSesion.CARD_SORTING,
+      actor: ActorSesion.EVALUADOR,
+      cerrado: false,
+      createdAt: new Date('2026-09-13T12:00:00Z'),
+      cardsDefinidas: [],
+    };
+
+    function conEstudio() {
+      const ctx = createService();
+      ctx.prisma.researchSession.findUnique.mockResolvedValue(estudio);
+      ctx.prisma.researchSession.findMany.mockResolvedValue([]);
+      ctx.prisma.cardGrouping.findMany.mockResolvedValue([]);
+      return ctx;
+    }
+
+    it('permite a un miembro del proyecto ver la analítica y valida con assertAccess', async () => {
+      const { projectAccess, service } = conEstudio();
+      projectAccess.assertAccess.mockResolvedValue(undefined);
+
+      await expect(service.getAnalytics('estudio-1', miembro)).resolves.toMatchObject({
+        estudio: { id: 'estudio-1', proyectoId: 'proyecto-1' },
+      });
+      expect(projectAccess.assertAccess).toHaveBeenCalledWith(
+        'proyecto-1',
+        miembro,
+        'No tienes acceso a esta analítica.',
+      );
+    });
+
+    it('rechaza a un usuario ajeno al proyecto', async () => {
+      const { projectAccess, service } = conEstudio();
+      projectAccess.assertAccess.mockRejectedValue(new ForbiddenException('sin acceso'));
+
+      await expect(service.getAnalytics('estudio-1', miembro)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+    });
+
+    it('el dueño del estudio y el ADMIN no necesitan assertAccess', async () => {
+      const { projectAccess, service } = conEstudio();
+      const dueno = { id: 'estudiante-1', rol: 'ESTUDIANTE', actor: 'EVALUADOR' } as AuthenticatedUser;
+      const admin = { id: 'admin-1', rol: 'ADMIN', actor: 'EVALUADOR' } as AuthenticatedUser;
+
+      await expect(service.getAnalytics('estudio-1', dueno)).resolves.toBeDefined();
+      await expect(service.getAnalytics('estudio-1', admin)).resolves.toBeDefined();
+      expect(projectAccess.assertAccess).not.toHaveBeenCalled();
+    });
+
+    it('rechaza a un no dueño si el estudio no tiene proyecto', async () => {
+      const { prisma, projectAccess, service } = conEstudio();
+      prisma.researchSession.findUnique.mockResolvedValue({ ...estudio, proyectoId: null });
+
+      await expect(service.getAnalytics('estudio-1', miembro)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      expect(projectAccess.assertAccess).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('acceso a cerrar y abrir sesión por proyecto', () => {
+    const miembro = { id: 'miembro-1', rol: 'ESTUDIANTE', actor: 'EVALUADOR' } as AuthenticatedUser;
+    const dueno = { id: 'estudiante-1', rol: 'ESTUDIANTE', actor: 'EVALUADOR' } as AuthenticatedUser;
+    const admin = { id: 'admin-1', rol: 'ADMIN', actor: 'EVALUADOR' } as AuthenticatedUser;
+    const participanteAjeno = {
+      id: 'participante-9',
+      rol: 'ESTUDIANTE',
+      actor: 'PARTICIPANTE',
+      proyectoId: 'proyecto-2',
+    } as AuthenticatedUser;
+    const estudio = {
+      id: 'estudio-1',
+      nombre: 'Navegación principal',
+      proyectoId: 'proyecto-1',
+      evaluadorId: 'estudiante-1',
+      participanteId: null,
+      tipo: TipoSesion.CARD_SORTING,
+      actor: ActorSesion.EVALUADOR,
+      cerrado: false,
+    };
+
+    function conEstudio(sobrescribe: Record<string, unknown> = {}) {
+      const ctx = createService();
+      ctx.prisma.researchSession.findUnique.mockResolvedValue({ ...estudio, ...sobrescribe });
+      ctx.prisma.researchSession.update.mockImplementation(({ data }) =>
+        Promise.resolve({ id: 'estudio-1', ...data }),
+      );
+      return ctx;
+    }
+
+    it('cerrarEstudio: un miembro del proyecto puede cerrar y valida con assertAccess', async () => {
+      const { projectAccess, service } = conEstudio();
+      projectAccess.assertAccess.mockResolvedValue(undefined);
+
+      await expect(service.cerrarEstudio('estudio-1', true, miembro)).resolves.toMatchObject({
+        cerrado: true,
+      });
+      expect(projectAccess.assertAccess).toHaveBeenCalledWith(
+        'proyecto-1',
+        miembro,
+        'No tienes permiso sobre este estudio.',
+      );
+    });
+
+    it('cerrarEstudio: rechaza a un usuario ajeno al proyecto y no actualiza', async () => {
+      const { prisma, projectAccess, service } = conEstudio();
+      projectAccess.assertAccess.mockRejectedValue(new ForbiddenException('sin acceso'));
+
+      await expect(service.cerrarEstudio('estudio-1', true, miembro)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      expect(prisma.researchSession.update).not.toHaveBeenCalled();
+    });
+
+    it('cerrarEstudio: el dueño y el ADMIN no necesitan assertAccess', async () => {
+      const { projectAccess, service } = conEstudio();
+
+      await expect(service.cerrarEstudio('estudio-1', true, dueno)).resolves.toBeDefined();
+      await expect(service.cerrarEstudio('estudio-1', true, admin)).resolves.toBeDefined();
+      expect(projectAccess.assertAccess).not.toHaveBeenCalled();
+    });
+
+    it('cerrarEstudio: rechaza a un no dueño si el estudio no tiene proyecto', async () => {
+      const { prisma, projectAccess, service } = conEstudio({ proyectoId: null });
+
+      await expect(service.cerrarEstudio('estudio-1', true, miembro)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      expect(projectAccess.assertAccess).not.toHaveBeenCalled();
+      expect(prisma.researchSession.update).not.toHaveBeenCalled();
+    });
+
+    it('getSession: un miembro del proyecto puede abrir el estudio y valida con assertAccess', async () => {
+      const { projectAccess, service } = conEstudio();
+      projectAccess.assertAccess.mockResolvedValue(undefined);
+
+      await expect(service.getSession('estudio-1', miembro)).resolves.toMatchObject({
+        id: 'estudio-1',
+      });
+      expect(projectAccess.assertAccess).toHaveBeenCalledWith(
+        'proyecto-1',
+        miembro,
+        'No tienes acceso a esta sesión.',
+      );
+    });
+
+    it('getSession: rechaza a un usuario ajeno al proyecto', async () => {
+      const { projectAccess, service } = conEstudio();
+      projectAccess.assertAccess.mockRejectedValue(new ForbiddenException('sin acceso'));
+
+      await expect(service.getSession('estudio-1', miembro)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+    });
+
+    it('getSession: el dueño y el ADMIN no necesitan assertAccess', async () => {
+      const { projectAccess, service } = conEstudio();
+
+      await expect(service.getSession('estudio-1', dueno)).resolves.toBeDefined();
+      await expect(service.getSession('estudio-1', admin)).resolves.toBeDefined();
+      expect(projectAccess.assertAccess).not.toHaveBeenCalled();
+    });
+
+    it('getSession: un participante de otro proyecto sigue en 403 sin assertAccess', async () => {
+      const { projectAccess, service } = conEstudio();
+
+      await expect(service.getSession('estudio-1', participanteAjeno)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      expect(projectAccess.assertAccess).not.toHaveBeenCalled();
+    });
+
+    it('getSession: rechaza a un no dueño si la sesión no tiene proyecto', async () => {
+      const { projectAccess, service } = conEstudio({ proyectoId: null });
+
+      await expect(service.getSession('estudio-1', miembro)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      expect(projectAccess.assertAccess).not.toHaveBeenCalled();
     });
   });
 

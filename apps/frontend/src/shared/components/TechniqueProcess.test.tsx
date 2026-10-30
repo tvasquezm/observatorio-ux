@@ -60,7 +60,7 @@ describe('TechniqueProcess', () => {
 
     it('queda lista con solo los pasos obligatorios y el círculo cuenta solo esos', () => {
       render(<TechniqueProcess steps={conOpcionales} />);
-      expect(screen.getByRole('img', { name: '2 de 2, completo' })).toBeInTheDocument();
+      expect(screen.getByRole('img', { name: '2 de 2 obligatorios, completo' })).toBeInTheDocument();
       expect(screen.getByRole('status')).toHaveTextContent('Técnica completa y lista para usar');
       expect(screen.getByRole('region')).toHaveClass('tv-process--listo');
     });
@@ -81,7 +81,7 @@ describe('TechniqueProcess', () => {
       render(<TechniqueProcess steps={conOpcionales.map((s) => (s.id === 'c' ? { ...s, done: false } : s))} />);
       expect(screen.getByText('Fase 3 de 4')).toBeInTheDocument();
       expect(screen.queryByText('Opcional')).not.toBeInTheDocument();
-      expect(screen.getByRole('img', { name: '1 de 2' })).toBeInTheDocument();
+      expect(screen.getByRole('img', { name: '1 de 2 obligatorios' })).toBeInTheDocument();
     });
 
     it('ofrece el cuadro con la técnica sin terminar y distingue obligatorias de opcionales', () => {
@@ -128,9 +128,39 @@ describe('TechniqueProcess', () => {
       expect(screen.queryByText('Fases que faltan')).not.toBeInTheDocument();
     });
 
+    it('rotula el anillo como obligatorios solo si hay fases opcionales', () => {
+      const { unmount } = render(<TechniqueProcess steps={conOpcionales} />);
+      expect(document.querySelector('.tv-process-oblig')).toHaveTextContent('2 de 2 obligatorios');
+      unmount();
+      render(<TechniqueProcess steps={steps} />);
+      expect(document.querySelector('.tv-process-oblig')).toBeNull();
+    });
+
     it('no ofrece el cuadro cuando no falta ninguna fase', () => {
       render(<TechniqueProcess steps={conOpcionales.map((s) => ({ ...s, done: true }))} />);
       expect(screen.queryByRole('button', { name: /Falta/ })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('pasoActual (numeración del formulario)', () => {
+    it('numera como Paso K de N según el paso abierto, no el primero pendiente', () => {
+      render(<TechniqueProcess steps={steps} pasoActual={2} />);
+      expect(screen.getByText('Paso 3 de 3')).toBeInTheDocument();
+      expect(screen.queryByText(/^Fase /)).toBeNull();
+      expect(document.querySelector('.tv-process-fase')).toHaveTextContent('Evidencia');
+      expect(document.querySelectorAll('[aria-current="step"]')).toHaveLength(1);
+      expect(screen.getAllByRole('listitem')[2]).toHaveAttribute('aria-current', 'step');
+    });
+
+    it('sigue mostrando el paso abierto aunque la técnica esté completa', () => {
+      render(<TechniqueProcess steps={steps.map((s) => ({ ...s, done: true }))} pasoActual={0} />);
+      expect(screen.getByText('Paso 1 de 3')).toBeInTheDocument();
+      expect(screen.getByRole('status')).toHaveTextContent('Técnica completa y lista para usar');
+    });
+
+    it('con un índice fuera de rango vuelve a la numeración por datos', () => {
+      render(<TechniqueProcess steps={steps} pasoActual={9} />);
+      expect(screen.getByText('Fase 2 de 3')).toBeInTheDocument();
     });
   });
 

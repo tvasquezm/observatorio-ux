@@ -1,5 +1,5 @@
-import { useEffect, useId, useRef, useState } from 'react';
-import type { ClipboardEvent, DragEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { ClipboardEvent, DragEvent, SVGProps } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { EVIDENCIA_MAX_BYTES, EVIDENCIA_MAX_MB } from '@observatorio-ux/shared-types';
@@ -9,6 +9,8 @@ import { Icon } from '../../shared/components/ui/Icon';
 import { comprimirImagen } from '../../shared/utils/comprimir-imagen';
 import { cargarEvidencia, guardarAnotaciones, subirEvidenciaFlujo } from './evidencia.api';
 import { normalizarTipoEvidencia, validarImagenEvidencia } from './evidencia-validar';
+import { FLECHAS, Marca, Tiradores, ajustarConTeclado, avanzarGesto, iniciarGesto, puntoEnSvg, terminarGesto } from './anotaciones-interaccion';
+import type { Gesto } from './anotaciones-interaccion';
 
 interface Props {
   proyectoId: string; evaluacionId: string; evidenciaIds: string[]; editable: boolean;
@@ -18,24 +20,22 @@ interface Props {
   sinAnotar?: boolean; max?: number; etiqueta?: string;
 }
 const TIPOS = { rectangulo: 'Rectángulo', circulo: 'Círculo', flecha: 'Flecha', destacado: 'Destacado', texto: 'Texto' } as const;
-const vacia = (): AnotacionEvidencia => ({ id: crypto.randomUUID(), tipo: 'rectangulo', x: 0.1, y: 0.1, x2: 0.5, y2: 0.5, color: '#d83232', texto: '' });
+type Forma = Exclude<AnotacionEvidencia['tipo'], 'texto'>;
+const FORMAS: Forma[] = ['rectangulo', 'circulo', 'flecha', 'destacado'];
+const ICONO_FORMA = { rectangulo: 'shape-rect', circulo: 'shape-circle', flecha: 'shape-arrow', destacado: 'shape-highlight' } as const;
 const mensaje = (e: unknown) => e instanceof Error ? e.message : 'No se pudo guardar la captura.';
 
-function Marca({ anotacion: a }: { anotacion: AnotacionEvidencia }) {
-  const marker = useId().replace(/:/g, '');
-  const x = Math.min(a.x, a.x2) * 1000, y = Math.min(a.y, a.y2) * 1000;
-  const w = Math.abs(a.x2 - a.x) * 1000, h = Math.abs(a.y2 - a.y) * 1000;
-  if (a.tipo === 'texto') return <text x={a.x * 1000} y={a.y * 1000} fill={a.color} fontSize="25">{a.texto}</text>;
-  if (a.tipo === 'circulo') return <ellipse cx={x + w / 2} cy={y + h / 2} rx={w / 2} ry={h / 2} stroke={a.color} strokeWidth="5" fill="none" />;
-  if (a.tipo === 'flecha') return <g><defs><marker id={marker} markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill={a.color} /></marker></defs><line x1={a.x * 1000} y1={a.y * 1000} x2={a.x2 * 1000} y2={a.y2 * 1000} stroke={a.color} strokeWidth="5" markerEnd={`url(#${marker})`} /></g>;
-  return <rect x={x} y={y} width={w} height={h} stroke={a.tipo === 'destacado' ? 'none' : a.color} strokeWidth="5" fill={a.tipo === 'destacado' ? a.color : 'none'} fillOpacity="0.3" />;
+/** Herramientas y gestos del visor editable; comparten estado e historial con el editor. */
+interface EdicionVisor {
+  forma: Forma; color: string; deshabilitado: boolean; puedeDeshacer: boolean;
+  seleccionada?: AnotacionEvidencia; preview: AnotacionEvidencia | null;
+  dirty: boolean; onGuardar: () => void; onTecla: (d: { x: number; y: number }, redimensionar: boolean) => void;
+  onForma: (f: Forma) => void; onColor: (c: string) => void; onDeshacer: () => void; onEliminar: () => void;
+  gestos: Pick<SVGProps<SVGSVGElement>, 'onPointerDown' | 'onPointerMove' | 'onPointerUp' | 'onPointerCancel'>;
 }
 
-/** Distancia (0–1) bajo la cual un gesto sobre la captura cuenta como clic y no como trazo. */
-const UMBRAL_CLIC = 0.01;
-
-/** Captura a pantalla casi completa, con las anotaciones actuales. Se cierra con Esc, con el fondo o con el botón. */
-function VisorAmpliado({ url, anotaciones, conMarcas, onClose }: { url: string; anotaciones: AnotacionEvidencia[]; conMarcas: boolean; onClose: () => void }) {
+/** Captura a pantalla casi completa, con las anotaciones actuales. Se cierra con Esc, con el fondo o con el botón. Con `edicion` se puede anotar. */
+function VisorAmpliado({ url, anotaciones, conMarcas, onClose, edicion }: { url: string; anotaciones: AnotacionEvidencia[]; conMarcas: boolean; onClose: () => void; edicion?: EdicionVisor }) {
   const cerrarRef = useRef<HTMLButtonElement>(null);
   const alCerrar = useRef(onClose); alCerrar.current = onClose;
   useEffect(() => {
@@ -48,11 +48,28 @@ function VisorAmpliado({ url, anotaciones, conMarcas, onClose }: { url: string; 
   }, []);
   return createPortal(
     <div className="evidencia-visor-fondo" role="dialog" aria-modal="true" aria-label="Captura ampliada" onClick={onClose}>
-      <div className="evidencia-visor-caja" onClick={e => e.stopPropagation()}>
+      <div className="evidencia-visor-caja" onClick={e => e.stopPropagation()} onKeyDown={edicion ? e => {
+        const d = FLECHAS[e.key];
+        if (!d || !edicion.seleccionada || edicion.deshabilitado || e.altKey || e.ctrlKey || e.metaKey || /^(INPUT|SELECT|TEXTAREA)$/.test((e.target as HTMLElement).tagName)) return;
+        e.preventDefault(); edicion.onTecla(d, e.shiftKey);
+      } : undefined}>
         <button ref={cerrarRef} type="button" className="evidencia-accion evidencia-visor-cerrar" aria-label="Cerrar vista ampliada" title="Cerrar (Esc)" onClick={onClose}><Icon name="close" size={20} /></button>
+        {edicion && conMarcas && <div className="evidencia-herramientas evidencia-visor-barra" role="toolbar" aria-label="Herramientas de anotación de la captura ampliada">
+          {FORMAS.map(f => <button key={f} type="button" className="evidencia-accion" aria-label={`${TIPOS[f]} (captura ampliada)`} title={TIPOS[f]} aria-pressed={(edicion.seleccionada?.tipo ?? edicion.forma) === f} disabled={edicion.deshabilitado} onClick={() => edicion.onForma(f)}><Icon name={ICONO_FORMA[f]} size={20} /></button>)}
+          <input type="color" className="evidencia-color" aria-label="Color (captura ampliada)" title="Color" value={edicion.seleccionada?.color ?? edicion.color} disabled={edicion.deshabilitado} onChange={e => edicion.onColor(e.target.value)} />
+          <button type="button" className="secondary" aria-label="Deshacer (captura ampliada)" disabled={!edicion.puedeDeshacer || edicion.deshabilitado} onClick={edicion.onDeshacer}>Deshacer</button>
+          <button type="button" className="evidencia-accion evidencia-accion--danger" aria-label="Eliminar anotación seleccionada" title="Eliminar anotación seleccionada" disabled={!edicion.seleccionada || edicion.deshabilitado} onClick={edicion.onEliminar}><Icon name="trash" size={20} /></button>
+          <button type="button" className="primary" aria-label="Guardar anotaciones (captura ampliada)" disabled={!edicion.dirty || edicion.deshabilitado} onClick={edicion.onGuardar}>{edicion.deshabilitado ? 'Guardando…' : 'Guardar'}</button>
+          {edicion.dirty && <span role="status" className="hint-text">Anotaciones pendientes de guardar.</span>}
+        </div>}
         <div className="evidencia-visor-imagen">
           <img src={url} alt="Captura de evidencia ampliada" />
-          {conMarcas && <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>{anotaciones.map(a => <Marca key={a.id} anotacion={a} />)}</svg>}
+          {conMarcas && (edicion
+            ? <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-label="Anotaciones de la captura ampliada" {...edicion.gestos} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', touchAction: 'none', cursor: 'crosshair' }}>
+              {anotaciones.map(a => <Marca key={a.id} anotacion={a} />)}{edicion.preview && <Marca anotacion={edicion.preview} />}
+              {edicion.seleccionada && <Tiradores anotacion={edicion.seleccionada} />}
+            </svg>
+            : <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>{anotaciones.map(a => <Marca key={a.id} anotacion={a} />)}</svg>)}
         </div>
       </div>
     </div>,
@@ -68,17 +85,22 @@ function Lienzo({ proyectoId, evaluacionId, meta, blob, editable, onPendingChang
   const [guardadas, setGuardadas] = useState(() => JSON.stringify(meta.anotaciones ?? []));
   const [revision, setRevision] = useState(meta.revision);
   const [historial, setHistorial] = useState<AnotacionEvidencia[][]>([]);
-  const [borrador, setBorrador] = useState(vacia);
-  const [editando, setEditando] = useState<string | null>(null);
+  const [forma, setForma] = useState<Forma>('rectangulo');
+  const [color, setColor] = useState('#d83232');
+  const [resaltada, setResaltada] = useState<string | null>(null);
   const [original, setOriginal] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [estado, setEstado] = useState('');
   const [error, setError] = useState('');
   const [preview, setPreview] = useState<AnotacionEvidencia | null>(null);
   const [ampliada, setAmpliada] = useState(false);
-  const inicio = useRef<{ x: number; y: number } | null>(null);
+  const gesto = useRef<Gesto | null>(null);
+  const [seleccion, setSeleccion] = useState<string | null>(null);
+  const [vivo, setVivo] = useState<AnotacionEvidencia | null>(null);
   const pendingRef = useRef(onPendingChange); pendingRef.current = onPendingChange;
   const dirty = JSON.stringify(anotaciones) !== guardadas;
+  const visibles = vivo ? anotaciones.map(a => a.id === vivo.id ? vivo : a) : anotaciones;
+  const seleccionada = editable && !original ? visibles.find(a => a.id === seleccion) : undefined;
   useEffect(() => {
     if (dirty || guardando) return;
     setAnotaciones(meta.anotaciones); setGuardadas(JSON.stringify(meta.anotaciones)); setRevision(meta.revision); setHistorial([]);
@@ -92,12 +114,43 @@ function Lienzo({ proyectoId, evaluacionId, meta, blob, editable, onPendingChang
     window.addEventListener('beforeunload', aviso); return () => window.removeEventListener('beforeunload', aviso);
   }, [dirty]);
   function cambiar(next: AnotacionEvidencia[]) { setHistorial(h => [...h.slice(-49), anotaciones]); setAnotaciones(next); setEstado(''); }
-  function agregar(a = borrador) {
-    if (guardando || (a.tipo === 'texto' && !a.texto.trim())) { setError('Escribe el texto de la anotación.'); return; }
-    if (!editando && anotaciones.length >= 50) { setError('Máximo 50 anotaciones por captura.'); return; }
-    cambiar(editando ? anotaciones.map(n => n.id === editando ? { ...a, id: editando } : n) : [...anotaciones, { ...a, id: crypto.randomUUID() }]);
-    setEditando(null); setBorrador(vacia()); setError('');
+  function agregar(trazo: Pick<AnotacionEvidencia, 'x' | 'y' | 'x2' | 'y2'>) {
+    if (guardando) return;
+    if (anotaciones.length >= 50) { setError('Máximo 50 anotaciones por captura.'); return; }
+    cambiar([...anotaciones, { id: crypto.randomUUID(), tipo: forma, color, texto: '', ...trazo }]); setError('');
   }
+  function modificar(id: string, cambio: Partial<AnotacionEvidencia>) { cambiar(anotaciones.map(n => n.id === id ? { ...n, ...cambio } : n)); }
+  /** Gestos de puntero compartidos por el editor y el visor ampliado; `alClic` decide qué hace un clic sin arrastre sobre vacío. */
+  function gestos(alClic: () => void): EdicionVisor['gestos'] {
+    return {
+      onPointerDown: e => {
+        if (!editable || guardando) return;
+        const p = puntoEnSvg(e); e.currentTarget.setPointerCapture?.(e.pointerId);
+        // Apuntar a una marca existente la selecciona y permite moverla; en vacío se dibuja una nueva.
+        const inicio = iniciarGesto(anotaciones, seleccionada, p);
+        if (inicio.seleccion !== undefined) setSeleccion(inicio.seleccion);
+        gesto.current = inicio.gesto;
+      },
+      onPointerMove: e => {
+        const g = gesto.current; if (!g) return;
+        const { preview: previa, vivo: movida } = avanzarGesto(g, puntoEnSvg(e), forma, color);
+        if (previa) setPreview(previa);
+        if (movida) setVivo(movida);
+      },
+      onPointerUp: e => {
+        const g = gesto.current; if (!g) return;
+        const r = terminarGesto(g, puntoEnSvg(e)); gesto.current = null; setPreview(null); setVivo(null);
+        // Un clic sin arrastre abre la captura en grande (solo en el editor); sobre una marca solo la selecciona.
+        if (r.tipo === 'clic') alClic();
+        else if (r.tipo === 'trazo') agregar(r.trazo);
+        else if (r.tipo === 'modificada') cambiar(anotaciones.map(n => n.id === r.anotacion.id ? r.anotacion : n));
+      },
+      onPointerCancel: () => { gesto.current = null; setPreview(null); setVivo(null); },
+    };
+  }
+  /** Cerrar el visor no descarta nada: si quedan cambios sin guardar, el editor lo avisa. */
+  function cerrarVisor() { setAmpliada(false); if (dirty) setEstado('Cerraste la captura ampliada con anotaciones pendientes de guardar.'); }
+  function deshacer() { setAnotaciones(historial[historial.length - 1]); setHistorial(h => h.slice(0, -1)); setEstado(''); }
   async function guardar() {
     setGuardando(true); setError('');
     try { const nuevaMeta = await guardarAnotaciones(proyectoId, evaluacionId, meta.id, anotaciones, revision); qc.setQueryData(['flujo-evidencia', proyectoId, evaluacionId, meta.id, userId], { meta: nuevaMeta, blob }); setGuardadas(JSON.stringify(anotaciones)); setRevision(nuevaMeta.revision); setEstado('Anotaciones guardadas.'); }
@@ -109,45 +162,53 @@ function Lienzo({ proyectoId, evaluacionId, meta, blob, editable, onPendingChang
     try { const data = await cargarEvidencia(proyectoId, evaluacionId, meta.id); qc.setQueryData(['flujo-evidencia', proyectoId, evaluacionId, meta.id, userId], data); setAnotaciones(data.meta.anotaciones); setGuardadas(JSON.stringify(data.meta.anotaciones)); setRevision(data.meta.revision); setHistorial([]); setError(''); setEstado('Anotaciones guardadas recuperadas.'); }
     catch (e) { setError(mensaje(e)); } finally { setGuardando(false); }
   }
-  function punto(e: React.PointerEvent<SVGSVGElement>) {
-    const r = e.currentTarget.getBoundingClientRect();
-    return { x: Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)), y: Math.max(0, Math.min(1, (e.clientY - r.top) / r.height)) };
-  }
   return <section className="panel" aria-label="Editor de captura">
-    <label className="field"><input type="checkbox" checked={original} onChange={e => setOriginal(e.target.checked)} /> Mostrar imagen original</label>
+    {editable && <>
+      <div className="evidencia-guia"><strong>Dibuja sobre la captura para marcar el problema</strong><span>Un clic sin arrastrar abre la imagen en grande</span><span>El original se conserva</span></div>
+      <div className="evidencia-herramientas" role="toolbar" aria-label="Herramientas de anotación">
+        <select className="input-sm" aria-label="Forma" title="Forma" value={forma} disabled={guardando} onChange={e => setForma(e.target.value as Forma)}>{FORMAS.map(f => <option key={f} value={f}>{TIPOS[f]}</option>)}</select>
+        <input type="color" className="evidencia-color" aria-label="Color" title="Color" value={color} disabled={guardando} onChange={e => setColor(e.target.value)} />
+        <button type="button" className="secondary" disabled={!historial.length || guardando} onClick={deshacer}>Deshacer</button><button type="button" className="primary" disabled={!dirty || guardando} onClick={() => void guardar()}>{guardando ? 'Guardando anotaciones…' : 'Guardar anotaciones'}</button>
+      </div>
+    </>}
+    <div className="evidencia-original"><label><input type="checkbox" checked={original} onChange={e => setOriginal(e.target.checked)} aria-describedby="evidencia-original-ayuda" /> Mostrar imagen original</label><span id="evidencia-original-ayuda" className="text-muted-xs">Oculta las marcas para ver la captura sin anotar</span></div>
     <div style={{ position: 'relative', width: '100%', maxWidth: 720, marginBlock: 12 }}>
       <img src={url} alt="Captura de evidencia" style={{ display: 'block', width: '100%', height: 'auto', cursor: 'zoom-in' }} onClick={() => setAmpliada(true)} />
       <button type="button" className="evidencia-accion evidencia-ampliar" aria-label="Ampliar captura" title="Ver en grande" onClick={() => setAmpliada(true)}><Icon name="zoom-in" size={20} /></button>
       {!original && <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-label="Vista de las anotaciones" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', touchAction: editable ? 'none' : 'auto', cursor: editable ? 'crosshair' : 'zoom-in' }}
         onClick={() => { if (!editable) setAmpliada(true); }}
-        onPointerDown={e => { if (!editable || guardando) return; inicio.current = punto(e); e.currentTarget.setPointerCapture?.(e.pointerId); }}
-        onPointerMove={e => { if (!inicio.current) return; const p = punto(e); setPreview({ ...borrador, ...inicio.current, x2: p.x, y2: p.y }); }}
-        onPointerUp={e => {
-          if (!inicio.current) return;
-          const ini = inicio.current; const p = punto(e); inicio.current = null; setPreview(null);
-          // Un clic sin arrastre abre la captura en grande; la herramienta Texto sí usa el clic para ubicar el texto.
-          if (borrador.tipo !== 'texto' && Math.hypot(p.x - ini.x, p.y - ini.y) < UMBRAL_CLIC) { setAmpliada(true); return; }
-          agregar({ ...borrador, ...ini, x2: p.x, y2: p.y });
-        }}
-        onPointerCancel={() => { inicio.current = null; setPreview(null); }}>
-        {anotaciones.map(a => <Marca key={a.id} anotacion={a} />)}{preview && <Marca anotacion={preview} />}
+        {...gestos(() => setAmpliada(true))}>
+        {visibles.map(a => <Marca key={a.id} anotacion={a} resaltada={a.id === resaltada} />)}{preview && <Marca anotacion={preview} />}
+        {seleccionada && <Tiradores anotacion={seleccionada} />}
       </svg>}
     </div>
-    {editable && <fieldset disabled={guardando} style={{ border: 0, padding: 0 }}>
-      <legend>Agregar o editar anotaciones</legend>
-      <p className="text-muted-xs">Dibuja sobre la captura o usa los campos de posición para trabajar con teclado. El original se conserva.</p>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-        <label className="field">Herramienta<select className="input-sm" value={borrador.tipo} onChange={e => setBorrador({ ...borrador, tipo: e.target.value as AnotacionEvidencia['tipo'] })}>{Object.entries(TIPOS).map(([id, nombre]) => <option key={id} value={id}>{nombre}</option>)}</select></label>
-        <label className="field">Color<input type="color" value={borrador.color} onChange={e => setBorrador({ ...borrador, color: e.target.value })} /></label>
-        {(['x', 'y', 'x2', 'y2'] as const).map(k => <label className="field" key={k}>{({ x: 'Inicio horizontal (%)', y: 'Inicio vertical (%)', x2: 'Fin horizontal (%)', y2: 'Fin vertical (%)' })[k]}<input className="input-sm" type="number" min="0" max="100" step="1" value={Math.round(borrador[k] * 100)} onChange={e => setBorrador({ ...borrador, [k]: Math.max(0, Math.min(100, Number(e.target.value))) / 100 })} /></label>)}
-      </div>
-      {borrador.tipo === 'texto' && <label className="field">Texto de anotación<input className="input-sm" value={borrador.texto} maxLength={150} onChange={e => setBorrador({ ...borrador, texto: e.target.value })} /></label>}
-      <button type="button" className="secondary" onClick={() => agregar()}>{editando ? 'Actualizar anotación' : 'Agregar anotación'}</button>{editando && <button type="button" className="text-button" onClick={() => { setEditando(null); setBorrador(vacia()); }}>Cancelar edición de anotación</button>}
-    </fieldset>}
-    <ol aria-label="Anotaciones de la captura">{anotaciones.map((a, i) => <li key={a.id}>{TIPOS[a.tipo]}{a.texto && `: ${a.texto}`}{editable && <><button type="button" className="text-button" disabled={guardando} aria-label={`Editar anotación ${i + 1}`} onClick={() => { setBorrador({ ...a }); setEditando(a.id); }}>Editar</button><button type="button" className="text-button" disabled={guardando} aria-label={`Eliminar anotación ${i + 1}`} onClick={() => cambiar(anotaciones.filter(n => n.id !== a.id))}>Eliminar</button></>}</li>)}</ol>
-    {editable && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}><button type="button" className="secondary" disabled={!historial.length || guardando} onClick={() => { setAnotaciones(historial[historial.length - 1]); setHistorial(h => h.slice(0, -1)); setEstado(''); }}>Deshacer</button><button type="button" className="primary" disabled={!dirty || guardando} onClick={() => void guardar()}>{guardando ? 'Guardando anotaciones…' : 'Guardar anotaciones'}</button></div>}
+    <ol className="evidencia-lista" aria-label="Anotaciones de la captura">{anotaciones.map((a, i) => <li key={a.id} className="evidencia-tarjeta" tabIndex={0} aria-label={`Anotación ${i + 1}`}
+      onMouseEnter={() => setResaltada(a.id)} onMouseLeave={() => setResaltada(null)} onFocus={() => { setResaltada(a.id); if (editable && a.tipo !== 'texto') setSeleccion(a.id); }}
+      onKeyDown={e => {
+        const d = FLECHAS[e.key];
+        if (!d || !editable || guardando || a.tipo === 'texto' || e.target !== e.currentTarget || e.altKey || e.ctrlKey || e.metaKey) return;
+        e.preventDefault();
+        const nueva = ajustarConTeclado(a, d, e.shiftKey);
+        if (JSON.stringify(nueva) !== JSON.stringify(a)) cambiar(anotaciones.map(n => n.id === a.id ? nueva : n));
+      }}
+      onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setResaltada(null); }}>
+      <span className="evidencia-muestra" style={{ background: a.color }} aria-hidden="true" />
+      {(!editable || a.tipo === 'texto' || a.texto) && <span className="evidencia-nombre">{TIPOS[a.tipo]}{a.texto && `: ${a.texto}`}</span>}
+      {editable && a.tipo !== 'texto' && <>
+        <select className="input-sm" aria-label={`Forma de la anotación ${i + 1}`} value={a.tipo} disabled={guardando} onChange={e => modificar(a.id, { tipo: e.target.value as Forma })}>{FORMAS.map(f => <option key={f} value={f}>{TIPOS[f]}</option>)}</select>
+        <input type="color" className="evidencia-color" aria-label={`Color de la anotación ${i + 1}`} value={a.color} disabled={guardando} onChange={e => modificar(a.id, { color: e.target.value })} />
+      </>}
+      {editable && <button type="button" className="evidencia-accion evidencia-accion--danger" disabled={guardando} aria-label={`Eliminar anotación ${i + 1}`} title="Eliminar anotación" onClick={() => cambiar(anotaciones.filter(n => n.id !== a.id))}><Icon name="trash" size={20} /></button>}
+    </li>)}</ol>
     {error && <p role="alert">{error}{editable && <button type="button" className="text-button" disabled={guardando} onClick={() => void recuperar()}>Recuperar anotaciones guardadas</button>}</p>}<p role="status">{estado || (dirty ? 'Anotaciones pendientes de guardar.' : '')}</p>
-    {ampliada && url && <VisorAmpliado url={url} anotaciones={anotaciones} conMarcas={!original} onClose={() => setAmpliada(false)} />}
+    {ampliada && url && <VisorAmpliado url={url} anotaciones={visibles} conMarcas={!original} onClose={cerrarVisor}
+      edicion={editable ? {
+        forma, color, dirty, onGuardar: () => void guardar(), onTecla: (d, redim) => { if (seleccionada) cambiar(anotaciones.map(n => n.id === seleccionada.id ? ajustarConTeclado(seleccionada, d, redim) : n)); }, deshabilitado: guardando, puedeDeshacer: historial.length > 0, seleccionada, preview, gestos: gestos(() => undefined),
+        onForma: f => { if (seleccionada) modificar(seleccionada.id, { tipo: f }); setForma(f); },
+        onColor: c => { if (seleccionada) modificar(seleccionada.id, { color: c }); setColor(c); },
+        onDeshacer: deshacer,
+        onEliminar: () => { if (seleccionada) { cambiar(anotaciones.filter(n => n.id !== seleccionada.id)); setSeleccion(null); } },
+      } : undefined} />}
   </section>;
 }
 

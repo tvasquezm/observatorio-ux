@@ -48,6 +48,9 @@ export const consensoSchema = revisionSchema.extend({
   conclusion: texto.optional(),
   mejoras: z.array(z.strictObject({ id: identificador, titulo: z.string().max(300), descripcion: texto, antesIds: ids(10), despuesIds: ids(10) })).max(100).refine(v => unico(v.map(m => m.id)), 'Mejoras repetidas').optional(),
 });
+export const votoRedactorSchema = revisionSchema.extend({ candidatoId: identificador });
+export const decidirRedactorSchema = revisionSchema.extend({ redactorId: identificador });
+export const pedirCambiosSchema = revisionSchema.extend({ comentario: z.string().trim().min(1, 'Escribe qué cambios pides.').max(2000) });
 export const anotacionesSchema = revisionSchema.extend({ anotaciones: z.array(z.strictObject({
   id: identificador, tipo: z.enum(['rectangulo', 'circulo', 'flecha', 'destacado', 'texto']),
   x: z.number().finite().min(0).max(1), y: z.number().finite().min(0).max(1), x2: z.number().finite().min(0).max(1), y2: z.number().finite().min(0).max(1),

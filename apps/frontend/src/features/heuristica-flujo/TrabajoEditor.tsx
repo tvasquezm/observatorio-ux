@@ -1,6 +1,6 @@
 import { useId, useState } from 'react';
 import { escalaDe } from '@observatorio-ux/shared-types';
-import type { ConfiguracionFlujo, EvaluacionFlujo, HallazgoFlujo, RespuestaCriterio } from '@observatorio-ux/shared-types';
+import type { ConfiguracionFlujo, EvaluacionFlujo, HallazgoFlujo, RespuestaCriterio, TrabajoFlujo } from '@observatorio-ux/shared-types';
 import { AnilloAvance } from '../../shared/components/AnilloAvance';
 import { Field } from './campos';
 import { NavegadorPreguntas } from './NavegadorPreguntas';
@@ -8,7 +8,9 @@ import { EvidenciaEditor } from './EvidenciaEditor';
 import { MatrizItem } from './MatrizItem';
 import { useFlujoDraft } from './useFlujoDraft';
 import { flujoRequest } from './flujo.api';
-import { criterioRespondido, guardarSesion, hallazgoVacio, leerSesion, pendientesTrabajo } from './flujo-utils';
+import { notify } from '../../shared/api/toast';
+import { compararTrabajo, criterioRespondido, guardarSesion, hallazgoVacio, leerSesion, pendientesTrabajo } from './flujo-utils';
+import type { ComparacionTrabajo } from './flujo-utils';
 
 export function ValoracionEditor({ config, respuesta, onChange }: { config: ConfiguracionFlujo; respuesta: RespuestaCriterio; onChange: (r: RespuestaCriterio) => void }) {
   const criterio = config.metodologia.criterios.find(c => c.id === respuesta.criterioId);
@@ -33,13 +35,15 @@ export function HallazgoEditor({ value, config, onChange }: { value: HallazgoFlu
   </>;
 }
 
-export function SaveStatus({ dirty, saving, error, lastSaved, save, reloadRevision, remote }: { dirty: boolean; saving: boolean; error: string; lastSaved: string | null; save: () => Promise<void>; reloadRevision?: () => Promise<void>; remote?: unknown }) {
+export function SaveStatus({ dirty, saving, error, conflict = false, lastSaved, save, reloadRevision, comparacion }: { dirty: boolean; saving: boolean; error: string; conflict?: boolean; lastSaved: string | null; save: () => Promise<void>; reloadRevision?: () => Promise<void>; comparacion?: ComparacionTrabajo }) {
   const [reloadError, setReloadError] = useState('');
-  return <div className="hf-actions"><button type="button" className="ghost" disabled={saving} onClick={() => void save().catch(() => {})}>Guardar cambios</button><span role="status" className="hf-status">{saving ? 'Guardando…' : dirty ? 'Cambios sin guardar' : 'Cambios guardados'}{lastSaved && ` · Último guardado: ${new Date(lastSaved).toLocaleString()}`}</span>{error && <><p role="alert" className="hf-error">{error} El borrador se conserva. Reintenta Guardar.</p>{reloadRevision && <button type="button" className="secondary" disabled={saving} onClick={() => void reloadRevision().catch(e => setReloadError(e instanceof Error ? e.message : 'No se pudo recargar'))}>Recargar revisión conservando mi borrador</button>}</>}{reloadError && <p role="alert">{reloadError}</p>}{remote != null && <details><summary>Revisar datos guardados en servidor antes de reintentar</summary><p>Tu borrador permanece en el editor. Guardar lo aplicará a la revisión recargada.</p><pre>{JSON.stringify(remote, null, 2)}</pre></details>}</div>;
+  return <div className="hf-actions"><button type="button" className="ghost" disabled={saving} onClick={() => void save().catch(() => {})}>Guardar cambios</button><span role="status" className="hf-status">{saving ? 'Guardando…' : dirty ? 'Cambios sin guardar' : 'Cambios guardados'}{lastSaved && ` · Último guardado: ${new Date(lastSaved).toLocaleString()}`}</span>{error && <><p role="alert" className="hf-error">{conflict ? 'Otra persona guardó cambios antes que tú. Tu borrador sigue aquí: recarga para continuar sin perder lo que escribiste.' : `${error} El borrador se conserva. Reintenta Guardar.`}</p>{reloadRevision && conflict && <button type="button" className={conflict ? 'primary' : 'secondary'} disabled={saving} onClick={() => { setReloadError(''); void reloadRevision().catch(e => setReloadError(e instanceof Error ? e.message : 'No se pudo recargar')); }}>Recargar revisión conservando mi borrador</button>}</>}{reloadError && <p role="alert">{reloadError}</p>}{comparacion && <details open><summary>Revisar qué hay guardado en el servidor antes de reintentar</summary><p>Guardado por {comparacion.guardadoPor} el {comparacion.guardadoEn}. Tu borrador permanece en el editor. Guardar lo aplicará a la revisión recargada.</p>{comparacion.cambios.length ? <ul>{comparacion.cambios.map(t => <li key={t}>{t}</li>)}</ul> : <p>No hay diferencias con tu borrador.</p>}</details>}</div>;
 }
 export function TrabajoEditor({ evaluacion, usuarioId, onSaved, onBack }: { evaluacion: EvaluacionFlujo; usuarioId: string; onSaved: (e: EvaluacionFlujo) => void; onBack: () => void }) {
   const [problemasAbiertos, setProblemasAbiertos] = useState<ReadonlySet<string>>(new Set());
   const [mostrarFaltantes, setMostrarFaltantes] = useState(false);
+  const [colapsados, setColapsados] = useState<ReadonlySet<string>>(new Set());
+  const [errorProblema, setErrorProblema] = useState<Record<string, string>>({});
   const claveIndice = `heuristica:preg:${evaluacion.id}:${usuarioId}`;
   const totalPreguntas = evaluacion.configuracion.metodologia.criterios.length;
   const [indice, setIndiceInterno] = useState(() => { const n = Number(leerSesion(claveIndice)); return Number.isInteger(n) && n >= 0 && n < totalPreguntas ? n : 0; });
@@ -56,6 +60,8 @@ export function TrabajoEditor({ evaluacion, usuarioId, onSaved, onBack }: { eval
   const editable = evaluacion.fase === 'EN_EVALUACION' && !!trabajo && !trabajo.entregadoEn;
   const update = (h: HallazgoFlujo) => state.setDraft({ ...state.draft, hallazgos: state.draft.hallazgos.map(x => x.id === h.id ? h : x) });
   const faltantes = mostrarFaltantes ? pendientesTrabajo(evaluacion.configuracion, state.draft.respuestas, state.draft.hallazgos) : [];
+  const faltanEntregar = (evaluacion.avanceEquipo ?? []).filter(t => !t.entregadoEn).map(t => t.nombre);
+  const listoParaEntregar = pendientesTrabajo(evaluacion.configuracion, state.draft.respuestas, state.draft.hallazgos).length === 0;
   const abrirProblemas = (criterioId: string) => setProblemasAbiertos(prev => new Set(prev).add(criterioId));
   const alternarProblemas = (criterioId: string) => {
     if (problemasAbiertos.has(criterioId) && state.draft.hallazgos.some(h => h.criterioIds[0] === criterioId && evidencePending[h.id])) return;
@@ -77,16 +83,30 @@ export function TrabajoEditor({ evaluacion, usuarioId, onSaved, onBack }: { eval
       if (h) { const i = evaluacion.configuracion.metodologia.criterios.findIndex(c => c.id === h.criterioIds[0]); setIndice(Math.max(0, i)); if (h.criterioIds.length) abrirProblemas(h.criterioIds[0]); }
     }
   }
-  const bloqueProblema = (h: HallazgoFlujo, i: number) => <fieldset key={h.id}><legend>Problema {i + 1}: {h.titulo || 'Sin título'}</legend><fieldset disabled={!editable || busy}><legend>Datos del problema</legend><HallazgoEditor value={h} config={evaluacion.configuracion} onChange={update} /></fieldset>
+  async function guardarProblema(h: HallazgoFlujo, i: number) {
+    const campos = [!h.titulo.trim() && 'título', !h.descripcion.trim() && 'descripción', !h.criterioIds.length && 'pregunta relacionada'].filter(Boolean);
+    if (campos.length) { setErrorProblema(prev => ({ ...prev, [h.id]: `Problema ${i + 1}: completa ${campos.join(' y ')}.` })); return; }
+    try { await state.save(); } catch { setErrorProblema(prev => ({ ...prev, [h.id]: 'No se pudo guardar el problema. Tu borrador se conserva.' })); return; }
+    setErrorProblema(prev => ({ ...prev, [h.id]: '' }));
+    setColapsados(prev => new Set(prev).add(h.id));
+  }
+  const bloqueProblema = (h: HallazgoFlujo, i: number) => {
+    const quitar = editable && <button type="button" className="danger" disabled={!!evidencePending[h.id] || busy} onClick={() => state.setDraft({ ...state.draft, hallazgos: state.draft.hallazgos.filter(x => x.id !== h.id) })}>Quitar problema {i + 1}</button>;
+    if (colapsados.has(h.id)) return <fieldset key={h.id}><legend>Problema {i + 1}: {h.titulo}</legend><p>Severidad {h.severidad}</p><p role="status">Problema guardado con éxito</p>{editable && <button type="button" className="secondary" onClick={() => setColapsados(prev => { const n = new Set(prev); n.delete(h.id); return n; })}>Editar problema {i + 1}</button>}{quitar}</fieldset>;
+    return <fieldset key={h.id}><legend>Problema {i + 1}: {h.titulo || 'Sin título'}</legend><fieldset disabled={!editable || busy}><legend>Datos del problema</legend><HallazgoEditor value={h} config={evaluacion.configuracion} onChange={update} /></fieldset>
         <EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={h.evidenciaIds} editable={editable && !busy} onChange={ids => state.setDraft(prev => ({ ...prev, hallazgos: prev.hallazgos.map(x => x.id === h.id ? { ...x, evidenciaIds: ids } : x) }))} onPendingChange={value => setEvidencePending(prev => prev[h.id] === value ? prev : { ...prev, [h.id]: value })} />
-        {editable && <button type="button" className="danger" disabled={!!evidencePending[h.id] || busy} onClick={() => state.setDraft({ ...state.draft, hallazgos: state.draft.hallazgos.filter(x => x.id !== h.id) })}>Quitar problema {i + 1}</button>}
+        {editable && <button type="button" className="secondary" disabled={!!evidencePending[h.id] || busy || state.saving} onClick={() => void guardarProblema(h, i)}>Guardar problema {i + 1}</button>}
+        {errorProblema[h.id] && <p role="alert" className="hf-error">{errorProblema[h.id]}</p>}
+        {quitar}
       </fieldset>;
+  };
   const problemasDe = (criterioId: string) => state.draft.hallazgos.map((h, i) => h.criterioIds[0] === criterioId ? bloqueProblema(h, i) : null);
   const sinPregunta = state.draft.hallazgos.filter(h => !h.criterioIds.length);
   const problemas = sinPregunta.length > 0 && <details className="hf-problemas" open><summary>Problemas sin pregunta relacionada &middot; {sinPregunta.length}</summary>{state.draft.hallazgos.map((h, i) => h.criterioIds.length ? null : bloqueProblema(h, i))}</details>;
   return <>
     <button type="button" className="secondary hf-volver" onClick={async () => { if (await state.confirmLeave()) onBack(); }}><span aria-hidden="true">←</span> Volver</button>
     <section className="panel hf-espacio"><div className="page-head"><div><h2>{evaluacion.configuracion.nombre}</h2><p>{editable ? 'Califica cada pregunta en su tabla. Tu trabajo es privado.' : trabajo?.entregadoEn ? 'Trabajo entregado. Tus respuestas están cerradas.' : 'Esperando la entrega de los expertos. Sus trabajos permanecen independientes.'}</p></div><span className="badge">{trabajo?.entregadoEn ? 'Entregada' : 'En revisión'}</span></div>
+    {trabajo?.entregadoEn && evaluacion.fase === 'EN_EVALUACION' && <div role="status"><strong>Entregaste tu evaluación</strong><p className="hf-ayuda">{faltanEntregar.length ? `Falta que entreguen: ${faltanEntregar.join(', ')}.` : 'Esperando a que entregue el resto del equipo.'}</p></div>}
     <nav className="hf-vistas" aria-label="Vistas de la evaluación">{trabajo && <button type="button" aria-current={!verEquipo ? 'page' : undefined} onClick={() => setVerEquipo(false)}>Mi revisión</button>}<button type="button" aria-current={verEquipo || !trabajo ? 'page' : undefined} onClick={() => setVerEquipo(true)}>Resumen del equipo</button></nav>
     <section hidden={!!trabajo && !verEquipo} className="hf-equipo-resumen" aria-label="Resumen del equipo">
       {trabajo && <div className="hf-mi-avance"><h3>Tu revisión</h3><p><strong>{completos}</strong> de {evaluacion.configuracion.metodologia.criterios.length} preguntas</p><AnilloAvance hecho={completos} total={evaluacion.configuracion.metodologia.criterios.length} etiqueta="preguntas" tamano={64} /><p>{trabajo.entregadoEn ? 'Tu revisión ya está entregada.' : 'Puedes continuar donde quedaste.'}</p></div>}
@@ -99,12 +119,12 @@ export function TrabajoEditor({ evaluacion, usuarioId, onSaved, onBack }: { eval
         {problemas}
       </div></div>
       <footer className="hf-pie-trabajo">
-      {editable && <><SaveStatus {...state} /><button type="button" className={indice >= totalPreguntas - 1 ? 'primary' : 'secondary'} disabled={state.saving || pending || busy} onClick={async () => {
+      {editable && <><SaveStatus {...state} comparacion={state.remote ? compararTrabajo(evaluacion.configuracion, state.remote as TrabajoFlujo, state.draft) : undefined} /><button type="button" className={listoParaEntregar ? 'primary' : 'secondary'} disabled={state.saving || pending || busy} onClick={async () => {
         setError(''); setMostrarFaltantes(true); const errores = pendientesTrabajo(evaluacion.configuracion, state.draft.respuestas, state.draft.hallazgos);
         if (errores.length) { irAPendiente(); return; }
         setMostrarFaltantes(false);
-        setBusy(true); try { await state.save(); onSaved(await flujoRequest<EvaluacionFlujo>(evaluacion.proyectoId, `/evaluaciones/${evaluacion.id}/entregar`, 'POST', { revision: state.getRevision() })); } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo entregar'); } finally { setBusy(false); }
-      }}>Entregar mi evaluación</button>{pending && <p role="status">Guarda las anotaciones y espera las capturas antes de entregar o cambiar de pregunta.</p>}</>}
+        setBusy(true); try { await state.save(); const r = await flujoRequest<EvaluacionFlujo>(evaluacion.proyectoId, `/evaluaciones/${evaluacion.id}/entregar`, 'POST', { revision: state.getRevision() }); onSaved(r); notify.success(r.fase === 'PENDIENTE_CONSENSO' ? 'Entregaste tu evaluación. Ya entregaron todas las personas: ahora el equipo acuerda el resultado.' : 'Entregaste tu evaluación. Tus respuestas quedaron cerradas; falta que entregue el resto del equipo.'); } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo entregar'); } finally { setBusy(false); }
+      }}>Entregar mi evaluación</button>{listoParaEntregar && !pending && <p role="status">Estás listo para entregar</p>}{pending && <p role="status">Guarda las anotaciones y espera las capturas antes de entregar o cambiar de pregunta.</p>}</>}
       {faltantes.length > 0 && <div role="alert" className="hf-error"><strong>Antes de entregar, revisa este pendiente:</strong><p>{faltantes[0]}</p><button type="button" className="secondary" onClick={irAPendiente}>Revisar pendiente</button></div>}
       </footer>
     </div>}

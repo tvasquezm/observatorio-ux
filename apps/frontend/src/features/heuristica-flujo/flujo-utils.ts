@@ -1,5 +1,5 @@
-import { acuerdoDifiere, escalaDe, normalizarUrlProducto } from '@observatorio-ux/shared-types';
-import type { ConfiguracionFlujo, CriterioFlujo, CumplimientoGrupo, DecisionCriterio, HallazgoFlujo, RespuestaCriterio, TrabajoFlujo } from '@observatorio-ux/shared-types';
+import { acuerdoDifiere, escalaDe, normalizarUrlProducto, redactorDe } from '@observatorio-ux/shared-types';
+import type { ConfiguracionFlujo, CriterioFlujo, CumplimientoGrupo, DecisionCriterio, EscalaFlujo, HallazgoFlujo, InformeFlujo, RespuestaCriterio, TrabajoFlujo } from '@observatorio-ux/shared-types';
 
 export function pendientesTrabajo(config: ConfiguracionFlujo, respuestas: RespuestaCriterio[], hallazgos: HallazgoFlujo[]) {
   const pendientes = config.metodologia.criterios.flatMap((c, i) => {
@@ -12,6 +12,48 @@ export function pendientesTrabajo(config: ConfiguracionFlujo, respuestas: Respue
     if (campos.length) pendientes.push(`Problema ${i + 1}${h.titulo ? ` «${h.titulo}»` : ''}: completa ${campos.join(' y ')}.`);
   }
   return pendientes;
+}
+export const fechaChile = (iso: string | null): string => iso ? new Date(iso).toLocaleString('es-CL', { timeZone: 'America/Santiago', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: false }) : 'fecha no registrada';
+
+const TIPO_ESCALA: Record<EscalaFlujo['tipo'], string> = { categorica: 'Categorías', ordinal: 'Ordinal (con orden)', numerica: 'Numérica', cualitativa: 'Cualitativa' };
+const SENTIDO_ESCALA: Record<EscalaFlujo['sentido'], string> = { mayor_mejor: 'un valor mayor es mejor', menor_mejor: 'un valor menor es mejor', sin_orden: 'sin orden entre los niveles' };
+/** Escala en lenguaje legible: nunca muestra valores internos como `categorica` o `sin_orden`. */
+export function textoEscala(escala: EscalaFlujo): string {
+  return `${TIPO_ESCALA[escala.tipo] ?? escala.tipo}, ${SENTIDO_ESCALA[escala.sentido] ?? escala.sentido}`;
+}
+/** Quién redactó y quién confirmó el acuerdo de un informe. Quien no está entre los evaluadores (coordinador) se nombra como `El coordinador`. */
+export function participacionInforme(informe: InformeFlujo, coordinadorId: string): { redactor: string; confirmaciones: Array<{ id: string; nombre: string; confirmo: boolean }> } {
+  const nombre = (id: string) => informe.evaluadores.find(e => e.id === id)?.nombre ?? 'El coordinador';
+  const confirmaciones = informe.evaluadores.map(e => ({ id: e.id, nombre: e.nombre, confirmo: informe.consenso.aprobadoPor.includes(e.id) }));
+  return { redactor: nombre(redactorDe(informe.consenso, coordinadorId)), confirmaciones };
+}
+
+export interface ComparacionTrabajo { guardadoPor: string; guardadoEn: string; cambios: string[] }
+
+/** Diferencias entre el trabajo guardado en el servidor y el borrador local, en lenguaje legible. */
+export function compararTrabajo(config: ConfiguracionFlujo, remoto: TrabajoFlujo, borrador: { respuestas: RespuestaCriterio[]; hallazgos: HallazgoFlujo[] }): ComparacionTrabajo {
+  const valorTexto = (c: CriterioFlujo, r: RespuestaCriterio | undefined) => {
+    if (r?.noAplica) return 'No aplica';
+    if (!r || r.valor === null) return 'Sin responder';
+    return escalaDe(config.metodologia, c).niveles.find(n => n.id === r.valor)?.etiqueta ?? r.valor;
+  };
+  const cambios: string[] = [];
+  for (const [i, c] of config.metodologia.criterios.entries()) {
+    const rs = remoto.respuestas.find(r => r.criterioId === c.id);
+    const rb = borrador.respuestas.find(r => r.criterioId === c.id);
+    const [vs, vb] = [valorTexto(c, rs), valorTexto(c, rb)];
+    if (vs !== vb) cambios.push(`Pregunta ${i + 1} (${c.nombre}): en el servidor dice «${vs}» y en tu borrador «${vb}».`);
+    else if ((rs?.notas ?? '') !== (rb?.notas ?? '')) cambios.push(`Pregunta ${i + 1} (${c.nombre}): las notas son distintas.`);
+  }
+  const nombre = (h: HallazgoFlujo) => h.titulo.trim() ? `«${h.titulo}»` : 'sin título';
+  for (const hs of remoto.hallazgos) {
+    const hb = borrador.hallazgos.find(h => h.id === hs.id);
+    if (!hb) { cambios.push(`El problema ${nombre(hs)} está en el servidor y no en tu borrador.`); continue; }
+    const campos = [hs.titulo !== hb.titulo && 'título', hs.descripcion !== hb.descripcion && 'descripción', hs.severidad !== hb.severidad && 'severidad', hs.recomendacion !== hb.recomendacion && 'recomendación'].filter(Boolean);
+    if (campos.length) cambios.push(`Problema ${nombre(hb)}: cambió ${campos.join(', ')}.`);
+  }
+  for (const hb of borrador.hallazgos) if (!remoto.hallazgos.some(h => h.id === hb.id)) cambios.push(`Tu borrador tiene el problema ${nombre(hb)}, que aún no está en el servidor.`);
+  return { guardadoPor: remoto.nombre, guardadoEn: fechaChile(remoto.guardadoEn), cambios };
 }
 /** "Sin problemas", "1 problema" o "n problemas" registrados en `donde` (esta pregunta, este ítem). */
 export function textoProblemas(n: number, donde: string): string {
@@ -42,6 +84,15 @@ export function faltantesParaIniciar(c: ConfiguracionFlujo): string[] {
   return [!c.producto.nombre.trim() && 'producto o sitio', !c.metodologia.criterios.length && 'una metodología con preguntas', !c.evaluadorIds.length && 'al menos una persona en «Personas que revisarán»', !!c.producto.url.trim() && !normalizarUrlProducto(c.producto.url) && 'una dirección web válida, por ejemplo miweb.cl (o déjala vacía)'].filter((v): v is string => !!v);
 }
 
+/** Por id de problema: nombres de las otras personas con algún problema en una pregunta compartida. Sin coincidencia, el id no aparece. */
+export function coincidenciasProblemas(trabajos: TrabajoFlujo[]): Map<string, string[]> {
+  const mapa = new Map<string, string[]>();
+  for (const t of trabajos) for (const h of t.hallazgos) {
+    const otros = trabajos.filter(o => o.evaluadorId !== t.evaluadorId && o.hallazgos.some(x => x.criterioIds.some(c => h.criterioIds.includes(c)))).map(o => o.nombre);
+    if (otros.length) mapa.set(h.id, otros);
+  }
+  return mapa;
+}
 /** Respuesta común de las preguntas donde todos los evaluadores coinciden y el consenso aún no tiene respuesta. Si no hay nada que precargar devuelve el mismo arreglo. */
 export function precargarConsenso(config: ConfiguracionFlujo, trabajos: TrabajoFlujo[], criterios: DecisionCriterio[]): DecisionCriterio[] {
   const nuevos: DecisionCriterio[] = [];

@@ -23,6 +23,8 @@ describe('EquiposService', () => {
       delete: jest.Mock;
       deleteMany: jest.Mock;
     };
+    proyecto: { findMany: jest.Mock };
+    proyectoMiembro: { createMany: jest.Mock };
   };
 
   const adminUser: any = { id: 'user-admin', rol: 'ADMIN' };
@@ -58,6 +60,8 @@ describe('EquiposService', () => {
         delete: jest.fn(),
         deleteMany: jest.fn(),
       },
+      proyecto: { findMany: jest.fn().mockResolvedValue([]) },
+      proyectoMiembro: { createMany: jest.fn().mockResolvedValue({ count: 0 }) },
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -159,7 +163,65 @@ describe('EquiposService', () => {
   });
 
   describe('addMiembro', () => {
-    const equipo = { id: 'eq-1', salaId: 'sala-1', creadoPorId: estudiante.id };
+    const equipo = {
+      id: 'eq-1',
+      salaId: 'sala-1',
+      creadoPorId: estudiante.id,
+      creadoPor: { rol: 'ESTUDIANTE' },
+    };
+    const equipoDocente = {
+      id: 'eq-1',
+      salaId: 'sala-1',
+      creadoPorId: docenteDueño.id,
+      creadoPor: { rol: 'DOCENTE' },
+    };
+
+    function prepararAgregado(eq: unknown) {
+      prisma.sala.findUnique.mockResolvedValue(baseSala);
+      prisma.equipo.findUnique.mockResolvedValue(eq);
+      prisma.usuario.findUnique.mockResolvedValue(otroEstudiante);
+      prisma.salaEstudiante.findUnique.mockResolvedValue({ id: 'se-2' });
+      prisma.equipoMiembro.findUnique.mockResolvedValue(null);
+      prisma.equipoMiembro.create.mockResolvedValue({ id: 'em-2' });
+    }
+
+    it('equipo del docente: agrega al estudiante a los proyectos activos de la sala', async () => {
+      prepararAgregado(equipoDocente);
+      prisma.proyecto.findMany.mockResolvedValue([{ id: 'p-1' }, { id: 'p-2' }]);
+      prisma.proyectoMiembro.createMany.mockResolvedValue({ count: 2 });
+
+      await service.addMiembro('sala-1', 'eq-1', { email: otroEstudiante.email }, docenteDueño);
+
+      expect(prisma.proyecto.findMany).toHaveBeenCalledWith({
+        where: { salaId: 'sala-1', deletedAt: null },
+        select: { id: true },
+      });
+      expect(prisma.proyectoMiembro.createMany).toHaveBeenCalledWith({
+        data: [
+          { proyectoId: 'p-1', usuarioId: otroEstudiante.id },
+          { proyectoId: 'p-2', usuarioId: otroEstudiante.id },
+        ],
+        skipDuplicates: true,
+      });
+    });
+
+    it('equipo del docente en sala sin proyectos: no falla ni crea membresías', async () => {
+      prepararAgregado(equipoDocente);
+      prisma.proyecto.findMany.mockResolvedValue([]);
+
+      await service.addMiembro('sala-1', 'eq-1', { email: otroEstudiante.email }, docenteDueño);
+
+      expect(prisma.proyectoMiembro.createMany).not.toHaveBeenCalled();
+    });
+
+    it('equipo creado por estudiante: no sincroniza proyectos', async () => {
+      prepararAgregado(equipo);
+
+      await service.addMiembro('sala-1', 'eq-1', { email: otroEstudiante.email }, estudiante);
+
+      expect(prisma.proyecto.findMany).not.toHaveBeenCalled();
+      expect(prisma.proyectoMiembro.createMany).not.toHaveBeenCalled();
+    });
 
     it('agrega al estudiante cuando hay cupo', async () => {
       prisma.sala.findUnique.mockResolvedValue(baseSala);

@@ -76,6 +76,22 @@ export class HeuristicaFlujoController {
   guardarConsenso(@Param('proyectoId', ParseUUIDPipe) proyectoId: string, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() user: AuthenticatedUser) {
     return this.service.guardarConsenso(proyectoId, id, body, user);
   }
+  @Post('evaluaciones/:id/redactor/voto')
+  votarRedactor(@Param('proyectoId', ParseUUIDPipe) proyectoId: string, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.votarRedactor(proyectoId, id, body, user);
+  }
+  @Post('evaluaciones/:id/redactor/decidir')
+  decidirRedactor(@Param('proyectoId', ParseUUIDPipe) proyectoId: string, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.decidirRedactor(proyectoId, id, body, user);
+  }
+  @Post('evaluaciones/:id/pedir-cambios')
+  pedirCambios(@Param('proyectoId', ParseUUIDPipe) proyectoId: string, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.pedirCambios(proyectoId, id, body, user);
+  }
+  @Post('evaluaciones/:id/entregar-acuerdo')
+  entregarAcuerdo(@Param('proyectoId', ParseUUIDPipe) proyectoId: string, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.entregarAcuerdo(proyectoId, id, body, user);
+  }
   @Post('evaluaciones/:id/aprobar')
   aprobar(@Param('proyectoId', ParseUUIDPipe) proyectoId: string, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() user: AuthenticatedUser) {
     return this.service.aprobar(proyectoId, id, body, user);

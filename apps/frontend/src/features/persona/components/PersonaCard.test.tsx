@@ -25,6 +25,14 @@ describe('PersonaCard', () => {
     expect(within(card).getByRole('region', { name: 'Proceso de la persona' })).toBeVisible();
   });
 
+  it('indica quién guardó la última versión y cuándo, o un texto neutro si no hay autor', () => {
+    const { unmount } = render(<PersonaCard persona={{ ...persona, autor: { id: 'u1', nombre: 'Ana Pérez' }, createdAt: '2026-10-27T15:30:00Z' }} />);
+    expect(screen.getByText(/^Última edición por Ana Pérez · \d{1,2} /)).toBeInTheDocument();
+    unmount();
+    render(<PersonaCard persona={persona} />);
+    expect(screen.getByText('Última edición por un miembro del equipo · fecha no registrada')).toBeInTheDocument();
+  });
+
   it('agrupa los datos en columnas y deja la evidencia en el perfil completo', () => {
     render(<PersonaCard persona={persona} />);
     expect(screen.getByRole('heading', { name: 'Quiere lograr' })).toBeInTheDocument();

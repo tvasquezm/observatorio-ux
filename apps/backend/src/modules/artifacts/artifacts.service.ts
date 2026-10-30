@@ -68,6 +68,7 @@ export class ArtifactsService {
       // propósito — el listado normal nunca debe mostrar evidencia borrada.
       where: { proyectoId, deletedAt: null, ...(tipo ? { tipo } : {}) },
       orderBy: [{ artefactoLogicoId: 'asc' }, { version: 'desc' }],
+      include: { autor: { select: { id: true, nombre: true } } },
     });
   }
 

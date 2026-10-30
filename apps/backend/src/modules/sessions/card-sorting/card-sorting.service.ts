@@ -195,8 +195,17 @@ export class CardSortingService {
       throw new NotFoundException('No existe el estudio maestro solicitado.');
     }
 
+    // Dueño del estudio y ADMIN pasan directo. El resto (miembros del
+    // proyecto, creador, docente de la sala) se resuelve con assertAccess.
     if (user.rol !== 'ADMIN' && estudio.evaluadorId !== user.id) {
-      throw new ForbiddenException('No tienes permiso sobre este estudio.');
+      if (!estudio.proyectoId) {
+        throw new ForbiddenException('No tienes permiso sobre este estudio.');
+      }
+      await this.projectAccess.assertAccess(
+        estudio.proyectoId,
+        user,
+        'No tienes permiso sobre este estudio.',
+      );
     }
 
     return this.prisma.researchSession.update({
@@ -284,7 +293,6 @@ export class CardSortingService {
             preguntas: { orderBy: { orden: 'asc' } },
           },
         },
-        proyecto: { select: { sala: { select: { profesorId: true } } } },
       },
     });
 
@@ -292,16 +300,26 @@ export class CardSortingService {
       throw new NotFoundException('La sesión de Card Sorting no existe.');
     }
 
-    const canRead =
+    const accesoDirecto =
       user.rol === 'ADMIN' ||
       (user.actor === 'EVALUADOR' && session.evaluadorId === user.id) ||
-      (user.rol === 'DOCENTE' && session.proyecto?.sala?.profesorId === user.id) ||
       (user.actor === 'PARTICIPANTE' &&
         (session.participanteId === user.id ||
           (session.actor === ActorSesion.EVALUADOR &&
             user.proyectoId === session.proyectoId)));
 
-    if (!canRead) throw new ForbiddenException('No tienes acceso a esta sesión.');
+    if (accesoDirecto) return session;
+
+    // El resto (miembros del proyecto, creador, docente de la sala) se
+    // resuelve con assertAccess. Un participante ajeno no pasa por aquí.
+    if (user.actor === 'PARTICIPANTE' || !session.proyectoId) {
+      throw new ForbiddenException('No tienes acceso a esta sesión.');
+    }
+    await this.projectAccess.assertAccess(
+      session.proyectoId,
+      user,
+      'No tienes acceso a esta sesión.',
+    );
     return session;
   }
 
@@ -327,7 +345,6 @@ export class CardSortingService {
             },
           },
         },
-        proyecto: { select: { sala: { select: { profesorId: true } } } },
       },
     });
 
@@ -339,11 +356,17 @@ export class CardSortingService {
       throw new NotFoundException('No existe el estudio maestro solicitado.');
     }
 
-    const esDocenteDeLaSala =
-      user.rol === 'DOCENTE' && estudio.proyecto?.sala?.profesorId === user.id;
-
-    if (user.rol !== 'ADMIN' && estudio.evaluadorId !== user.id && !esDocenteDeLaSala) {
-      throw new ForbiddenException('No tienes acceso a esta analítica.');
+    // Dueño del estudio y ADMIN pasan directo. El resto (miembros del
+    // proyecto, creador, docente de la sala) se resuelve con assertAccess.
+    if (user.rol !== 'ADMIN' && estudio.evaluadorId !== user.id) {
+      if (!estudio.proyectoId) {
+        throw new ForbiddenException('No tienes acceso a esta analítica.');
+      }
+      await this.projectAccess.assertAccess(
+        estudio.proyectoId,
+        user,
+        'No tienes acceso a esta analítica.',
+      );
     }
 
     const participantes = await this.prisma.researchSession.findMany({

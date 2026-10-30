@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Sala } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../core/database/prisma.service.js';
+import { vincularMiembroAProyectosDeSala } from '../../core/access/equipo-proyecto.js';
 import { AuthenticatedUser } from '../auth/types/authenticated-user.interface.js';
 import { AddMiembroEquipoDto, CreateEquipoDto, UpdateEquipoDto } from './equipos.dto.js';
 
@@ -124,6 +125,8 @@ export class EquiposService {
     await this.prisma.equipoMiembro.create({
       data: { equipoId, usuarioId: usuario.id },
     });
+
+    await vincularMiembroAProyectosDeSala(this.prisma, equipoId, usuario.id);
 
     return this.findOne(salaId, equipoId, user);
   }

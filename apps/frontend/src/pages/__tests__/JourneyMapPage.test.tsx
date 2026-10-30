@@ -59,7 +59,7 @@ describe('Journey Map — creación', () => {
     expect(screen.getByRole('heading', { name: 'Paso 1 de 6: Perfil de usuario' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Guardar Journey Map' })).toBeNull();
     siguiente(5);
-    expect(screen.getByRole('heading', { name: 'Paso 6 de 6: Evidencia' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Paso 6 de 6: Evidencia (opcional)' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Guardar Journey Map' })).toBeInTheDocument();
   });
 
@@ -76,13 +76,24 @@ describe('Journey Map — creación', () => {
     expect(screen.queryByText('Falta el nombre y el rol de la persona (paso 1).')).toBeNull();
   });
 
+  it('el banner y el formulario numeran igual y marcan los pasos opcionales', () => {
+    mostrar();
+    fireEvent.click(screen.getByRole('button', { name: '+ Nuevo Journey Map' }));
+    expect(screen.getByText('Paso 1 de 6')).toBeInTheDocument();
+    siguiente(1);
+    expect(screen.getByRole('heading', { name: 'Paso 2 de 6: Objetivo y evento de inicio (opcional)' })).toBeInTheDocument();
+    expect(screen.getByText('Paso 2 de 6')).toBeInTheDocument();
+    expect(screen.queryByText(/^Fase \d+ de 6$/)).toBeNull();
+    expect(screen.getByText('Opcional')).toBeInTheDocument();
+  });
+
   it('el anillo de avance sube al completar el perfil', () => {
     mostrar();
     fireEvent.click(screen.getByRole('button', { name: '+ Nuevo Journey Map' }));
-    expect(screen.getByRole('img', { name: '1 de 4' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: '1 de 4 obligatorios' })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Nombre del perfil de usuario'), { target: { value: 'Ana' } });
     fireEvent.change(screen.getByLabelText('Rol del usuario'), { target: { value: 'Solicitante' } });
-    expect(screen.getByRole('img', { name: '2 de 4' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: '2 de 4 obligatorios' })).toBeInTheDocument();
   });
 });
 
@@ -128,6 +139,18 @@ describe('Journey Map — esqueleto estándar', () => {
 });
 
 describe('Journey Map: lista estándar', () => {
+  it('separa y etiqueta persona, rol, fases y objetivo, y explica los puntos de emoción', () => {
+    state.list.mockReturnValue([journey]);
+    mostrar();
+    expect(screen.getByText('Persona:')).toBeInTheDocument();
+    expect(screen.getByText('Ana Pérez')).toBeInTheDocument();
+    expect(screen.getByText('Rol:')).toBeInTheDocument();
+    expect(screen.getByText('Solicitante')).toBeInTheDocument();
+    expect(screen.getByText('3 fases')).toBeInTheDocument();
+    expect(screen.getByText('Objetivo:')).toBeInTheDocument();
+    expect(screen.getByText('Emoción en cada fase (un punto por fase)')).toBeInTheDocument();
+  });
+
   it('muestra el título con contador y Consultar secundario en la cabecera de la tarjeta', () => {
     state.list.mockReturnValue([journey]);
     mostrar();

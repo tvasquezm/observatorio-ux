@@ -116,7 +116,7 @@ export function FlujoHeuristicaPage() {
     const common = { evaluacion, usuarioId, onSaved: saved, onBack: back };
     if (evaluacion.fase === 'BORRADOR') content = evaluacion.coordinadorId === usuarioId && library.data && team.data ? <ConfiguracionSesion key={`${evaluacion.id}:configuracion`} {...common} biblioteca={library.data} equipo={team.data} /> : <><button type="button" className="secondary hf-volver" onClick={back}><span aria-hidden="true">←</span> Volver</button><p>El coordinador está configurando la evaluación.</p></>;
     else if (evaluacion.fase === 'EN_EVALUACION') content = <TrabajoEditor key={`${evaluacion.id}:trabajo`} {...common} />;
-    else if (evaluacion.fase === 'PENDIENTE_CONSENSO') content = evaluacion.coordinadorId === usuarioId || evaluacion.configuracion.evaluadorIds.includes(usuarioId) ? <ConsensoEditor key={`${evaluacion.id}:consenso`} {...common} /> : <><button type="button" className="secondary hf-volver" onClick={back}><span aria-hidden="true">←</span> Volver</button><p>El equipo está acordando el consenso. El informe estará disponible al consolidar.</p></>;
+    else if (evaluacion.fase === 'PENDIENTE_CONSENSO') content = evaluacion.coordinadorId === usuarioId || evaluacion.configuracion.evaluadorIds.includes(usuarioId) ? <ConsensoEditor key={`${evaluacion.id}:consenso`} {...common} equipo={team.data} /> : <><button type="button" className="secondary hf-volver" onClick={back}><span aria-hidden="true">←</span> Volver</button><p>El equipo está acordando el consenso. El informe estará disponible al consolidar.</p></>;
     else content = <InformeView key={`${evaluacion.id}:informe`} {...common} historial={history.data ?? []} />;
   } else content = null;
   const avisos = <>
@@ -136,7 +136,7 @@ export function FlujoHeuristicaPage() {
       {library.data?.length && team.data ? <PrepararRevision key={proyectoId} proyectoId={proyectoId} biblioteca={library.data} equipo={team.data} onSaved={saved} /> : null}
     </>}
     lista={!selected && !nueva && <>
-      {pendiente && <div className="hf-retomar panel" role="region" aria-label="Revisión sin terminar"><p>Tienes una revisión sin terminar: <strong>{pendiente.configuracion.nombre || pendiente.configuracion.producto.nombre}</strong> ({etapaPendiente[pendiente.fase]}).</p><button type="button" className="secondary" onClick={() => setSelected(pendiente.id)}>Retomar mi última revisión</button></div>}
+      {pendiente && <div className="hf-retomar panel" role="region" aria-label="Revisión sin terminar">{pendiente.coordinadorId === usuarioId ? <p>Tienes una revisión sin terminar: <strong>{pendiente.configuracion.nombre || pendiente.configuracion.producto.nombre}</strong> ({etapaPendiente[pendiente.fase]}).</p> : <p>Hay una revisión sin terminar creada por {team.data?.find(m => m.id === pendiente.coordinadorId)?.nombre ?? 'otra persona del equipo'}: <strong>{pendiente.configuracion.nombre || pendiente.configuracion.producto.nombre}</strong> ({etapaPendiente[pendiente.fase]}).</p>}<button type="button" className="secondary" onClick={() => setSelected(pendiente.id)}>Retomar mi última revisión</button></div>}
       {avisos}
       {history.data && history.data.length > 0 && <>
         <TechniqueListHead titulo="Mis revisiones" cantidad={history.data.length} />

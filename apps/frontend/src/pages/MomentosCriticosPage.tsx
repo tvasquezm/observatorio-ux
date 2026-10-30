@@ -16,7 +16,7 @@ import {
   type MomentosCriticosContenido,
   type MomentosCriticosArtifact,
 } from '../features/momentos-criticos/api/momentos-criticos.api';
-import { ArtifactsApiError } from '../shared/api/artifacts.api';
+import { ArtifactsApiError, textoUltimaEdicion } from '../shared/api/artifacts.api';
 import { notify } from '../shared/api/toast';
 import { useConfirm } from '../shared/api/confirm';
 import { TechniquePageHeader } from '../shared/components/TechniquePageHeader';
@@ -580,6 +580,7 @@ export function MomentosCriticosPage() {
                             <p className="text-muted">
                               {m.contenido.perfilUsuario.rol} · Versión {m.version}
                             </p>
+                            <p className="text-muted-xs">{textoUltimaEdicion(m)}</p>
                           </div>
                           {puedeEditar && (
                             <TechniqueItemActions

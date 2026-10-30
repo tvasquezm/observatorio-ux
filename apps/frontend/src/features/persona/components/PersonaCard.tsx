@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { AnilloAvance } from '../../../shared/components/AnilloAvance';
 import { TechniqueProcess } from '../../../shared/components/TechniqueProcess';
+import { textoUltimaEdicion } from '../../../shared/api/artifacts.api';
 import type { PersonaArtifact, PersonaContenido } from '../api/persona.api';
 import { ETIQUETAS_CAMPOS, iniciales, procesoPersona } from '../persona-visual';
 
@@ -48,6 +49,7 @@ export function PersonaCard({ persona, acciones }: Props) {
         <div className="tv-persona-badges">
           <span className={validada ? 'count' : 'short-id'}>{validada ? 'Validada' : 'Validación pendiente'}</span>
           <span className="text-muted-xs">Versión {persona.version}</span>
+          <span className="text-muted-xs">{textoUltimaEdicion(persona)}</span>
         </div>
       </header>
 

@@ -8,6 +8,8 @@ interface TechniquePageHeaderProps {
   action?: ReactNode;
   /** Lista de pasos, o un nodo propio (p. ej. la guía de Card Sorting). Siempre arranca colapsado. */
   instructions?: string[] | ReactNode;
+  /** Nota fija: no detecta cambios, solo recuerda actualizar la página para ver datos nuevos de otras personas. */
+  avisoActualizar?: boolean;
 }
 
 export function TechniquePageHeader({
@@ -17,6 +19,7 @@ export function TechniquePageHeader({
   labelVariant = 'eyebrow',
   action,
   instructions,
+  avisoActualizar = true,
 }: TechniquePageHeaderProps) {
   return (
     <><div className="page-head">
@@ -24,6 +27,7 @@ export function TechniquePageHeader({
         <span className={labelVariant}>{label}</span>
         <h2>{title}</h2>
         <p>{description}</p>
+        {avisoActualizar && <p className="text-muted">Si otra persona del equipo cambia algo, actualiza la página para ver los datos nuevos.</p>}
       </div>
       {action}
     </div>

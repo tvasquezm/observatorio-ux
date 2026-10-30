@@ -71,6 +71,8 @@ export function MatrizItem({ criterios, config, respuestas, modo, individuales =
   const grupos = agruparPorItem(config, esEquipo && soloDif ? criterios.filter(c => !coincidenDe(c.id)) : criterios);
   const [actual, setActual] = useState(() => Math.max(0, grupos.findIndex(g => g.criterios.some(c => c.id === foco))));
   const [abiertos, setAbiertos] = useState<Set<string>>(new Set());
+  const [completasAlInicio] = useState(() => new Set(esEquipo ? agruparPorItem(config, criterios).filter(g => g.criterios.every(c => criterioRespondido(config, c, respuestas.find(r => r.criterioId === c.id)))).map(g => g.categoria) : []));
+  const [categoriaAbierta, setCategoriaAbierta] = useState<Record<string, boolean>>({});
   const textoDe = (r: RespuestaCriterio) => esEquipo ? (r as Partial<DecisionCriterio>).justificacion ?? '' : r.notas;
   const notasDe = () => Object.fromEntries(respuestas.map(r => [r.criterioId, textoDe(r)]));
   const [guardadas, setGuardadas] = useState<Record<string, string>>(() => guardado.dirty ? {} : notasDe());
@@ -112,7 +114,7 @@ export function MatrizItem({ criterios, config, respuestas, modo, individuales =
         <td><label className="hf-celda"><input type="radio" name={nombre} disabled={!editable} aria-label="No aplica" aria-describedby={`${nombre}-p`} checked={r.noAplica} onChange={() => onChange({ ...r, noAplica: true, valor: null })} /><span className="hf-celda-txt">No aplica</span></label></td>
         <td className="hf-acciones-fila">
           <button type="button" className="ghost" aria-expanded={abierto} aria-controls={`${nombre}-c`} onClick={() => alternar(c.id)}>Comentario{esEquipo ? ' del equipo' : ''}{' '}<span className="sr-only">de {c.nombre}</span></button>
-          {marca !== 'ninguna' && !abierto && <button type="button" className={`hf-marca hf-marca-${marca}`} title={texto} role={marca === 'error' ? 'alert' : undefined} aria-label={`${marca === 'guardado' ? 'Comentario guardado' : marca === 'error' ? 'No se pudo guardar el comentario' : 'Comentario agregado, pendiente de guardar'}. Editar comentario de ${c.nombre}`} onClick={() => alternar(c.id)}>{marca === 'guardado' ? 'Comentario guardado' : marca === 'error' ? 'No se pudo guardar el comentario' : 'Comentario agregado, pendiente de guardar'}</button>}
+          {marca !== 'ninguna' && !abierto && <button type="button" className={`hf-marca hf-marca-${marca}`} title={texto} role={marca === 'error' ? 'alert' : undefined} aria-label={`${marca === 'guardado' ? 'Comentario guardado' : marca === 'error' ? `Comentario sin guardar: ${guardado.error}` : 'Comentario agregado, pendiente de guardar'}. Editar comentario de ${c.nombre}`} onClick={() => alternar(c.id)}>{marca === 'guardado' ? 'Comentario guardado' : marca === 'error' ? `Comentario sin guardar: ${guardado.error}` : 'Comentario agregado, pendiente de guardar'}</button>}
           {editable && onAddHallazgo && <button type="button" className="secondary" onClick={() => onAddHallazgo(c.id)}>Agregar problema{' '}<span className="sr-only">para {c.nombre}</span></button>}
           {problemas > 0 && (renderProblemas && onToggleProblemas ? <button type="button" className="hf-contador-problemas" aria-expanded={problemasVisibles} aria-controls={`${nombre}-pr`} onClick={() => onToggleProblemas(c.id)}>{textoProblemas}{' '}<span className="sr-only">de {c.nombre}</span></button> : <span className="hf-ayuda">{textoProblemas}</span>)}
           {exige && !texto.trim() && <span className="hf-ayuda">Falta el comentario del equipo</span>}
@@ -128,9 +130,9 @@ export function MatrizItem({ criterios, config, respuestas, modo, individuales =
         <label className="field">Comentario{esEquipo ? ' del equipo' : ''} de {c.nombre}<textarea maxLength={10000} readOnly={!editable} required={exige} value={texto} onChange={e => onChange(esEquipo ? { ...r, justificacion: e.target.value } : { ...r, notas: e.target.value })} /></label>
         {!esEquipo && proyectoId && evaluacionId && <EvidenciaEditor proyectoId={proyectoId} evaluacionId={evaluacionId} evidenciaIds={r.evidenciaIds ?? []} editable={editable} onChange={ids => onChange({ ...r, evidenciaIds: ids })} onPendingChange={v => onEvidencePending?.(c.id, v)} etiqueta="de la valoración" />}
         {r.motivo && <p className="hf-ayuda">Nota anterior: {r.motivo}</p>}
-        <button type="button" className="secondary" onClick={() => alternar(c.id)}>Listo<span className="sr-only">: comentario de {c.nombre}</span></button>
+        <button type="button" className="primary" onClick={() => alternar(c.id)}>Listo<span className="sr-only">: comentario de {c.nombre}</span></button>
       </td></tr>}
-      {problemasVisibles && <tr id={`${nombre}-pr`} className="hf-fila-problemas"><td colSpan={niveles.length + 3}>{renderProblemas?.(c.id)}<button type="button" className="secondary" disabled={bloqueado} onClick={() => onToggleProblemas?.(c.id)}>Listo<span className="sr-only">: problemas de {c.nombre}</span></button></td></tr>}
+      {problemasVisibles && <tr id={`${nombre}-pr`} className="hf-fila-problemas"><td colSpan={niveles.length + 3}>{renderProblemas?.(c.id)}<button type="button" className="primary" disabled={bloqueado} onClick={() => onToggleProblemas?.(c.id)}>Listo<span className="sr-only">: problemas de {c.nombre}</span></button></td></tr>}
     </Fragment>;
   }
 
@@ -152,6 +154,18 @@ export function MatrizItem({ criterios, config, respuestas, modo, individuales =
       : visibles.map(g => {
         const respondidos = g.criterios.filter(c => criterioRespondido(config, c, respuestas.find(r => r.criterioId === c.id))).length;
         const enunciado = config.metodologia.enunciados?.[g.categoria] ?? (g.criterios.length === 1 ? g.criterios[0].descripcion : '');
+        const completa = respondidos === g.criterios.length;
+        const cuerpo = <>
+          {enunciado && <p className="hf-enunciado">{enunciado}</p>}
+          <p className="hf-avance">{respondidos} de {g.criterios.length} {esEquipo ? 'acordadas' : 'respondidos'}{completa ? ' · ✓ Categoría completa' : ''}</p>
+          {g.subgrupos.map(s => tabla(s, `${g.categoria}${g.subgrupos.length > 1 ? `: ${s.escala.niveles.map(n => n.etiqueta).join(', ')}` : ''}`, false))}
+        </>;
+        if (esEquipo) return <section className="hf-cat" key={g.categoria} aria-labelledby={`${id}-t-${g.categoria}`}>
+          <details open={categoriaAbierta[g.categoria] ?? !completasAlInicio.has(g.categoria)} onToggle={e => { const abierta = e.currentTarget.open; setCategoriaAbierta(m => m[g.categoria] === abierta ? m : { ...m, [g.categoria]: abierta }); }}>
+            <summary><h3 ref={titulo} tabIndex={-1} id={`${id}-t-${g.categoria}`} style={{ display: 'inline', marginRight: 8 }}>{g.categoria}</h3><span>{completa ? '· ✓ Completa' : `· Faltan ${g.criterios.length - respondidos}`}</span></summary>
+            {cuerpo}
+          </details>
+        </section>;
         return <section className="hf-cat" key={g.categoria} aria-labelledby={`${id}-t-${g.categoria}`}>
           <h3 ref={titulo} tabIndex={-1} id={`${id}-t-${g.categoria}`}>{g.categoria}</h3>
           {enunciado && <p className="hf-enunciado">{enunciado}</p>}

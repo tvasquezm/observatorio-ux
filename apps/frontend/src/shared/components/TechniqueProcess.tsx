@@ -17,6 +17,8 @@ interface Props {
   title?: string;
   compact?: boolean;
   textoListo?: string;
+  /** Paso abierto en el formulario (desde 0). Con él, el banner numera igual que el formulario. */
+  pasoActual?: number;
 }
 
 export function TechniqueProcess({
@@ -24,11 +26,18 @@ export function TechniqueProcess({
   title = 'Proceso de la técnica',
   compact = false,
   textoListo = 'Técnica completa y lista para usar',
+  pasoActual,
 }: Props) {
   const obligatorios = steps.filter((step) => !step.opcional);
   const hechos = obligatorios.filter((step) => step.done).length;
   const obligatoriaPendiente = steps.findIndex((step) => !step.done && !step.opcional);
-  const currentIndex = obligatoriaPendiente >= 0 ? obligatoriaPendiente : steps.findIndex((step) => !step.done);
+  const sigueFormulario = pasoActual !== undefined && pasoActual >= 0 && pasoActual < steps.length;
+  const currentIndex = sigueFormulario
+    ? pasoActual
+    : obligatoriaPendiente >= 0
+      ? obligatoriaPendiente
+      : steps.findIndex((step) => !step.done);
+  const hayOpcionales = steps.some((step) => step.opcional);
   const listo = steps.length > 0 && hechos === obligatorios.length;
   const faltantes = steps.filter((step) => !step.done);
 
@@ -40,13 +49,18 @@ export function TechniqueProcess({
       aria-label={title}
     >
       <div className="tv-process-head">
-        <AnilloAvance hecho={hechos} total={obligatorios.length} tamano={compact ? 44 : 56} />
+        <AnilloAvance
+          hecho={hechos}
+          total={obligatorios.length}
+          etiqueta={hayOpcionales ? 'obligatorios' : undefined}
+          tamano={compact ? 44 : 56}
+        />
         <div className="tv-process-titulo">
           <span className="kicker">{title}</span>
           {actual && (
             <div key={actual.id} className="tv-process-fase">
               <p className="tv-process-fase-n">
-                Fase {currentIndex + 1} de {steps.length}
+                {sigueFormulario ? 'Paso' : 'Fase'} {currentIndex + 1} de {steps.length}
                 {actual.opcional && <span className="tv-process-opcional">Opcional</span>}
               </p>
               <strong className="tv-process-fase-nombre">{actual.label}</strong>
@@ -64,6 +78,11 @@ export function TechniqueProcess({
                 </>
               )}
             </p>
+            {hayOpcionales && (
+              <small className="tv-process-oblig" aria-hidden="true">
+                {hechos} de {obligatorios.length} obligatorios
+              </small>
+            )}
             {faltantes.length > 0 && <FasesFaltantes faltantes={faltantes} />}
           </div>
         </div>

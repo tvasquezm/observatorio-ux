@@ -23,3 +23,15 @@ describe('instrucciones de una técnica', () => {
     expect(screen.getByText('Guía propia')).toBeVisible();
   });
 });
+
+describe('aviso de datos nuevos', () => {
+  const texto = 'Si otra persona del equipo cambia algo, actualiza la página para ver los datos nuevos.';
+  it('se muestra por defecto', () => {
+    render(<TechniquePageHeader label="Técnica" title="Personas" description="Perfil" />);
+    expect(screen.getByText(texto)).toBeInTheDocument();
+  });
+  it('se puede apagar', () => {
+    render(<TechniquePageHeader label="Técnica" title="Personas" description="Perfil" avisoActualizar={false} />);
+    expect(screen.queryByText(texto)).toBeNull();
+  });
+});

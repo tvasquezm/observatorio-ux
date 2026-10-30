@@ -11,7 +11,7 @@ import { ConsensoEditor } from './ConsensoEditor';
 import { InformeView } from './InformeView';
 import { ConfiguracionEditor } from './ConfiguracionEditor';
 import { FlujoHeuristicaPage } from './FlujoHeuristicaPage';
-import { pendientesTrabajo, precargarConsenso, textoCumplimiento } from './flujo-utils';
+import { coincidenciasProblemas, participacionInforme, pendientesTrabajo, precargarConsenso, textoCumplimiento, textoEscala } from './flujo-utils';
 import { useAuthStore } from '../auth/store/useAuthStore';
 
 const api = vi.hoisted(() => vi.fn());
@@ -142,6 +142,85 @@ describe('flujo individual', () => {
     await userEvent.click(add);
     expect(screen.getByRole('button', { name: 'Quitar problema 1' })).toHaveClass('danger');
   });
+  it('guarda un problema, lo colapsa con aviso y permite editarlo', async () => {
+    const e = evaluation();
+    api.mockImplementation(async (_p, _path, _method, body) => ({ ...e, revision: 2, trabajos: [{ ...e.trabajos[0], respuestas: body.respuestas, hallazgos: body.hallazgos }] }));
+    renderFlow(<Harness initial={e} />);
+    await userEvent.click(screen.getByRole('button', { name: `Agregar problema para ${e.configuracion.metodologia.criterios[0].nombre}` }));
+    await userEvent.type(screen.getByLabelText('Título del problema'), 'Sin foco visible');
+    await userEvent.type(screen.getByLabelText('Descripción del problema'), 'No se ve el foco al tabular');
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar problema 1' }));
+    expect(await screen.findByText('Problema guardado con éxito')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Título del problema')).toBeNull();
+    expect(api).toHaveBeenCalledWith('p1', '/evaluaciones/e1/trabajo', 'PATCH', expect.objectContaining({ hallazgos: [expect.objectContaining({ titulo: 'Sin foco visible' })] }));
+    await userEvent.click(screen.getByRole('button', { name: 'Editar problema 1' }));
+    expect(screen.getByLabelText('Título del problema')).toHaveValue('Sin foco visible');
+    expect(screen.queryByText('Problema guardado con éxito')).toBeNull();
+  });
+  describe('mensaje al entregar', () => {
+    const toasts: string[] = [];
+    const escucha = (ev: Event) => { toasts.push((ev as CustomEvent<{ message: string }>).detail.message); };
+    beforeEach(() => { toasts.length = 0; window.addEventListener('app:toast', escucha); return () => window.removeEventListener('app:toast', escucha); });
+    async function entregar(respuestaEntrega: (e: EvaluacionFlujo) => EvaluacionFlujo | Error) {
+      const e = evaluation();
+      api.mockImplementation(async (_p, path, _m, body) => {
+        if (path.endsWith('/trabajo')) return { ...e, revision: 2, trabajos: [{ ...e.trabajos[0], respuestas: body.respuestas, hallazgos: body.hallazgos }] };
+        const r = respuestaEntrega(e); if (r instanceof Error) throw r; return r;
+      });
+      renderFlow(<Harness initial={e} />);
+      await userEvent.click(screen.getByRole('radio', { name: e.configuracion.metodologia.escala.niveles[0].etiqueta }));
+      await userEvent.click(screen.getByRole('button', { name: 'Entregar mi evaluación' }));
+    }
+    const entregada = (e: EvaluacionFlujo, over: Partial<EvaluacionFlujo> = {}): EvaluacionFlujo => ({ ...e, revision: 3, trabajos: [{ ...e.trabajos[0], entregadoEn: e.updatedAt }], avanceEquipo: [{ evaluadorId: 'u1', nombre: 'Ana', evaluados: 1, total: 1, entregadoEn: e.updatedAt, guardadoEn: null }, { evaluadorId: 'u2', nombre: 'Beto', evaluados: 0, total: 1, entregadoEn: null, guardadoEn: null }], ...over });
+    it('avisa que entregaste y nombra a quien falta, con aviso emergente', async () => {
+      await entregar(e => entregada(e));
+      expect(await screen.findByText('Entregaste tu evaluación')).toBeInTheDocument();
+      expect(screen.getByText('Falta que entreguen: Beto.')).toBeInTheDocument();
+      expect(toasts).toEqual(['Entregaste tu evaluación. Tus respuestas quedaron cerradas; falta que entregue el resto del equipo.']);
+    });
+    it('si fue la última entrega el aviso emergente habla del acuerdo del equipo', async () => {
+      await entregar(e => entregada(e, { fase: 'PENDIENTE_CONSENSO' }));
+      await waitFor(() => expect(toasts).toHaveLength(1));
+      expect(toasts[0]).toContain('ahora el equipo acuerda el resultado');
+    });
+    it('si falla la entrega no hay aviso de éxito', async () => {
+      await entregar(() => new Error('Sin conexión'));
+      expect(await screen.findByText('Sin conexión')).toBeInTheDocument();
+      expect(screen.queryByText('Entregaste tu evaluación')).toBeNull();
+      expect(toasts).toEqual([]);
+    });
+  });
+  it('el aviso de listo y el botón Entregar principal aparecen solo sin pendientes', async () => {
+    const e = evaluation(); renderFlow(<Harness initial={e} />);
+    const entregar = screen.getByRole('button', { name: 'Entregar mi evaluación' });
+    expect(entregar).toHaveClass('secondary');
+    expect(screen.queryByText('Estás listo para entregar')).toBeNull();
+    await userEvent.click(screen.getByRole('radio', { name: e.configuracion.metodologia.escala.niveles[0].etiqueta }));
+    expect(screen.getByText('Estás listo para entregar')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Entregar mi evaluación' })).toHaveClass('primary');
+    await userEvent.click(screen.getByRole('button', { name: `Agregar problema para ${e.configuracion.metodologia.criterios[0].nombre}` }));
+    expect(screen.queryByText('Estás listo para entregar')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Entregar mi evaluación' })).toHaveClass('secondary');
+  });
+  it('no colapsa un problema incompleto y dice qué falta', async () => {
+    const e = evaluation(); renderFlow(<Harness initial={e} />);
+    await userEvent.click(screen.getByRole('button', { name: `Agregar problema para ${e.configuracion.metodologia.criterios[0].nombre}` }));
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar problema 1' }));
+    expect(screen.getByText('Problema 1: completa título y descripción.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Título del problema')).toBeInTheDocument();
+    expect(screen.queryByText('Problema guardado con éxito')).toBeNull();
+  });
+  it('si falla el guardado conserva el problema abierto y el texto', async () => {
+    const e = evaluation(); api.mockRejectedValue(new Error('boom'));
+    renderFlow(<Harness initial={e} />);
+    await userEvent.click(screen.getByRole('button', { name: `Agregar problema para ${e.configuracion.metodologia.criterios[0].nombre}` }));
+    await userEvent.type(screen.getByLabelText('Título del problema'), 'Sin foco visible');
+    await userEvent.type(screen.getByLabelText('Descripción del problema'), 'No se ve el foco');
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar problema 1' }));
+    expect(await screen.findByText('No se pudo guardar el problema. Tu borrador se conserva.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Título del problema')).toHaveValue('Sin foco visible');
+    expect(screen.queryByText('Problema guardado con éxito')).toBeNull();
+  });
   it('reabre el problema incompleto aunque se haya cerrado manualmente', async () => {
     const e = evaluation(); renderFlow(<Harness initial={e} />);
     await userEvent.click(screen.getByRole('radio', { name: e.configuracion.metodologia.escala.niveles[0].etiqueta }));
@@ -259,7 +338,7 @@ describe('configuración y consenso', () => {
     await userEvent.click(crear);
     expect(screen.getByRole('button', { name: /Reabrir orígenes de decisión 1/ })).toHaveClass('danger');
     await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
-    expect(screen.getByRole('button', { name: 'Confirmar acuerdo' })).toHaveClass('secondary');
+    expect(screen.getByRole('button', { name: 'Entregar acuerdo' })).toHaveClass('secondary');
   });
   it('recarga decisiones remotas antes de aprobar desde editor limpio', async () => {
     const e = evaluation({ fase: 'PENDIENTE_CONSENSO' });
@@ -489,6 +568,34 @@ describe('cumplimiento en el informe', () => {
     expect(textoCumplimiento({ ...base, favorables: 1, desfavorables: 2, sinEvaluar: 1 })).toBe('1 de 3 cumplen (33 %) · 1 sin evaluar');
   });
 });
+describe('coincidencias de problemas', () => {
+  const problema = (id: string, criterioIds: string[], titulo: string) => ({ id, criterioIds, titulo, pantalla: 'Inicio', descripcion: 'Error', recomendacion: 'Mejorar', severidad: 2 as const, prioridad: 'MEDIA' as const, notas: '', evidenciaIds: [] });
+  function equipo(porPersona: Array<[string, string, ReturnType<typeof problema>[]]>) {
+    const e = evaluation({ fase: 'PENDIENTE_CONSENSO' });
+    e.trabajos = porPersona.map(([evaluadorId, nombre, hallazgos]) => ({ evaluadorId, nombre, respuestas: [], hallazgos, entregadoEn: e.updatedAt, guardadoEn: null }));
+    return e;
+  }
+  it('marca entre sí a personas distintas con problemas en la misma pregunta', () => {
+    const e = equipo([['u1', 'Ana', [problema('a1', ['c1'], 'Uno')]], ['u2', 'Beto', [problema('b1', ['c1', 'c2'], 'Dos')]], ['u3', 'Carla', [problema('k1', ['c9'], 'Tres')]]]);
+    const m = coincidenciasProblemas(e.trabajos);
+    expect(m.get('a1')).toEqual(['Beto']);
+    expect(m.get('b1')).toEqual(['Ana']);
+    expect(m.has('k1')).toBe(false);
+  });
+  it('no marca problemas de la misma persona ni con una sola persona', () => {
+    expect(coincidenciasProblemas(equipo([['u1', 'Ana', [problema('a1', ['c1'], 'Uno'), problema('a2', ['c1'], 'Dos')]]]).trabajos).size).toBe(0);
+  });
+  it('el acuerdo muestra "Coincide con" en el resumen y junto a la casilla sin cambiar su nombre', async () => {
+    const c = evaluation().configuracion.metodologia.criterios[0].id;
+    const e = equipo([['u1', 'Ana', [problema('a1', [c], 'Sin foco')]], ['u2', 'Beto', [problema('b1', [c], 'Foco oculto')]], ['u3', 'Carla', [problema('k1', ['otra'], 'Otro tema')]]]);
+    renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Revisar los problemas' }));
+    expect(screen.getByText(/Ana: Sin foco · Pendiente de decisión · Coincide con: Beto/)).toBeInTheDocument();
+    expect(screen.getByText(/Carla: Otro tema · Pendiente de decisión$/)).toBeInTheDocument();
+    expect(screen.getAllByText('Coincide con: Beto')).toHaveLength(1);
+    expect(screen.getByLabelText('Ana: Sin foco')).toBeInTheDocument();
+  });
+});
 describe('consenso con checklist', () => {
   function consensoEval(mixta = false): EvaluacionFlujo {
     const base = evaluation({ fase: 'PENDIENTE_CONSENSO' });
@@ -555,6 +662,156 @@ describe('consenso en equipo sobre la tabla', () => {
     renderFlow(<ConsensoEditor evaluacion={equipoEval('no_cumple', ['u2'])} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
     expect(screen.getByText('Confirmaron 1 de 2 evaluadores: Beto.')).toBeInTheDocument();
   });
+  it('muestra quién guardó el acuerdo por última vez y cuándo, y nada si no hay datos', () => {
+    const base = equipoEval('no_cumple');
+    const { unmount } = renderFlow(<ConsensoEditor evaluacion={{ ...base, consenso: { ...base.consenso, guardadoPor: 'u1', guardadoEn: '2026-10-28T15:00:00.000Z' } }} usuarioId="u2" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.getByText(/^Última edición por Ana · \d{1,2} /)).toBeInTheDocument();
+    unmount();
+    renderFlow(<ConsensoEditor evaluacion={base} usuarioId="u2" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.queryByText(/^Última edición por/)).toBeNull();
+  });
+  it('un no redactor ve el acuerdo en solo lectura, quién redacta y quién falta', async () => {
+    renderFlow(<ConsensoEditor evaluacion={equipoEval('no_cumple')} usuarioId="u2" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.getByText('Redacta el acuerdo: Ana. Solo esa persona puede editarlo; tú puedes leerlo y confirmarlo.')).toBeInTheDocument();
+    expect(screen.getByText('Falta confirmar: Ana, Beto.')).toBeInTheDocument();
+    expect(screen.getAllByRole('radio').every(r => (r as HTMLInputElement).disabled)).toBe(true);
+    await userEvent.click(screen.getByRole('tab', { name: 'Revisar los problemas' }));
+    expect(screen.queryByRole('button', { name: 'Agregar hallazgo nuevo del equipo' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Crear decisión de los originales seleccionados' })).toBeNull();
+    await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
+    expect(screen.getByLabelText('Conclusión y recomendaciones finales')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Estoy de acuerdo' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Pido cambios' })).toBeEnabled();
+  });
+  it('con redactor elegido edita solo esa persona; el coordinador queda en lectura', () => {
+    const elegido = () => { const e = equipoEval('no_cumple'); e.consenso.redactorId = 'u2'; return e; };
+    const { unmount } = renderFlow(<ConsensoEditor evaluacion={elegido()} usuarioId="u2" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.getByText('Tú redactas el acuerdo.')).toBeInTheDocument();
+    expect(screen.getAllByRole('radio').every(r => !(r as HTMLInputElement).disabled)).toBe(true);
+    unmount();
+    renderFlow(<ConsensoEditor evaluacion={elegido()} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.getByText('Redacta el acuerdo: Beto. Solo esa persona puede editarlo; tú puedes leerlo y confirmarlo.')).toBeInTheDocument();
+    expect(screen.getAllByRole('radio').every(r => (r as HTMLInputElement).disabled)).toBe(true);
+  });
+  it('un no redactor no precarga ni autoguarda el acuerdo', async () => {
+    renderFlow(<ConsensoEditor evaluacion={equipoEval('cumple')} usuarioId="u2" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.getByText('0 de 1 preguntas acordadas')).toBeInTheDocument();
+    await new Promise(r => setTimeout(r, 1200));
+    expect(api).not.toHaveBeenCalled();
+  });
+  it('un experto vota por el redactor con la revisión vigente', async () => {
+    const e = equipoEval('no_cumple');
+    api.mockResolvedValue({ ...e, revision: 2, consenso: { ...e.consenso, votosRedactor: { u2: 'u2' } } });
+    renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u2" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.getByText('Redactor actual: Ana (el coordinador, hasta que el equipo vote).')).toBeInTheDocument();
+    expect(screen.getByText('Beto: aún no votó')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Decidir redactor' })).toBeNull();
+    await userEvent.selectOptions(screen.getByLabelText('Mi voto'), 'u2');
+    await userEvent.click(screen.getByRole('button', { name: 'Votar por este redactor' }));
+    await waitFor(() => expect(api).toHaveBeenCalledWith('p1', '/evaluaciones/e1/redactor/voto', 'POST', { revision: 1, candidatoId: 'u2' }));
+  });
+  it('el coordinador decide solo con empate o votos faltantes', async () => {
+    const e = equipoEval('no_cumple');
+    e.consenso.votosRedactor = { u1: 'u1', u2: 'u2' };
+    api.mockResolvedValue({ ...e, revision: 2, consenso: { ...e.consenso, redactorId: 'u2' } });
+    const { unmount } = renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    await userEvent.selectOptions(screen.getByLabelText('Redactor que decide el coordinador'), 'u2');
+    await userEvent.click(screen.getByRole('button', { name: 'Decidir redactor' }));
+    await waitFor(() => expect(api).toHaveBeenCalledWith('p1', '/evaluaciones/e1/redactor/decidir', 'POST', { revision: 1, redactorId: 'u2' }));
+    unmount();
+    const mayoria = equipoEval('no_cumple');
+    mayoria.consenso.votosRedactor = { u1: 'u2', u2: 'u2' };
+    renderFlow(<ConsensoEditor evaluacion={mayoria} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: 'Decidir redactor' })).toBeNull();
+    expect(screen.getByText(/El equipo ya eligió por mayoría/)).toBeInTheDocument();
+  });
+  it('avisa cuando cambia quien redacta tras actualizar', async () => {
+    const e = equipoEval('no_cumple');
+    function Editor() { const [v, setV] = useState(e); return <><button type="button" onClick={() => setV({ ...e, revision: 2, consenso: { ...e.consenso, redactorId: 'u2' } })}>Simular cambio</button><ConsensoEditor evaluacion={v} usuarioId="u1" onSaved={setV} onBack={vi.fn()} /></>; }
+    renderFlow(<Editor />);
+    expect(screen.queryByText(/Cambió quien redacta/)).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Simular cambio' }));
+    expect(await screen.findByText('Cambió quien redacta el acuerdo: ahora redacta Beto.')).toBeInTheDocument();
+  });
+  it('lista los pendientes por sección y bloquea la entrega hasta completarlos', async () => {
+    renderFlow(<ConsensoEditor evaluacion={equipoEval('no_cumple')} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
+    expect(screen.getByText('Faltan 1 elemento por completar.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Criterios (1)' })).toBeInTheDocument();
+    expect(screen.getByText(/: Falta evaluarlo\./)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Entregar acuerdo' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Estoy de acuerdo' })).toBeNull();
+  });
+  it('el redactor entrega el acuerdo completo con la revisión vigente', async () => {
+    const e = equipoEval('cumple');
+    api.mockResolvedValue({ ...e, revision: 2 });
+    renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
+    expect(screen.getByText('No hay pendientes: el acuerdo está completo.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Entregar acuerdo' }));
+    await waitFor(() => expect(api).toHaveBeenCalledWith('p1', '/evaluaciones/e1/entregar-acuerdo', 'POST', { revision: 2 }));
+  });
+  it('un experto que no redacta confirma con "Estoy de acuerdo" o pide cambios con comentario', async () => {
+    const e = equipoEval('cumple');
+    e.consenso.criterios = [{ criterioId: e.configuracion.metodologia.criterios[0].id, valor: 'cumple', noAplica: false, motivo: '', notas: '', justificacion: '' }];
+    api.mockResolvedValue({ ...e, revision: 2 });
+    renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u2" onSaved={vi.fn()} onBack={vi.fn()} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
+    expect(screen.queryByRole('button', { name: 'Entregar acuerdo' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Pido cambios' }));
+    const enviar = screen.getByRole('button', { name: 'Enviar pedido de cambios' });
+    expect(enviar).toBeDisabled();
+    await userEvent.type(screen.getByLabelText('Qué cambios pides'), '  Revisar el criterio 1 ');
+    await userEvent.click(enviar);
+    await waitFor(() => expect(api).toHaveBeenCalledWith('p1', '/evaluaciones/e1/pedir-cambios', 'POST', { revision: 1, comentario: 'Revisar el criterio 1' }));
+    await waitFor(() => expect(screen.queryByLabelText('Qué cambios pides')).toBeNull());
+    await userEvent.click(screen.getByRole('button', { name: 'Estoy de acuerdo' }));
+    await waitFor(() => expect(api).toHaveBeenCalledWith('p1', '/evaluaciones/e1/aprobar', 'POST', { revision: 1 }));
+  });
+  describe('al confirmar o entregar el acuerdo', () => {
+    const toasts: string[] = [];
+    const escucha = (ev: Event) => { toasts.push((ev as CustomEvent<{ message: string }>).detail.message); };
+    beforeEach(() => { toasts.length = 0; window.addEventListener('app:toast', escucha); return () => window.removeEventListener('app:toast', escucha); });
+    const completa = (aprobadoPor: string[] = []) => { const e = equipoEval('cumple', aprobadoPor); e.consenso.criterios = [{ criterioId: e.configuracion.metodologia.criterios[0].id, valor: 'cumple', noAplica: false, motivo: '', notas: '', justificacion: '' }]; return e; };
+    function Editor({ inicial, usuario }: { inicial: EvaluacionFlujo; usuario: string }) { const [v, setV] = useState(inicial); return <ConsensoEditor evaluacion={v} usuarioId={usuario} onSaved={setV} onBack={vi.fn()} />; }
+    it('confirmar avisa quién falta, muestra que ya confirmaste y bloquea el botón', async () => {
+      const e = completa();
+      api.mockImplementation(async (_p, path) => path.endsWith('/aprobar') ? { ...e, revision: 2, consenso: { ...e.consenso, aprobadoPor: ['u2'] } } : e);
+      renderFlow(<Editor inicial={e} usuario="u2" />);
+      await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
+      expect(screen.queryByText('Ya confirmaste el acuerdo')).toBeNull();
+      await userEvent.click(screen.getByRole('button', { name: 'Estoy de acuerdo' }));
+      expect(await screen.findByText('Ya confirmaste el acuerdo')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Estoy de acuerdo' })).toBeDisabled();
+      expect(toasts).toEqual(['Confirmaste el acuerdo. Falta que confirme: Ana.']);
+      expect(document.activeElement).toBe(screen.getByText('Confirmación de todos los expertos').closest('section'));
+    });
+    it('entregar el acuerdo avisa con su propio mensaje', async () => {
+      const e = completa();
+      api.mockResolvedValue({ ...e, revision: 2, consenso: { ...e.consenso, aprobadoPor: ['u1'] } });
+      renderFlow(<Editor inicial={e} usuario="u1" />);
+      await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
+      await userEvent.click(screen.getByRole('button', { name: 'Entregar acuerdo' }));
+      expect(await screen.findByText('Ya confirmaste el acuerdo')).toBeInTheDocument();
+      expect(toasts).toEqual(['Entregaste el acuerdo. Los demás expertos pueden confirmarlo o pedir cambios.']);
+    });
+    it('si falla la confirmación no hay aviso ni estado de confirmado', async () => {
+      const e = completa();
+      api.mockImplementation(async (_p, path) => { if (path.endsWith('/aprobar')) throw new Error('Conflicto de revisión'); return e; });
+      renderFlow(<Editor inicial={e} usuario="u2" />);
+      await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
+      await userEvent.click(screen.getByRole('button', { name: 'Estoy de acuerdo' }));
+      expect(await screen.findByText('Conflicto de revisión')).toBeInTheDocument();
+      expect(toasts).toEqual([]); expect(screen.queryByText('Ya confirmaste el acuerdo')).toBeNull();
+    });
+  });
+  it('muestra los cambios pedidos con su autor', async () => {
+    const e = equipoEval('no_cumple');
+    e.consenso.pedidosCambios = [{ evaluadorId: 'u2', comentario: 'Revisar el criterio 1', creadoEn: '2026-10-27T12:00:00Z' }];
+    renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
+    expect(screen.getByText('Beto pidió cambios: Revisar el criterio 1')).toBeInTheDocument();
+  });
   it('agrega un hallazgo nuevo del equipo, lo rotula y permite quitarlo', async () => {
     renderFlow(<ConsensoEditor evaluacion={equipoEval('no_cumple')} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
     await userEvent.click(screen.getByRole('tab', { name: 'Revisar los problemas' }));
@@ -572,10 +829,80 @@ describe('consenso en equipo sobre la tabla', () => {
     await userEvent.click(screen.getByRole('tab', { name: 'Revisar los problemas' }));
     expect(screen.getByRole('button', { name: 'Agregar hallazgo nuevo del equipo' })).toBeDisabled();
   });
+  it('informe: bloque abierto en 3 grupos, escala traducida, fechas de Chile, confirmaciones y redactor', () => {
+    const e = final('grupos');
+    e.informe!.evaluadores = [{ id: 'u1', nombre: 'Ana' }, { id: 'u2', nombre: 'Beto' }];
+    e.consenso.aprobadoPor = ['u1']; e.consenso.redactorId = 'u2'; e.informe!.consenso = e.consenso;
+    e.informe!.iniciadoEn = '2026-10-09T12:00:00Z'; e.informe!.consolidadoEn = '2026-10-10T03:30:00Z'; e.informe!.finalizadoEn = null;
+    e.informe!.configuracion = { ...e.informe!.configuracion, objetivo: '', exclusiones: '' };
+    renderFlow(<InformeView evaluacion={e} historial={[]} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    const bloque = screen.getByText('Ver qué se revisó y quién participó').closest('details')!;
+    expect(bloque).toHaveAttribute('open');
+    for (const g of ['Qué se evaluó', 'Con qué criterios', 'Quién participó']) expect(within(bloque).getByRole('heading', { name: g })).toBeInTheDocument();
+    expect(bloque).not.toHaveTextContent(/categorica|sin_orden|mayor_mejor|menor_mejor| \| /);
+    expect(bloque).not.toHaveTextContent(/Z\b/);
+    expect(within(bloque).getByText('Objetivo').nextSibling).toHaveTextContent('No indicado');
+    expect(within(bloque).queryByText('Exclusiones')).toBeNull();
+    expect(within(bloque).getByText('Redactor del acuerdo').nextSibling).toHaveTextContent('Beto');
+    expect(within(bloque).getByText('Informe finalizado').nextSibling).toHaveTextContent('Pendiente');
+    expect(within(bloque).getByText('Acuerdo consolidado').nextSibling).toHaveTextContent(/oct/i);
+    const lista = within(bloque).getByRole('list', { name: 'Confirmación por persona' });
+    expect(lista).toHaveTextContent('Ana: confirmó el acuerdo'); expect(lista).toHaveTextContent('Beto: falta confirmar');
+  });
+  it('participacionInforme: redactor por defecto es el coordinador y textoEscala traduce valores internos', () => {
+    const e = final('p'); e.informe!.evaluadores = [{ id: 'u1', nombre: 'Ana' }];
+    expect(participacionInforme(e.informe!, 'u1').redactor).toBe('Ana');
+    expect(participacionInforme(e.informe!, 'coord-externo').redactor).toBe('El coordinador');
+    expect(textoEscala({ tipo: 'categorica', niveles: [], sentido: 'sin_orden', fuente: 'x' })).toBe('Categorías, sin orden entre los niveles');
+  });
   it('el informe rotula el hallazgo sin origen individual como Nuevo del equipo', () => {
     const e = final('equipo'); e.consenso.hallazgos[0].origenIds = []; e.informe!.consenso = e.consenso;
     renderFlow(<InformeView evaluacion={e} historial={[]} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
     expect(screen.getByText(/Origen: Nuevo del equipo/)).toBeInTheDocument();
+  });
+  describe('autoguardado del acuerdo tras un error', () => {
+    function Editor({ inicial }: { inicial: EvaluacionFlujo }) { const [v, setV] = useState(inicial); return <ConsensoEditor evaluacion={v} usuarioId="u1" onSaved={setV} onBack={vi.fn()} />; }
+    const comentar = async (texto: string) => {
+      await userEvent.click(screen.getByRole('button', { name: /^Comentario del equipo de / }));
+      await userEvent.type(screen.getByLabelText(/^Comentario del equipo de /), texto);
+    };
+    it('tras un error que no es 409, un cambio nuevo vuelve a intentar el guardado', async () => {
+      const e = equipoEval('no_cumple');
+      api.mockRejectedValueOnce(new Error('Datos inválidos.'));
+      api.mockImplementation(async (_p, _path, _m, body) => ({ ...e, revision: 2, consenso: { ...e.consenso, ...body } }));
+      renderFlow(<Editor inicial={e} />);
+      await userEvent.click(screen.getByRole('radio', { name: 'Cumple' }));
+      await waitFor(() => expect(api).toHaveBeenCalledTimes(1), { timeout: 3000 });
+      await comentar('Acordado');
+      await waitFor(() => expect(api).toHaveBeenCalledTimes(2), { timeout: 3000 });
+      expect(api).toHaveBeenLastCalledWith('p1', '/evaluaciones/e1/consenso', 'PATCH', expect.objectContaining({ criterios: [expect.objectContaining({ justificacion: 'Acordado' })] }));
+    });
+    it('tras un error que no es 409 no ofrece recargar la revisión', async () => {
+      const e = equipoEval('no_cumple');
+      api.mockRejectedValueOnce(new Error('Datos inválidos.'));
+      renderFlow(<Editor inicial={e} />);
+      await userEvent.click(screen.getByRole('radio', { name: 'Cumple' }));
+      await screen.findAllByText(/El borrador se conserva/, undefined, { timeout: 3000 });
+      expect(screen.queryAllByRole('button', { name: 'Recargar revisión conservando mi borrador' })).toHaveLength(0);
+    });
+    it('tras un 409 ofrece recargar la revisión conservando el borrador', async () => {
+      const e = equipoEval('no_cumple');
+      api.mockRejectedValueOnce(Object.assign(new Error('Otra persona guardó antes.'), { status: 409 }));
+      renderFlow(<Editor inicial={e} />);
+      await userEvent.click(screen.getByRole('radio', { name: 'Cumple' }));
+      await screen.findAllByText(/Otra persona guardó cambios antes que tú/, undefined, { timeout: 3000 });
+      expect(screen.getAllByRole('button', { name: 'Recargar revisión conservando mi borrador' }).length).toBeGreaterThan(0);
+    });
+    it('tras un 409 no reintenta con la revisión vieja hasta recargar', async () => {
+      const e = equipoEval('no_cumple');
+      api.mockRejectedValueOnce(Object.assign(new Error('Otra persona guardó antes.'), { status: 409 }));
+      renderFlow(<Editor inicial={e} />);
+      await userEvent.click(screen.getByRole('radio', { name: 'Cumple' }));
+      await waitFor(() => expect(api).toHaveBeenCalledTimes(1), { timeout: 3000 });
+      await comentar('Acordado');
+      await new Promise(r => setTimeout(r, 1200));
+      expect(api).toHaveBeenCalledTimes(1);
+    });
   });
   it('precargarConsenso respeta lo ya acordado y devuelve el mismo arreglo si no hay nada que cargar', () => {
     const e = equipoEval('cumple'); const cid = e.configuracion.metodologia.criterios[0].id;
@@ -606,6 +933,40 @@ describe('aspectos positivos y conclusión', () => {
     await userEvent.type(screen.getByLabelText('Título del aspecto positivo 1'), 'Menú claro');
     await userEvent.type(screen.getByLabelText('Conclusión y recomendaciones finales'), 'Corregir el formulario');
     await waitFor(() => expect(api).toHaveBeenCalledWith('p1', '/evaluaciones/e1/consenso', 'PATCH', expect.objectContaining({ positivos: [expect.objectContaining({ titulo: 'Menú claro' })], conclusion: 'Corregir el formulario' })), { timeout: 3000 });
+  });
+  describe('guardar y plegar un aspecto positivo', () => {
+    async function agregar() {
+      const e = evaluation({ fase: 'PENDIENTE_CONSENSO' });
+      api.mockImplementation(async (_p, _path, _m, body) => ({ ...e, revision: 2, consenso: { ...e.consenso, ...body } }));
+      function Editor() { const [v, setV] = useState(e); return <ConsensoEditor evaluacion={v} usuarioId="u1" onSaved={setV} onBack={vi.fn()} />; }
+      renderFlow(<Editor />);
+      await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
+      await userEvent.click(screen.getByRole('button', { name: 'Agregar aspecto positivo' }));
+    }
+    it('Guardar lo pliega con aviso y Editar lo reabre', async () => {
+      await agregar();
+      await userEvent.type(screen.getByLabelText('Título del aspecto positivo 1'), 'Menú claro');
+      await userEvent.click(screen.getByRole('button', { name: 'Guardar aspecto positivo 1' }));
+      expect(screen.getByText('Aspecto positivo guardado con éxito')).toBeInTheDocument();
+      expect(screen.queryByLabelText('Título del aspecto positivo 1')).toBeNull();
+      await userEvent.click(screen.getByRole('button', { name: 'Editar aspecto positivo 1' }));
+      expect(screen.getByLabelText('Título del aspecto positivo 1')).toHaveValue('Menú claro');
+      expect(screen.queryByText('Aspecto positivo guardado con éxito')).toBeNull();
+    });
+    it('sin título no se pliega y dice qué falta', async () => {
+      await agregar();
+      await userEvent.click(screen.getByRole('button', { name: 'Guardar aspecto positivo 1' }));
+      expect(screen.getByRole('alert')).toHaveTextContent('Escribe un título');
+      expect(screen.getByLabelText('Título del aspecto positivo 1')).toBeInTheDocument();
+    });
+    it('plegado se puede quitar y el guardado conserva los datos', async () => {
+      await agregar();
+      await userEvent.type(screen.getByLabelText('Título del aspecto positivo 1'), 'Menú claro');
+      await userEvent.click(screen.getByRole('button', { name: 'Guardar aspecto positivo 1' }));
+      await waitFor(() => expect(api).toHaveBeenCalledWith('p1', '/evaluaciones/e1/consenso', 'PATCH', expect.objectContaining({ positivos: [expect.objectContaining({ titulo: 'Menú claro' })] })), { timeout: 3000 });
+      await userEvent.click(screen.getByRole('button', { name: 'Quitar aspecto positivo 1' }));
+      expect(screen.queryByText('Aspecto positivo guardado con éxito')).toBeNull();
+    });
   });
   it('el informe muestra las secciones solo con contenido', () => {
     const vacio = final('actual');
@@ -764,5 +1125,111 @@ describe('esqueleto estándar', () => {
     renderFlow(<FlujoHeuristicaPage />);
     const resumen = await screen.findByText('Cómo trabajar con Evaluación heurística');
     expect(resumen.closest('details')).not.toHaveAttribute('open');
+  });
+});
+
+describe('aviso de terminada y volver al inicio', () => {
+  const toasts: string[] = [];
+  const escucha = (ev: Event) => { toasts.push((ev as CustomEvent<{ message: string }>).detail.message); };
+  beforeEach(() => { toasts.length = 0; window.addEventListener('app:toast', escucha); return () => window.removeEventListener('app:toast', escucha); });
+  const consolidada = () => { const e = final('c1'); e.fase = 'CONSOLIDADA'; return e; };
+  it('al finalizar avisa y vuelve al inicio', async () => {
+    const e = consolidada(); const fin = { ...e, fase: 'FINALIZADA' as const, revision: 2 };
+    api.mockResolvedValue(fin);
+    const onSaved = vi.fn(); const onBack = vi.fn();
+    renderFlow(<InformeView evaluacion={e} historial={[]} usuarioId="u1" onSaved={onSaved} onBack={onBack} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Finalizar informe' }));
+    await waitFor(() => expect(onBack).toHaveBeenCalledTimes(1));
+    expect(onSaved).toHaveBeenCalledWith(fin);
+    expect(toasts).toEqual(['Evaluación terminada. Puedes abrir el informe final desde Mis revisiones.']);
+  });
+  it('si falla al finalizar no vuelve ni avisa y muestra el error', async () => {
+    api.mockRejectedValue(new Error('Conflicto de revisión'));
+    const onBack = vi.fn();
+    renderFlow(<InformeView evaluacion={consolidada()} historial={[]} usuarioId="u1" onSaved={vi.fn()} onBack={onBack} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Finalizar informe' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Conflicto de revisión');
+    expect(onBack).not.toHaveBeenCalled(); expect(toasts).toEqual([]);
+  });
+  it('en la página, tras finalizar se ve Mis revisiones con la revisión Terminada', async () => {
+    const e = consolidada(); const fin = { ...e, fase: 'FINALIZADA' as const, revision: 2 };
+    let finalizada = false;
+    api.mockImplementation(async (_p, path, method) => {
+      if (method === 'POST' && path.endsWith('/finalizar')) { finalizada = true; return fin; }
+      if (path === '/evaluaciones') return [finalizada ? fin : e];
+      if (path === `/evaluaciones/${e.id}`) return finalizada ? fin : e;
+      if (path === '/metodologias') return [config().metodologia];
+      if (path === '/equipo') return [{ id: 'u1', nombre: 'Ana', rol: 'ESTUDIANTE' }];
+      return [];
+    });
+    renderFlow(<FlujoHeuristicaPage />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Abrir' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Finalizar informe' }));
+    expect(await screen.findByRole('heading', { name: 'Mis revisiones' })).toBeInTheDocument();
+    expect(await screen.findByText('Terminada')).toBeInTheDocument();
+    expect(toasts).toHaveLength(1);
+  });
+});
+
+describe('revisión pendiente creada por otra persona', () => {
+  const equipo = [{ id: 'u1', nombre: 'Ana', rol: 'ESTUDIANTE' }, { id: 'u2', nombre: 'Beto', rol: 'ESTUDIANTE' }];
+  const abrir = async (e: EvaluacionFlujo) => {
+    api.mockImplementation(async (_p, path) => path === '/evaluaciones' ? [e] : path === '/metodologias' ? [config().metodologia] : path === '/equipo' ? equipo : []);
+    renderFlow(<FlujoHeuristicaPage />);
+    return within(await screen.findByRole('region', { name: 'Revisión sin terminar' }));
+  };
+  it('dice quién la creó cuando fue otra persona', async () => {
+    const banner = await abrir(evaluation({ coordinadorId: 'u2' }));
+    await waitFor(() => expect(banner.getByText(/creada por Beto/)).toBeInTheDocument());
+  });
+  it('si el creador no está en el equipo, dice otra persona del equipo', async () => {
+    const banner = await abrir(evaluation({ coordinadorId: 'u9' }));
+    expect(banner.getByText(/creada por otra persona del equipo/)).toBeInTheDocument();
+  });
+  it('si es propia, no menciona creador', async () => {
+    const banner = await abrir(evaluation({ coordinadorId: 'u1' }));
+    expect(banner.getByText(/Tienes una revisión sin terminar/)).toBeInTheDocument();
+    expect(banner.queryByText(/creada por/)).toBeNull();
+  });
+});
+
+describe('categorías plegables en el acuerdo', () => {
+  function acuerdo(): EvaluacionFlujo {
+    const e = evaluation({ fase: 'PENDIENTE_CONSENSO' });
+    const todos = copiarMetodologia(METODOLOGIAS_HEURISTICAS[0]);
+    const a = todos.criterios.filter(c => c.categoria === todos.criterios[0].categoria).slice(0, 1);
+    const b = todos.criterios.filter(c => c.categoria === todos.criterios.find(x => x.categoria !== a[0].categoria)!.categoria).slice(0, 2);
+    e.configuracion.metodologia = { ...todos, criterios: [...a, ...b] };
+    const nivel = e.configuracion.metodologia.escala.niveles[0].id;
+    e.consenso.criterios = [{ criterioId: a[0].id, valor: nivel, noAplica: false, motivo: '', notas: '', justificacion: 'ok' }, { criterioId: b[0].id, valor: nivel, noAplica: false, motivo: '', notas: '', justificacion: 'ok' }];
+    return e;
+  }
+  const detalle = (i: number) => document.querySelectorAll<HTMLDetailsElement>('.hf-cat > details')[i];
+  it('la categoría completa arranca plegada y la incompleta abierta, con su estado', () => {
+    const e = acuerdo();
+    renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(detalle(0)).not.toHaveAttribute('open'); expect(detalle(0)).toHaveTextContent('Completa');
+    expect(detalle(1)).toHaveAttribute('open'); expect(detalle(1)).toHaveTextContent('Faltan 1');
+  });
+  it('al completar la última pregunta de una categoría abierta no se pliega sola', async () => {
+    const e = acuerdo();
+    renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    const radios = within(detalle(1) as HTMLElement).getAllByRole('radio');
+    await userEvent.click(radios[radios.length - 1]);
+    await waitFor(() => expect(detalle(1)).toHaveTextContent('Completa'));
+    expect(detalle(1)).toHaveAttribute('open');
+  });
+  it('una categoría completa que la persona abre se mantiene abierta', async () => {
+    const e = acuerdo();
+    renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    await userEvent.click(within(detalle(0) as HTMLElement).getByText(/Completa/));
+    expect(detalle(0)).toHaveAttribute('open');
+  });
+  it('la revisión individual no usa details por categoría', async () => {
+    const i = evaluation();
+    renderFlow(<TrabajoEditor evaluacion={i} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    const comenzar = screen.queryByRole('button', { name: 'Comenzar revisión' }); if (comenzar) await userEvent.click(comenzar);
+    await screen.findByRole('navigation', { name: 'Preguntas de la revisión' });
+    expect(document.querySelectorAll('.hf-cat > details').length).toBe(0);
   });
 });

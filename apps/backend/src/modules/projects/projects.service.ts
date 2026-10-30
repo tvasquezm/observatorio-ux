@@ -25,6 +25,8 @@ export class ProjectsService {
   async create(user: AuthenticatedUser, dto: CreateProjectDto) {
     if (user.rol === 'ESTUDIANTE') {
       await this.assertEstudiantePuedeCrearProyecto(dto.salaId, user);
+    } else if (dto.salaId) {
+      await this.assertDocenteDuenoDeSala(dto.salaId, user);
     }
 
     return this.prisma.proyecto.create({
@@ -293,6 +295,19 @@ export class ProjectsService {
     await this.prisma.proyectoMiembro.delete({ where: { id: membresia.id } });
 
     return { eliminado: true };
+  }
+
+  /** DOCENTE solo crea proyecto en una sala propia; ADMIN en cualquiera existente. */
+  private async assertDocenteDuenoDeSala(salaId: string, user: AuthenticatedUser) {
+    const sala = await this.prisma.sala.findUnique({ where: { id: salaId } });
+    if (!sala || sala.deletedAt) {
+      throw new NotFoundException('La sala no existe.');
+    }
+    if (sala.profesorId !== user.id && user.rol !== 'ADMIN') {
+      throw new ForbiddenException(
+        'Solo el docente dueño de la sala o un administrador pueden crear proyectos en ella.',
+      );
+    }
   }
 
   /**

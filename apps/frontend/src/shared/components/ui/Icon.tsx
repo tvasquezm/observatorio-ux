@@ -28,7 +28,11 @@ export type IconName =
   | 'check'
   | 'close'
   | 'trash'
-  | 'zoom-in';
+  | 'zoom-in'
+  | 'shape-rect'
+  | 'shape-circle'
+  | 'shape-arrow'
+  | 'shape-highlight';
 
 const PATHS: Record<IconName, ReactElement> = {
   dashboard: (
@@ -172,6 +176,15 @@ const PATHS: Record<IconName, ReactElement> = {
       <path d="M8.5 11h5" />
     </>
   ),
+  'shape-rect': <rect x="4.5" y="6.5" width="15" height="11" rx="1" />,
+  'shape-circle': <circle cx="12" cy="12" r="7.5" />,
+  'shape-arrow': (
+    <>
+      <path d="M5 19 19 5" />
+      <path d="M10 5h9v9" />
+    </>
+  ),
+  'shape-highlight': <rect x="4.5" y="8" width="15" height="8" rx="1" fill="currentColor" fillOpacity=".3" />,
 };
 
 interface IconProps {
