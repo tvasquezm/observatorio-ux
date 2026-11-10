@@ -529,7 +529,7 @@ button { cursor: pointer; }
 .node { position: absolute; padding: 0.375rem 0.5625rem; background: var(--surface); border: 1px solid color-mix(in srgb, var(--teal) 28%, transparent); color: var(--teal-ink); font-size: 0.75rem; font-weight: 800; border-radius: 999px; box-shadow: 0 5px 12px #1f2d4a17; z-index: 2; }
 .node.a { left: 10%; top: 20%; }
 .node.b { right: 9%; top: 20%; }
-.node.c { left: 40%; bottom: 16%; }
+.node.c { left: 50%; bottom: 0.5rem; transform: translateX(-50%); }
 .welcome-actions { display: flex; gap: 8px; flex-wrap: wrap; white-space: nowrap; }
 .techniques { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 18px; }
 .techniques .tech-card {display: grid; grid-template-rows: 36px minmax(40px, auto) 1fr auto; gap: 12px; }
@@ -2601,7 +2601,13 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .font-size-picker-options { display: flex; align-items: center; gap: 8px; }
 .preferences-appearance .font-size-picker .theme-toggle { flex: 0 0 auto; min-width: 44px; padding: 0 12px; font-weight: 700; font-size: 1rem; line-height: 1; }
 .font-size-picker-value { min-width: 4.5rem; text-align: center; font-size: 0.8125rem; font-weight: 700; color: var(--ink); }
-.font-size-picker .theme-toggle:disabled { opacity: .45; cursor: not-allowed; }
+/* F9.b: control segmentado A− · valor · A+ */
+.font-size-picker-options { gap: 0; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); overflow: hidden; }
+.preferences-appearance .font-size-picker .font-size-picker-options .theme-toggle { min-width: 44px; min-height: 44px; border: 0; border-radius: 0; background: transparent; }
+.preferences-appearance .font-size-picker .font-size-picker-options .theme-toggle:hover:not(:disabled) { background: var(--surface-muted); }
+.font-size-picker-options .font-size-picker-value { align-self: stretch; display: flex; align-items: center; justify-content: center; min-width: 4.5rem; border-inline: 1px solid var(--line); }
+.font-size-picker .theme-toggle:disabled { opacity: .7; color: var(--ink-soft); cursor: not-allowed; text-decoration: line-through; }
+.font-size-picker-options .theme-toggle:focus-visible { outline-offset: -3px; }
 .crumb a:hover { color: var(--ink); text-decoration: underline; }
 .crumb a:focus-visible { outline: 3px solid color-mix(in srgb, var(--teal) 35%, transparent); outline-offset: 2px; border-radius: 3px; }
 /* Utilidades de espaciado (reemplazan estilos en línea) */
