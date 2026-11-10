@@ -2594,6 +2594,13 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .preferences-appearance { display: flex; flex-wrap: wrap; gap: 12px; padding-top: 20px; border-top: 1px solid var(--line); }
 .preferences-appearance h3 { flex-basis: 100%; margin: 0; font-size: 0.875rem; }
 .preferences-appearance .theme-toggle { flex: 1; min-height: 44px; font-size: 0.8125rem; }
+.preferences-appearance .font-size-picker { flex-basis: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.font-size-picker-label { font-size: 0.8125rem; color: var(--ink-soft); }
+.font-size-picker-options { display: flex; gap: 8px; }
+.preferences-appearance .font-size-picker .theme-toggle { flex: 0 0 auto; min-width: 44px; padding: 0 12px; font-weight: 700; line-height: 1; }
+.font-size-picker .theme-toggle[data-size='normal'] { font-size: 0.875rem; }
+.font-size-picker .theme-toggle[data-size='large'] { font-size: 1.125rem; }
+.font-size-picker .theme-toggle[data-size='xlarge'] { font-size: 1.4375rem; }
 .crumb a:hover { color: var(--ink); text-decoration: underline; }
 .crumb a:focus-visible { outline: 3px solid color-mix(in srgb, var(--teal) 35%, transparent); outline-offset: 2px; border-radius: 3px; }
 /* Utilidades de espaciado (reemplazan estilos en línea) */

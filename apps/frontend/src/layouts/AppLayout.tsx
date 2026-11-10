@@ -209,18 +209,24 @@ export function AppLayout() {
             >
               Alto contraste
             </button>
-            <div role="group" aria-label="Tamaño del texto">
-              {FONT_SIZES.map((size) => (
-                <button
-                  key={size.value}
-                  type="button"
-                  className="theme-toggle"
-                  aria-pressed={fontSize === size.value}
-                  onClick={() => setFontSize(size.value)}
-                >
-                  {size.label}
-                </button>
-              ))}
+            <div className="font-size-picker" role="group" aria-label="Tamaño del texto">
+              <span className="font-size-picker-label" aria-hidden="true">Tamaño del texto</span>
+              <div className="font-size-picker-options">
+                {FONT_SIZES.map((size) => (
+                  <button
+                    key={size.value}
+                    type="button"
+                    className="theme-toggle"
+                    data-size={size.value}
+                    aria-label={size.label}
+                    title={size.label}
+                    aria-pressed={fontSize === size.value}
+                    onClick={() => setFontSize(size.value)}
+                  >
+                    A
+                  </button>
+                ))}
+              </div>
             </div>
             </div>
             {user && <ChangePasswordForm />}
