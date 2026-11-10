@@ -10,6 +10,11 @@ import { ConfirmDialog } from './shared/components/ui/ConfirmDialog';
 import { AppErrorBoundary } from './shared/components/AppErrorBoundary';
 import { usersKeys } from './features/admin/hooks/useUsersQueries';
 
+const savedFontSize = window.localStorage.getItem('observatorio-ux-font-size');
+if (savedFontSize === 'large' || savedFontSize === 'xlarge') {
+  document.documentElement.dataset.fontSize = savedFontSize;
+}
+
 // Instancia única de TanStack Query para toda la app. Si en algún punto
 // necesitas configurar retry/staleTime globales, es acá.
 const queryClient = new QueryClient({

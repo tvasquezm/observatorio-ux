@@ -17,6 +17,7 @@ beforeEach(() => {
   auth.role = null;
   localStorage.clear();
   delete document.documentElement.dataset.contrast;
+  delete document.documentElement.dataset.fontSize;
   vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false })));
 });
 describe('Preferencia de contraste', () => {
@@ -49,6 +50,43 @@ describe('Preferencia de contraste', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Activar modo oscuro' }));
     expect(document.documentElement.dataset.theme).toBe('dark');
     expect(document.documentElement.dataset.contrast).toBe('high');
+  });
+});
+
+describe('Preferencia de tamaño del texto', () => {
+  const mount = () => render(<MemoryRouter><AppLayout /></MemoryRouter>);
+  const open = () => fireEvent.click(screen.getByRole('button', { name: 'Preferencias' }));
+
+  it('elige Grande, lo conserva al remontar y Normal lo restaura', () => {
+    mount();
+    open();
+    expect(screen.getByRole('group', { name: 'Tamaño del texto' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Grande' }));
+    expect(document.documentElement.dataset.fontSize).toBe('large');
+    expect(localStorage.getItem('observatorio-ux-font-size')).toBe('large');
+    cleanup();
+    mount();
+    open();
+    expect(screen.getByRole('button', { name: 'Grande' })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(screen.getByRole('button', { name: 'Normal' }));
+    expect(document.documentElement.dataset.fontSize).toBe('normal');
+    expect(localStorage.getItem('observatorio-ux-font-size')).toBe('normal');
+  });
+
+  it('un valor inválido en localStorage cae a normal', () => {
+    localStorage.setItem('observatorio-ux-font-size', 'gigante');
+    mount();
+    expect(document.documentElement.dataset.fontSize).toBe('normal');
+  });
+
+  it('cambiar tema oscuro o alto contraste no altera el tamaño', () => {
+    localStorage.setItem('observatorio-ux-font-size', 'xlarge');
+    mount();
+    open();
+    fireEvent.click(screen.getByRole('button', { name: 'Activar modo oscuro' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Alto contraste' }));
+    expect(document.documentElement.dataset.fontSize).toBe('xlarge');
+    expect(screen.getByRole('button', { name: 'Muy grande' })).toHaveAttribute('aria-pressed', 'true');
   });
 });
 

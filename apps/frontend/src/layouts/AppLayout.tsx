@@ -16,6 +16,14 @@ const NAV_ITEMS = [
   { to: '/admin', label: 'Administración', icon: '⚑', end: false },
 ];
 
+const FONT_SIZE_KEY = 'observatorio-ux-font-size';
+const FONT_SIZES = [
+  { value: 'normal', label: 'Normal' },
+  { value: 'large', label: 'Grande' },
+  { value: 'xlarge', label: 'Muy grande' },
+] as const;
+type FontSize = (typeof FONT_SIZES)[number]['value'];
+
 const CRUMB_LABELS: Record<string, string> = {
   '/': 'Inicio',
   '/proyectos': 'Proyectos',
@@ -40,6 +48,10 @@ export function AppLayout() {
   const [highContrast, setHighContrast] = useState(() =>
     window.localStorage.getItem('observatorio-ux-contrast') === 'high',
   );
+  const [fontSize, setFontSize] = useState<FontSize>(() => {
+    const saved = window.localStorage.getItem(FONT_SIZE_KEY);
+    return FONT_SIZES.some((size) => size.value === saved) ? (saved as FontSize) : 'normal';
+  });
   const crumb = CRUMB_LABELS[location.pathname] ?? (location.pathname.startsWith('/salas/') ? 'Detalle de sala' : 'Proyectos');
   const preferencesRef = useRef<HTMLDialogElement>(null);
   const sidebarRef = useRef<HTMLElement>(null);
@@ -64,6 +76,11 @@ export function AppLayout() {
     document.documentElement.dataset.contrast = contrast;
     window.localStorage.setItem('observatorio-ux-contrast', contrast);
   }, [highContrast]);
+
+  useEffect(() => {
+    document.documentElement.dataset.fontSize = fontSize;
+    window.localStorage.setItem(FONT_SIZE_KEY, fontSize);
+  }, [fontSize]);
 
   useEffect(() => {
     if (location.pathname.startsWith('/proyectos/')) return;
@@ -192,6 +209,19 @@ export function AppLayout() {
             >
               Alto contraste
             </button>
+            <div role="group" aria-label="Tamaño del texto">
+              {FONT_SIZES.map((size) => (
+                <button
+                  key={size.value}
+                  type="button"
+                  className="theme-toggle"
+                  aria-pressed={fontSize === size.value}
+                  onClick={() => setFontSize(size.value)}
+                >
+                  {size.label}
+                </button>
+              ))}
+            </div>
             </div>
             {user && <ChangePasswordForm />}
               </div>
