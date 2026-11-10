@@ -11,7 +11,7 @@ import { AppErrorBoundary } from './shared/components/AppErrorBoundary';
 import { usersKeys } from './features/admin/hooks/useUsersQueries';
 
 const savedFontSize = window.localStorage.getItem('observatorio-ux-font-size');
-if (savedFontSize === 'large' || savedFontSize === 'xlarge') {
+if (savedFontSize && ['large', 'xlarge', 'xxlarge', 'huge'].includes(savedFontSize)) {
   document.documentElement.dataset.fontSize = savedFontSize;
 }
 

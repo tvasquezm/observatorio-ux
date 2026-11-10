@@ -18,9 +18,11 @@ const NAV_ITEMS = [
 
 const FONT_SIZE_KEY = 'observatorio-ux-font-size';
 const FONT_SIZES = [
-  { value: 'normal', label: 'Normal' },
-  { value: 'large', label: 'Grande' },
-  { value: 'xlarge', label: 'Muy grande' },
+  { value: 'normal', percent: 100 },
+  { value: 'large', percent: 112.5 },
+  { value: 'xlarge', percent: 125 },
+  { value: 'xxlarge', percent: 137.5 },
+  { value: 'huge', percent: 150 },
 ] as const;
 type FontSize = (typeof FONT_SIZES)[number]['value'];
 
@@ -52,6 +54,7 @@ export function AppLayout() {
     const saved = window.localStorage.getItem(FONT_SIZE_KEY);
     return FONT_SIZES.some((size) => size.value === saved) ? (saved as FontSize) : 'normal';
   });
+  const fontSizeIndex = FONT_SIZES.findIndex((size) => size.value === fontSize);
   const crumb = CRUMB_LABELS[location.pathname] ?? (location.pathname.startsWith('/salas/') ? 'Detalle de sala' : 'Proyectos');
   const preferencesRef = useRef<HTMLDialogElement>(null);
   const sidebarRef = useRef<HTMLElement>(null);
@@ -212,20 +215,27 @@ export function AppLayout() {
             <div className="font-size-picker" role="group" aria-label="Tamaño del texto">
               <span className="font-size-picker-label" aria-hidden="true">Tamaño del texto</span>
               <div className="font-size-picker-options">
-                {FONT_SIZES.map((size) => (
-                  <button
-                    key={size.value}
-                    type="button"
-                    className="theme-toggle"
-                    data-size={size.value}
-                    aria-label={size.label}
-                    title={size.label}
-                    aria-pressed={fontSize === size.value}
-                    onClick={() => setFontSize(size.value)}
-                  >
-                    A
-                  </button>
-                ))}
+                <button
+                  type="button"
+                  className="theme-toggle"
+                  data-size="down"
+                  aria-label="Reducir tamaño del texto"
+                  disabled={fontSizeIndex === 0}
+                  onClick={() => setFontSize(FONT_SIZES[fontSizeIndex - 1].value)}
+                >
+                  A−
+                </button>
+                <output className="font-size-picker-value" aria-live="polite">{FONT_SIZES[fontSizeIndex].percent} %</output>
+                <button
+                  type="button"
+                  className="theme-toggle"
+                  data-size="up"
+                  aria-label="Aumentar tamaño del texto"
+                  disabled={fontSizeIndex === FONT_SIZES.length - 1}
+                  onClick={() => setFontSize(FONT_SIZES[fontSizeIndex + 1].value)}
+                >
+                  A+
+                </button>
               </div>
             </div>
             </div>

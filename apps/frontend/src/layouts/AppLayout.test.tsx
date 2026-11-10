@@ -56,21 +56,35 @@ describe('Preferencia de contraste', () => {
 describe('Preferencia de tamaño del texto', () => {
   const mount = () => render(<MemoryRouter><AppLayout /></MemoryRouter>);
   const open = () => fireEvent.click(screen.getByRole('button', { name: 'Preferencias' }));
+  const up = () => fireEvent.click(screen.getByRole('button', { name: 'Aumentar tamaño del texto' }));
+  const down = () => fireEvent.click(screen.getByRole('button', { name: 'Reducir tamaño del texto' }));
 
-  it('elige Grande, lo conserva al remontar y Normal lo restaura', () => {
+  it('aumenta, lo conserva al remontar y reduce hasta Normal', () => {
     mount();
     open();
     expect(screen.getByRole('group', { name: 'Tamaño del texto' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Grande' }));
+    up();
     expect(document.documentElement.dataset.fontSize).toBe('large');
     expect(localStorage.getItem('observatorio-ux-font-size')).toBe('large');
     cleanup();
     mount();
     open();
-    expect(screen.getByRole('button', { name: 'Grande' })).toHaveAttribute('aria-pressed', 'true');
-    fireEvent.click(screen.getByRole('button', { name: 'Normal' }));
+    expect(screen.getByText('112.5 %')).toBeInTheDocument();
+    down();
     expect(document.documentElement.dataset.fontSize).toBe('normal');
     expect(localStorage.getItem('observatorio-ux-font-size')).toBe('normal');
+  });
+
+  it('recorre los 5 pasos y se detiene en los extremos', () => {
+    mount();
+    open();
+    expect(screen.getByRole('button', { name: 'Reducir tamaño del texto' })).toBeDisabled();
+    ['large', 'xlarge', 'xxlarge', 'huge'].forEach((size) => {
+      up();
+      expect(document.documentElement.dataset.fontSize).toBe(size);
+    });
+    expect(screen.getByRole('button', { name: 'Aumentar tamaño del texto' })).toBeDisabled();
+    expect(screen.getByText('150 %')).toBeInTheDocument();
   });
 
   it('un valor inválido en localStorage cae a normal', () => {
@@ -86,7 +100,7 @@ describe('Preferencia de tamaño del texto', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Activar modo oscuro' }));
     fireEvent.click(screen.getByRole('button', { name: 'Alto contraste' }));
     expect(document.documentElement.dataset.fontSize).toBe('xlarge');
-    expect(screen.getByRole('button', { name: 'Muy grande' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText('125 %')).toBeInTheDocument();
   });
 });
 

@@ -49,6 +49,8 @@
 html { font-size: 100%; }
 :root[data-font-size='large'] { font-size: 112.5%; }
 :root[data-font-size='xlarge'] { font-size: 125%; }
+:root[data-font-size='xxlarge'] { font-size: 137.5%; }
+:root[data-font-size='huge'] { font-size: 150%; }
 * { box-sizing: border-box; }
 html, body, #root {
   margin: 0;
@@ -2596,11 +2598,10 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .preferences-appearance .theme-toggle { flex: 1; min-height: 44px; font-size: 0.8125rem; }
 .preferences-appearance .font-size-picker { flex-basis: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .font-size-picker-label { font-size: 0.8125rem; color: var(--ink-soft); }
-.font-size-picker-options { display: flex; gap: 8px; }
-.preferences-appearance .font-size-picker .theme-toggle { flex: 0 0 auto; min-width: 44px; padding: 0 12px; font-weight: 700; line-height: 1; }
-.font-size-picker .theme-toggle[data-size='normal'] { font-size: 0.875rem; }
-.font-size-picker .theme-toggle[data-size='large'] { font-size: 1.125rem; }
-.font-size-picker .theme-toggle[data-size='xlarge'] { font-size: 1.4375rem; }
+.font-size-picker-options { display: flex; align-items: center; gap: 8px; }
+.preferences-appearance .font-size-picker .theme-toggle { flex: 0 0 auto; min-width: 44px; padding: 0 12px; font-weight: 700; font-size: 1rem; line-height: 1; }
+.font-size-picker-value { min-width: 4.5rem; text-align: center; font-size: 0.8125rem; font-weight: 700; color: var(--ink); }
+.font-size-picker .theme-toggle:disabled { opacity: .45; cursor: not-allowed; }
 .crumb a:hover { color: var(--ink); text-decoration: underline; }
 .crumb a:focus-visible { outline: 3px solid color-mix(in srgb, var(--teal) 35%, transparent); outline-offset: 2px; border-radius: 3px; }
 /* Utilidades de espaciado (reemplazan estilos en línea) */
