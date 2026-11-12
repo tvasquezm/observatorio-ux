@@ -22,9 +22,13 @@ export function CardSortingChips({ info, max, aviso, noun, onRemove }: ChipsProp
             : aviso !== undefined && item.length >= aviso
               ? 'warn'
               : '';
+        const avisoEstado = item.length > max ? 'Supera el límite'
+          : repetidas.has(normalizarTexto(item)) ? 'Repetida'
+            : estado === 'warn' ? 'Texto largo' : '';
         return (
           <li key={`${index}-${item}`} className={`cs-chip${estado ? ` ${estado}` : ''}`}>
             <span>{item}</span>
+            {avisoEstado && <small>{avisoEstado}</small>}
             <button type="button" aria-label={`Quitar ${item}`} onClick={() => onRemove(index)}>
               <Icon name="close" size={12} />
             </button>
