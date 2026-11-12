@@ -68,6 +68,7 @@ export function ProjectDetailLayout() {
           {proyecto?.descripcion && <p>{proyecto.descripcion}</p>}
           {proyecto && !proyecto.salaId && <p>Sin sala · <Link to="/salas">Vincular a una sala</Link></p>}
         </div>
+        <Link className="secondary" to={`/proyectos/${proyectoId}/miembros`}>Miembros</Link>
       </div>
 
       <ProjectMenu groups={groups} current={currentItem} currentLabel={currentSection} compact={compact} />
