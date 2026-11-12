@@ -47,6 +47,9 @@
   --heat-baja-line: #3f6fb0;
 }
 .app :is(button, .primary, .secondary, .ghost, .nav-btn) { min-height: 44px; min-width: 44px; }
+:where(.app) a { display: inline-flex; align-items: center; }
+.app :is(a, summary, [role='tab'], label:has(> input:is([type='checkbox'], [type='radio']))) { min-height: 44px; min-width: 44px; }
+:where(.app) label:has(> input:is([type='checkbox'], [type='radio'])) { display: inline-flex; align-items: center; gap: .5rem; cursor: pointer; }
 :root[data-contrast='high'] { --on-primary: var(--surface); }
 html { font-size: 100%; }
 :root[data-font-size='large'] { font-size: 112.5%; }
