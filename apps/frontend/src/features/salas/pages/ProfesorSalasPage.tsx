@@ -1,3 +1,4 @@
+import { SalaBadge } from '../components/SalaBadge';
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { getSalas, createSala, updateSala, softDeleteSala, type Sala } from '../api/salas.api';
@@ -238,12 +239,7 @@ export const ProfesorSalasPage: React.FC = () => {
                 key={sala.id}
                 className="sala-card"
               >
-                <div className="sala-card-icon" aria-hidden="true">
-                  <div>
-                    {sala.nombre.match(/\d+/)?.[0] ?? sala.nombre.charAt(0)}
-                  </div>
-                  <span>SALA</span>
-                </div>
+                <SalaBadge id={sala.id} nombre={sala.nombre} />
 
                 <div className="sala-card-content">
                   <div className="sala-card-heading">

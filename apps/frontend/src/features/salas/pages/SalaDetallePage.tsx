@@ -1,3 +1,4 @@
+import { SalaBadge } from '../components/SalaBadge';
 // apps/frontend/src/features/salas/pages/SalaDetallePage.tsx
 //
 // Detalle de una sala. DOCENTE dueño/ADMIN: tabs "Proyectos" (crear uno
@@ -80,7 +81,7 @@ export function SalaDetallePage() {
           <header className="sala-detail-hero">
             <div>
               <span className="kicker">{esEstudiante ? 'MI SALA' : 'GESTIÓN DE SALA'}</span>
-              <h1>{sala.nombre}</h1>
+              <h1><SalaBadge id={sala.id} nombre={sala.nombre} /> {sala.nombre}</h1>
               <p>{sala.instrucciones || 'Esta sala todavía no tiene instrucciones.'}</p>
             </div>
             <span className="sala-periodo">{sala.periodo}</span>
