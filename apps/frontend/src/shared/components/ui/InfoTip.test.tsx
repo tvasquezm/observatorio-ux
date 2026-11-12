@@ -14,6 +14,11 @@ function setup() {
 }
 
 describe('InfoTip', () => {
+  it('identifica la ayuda y usa un icono de al menos veinte píxeles en tamaño normal', () => {
+    const btn = setup();
+    expect(btn).toHaveAttribute('title', 'Ayuda de prueba');
+    expect(btn.querySelector('svg')).toHaveAttribute('width', '20');
+  });
   it('arranca cerrado y deja el contenido en el DOM', () => {
     const btn = setup();
     expect(btn).toHaveAttribute('aria-expanded', 'false');

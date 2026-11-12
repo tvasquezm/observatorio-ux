@@ -2,6 +2,8 @@
    Extraído de UX-Observatory-Presentacion.html (mockup de referencia).
    Importar UNA vez en el entrypoint (main.tsx): import './styles/theme.css'; */
 :root {
+  --icon-size-info: 1.25rem;
+  --icon-size-technique: 1.5rem;
   --navy: #1f2d4a;
   --navy-2: #152038;
   --teal: #3049b2;
@@ -2633,7 +2635,10 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 /* Card sorting: ayuda contextual (InfoTip), contadores y guía */
 .cs-field { position: relative; }
 .info-tip { position: relative; display: inline-flex; }
-.info-tip-btn { display: inline-grid; place-items: center; width: 28px; height: 28px; min-height: 0; padding: 0; border: 0; border-radius: 999px; background: transparent; color: var(--muted); cursor: pointer; }
+.info-tip-btn { display: inline-grid; place-items: center; width: 44px; height: 44px; min-height: 44px; min-width: 44px; padding: 0; border: 0; border-radius: 999px; background: transparent; color: var(--muted); cursor: pointer; }
+.info-tip-btn .icon { width: var(--icon-size-info); height: var(--icon-size-info); }
+.project-menu-link .icon, .pm-item-icon .icon, .pm-now-name .icon { width: var(--icon-size-technique); height: var(--icon-size-technique); }
+.tech-icon, .tech-glyph { font-size: var(--icon-size-technique); }
 .info-tip-btn:hover, .info-tip-btn[aria-expanded='true'] { background: var(--teal-soft); color: var(--teal); }
 .info-tip-btn:focus-visible { outline: 3px solid color-mix(in srgb, var(--teal) 35%, transparent); outline-offset: 1px; }
 .info-tip-panel { position: absolute; top: calc(100% + 6px); right: 0; z-index: 20; display: none; width: min(320px, 80vw); padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink-soft); box-shadow: var(--shadow); font-size: 0.75rem; font-weight: 500; line-height: 1.5; text-align: left; text-transform: none; letter-spacing: 0; }

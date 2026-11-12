@@ -56,6 +56,7 @@ export function InfoTip({ label, children, className, align = 'end' }: InfoTipPr
         type="button"
         className="info-tip-btn"
         aria-label={label}
+        title={label}
         aria-expanded={open}
         aria-controls={panelId}
         onClick={toggle}
@@ -64,7 +65,7 @@ export function InfoTip({ label, children, className, align = 'end' }: InfoTipPr
           if (!pinned) setOpen(false);
         }}
       >
-        <Icon name="info" size={16} />
+        <Icon name="info" size={20} />
       </button>
       <span id={panelId} role="note" className={`info-tip-panel${align === 'start' ? ' start' : ''}${open ? ' open' : ''}`}>
         {children}
