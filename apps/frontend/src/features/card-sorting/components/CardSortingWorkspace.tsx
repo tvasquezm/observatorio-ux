@@ -441,7 +441,7 @@ export function CardSortingWorkspace({
       </div>
 
       {onAnswersChange && (study.preguntas?.length ?? 0) > 0 && (
-        <section className="cs-zone cs-questions" aria-label="Preguntas del estudio">
+        <section className="cs-zone cs-questions" aria-label="Preguntas del card sorting">
           <h3>Preguntas (opcionales)</h3>
           <p className="cs-selected-hint">No escribas datos personales: tu participación es anónima.</p>
           {study.preguntas!.map((question) => (

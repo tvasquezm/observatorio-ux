@@ -46,20 +46,20 @@ describe('validarEstudio', () => {
   const tarjetas = analizarEntrada('A\nB', 100, 80);
 
   it('pide nombre y al menos una tarjeta, con mensaje', () => {
-    expect(validarEstudio({ nombre: ' ', esCerrado: false, tarjetas, categorias: vacio })).toBe('Escribe un nombre para el estudio.');
+    expect(validarEstudio({ nombre: ' ', esCerrado: false, tarjetas, categorias: vacio })).toBe('Escribe un nombre para el card sorting.');
     expect(validarEstudio({ nombre: 'E', esCerrado: false, tarjetas: vacio, categorias: vacio })).toBe('Agrega al menos una tarjeta.');
   });
 
   it('cerrado exige 2 categorías; abierto no', () => {
     const una = analizarEntrada('Servicios', 60);
-    expect(validarEstudio({ nombre: 'E', esCerrado: true, tarjetas, categorias: una })).toBe('Un estudio cerrado necesita al menos 2 categorías.');
+    expect(validarEstudio({ nombre: 'E', esCerrado: true, tarjetas, categorias: una })).toBe('Un card sorting cerrado necesita al menos 2 categorías.');
     expect(validarEstudio({ nombre: 'E', esCerrado: false, tarjetas, categorias: una })).toBeNull();
     expect(validarEstudio({ nombre: 'E', esCerrado: true, tarjetas, categorias: analizarEntrada('Uno\nDos', 60) })).toBeNull();
   });
 
   it('híbrido exige 1 categoría predefinida', () => {
     const una = analizarEntrada('Servicios', 60);
-    expect(validarEstudio({ nombre: 'E', esCerrado: false, esHibrido: true, tarjetas, categorias: vacio })).toBe('Un estudio híbrido necesita al menos una categoría predefinida.');
+    expect(validarEstudio({ nombre: 'E', esCerrado: false, esHibrido: true, tarjetas, categorias: vacio })).toBe('Un card sorting híbrido necesita al menos una categoría predefinida.');
     expect(validarEstudio({ nombre: 'E', esCerrado: false, esHibrido: true, tarjetas, categorias: una })).toBeNull();
   });
 

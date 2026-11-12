@@ -32,7 +32,7 @@ type Paso = 'acceso' | 'consentimiento' | 'listo' | 'uniendo';
 const PASOS: Array<{ id: 'acceso' | 'consentimiento' | 'listo'; label: string }> = [
   { id: 'acceso', label: 'Acceso' },
   { id: 'consentimiento', label: 'Consentimiento' },
-  { id: 'listo', label: 'Estudio' },
+  { id: 'listo', label: 'Card sorting' },
 ];
 
 export function OnboardingPage() {
@@ -265,7 +265,7 @@ export function OnboardingPage() {
           <div className="participant-step participant-state">
             <div className="participant-loader" aria-hidden="true" />
             <h1>Preparando la actividad</h1>
-            <p>Estamos abriendo el estudio. Esto tomará un momento.</p>
+            <p>Estamos abriendo el card sorting. Esto tomará un momento.</p>
           </div>
         )}
 
@@ -273,7 +273,7 @@ export function OnboardingPage() {
           <div className="participant-step participant-state">
             <span className="participant-complete" aria-hidden="true">✓</span>
             <h1>Acceso confirmado</h1>
-            <p>Tu consentimiento quedó registrado. Ya puedes continuar con el estudio.</p>
+            <p>Tu consentimiento quedó registrado. Ya puedes continuar con el card sorting.</p>
           </div>
         )}
       </section>

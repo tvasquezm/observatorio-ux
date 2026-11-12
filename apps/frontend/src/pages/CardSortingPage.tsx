@@ -207,11 +207,11 @@ export function CardSortingPage() {
     {
       id: 'nombre',
       titulo: 'Nombre y tipo',
-      ayuda: 'Dale un nombre al estudio y elige cómo clasificarán los participantes.',
+      ayuda: 'Dale un nombre al card sorting y elige cómo clasificarán los participantes.',
       contenido: (
         <div className="tv-pasos-campos tv-pasos-campos--una">
             <label className="field">
-              Nombre del estudio
+              Nombre del card sorting
               <input
                 value={name}
                 onChange={(event) => setName(event.target.value)}
@@ -338,7 +338,7 @@ export function CardSortingPage() {
         <TechniquePageHeader
           label="TÉCNICA DE INVESTIGACIÓN"
           title="Card Sorting"
-          description="Crea estudios abiertos, cerrados o híbridos, compártelos con participantes y analiza cada clasificación como evidencia independiente."
+          description="Crea card sorting abiertos, cerrados o híbridos, compártelos con participantes y analiza cada clasificación como evidencia independiente."
           instructions={(
             <>
               <p>Prepara las tarjetas, invita a los participantes y revisa los resultados. Abre cada paso para ver sus instrucciones.</p>
@@ -358,8 +358,8 @@ export function CardSortingPage() {
       }
       proceso={mostrarForm && (
         <TechniqueProcess
-          title="Proceso del estudio"
-          textoListo="Estudio completo: ya puedes crearlo"
+          title="Proceso del card sorting"
+          textoListo="Card sorting completo: ya puedes crearlo"
           steps={steps}
         />
       )}
@@ -369,7 +369,7 @@ export function CardSortingPage() {
 
           <PasosTecnica pasos={pasos} accionesDesde={pasos.length - 2} acciones={(
             <button type="submit" className="primary" disabled={createStudy.isPending}>
-              {createStudy.isPending ? 'Creando estudio…' : 'Crear y abrir el workspace →'}
+              {createStudy.isPending ? 'Creando card sorting…' : 'Crear y abrir el workspace →'}
             </button>
           )} />
 
@@ -387,12 +387,12 @@ export function CardSortingPage() {
           )}
 
           {loadingStudies ? (
-            <p className="text-muted-sm">Cargando estudios…</p>
+            <p className="text-muted-sm">Cargando card sorting…</p>
           ) : studies.length === 0 ? (
             <TechniqueEmpty
               icono={<Icon name="card-sorting" size={28} />}
-              titulo="Todavía no hay estudios de Card Sorting"
-              texto="Usa + Nuevo Card Sorting para crear el primer estudio del proyecto."
+              titulo="Todavía no hay card sorting"
+              texto="Usa + Nuevo Card Sorting para crear el primer card sorting del proyecto."
             />
           ) : (
             <div className="cs-study-list">

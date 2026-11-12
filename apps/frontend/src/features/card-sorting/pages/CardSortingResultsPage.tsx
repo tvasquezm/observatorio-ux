@@ -149,7 +149,7 @@ export function CardSortingResultsPage() {
         <p role="alert" className="error-text">
           {analyticsQuery.error instanceof Error
             ? analyticsQuery.error.message
-            : 'El estudio no existe o no tienes acceso.'}
+            : 'El card sorting no existe o no tienes acceso.'}
         </p>
       </section>
     );
@@ -168,11 +168,11 @@ export function CardSortingResultsPage() {
           className="secondary button-like"
           to={`/proyectos/${data.estudio.proyectoId}/card-sorting/${data.estudio.id}`}
         >
-          ← Volver al estudio
+          ← Volver al card sorting
         </Link>
       </header>
 
-      <section className="analytics-kpis" aria-label="Resumen del estudio">
+      <section className="analytics-kpis" aria-label="Resumen del card sorting">
         <article className="analytics-kpi"><span>Participantes</span><strong>{data.participantesCount}</strong></article>
         <article className="analytics-kpi"><span>Tarjetas</span><strong>{data.cardsCount}</strong></article>
         <article className="analytics-kpi">
@@ -238,7 +238,7 @@ export function CardSortingResultsPage() {
         <>
           <article className="panel">
             <div className="panel-head">
-              <h2>Vistas del estudio</h2>
+              <h2>Vistas del card sorting</h2>
               <div className="cs-panel-actions">
                 <button
                   type="button"

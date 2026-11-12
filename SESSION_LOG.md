@@ -123,3 +123,9 @@
 - Archivos: theme.css, InfoTip(.test).tsx, CardSortingChips(.test).tsx, cierre/evidencias F9.
 - Decisiones: se modifican variables efectivas sin limpiar duplicados; se conserva el área ampliada por pseudo-elemento de Faltan N fases.
 - Pendiente: pestañas de resultados 375/Huge; validación humana con datos reales.
+
+## 2026-11-12 — Plan de usabilidad: F2
+- Hecho: creación vinculada desde sala, selector obligatorio, jerarquía, menú y terminología; 730 pruebas frontend y 25 del servicio de proyectos, ambos builds verdes.
+- Archivos: componentes/projects, ProjectsPage, SalaDetallePage, layout, DashboardPage, textos y tests; cierre/evidencias F2.
+- Decisiones: backend compatible; formulario de creación se conserva al cambiar de pestaña; onboarding del evaluador en inicio.
+- Pendiente: comprobación humana de permisos con API real antes de producción.

@@ -60,7 +60,7 @@ export function AnalyticsPage() {
         <div>
           <span className="kicker">LECTURA TRANSVERSAL</span>
           <h2>Analítica general</h2>
-          <p>Lectura conjunta de artefactos, estudios, participantes y hallazgos registrados en este proyecto.</p>
+          <p>Lectura conjunta de artefactos, card sorting, participantes y hallazgos registrados en este proyecto.</p>
         </div>
       </div>
 
@@ -83,7 +83,7 @@ export function AnalyticsPage() {
             <article className="analytics-kpi">
               <span>RESPUESTAS CARD SORTING</span>
               <strong>{participantResponses}</strong>
-              <small>{cardSortingQuery.data?.length ?? 0} estudios creados</small>
+              <small>{cardSortingQuery.data?.length ?? 0} card sorting creados</small>
             </article>
             <article className="analytics-kpi">
               <span>HALLAZGOS HEURÍSTICOS</span>
