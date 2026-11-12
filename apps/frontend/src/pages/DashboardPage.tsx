@@ -64,6 +64,11 @@ export function DashboardPage() {
         </div>
       </section>
 
+      <section className="panel" aria-label="Cómo se organiza el trabajo">
+        <h2>Sala → Proyecto → Técnica</h2>
+        <p>La sala reúne a tu curso. Cada proyecto contiene una investigación. Dentro del proyecto eliges las técnicas que necesitas.</p>
+      </section>
+
       <section className="panel active-project" aria-label="Proyecto de trabajo">
         {isError ? <div role="alert"><p>No pudimos cargar tus proyectos. Comprueba tu conexión y vuelve a intentarlo.</p><button type="button" className="secondary" onClick={() => void refetch()}>Reintentar</button></div> : isLoading ? <p role="status">Cargando proyectos…</p> : total > 0 ? <>
           <div className="field"><label htmlFor="active-project">Proyecto activo</label><select id="active-project" value={activo?.id ?? ''} onChange={e => chooseProject(e.target.value)}><option value="">Selecciona un proyecto…</option>{proyectos?.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}</select></div>
