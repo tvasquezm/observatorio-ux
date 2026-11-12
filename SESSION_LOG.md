@@ -117,3 +117,9 @@
 - Archivos: AnilloAvance(.test).tsx, theme.css, CHANGELOG.md, docs/fases/FASE_F1_CIERRE.md y evidencia.
 - Decisiones: base Hallazgos-prueba-de-usabilidad; modo express excluido por el usuario; SVG mantiene unidades de viewBox.
 - Pendiente: solapamiento de pestañas en resultados 375/huge, revisión con API real. Ver cierre F1.
+
+## 2026-11-12 — Plan de usabilidad: F9
+- Hecho: contraste, iconos, áreas clicables y estados con texto; 723 pruebas verdes y build.
+- Archivos: theme.css, InfoTip(.test).tsx, CardSortingChips(.test).tsx, cierre/evidencias F9.
+- Decisiones: se modifican variables efectivas sin limpiar duplicados; se conserva el área ampliada por pseudo-elemento de Faltan N fases.
+- Pendiente: pestañas de resultados 375/Huge; validación humana con datos reales.

@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **accesibilidad (F9):** ayudas e iconos mayores, grises y bordes legibles, áreas de 44 px y mensajes visibles para los estados de tarjetas.
+
 * **accesibilidad (F1):** el texto del anillo de avance respeta la escala de fuente; Preferencias mantiene accesibles sus controles a 150 % en móvil.
 
 * **personas, momentos-criticos:** si otro miembro del equipo está editando, quien intenta editar ve "Editando: nombre"
