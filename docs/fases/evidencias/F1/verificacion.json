@@ -1,0 +1,800 @@
+{
+  "pantallas": [
+    {
+      "width": 375,
+      "font": "xxlarge",
+      "mode": "light",
+      "name": "proyectos",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 375,
+      "font": "xxlarge",
+      "mode": "light",
+      "name": "proyecto",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 375,
+      "font": "xxlarge",
+      "mode": "light",
+      "name": "sala",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 375,
+      "font": "xxlarge",
+      "mode": "light",
+      "name": "tarjetas",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 375,
+      "font": "xxlarge",
+      "mode": "light",
+      "name": "resultados",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 375,
+      "font": "xxlarge",
+      "mode": "dark",
+      "name": "proyectos",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 375,
+      "font": "xxlarge",
+      "mode": "dark",
+      "name": "proyecto",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 375,
+      "font": "xxlarge",
+      "mode": "dark",
+      "name": "sala",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 375,
+      "font": "xxlarge",
+      "mode": "dark",
+      "name": "tarjetas",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 375,
+      "font": "xxlarge",
+      "mode": "dark",
+      "name": "resultados",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 375,
+      "font": "xxlarge",
+      "mode": "high",
+      "name": "proyectos",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 375,
+      "font": "xxlarge",
+      "mode": "high",
+      "name": "proyecto",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 375,
+      "font": "xxlarge",
+      "mode": "high",
+      "name": "sala",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 375,
+      "font": "xxlarge",
+      "mode": "high",
+      "name": "tarjetas",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 375,
+      "font": "xxlarge",
+      "mode": "high",
+      "name": "resultados",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 375,
+      "font": "huge",
+      "mode": "light",
+      "name": "proyectos",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 375,
+      "font": "huge",
+      "mode": "light",
+      "name": "proyecto",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 375,
+      "font": "huge",
+      "mode": "light",
+      "name": "sala",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 375,
+      "font": "huge",
+      "mode": "light",
+      "name": "tarjetas",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 375,
+      "font": "huge",
+      "mode": "light",
+      "name": "resultados",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 375,
+      "font": "huge",
+      "mode": "dark",
+      "name": "proyectos",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 375,
+      "font": "huge",
+      "mode": "dark",
+      "name": "proyecto",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 375,
+      "font": "huge",
+      "mode": "dark",
+      "name": "sala",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 375,
+      "font": "huge",
+      "mode": "dark",
+      "name": "tarjetas",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 375,
+      "font": "huge",
+      "mode": "dark",
+      "name": "resultados",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 375,
+      "font": "huge",
+      "mode": "high",
+      "name": "proyectos",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 375,
+      "font": "huge",
+      "mode": "high",
+      "name": "proyecto",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 375,
+      "font": "huge",
+      "mode": "high",
+      "name": "sala",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 375,
+      "font": "huge",
+      "mode": "high",
+      "name": "tarjetas",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 375,
+      "font": "huge",
+      "mode": "high",
+      "name": "resultados",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 1280,
+      "font": "xxlarge",
+      "mode": "light",
+      "name": "proyectos",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 1280,
+      "font": "xxlarge",
+      "mode": "light",
+      "name": "proyecto",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 1280,
+      "font": "xxlarge",
+      "mode": "light",
+      "name": "sala",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 1280,
+      "font": "xxlarge",
+      "mode": "light",
+      "name": "tarjetas",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 1280,
+      "font": "xxlarge",
+      "mode": "light",
+      "name": "resultados",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 1280,
+      "font": "xxlarge",
+      "mode": "dark",
+      "name": "proyectos",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 1280,
+      "font": "xxlarge",
+      "mode": "dark",
+      "name": "proyecto",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 1280,
+      "font": "xxlarge",
+      "mode": "dark",
+      "name": "sala",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 1280,
+      "font": "xxlarge",
+      "mode": "dark",
+      "name": "tarjetas",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 1280,
+      "font": "xxlarge",
+      "mode": "dark",
+      "name": "resultados",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 1280,
+      "font": "xxlarge",
+      "mode": "high",
+      "name": "proyectos",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 1280,
+      "font": "xxlarge",
+      "mode": "high",
+      "name": "proyecto",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 1280,
+      "font": "xxlarge",
+      "mode": "high",
+      "name": "sala",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 1280,
+      "font": "xxlarge",
+      "mode": "high",
+      "name": "tarjetas",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 1280,
+      "font": "xxlarge",
+      "mode": "high",
+      "name": "resultados",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 1280,
+      "font": "huge",
+      "mode": "light",
+      "name": "proyectos",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 1280,
+      "font": "huge",
+      "mode": "light",
+      "name": "proyecto",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 1280,
+      "font": "huge",
+      "mode": "light",
+      "name": "sala",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 1280,
+      "font": "huge",
+      "mode": "light",
+      "name": "tarjetas",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 1280,
+      "font": "huge",
+      "mode": "light",
+      "name": "resultados",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 1280,
+      "font": "huge",
+      "mode": "dark",
+      "name": "proyectos",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 1280,
+      "font": "huge",
+      "mode": "dark",
+      "name": "proyecto",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 1280,
+      "font": "huge",
+      "mode": "dark",
+      "name": "sala",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 1280,
+      "font": "huge",
+      "mode": "dark",
+      "name": "tarjetas",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 1280,
+      "font": "huge",
+      "mode": "dark",
+      "name": "resultados",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 1280,
+      "font": "huge",
+      "mode": "high",
+      "name": "proyectos",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 1280,
+      "font": "huge",
+      "mode": "high",
+      "name": "proyecto",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 1280,
+      "font": "huge",
+      "mode": "high",
+      "name": "sala",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 1280,
+      "font": "huge",
+      "mode": "high",
+      "name": "tarjetas",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    },
+    {
+      "width": 1280,
+      "font": "huge",
+      "mode": "high",
+      "name": "resultados",
+      "overflow": false,
+      "dialogOverflow": false,
+      "heading": "Preferencias"
+    }
+  ],
+  "loginYPreferencias": [
+    {
+      "width": 375,
+      "font": "xxlarge",
+      "mode": "light",
+      "screen": "login",
+      "overflow": false
+    },
+    {
+      "width": 375,
+      "font": "xxlarge",
+      "mode": "light",
+      "screen": "preferencias",
+      "fits": true,
+      "restored": "xlarge"
+    },
+    {
+      "width": 375,
+      "font": "xxlarge",
+      "mode": "dark",
+      "screen": "login",
+      "overflow": false
+    },
+    {
+      "width": 375,
+      "font": "xxlarge",
+      "mode": "dark",
+      "screen": "preferencias",
+      "fits": true,
+      "restored": "xlarge"
+    },
+    {
+      "width": 375,
+      "font": "xxlarge",
+      "mode": "high",
+      "screen": "login",
+      "overflow": false
+    },
+    {
+      "width": 375,
+      "font": "xxlarge",
+      "mode": "high",
+      "screen": "preferencias",
+      "fits": true,
+      "restored": "xlarge"
+    },
+    {
+      "width": 375,
+      "font": "huge",
+      "mode": "light",
+      "screen": "login",
+      "overflow": false
+    },
+    {
+      "width": 375,
+      "font": "huge",
+      "mode": "light",
+      "screen": "preferencias",
+      "fits": true,
+      "restored": "xxlarge"
+    },
+    {
+      "width": 375,
+      "font": "huge",
+      "mode": "dark",
+      "screen": "login",
+      "overflow": false
+    },
+    {
+      "width": 375,
+      "font": "huge",
+      "mode": "dark",
+      "screen": "preferencias",
+      "fits": true,
+      "restored": "xxlarge"
+    },
+    {
+      "width": 375,
+      "font": "huge",
+      "mode": "high",
+      "screen": "login",
+      "overflow": false
+    },
+    {
+      "width": 375,
+      "font": "huge",
+      "mode": "high",
+      "screen": "preferencias",
+      "fits": true,
+      "restored": "xxlarge"
+    },
+    {
+      "width": 1280,
+      "font": "xxlarge",
+      "mode": "light",
+      "screen": "login",
+      "overflow": false
+    },
+    {
+      "width": 1280,
+      "font": "xxlarge",
+      "mode": "light",
+      "screen": "preferencias",
+      "fits": true,
+      "restored": "xlarge"
+    },
+    {
+      "width": 1280,
+      "font": "xxlarge",
+      "mode": "dark",
+      "screen": "login",
+      "overflow": false
+    },
+    {
+      "width": 1280,
+      "font": "xxlarge",
+      "mode": "dark",
+      "screen": "preferencias",
+      "fits": true,
+      "restored": "xlarge"
+    },
+    {
+      "width": 1280,
+      "font": "xxlarge",
+      "mode": "high",
+      "screen": "login",
+      "overflow": false
+    },
+    {
+      "width": 1280,
+      "font": "xxlarge",
+      "mode": "high",
+      "screen": "preferencias",
+      "fits": true,
+      "restored": "xlarge"
+    },
+    {
+      "width": 1280,
+      "font": "huge",
+      "mode": "light",
+      "screen": "login",
+      "overflow": false
+    },
+    {
+      "width": 1280,
+      "font": "huge",
+      "mode": "light",
+      "screen": "preferencias",
+      "fits": true,
+      "restored": "xxlarge"
+    },
+    {
+      "width": 1280,
+      "font": "huge",
+      "mode": "dark",
+      "screen": "login",
+      "overflow": false
+    },
+    {
+      "width": 1280,
+      "font": "huge",
+      "mode": "dark",
+      "screen": "preferencias",
+      "fits": true,
+      "restored": "xxlarge"
+    },
+    {
+      "width": 1280,
+      "font": "huge",
+      "mode": "high",
+      "screen": "login",
+      "overflow": false
+    },
+    {
+      "width": 1280,
+      "font": "huge",
+      "mode": "high",
+      "screen": "preferencias",
+      "fits": true,
+      "restored": "xxlarge"
+    }
+  ],
+  "pdf": [
+    {
+      "width": 375,
+      "font": "xxlarge",
+      "mode": "light",
+      "overflow": false
+    },
+    {
+      "width": 375,
+      "font": "xxlarge",
+      "mode": "dark",
+      "overflow": false
+    },
+    {
+      "width": 375,
+      "font": "xxlarge",
+      "mode": "high",
+      "overflow": false
+    },
+    {
+      "width": 375,
+      "font": "huge",
+      "mode": "light",
+      "overflow": false
+    },
+    {
+      "width": 375,
+      "font": "huge",
+      "mode": "dark",
+      "overflow": false
+    },
+    {
+      "width": 375,
+      "font": "huge",
+      "mode": "high",
+      "overflow": false
+    },
+    {
+      "width": 1280,
+      "font": "xxlarge",
+      "mode": "light",
+      "overflow": false
+    },
+    {
+      "width": 1280,
+      "font": "xxlarge",
+      "mode": "dark",
+      "overflow": false
+    },
+    {
+      "width": 1280,
+      "font": "xxlarge",
+      "mode": "high",
+      "overflow": false
+    },
+    {
+      "width": 1280,
+      "font": "huge",
+      "mode": "light",
+      "overflow": false
+    },
+    {
+      "width": 1280,
+      "font": "huge",
+      "mode": "dark",
+      "overflow": false
+    },
+    {
+      "width": 1280,
+      "font": "huge",
+      "mode": "high",
+      "overflow": false
+    }
+  ]
+}

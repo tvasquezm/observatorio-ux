@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **accesibilidad (F1):** el texto del anillo de avance respeta la escala de fuente; Preferencias mantiene accesibles sus controles a 150 % en móvil.
+
 * **personas, momentos-criticos:** si otro miembro del equipo está editando, quien intenta editar ve "Editando: nombre"
   (el 409 del bloqueo ahora incluye el nombre; solo lo ve quien tiene acceso al proyecto). Sin edición simultánea.
 * **evaluacion-heuristica:** las capturas de evidencia ahora se pueden ver en grande (clic sobre la imagen, lupa o Esc

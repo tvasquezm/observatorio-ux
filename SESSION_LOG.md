@@ -111,3 +111,9 @@
 ## Siguiente paso sugerido
 - Correr los comandos de arriba y confirmar 0 errores + tests en verde.
 - Definir si se avanza a Fase 6 (Dashboard sala del estudiante) o Fase 7 (Módulo Admin).
+
+## 2026-11-12 — Plan de usabilidad: F1
+- Hecho: anillo en rem y Preferencias sin recorte de controles; base y pruebas verdes.
+- Archivos: AnilloAvance(.test).tsx, theme.css, CHANGELOG.md, docs/fases/FASE_F1_CIERRE.md y evidencia.
+- Decisiones: base Hallazgos-prueba-de-usabilidad; modo express excluido por el usuario; SVG mantiene unidades de viewBox.
+- Pendiente: solapamiento de pestañas en resultados 375/huge, revisión con API real. Ver cierre F1.
