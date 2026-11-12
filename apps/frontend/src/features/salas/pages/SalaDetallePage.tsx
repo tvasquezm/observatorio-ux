@@ -7,6 +7,7 @@
 // "Equipos" (ve los equipos de la sala; si el toggle está activo puede
 // crear uno propio y salir del suyo).
 
+import { SalaProjectCreate } from '../../projects/components/SalaProjectCreate';
 import React, { useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useProjects } from '../../projects/hooks/useProjectsQueries';
@@ -89,6 +90,8 @@ export function SalaDetallePage() {
               <div><dt>Término</dt><dd>{formatearFechaDetalle(sala.fechaFin)}</dd></div>
             </dl>
           </header>
+
+          {(esEstudiante ? sala.permiteCreacionProyectos : activeRole === 'ADMIN' || sala.profesor?.id === user?.id) && <div hidden={(esEstudiante ? tabEstudiante : tab) !== 'proyectos'}><SalaProjectCreate sala={sala} /></div>}
 
           {esEstudiante ? (
             <section className="sala-management-panel" aria-labelledby="gestion-sala-title">
@@ -269,7 +272,7 @@ function ProyectosDeSala({ salaId, sala }: { salaId: string; sala: Sala }) {
       <div className="sala-project-linker">
         <div>
           <h3>Agregar un proyecto a la sala</h3>
-          <p>Los proyectos se crean una sola vez desde Proyectos y luego se vinculan aquí.</p>
+          <p>Crea un proyecto en esta sala o vincula uno existente sin sala.</p>
         </div>
         <form onSubmit={handleVincular} className="form-row-inline sala-project-link-form">
           <label className="field">

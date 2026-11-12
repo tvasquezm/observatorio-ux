@@ -6,6 +6,8 @@ import { useCreateProject, useProjects, useUpdateProject } from '../features/pro
 import type { Proyecto } from '../features/projects/api/projects.api';
 import { useSalas } from '../features/salas/hooks/useSalasQueries';
 import { useActivePerspective } from '../shared/auth/useActivePerspective';
+import { ProjectCreateForm } from '../features/projects/components/ProjectCreateForm';
+import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { useUnsavedChanges } from '../shared/hooks/useUnsavedChanges';
 
 export function ProjectsPage() {
@@ -15,9 +17,8 @@ export function ProjectsPage() {
   const activeRole = useActivePerspective();
   const esEstudiante = activeRole === 'ESTUDIANTE';
   const { data: salas, isLoading: loadingSalas, isError: salasError } = useSalas();
-  // Fase 5: un ESTUDIANTE solo puede crear un proyecto dentro de una sala
-  // que lo permita (Sala.permiteCreacionProyectos) — el backend lo exige.
-  const salasElegibles = (salas ?? []).filter((s) => s.permiteCreacionProyectos);
+  const user = useAuthStore(state => state.user);
+  const salasElegibles = (salas ?? []).filter(s => esEstudiante ? s.permiteCreacionProyectos : activeRole === 'ADMIN' || s.profesor?.id === user?.id);
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [salaId, setSalaId] = useState('');
@@ -30,7 +31,7 @@ export function ProjectsPage() {
   const restoreFocus = useRef<HTMLElement | null>(null);
   const [validationError, setValidationError] = useState('');
   const { confirmDiscard } = useUnsavedChanges(mostrandoCreacion || editando !== null, { nombre, descripcion, salaId, edicion }, isPending || isUpdating, editando ?? 'new');
-  const canCreate = !esEstudiante || (!loadingSalas && !salasError && salasElegibles.length > 0);
+  const canCreate = !loadingSalas && !salasError && salasElegibles.length > 0;
 
   function validateName(value: string, inputId: string) {
     if (value.trim()) { setValidationError(''); return true; }
@@ -42,12 +43,12 @@ export function ProjectsPage() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!validateName(nombre, 'nuevo-proyecto-nombre')) return;
-    if (esEstudiante && !salaId) return;
+    if (!salasElegibles.some(s => s.id === salaId)) return;
     crear(
       {
         nombre: nombre.trim(),
         descripcion: descripcion.trim() || undefined,
-        ...(esEstudiante ? { salaId } : {}),
+        salaId,
       },
       {
         onSuccess: () => {
@@ -114,68 +115,12 @@ export function ProjectsPage() {
         </div>
       </div>
 
-      {!canCreate && <p id="project-create-help" className="hint-block" role="status">{loadingSalas ? 'Consultando tus salas…' : salasError ? 'No pudimos comprobar tus salas. Vuelve a intentarlo más tarde.' : 'Ninguna de tus salas permite crear proyectos. Solicita a tu docente que habilite esta opción.'}</p>}
-      {mostrandoCreacion && (
-        <form id="crear-proyecto" onSubmit={handleSubmit} className="create-project panel">
-          <div><span className="eyebrow">DATOS BÁSICOS</span><h2>Crear proyecto</h2></div>
-          <div className="project-form-fields">
-            <div className="field"><label htmlFor="nuevo-proyecto-nombre">Nombre del proyecto</label>
-            <input
-              id="nuevo-proyecto-nombre"
-              placeholder="Ej.: Investigación sobre matrícula"
-              value={nombre}
-              onChange={(e) => { setNombre(e.target.value); setValidationError(''); }}
-              required
-              autoFocus
-              className="text-input"
-              aria-invalid={Boolean(validationError)}
-              aria-describedby={validationError ? 'project-name-error' : undefined}
-            />
-            {validationError && <p id="project-name-error" role="alert" className="error-text">{validationError}</p>}</div>
-            <div className="field"><label htmlFor="nuevo-proyecto-descripcion">Descripción del proyecto (opcional)</label>
-            <input
-              id="nuevo-proyecto-descripcion"
-              placeholder="Objetivo de la investigación"
-              value={descripcion}
-              onChange={(e) => setDescripcion(e.target.value)}
-              className="text-input"
-            /></div>
-            {esEstudiante && salasElegibles.length > 0 && (
-              <div className="field">
-                <label htmlFor="nuevo-proyecto-sala">Sala</label>
-                <select
-                  id="nuevo-proyecto-sala"
-                  value={salaId}
-                  onChange={(e) => setSalaId(e.target.value)}
-                  required
-                  className="text-input"
-                >
-                  <option value="">Selecciona una sala…</option>
-                  {salasElegibles.map((s) => (
-                    <option key={s.id} value={s.id}>{s.nombre}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-            {esEstudiante && salasElegibles.length === 0 && (
-              <p className="hint-block">
-                Ninguna de tus salas permite todavía que los estudiantes creen proyectos.
-              </p>
-            )}
-            <div className="form-actions project-create-actions">
-              <button type="button" className="secondary" disabled={isPending} onClick={() => void cancelarCreacion()}>Cancelar</button>
-              <button
-                type="submit"
-                className="primary"
-                disabled={isPending || (esEstudiante && salasElegibles.length === 0)}
-              >
-                {isPending ? 'Creando…' : 'Crear'}
-              </button>
-            </div>
-          </div>
-          {createError && <p role="alert" className="error-text">{createError.message} Revisa los datos y vuelve a intentarlo; tu borrador se conserva.</p>}
-        </form>
-      )}
+      {!canCreate && <p id="project-create-help" className="hint-block" role="status">{loadingSalas ? 'Consultando tus salas…' : salasError ? 'No pudimos comprobar tus salas. Vuelve a intentarlo más tarde.' : esEstudiante ? 'Primero necesitas una sala. Pide a tu docente que active la creación de proyectos.' : 'Primero necesitas una sala para crear un proyecto.'} <Link to="/salas">Ver salas</Link></p>}
+      {mostrandoCreacion && <ProjectCreateForm
+        value={{ nombre, descripcion, salaId }}
+        onChange={next => { setNombre(next.nombre); setDescripcion(next.descripcion); setSalaId(next.salaId); setValidationError(''); }}
+        salas={salasElegibles} isPending={isPending} error={createError?.message} validationError={validationError}
+        onSubmit={handleSubmit} onCancel={() => void cancelarCreacion()} />}
 
       <div className="toolbar"><div><h2>Todos tus proyectos</h2><span className="muted">Selecciona uno para ver sus técnicas.</span></div><div><label className="sr-only" htmlFor="buscar-proyecto">Buscar proyecto</label><input id="buscar-proyecto" className="search-input" value={busqueda} onChange={(e) => { const next = new URLSearchParams(searchParams); if (e.target.value) next.set('q', e.target.value); else next.delete('q'); setSearchParams(next, { replace: true }); }} placeholder="Buscar proyecto…" /></div></div>
 
@@ -190,7 +135,7 @@ export function ProjectsPage() {
               <div><span className="project-kicker">{(p._count?.sesiones ?? 0) > 0 ? 'CON SESIONES REGISTRADAS' : 'LISTO PARA INICIAR'}</span><h3>{p.nombre}</h3>{p.descripcion && <p>{p.descripcion}</p>}</div>
               <span className="arrow">→</span>
             </Link>
-            <div className="project-card-foot"><span>{p._count?.sesiones ?? 0} sesiones · {p._count?.artefactos ?? 0} artefactos</span><button type="button" className="text-button" disabled={isPending || isUpdating} onClick={(event) => void iniciarEdicion(p, event.currentTarget)}>Editar</button></div>
+            <div className="project-card-foot">{!p.salaId && <span>Sin sala · <Link to="/salas">Vincular a una sala</Link></span>}<span>{p._count?.sesiones ?? 0} sesiones · {p._count?.artefactos ?? 0} artefactos</span><button type="button" className="text-button" disabled={isPending || isUpdating} onClick={(event) => void iniciarEdicion(p, event.currentTarget)}>Editar</button></div>
             {editando === p.id && <form onSubmit={guardarEdicion} className="inline-edit project-form-fields">
               <div className="field"><label htmlFor={`editar-proyecto-nombre-${p.id}`}>Nombre del proyecto</label><input id={`editar-proyecto-nombre-${p.id}`} className="text-input" value={edicion.nombre} onChange={(e) => { setEdicion({ ...edicion, nombre: e.target.value }); setValidationError(''); }} required autoFocus aria-invalid={Boolean(validationError)} aria-describedby={validationError ? 'project-edit-error' : undefined} />{validationError && <p id="project-edit-error" role="alert" className="error-text">{validationError}</p>}</div>
               <div className="field"><label htmlFor={`editar-proyecto-descripcion-${p.id}`}>Descripción del proyecto (opcional)</label><input id={`editar-proyecto-descripcion-${p.id}`} className="text-input" value={edicion.descripcion} onChange={(e) => setEdicion({ ...edicion, descripcion: e.target.value })} /></div>
