@@ -55,7 +55,7 @@ export const TECNICAS_INFO: Record<TecnicaId, TecnicaInfo> = {
       results: 'Cada celda cuenta cuántas personas ubicaron una tarjeta en una categoría. Lee la fila completa para comparar alternativas.',
       popular: 'Cada celda muestra un porcentaje de participantes. Compara el número y su categoría; el color solo acompaña el valor.',
       similarity: 'Cada cruce compara dos tarjetas. Un porcentaje alto indica que se agruparon juntas con mayor frecuencia.',
-      dendrogram: 'Sigue las uniones de tarjetas y grupos. Las uniones con mayor similitud sugieren asociaciones más frecuentes dentro de esta muestra.',
+      dendrogram: 'Sigue las uniones de tarjetas y grupos. Las uniones más cercanas muestran tarjetas agrupadas juntas con mayor frecuencia.',
       participants: 'Cada fila corresponde a una clasificación anónima. Revisa sus grupos para entender diferencias que el promedio puede ocultar.',
       answers: 'Lee las respuestas por pregunta y busca temas compartidos. Una respuesta individual no representa a toda la muestra.',
     },

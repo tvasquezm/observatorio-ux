@@ -228,7 +228,7 @@ export function OnboardingPage() {
           <div className="participant-step">
             <span className="eyebrow">Estudio de experiencia usuaria</span>
             <h1>Tu perspectiva ayuda a mejorar el diseño.</h1>
-            <p>No necesitas crear una cuenta ni compartir tu nombre o correo. El acceso es anónimo y toma solo unos segundos.</p>
+            <p>No necesitas una cuenta ni compartir tu nombre o correo. El acceso es anónimo.</p>
             <ul className="participant-trust-list">
               <li><strong>Sin registro</strong><span>No pediremos datos personales.</span></li>
               <li><strong>Participación voluntaria</strong><span>Puedes decidir si continuar.</span></li>

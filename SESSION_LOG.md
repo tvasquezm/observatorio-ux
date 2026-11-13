@@ -156,3 +156,14 @@
 - Renovación con sesión máxima 12h, ventana 10m y TTL original 1h; cookie httpOnly, CSRF y throttling conservados. Sin cambio a participantes ni DB.
 - Verificado: 56 tests auth/config; build backend; check-session-refresh.mjs real sobre Nest/Passport/Throttler con identidad en memoria.
 - Decisión: prueba HTTP fuera de Jest por incompatibilidad CJS/ESM de throttler con Nest 12 en Jest. Pendiente revisión humana antes de producción.
+
+## 2026-11-12 — Plan de usabilidad: F10 y revisión final
+- Actividad, renovación, diálogo, returnTo y borradores; se conservan id/versión y locks de ediciones.
+- Ruling: backend informa refreshAt fuera de ventana — TTL 3m ajusta ventana a 1m; un intento temprano no debe consumir la renovación — coste: campo aditivo opcional en respuesta refresh.
+- Ruling: diálogo permite Volver a mi trabajo/Escape y deja aviso — es necesario poder Guardar al llegar al límite absoluto.
+- Revisión fresca única de toda la rama: dos hallazgos anteriores corregidos con pruebas. Sin hallazgos adicionales confirmados.
+- Verificación final: 781 pruebas frontend/83 archivos, 389 backend/26 suites, ambos builds y script HTTP real verdes. Chromium simulado: aviso, retorno y borrador; sin confirmaciones duplicadas. F6 claro/oscuro y F10 móvil Huge capturados.
+
+## 2026-11-12 — Plan de usabilidad: F7
+- Tabla presentada y aprobada expresamente por el usuario antes del recorte. Aplicadas propuestas, conservadas etiquetas acordadas y reglas del consentimiento/consenso.
+- Auditoría y protocolo en docs; ejecución con personas reales pendiente. El modo express continúa excluido por instrucción del usuario.

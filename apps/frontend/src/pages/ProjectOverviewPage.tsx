@@ -27,7 +27,7 @@ export function ProjectOverviewPage() {
           </Link><TechniqueHelp tecnica={technique.to} /></div>
         ))}
       </div>
-      <div className="panel overview-note"><span className="note-icon" aria-hidden="true">i</span><div><b>Proyecto listo para trabajar</b><p>Los cambios se guardan como versiones para mantener la trazabilidad de tu investigación.</p><details><summary>Información para soporte</summary><small>ID: {proyectoId}</small></details></div></div>
+      <div className="panel overview-note"><span className="note-icon" aria-hidden="true">i</span><div><b>Proyecto listo para trabajar</b><p>Los cambios se guardan en versiones. Puedes revisar cómo avanzó tu investigación.</p><details><summary>Información para soporte</summary><small>ID: {proyectoId}</small></details></div></div>
     </div>
   );
 }

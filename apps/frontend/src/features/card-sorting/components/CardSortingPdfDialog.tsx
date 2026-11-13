@@ -43,7 +43,7 @@ export function CardSortingPdfDialog({ tabs, busy, error, onClose, onGenerate }:
       <label className="pdf-section"><input type="radio" name="cs-pdf-color" checked={color} onChange={() => setColor(true)} />Color</label>
       <label className="pdf-section"><input type="radio" name="cs-pdf-color" checked={!color} onChange={() => setColor(false)} />Blanco y negro</label>
       <label className="pdf-section"><input type="checkbox" checked={separarSecciones} onChange={e => setSeparar(e.target.checked)} />Salto de página entre secciones</label>
-      <p>Las matrices apaisadas pueden necesitar una página nueva.</p>
+      <p>Las tablas anchas pueden necesitar una página nueva.</p>
     </fieldset>
     <p role="status">Tu PDF incluirá: {contenido.length ? contenido.join(', ') : 'ninguna sección. Elige al menos una.'}</p>
     {error && <p role="alert" className="error-text">{error}</p>}

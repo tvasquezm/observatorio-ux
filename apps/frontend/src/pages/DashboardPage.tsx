@@ -50,7 +50,7 @@ export function DashboardPage() {
           <h1>Un mapa claro para decidir mejor.</h1>
           <p>
             {activo
-              ? <>Centraliza la evidencia de <b>{activo.nombre}</b> y conecta cada técnica con una decisión de diseño.</>
+              ? <>Reúne los resultados de <b>{activo.nombre}</b> y úsalos para decidir mejoras de diseño.</>
               : total > 0 ? 'Elige el proyecto en el que vas a trabajar antes de abrir una técnica.' : 'Crea tu primer proyecto para comenzar a centralizar la evidencia de investigación.'}
           </p>
         </div>

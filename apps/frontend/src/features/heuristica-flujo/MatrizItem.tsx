@@ -128,7 +128,7 @@ export function MatrizItem({ criterios, config, respuestas, modo, individuales =
       </td></tr>}
       {abierto && <tr id={`${nombre}-c`} className="hf-fila-comentario"><td colSpan={niveles.length + 3}>
         {esEquipo && propias.filter(p => p.r?.notas.trim()).map(p => <p key={p.i.evaluadorId} className="hf-ayuda">Comentario individual de {p.i.nombre}: {p.r?.notas}</p>)}
-        {esEquipo && r.valor !== null && !r.noAplica && <p className="hf-ayuda">{exige ? 'Obligatorio: la respuesta acordada difiere de alguna individual.' : 'Opcional: la respuesta acordada coincide con las individuales.'}</p>}
+        {esEquipo && r.valor !== null && !r.noAplica && <p className="hf-ayuda">{exige ? 'Escribe una razón: el acuerdo cambia la respuesta de al menos una persona.' : 'Opcional: la respuesta acordada coincide con las individuales.'}</p>}
         <label className="field">Comentario{esEquipo ? ' del equipo' : ''} de {c.nombre}<textarea maxLength={10000} readOnly={!editable} required={exige} value={texto} onChange={e => onChange(esEquipo ? { ...r, justificacion: e.target.value } : { ...r, notas: e.target.value })} /></label>
         {!esEquipo && proyectoId && evaluacionId && <EvidenciaEditor proyectoId={proyectoId} evaluacionId={evaluacionId} evidenciaIds={r.evidenciaIds ?? []} editable={editable} onChange={ids => onChange({ ...r, evidenciaIds: ids })} onPendingChange={v => onEvidencePending?.(c.id, v)} etiqueta="de la valoración" />}
         {r.motivo && <p className="hf-ayuda">Nota anterior: {r.motivo}</p>}

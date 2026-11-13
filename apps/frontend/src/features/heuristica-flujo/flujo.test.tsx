@@ -651,7 +651,7 @@ describe('consenso en equipo sobre la tabla', () => {
     await userEvent.click(screen.getByRole('radio', { name: 'Cumple' }));
     expect(screen.getByText('Falta el comentario del equipo')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /^Comentario del equipo de / }));
-    expect(screen.getByText(/^Obligatorio:/)).toBeInTheDocument();
+    expect(screen.getByText(/^Escribe una razón:/)).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText(/^Comentario del equipo de /), 'Se acordó tras revisar el flujo');
     expect(screen.queryByText('Falta el comentario del equipo')).toBeNull();
   });
