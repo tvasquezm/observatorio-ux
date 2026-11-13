@@ -129,3 +129,9 @@
 - Archivos: componentes/projects, ProjectsPage, SalaDetallePage, layout, DashboardPage, textos y tests; cierre/evidencias F2.
 - Decisiones: backend compatible; formulario de creación se conserva al cambiar de pestaña; onboarding del evaluador en inicio.
 - Pendiente: comprobación humana de permisos con API real antes de producción.
+
+## 2026-11-12 — Plan de usabilidad: F3a/F3b
+- Hecho: insignias, Miembros, Comentarios, etiquetas opcionales e ingreso masivo; 734 pruebas y build verdes.
+- Archivos: componentes de salas/comentarios, layout, OptionalTag, formularios, CardSortingEntry y pruebas; cierre/evidencias F3.
+- Decisiones: no relajar campos requeridos; conservar patrones opcionales ya válidos; separar F3a y F3b por tamaño.
+- Pendiente: comprobación humana con personas no técnicas y API real.

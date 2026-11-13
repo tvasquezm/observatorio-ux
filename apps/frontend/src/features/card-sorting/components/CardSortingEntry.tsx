@@ -62,10 +62,10 @@ export function CardSortingEntry({
         </span>
         <div className="cs-mode-toggle" role="group" aria-label={`Modo de ingreso de ${plural}`}>
           <button type="button" aria-pressed={mode === 'uno'} onClick={() => { setMode('uno'); setNote(''); }}>
-            De a una
+            Una por una
           </button>
           <button type="button" aria-pressed={mode === 'lista'} onClick={() => { setMode('lista'); setNote(''); }}>
-            Pegar lista
+            Agregar varias {plural}
           </button>
         </div>
       </div>
@@ -106,7 +106,7 @@ export function CardSortingEntry({
           <div className="cs-paste-bar">
             <small data-testid={`cs-paste-preview-${plural}`}>
               {draft.trim() === ''
-                ? 'Una por línea.'
+                ? 'Escribe una por línea.'
                 : `${nuevas.length} por agregar${omitidas > 0 ? ` · ${omitidas} ${omitidas === 1 ? 'repetida se omitirá' : 'repetidas se omitirán'}` : ''}`}
             </small>
             <button type="button" className="secondary" onClick={addBlock} disabled={nuevas.length === 0}>

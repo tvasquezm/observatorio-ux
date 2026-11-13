@@ -220,8 +220,8 @@ describe('CardSortingPage · avance del estudio', () => {
     renderPage();
     await siguiente();
     const modo = screen.getByRole('group', { name: 'Modo de ingreso de tarjetas' });
-    expect(within(modo).getByRole('button', { name: 'Pegar lista' })).toHaveAttribute('aria-pressed', 'true');
-    await userEvent.click(within(modo).getByRole('button', { name: 'De a una' }));
+    expect(within(modo).getByRole('button', { name: 'Agregar varias tarjetas' })).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(within(modo).getByRole('button', { name: 'Una por una' }));
     await agregarUna('Agregar tarjeta', 'Biblioteca');
     expect(screen.getByRole('button', { name: 'Quitar Biblioteca' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Quitar Biblioteca' }));
@@ -231,7 +231,7 @@ describe('CardSortingPage · avance del estudio', () => {
   it('en modo "De a una" avisa si la tarjeta ya está en la lista', async () => {
     renderPage();
     await siguiente();
-    await userEvent.click(within(screen.getByRole('group', { name: 'Modo de ingreso de tarjetas' })).getByRole('button', { name: 'De a una' }));
+    await userEvent.click(within(screen.getByRole('group', { name: 'Modo de ingreso de tarjetas' })).getByRole('button', { name: 'Una por una' }));
     await agregarUna('Agregar tarjeta', 'Becas');
     await agregarUna('Agregar tarjeta', 'becas');
     expect(screen.getByText('«becas» ya está en la lista.')).toBeInTheDocument();

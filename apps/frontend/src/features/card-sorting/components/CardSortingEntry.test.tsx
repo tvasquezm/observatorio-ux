@@ -26,6 +26,12 @@ function Harness({ defaultMode }: { defaultMode: 'uno' | 'lista' }) {
 }
 
 describe('CardSortingEntry', () => {
+  it('explica cómo agregar una lista con etiquetas visibles', () => {
+    render(<Harness defaultMode="lista" />);
+    expect(screen.getByRole('button', { name: 'Una por una' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Agregar varias tarjetas' })).toBeVisible();
+    expect(screen.getByText('Escribe una por línea.')).toBeVisible();
+  });
   it('modo lista: previsualiza, agrega el bloque y vacía el campo', async () => {
     render(<Harness defaultMode="lista" />);
     const area = screen.getByLabelText('Pegar lista de tarjetas');
@@ -48,8 +54,8 @@ describe('CardSortingEntry', () => {
   it('los chips sobreviven al cambiar de modo', async () => {
     render(<Harness defaultMode="uno" />);
     await userEvent.type(screen.getByLabelText('Agregar tarjeta'), 'Becas{Enter}');
-    await userEvent.click(screen.getByRole('button', { name: 'Pegar lista' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Agregar varias tarjetas' }));
     expect(screen.getByRole('button', { name: 'Quitar Becas' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Pegar lista' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Agregar varias tarjetas' })).toHaveAttribute('aria-pressed', 'true');
   });
 });
