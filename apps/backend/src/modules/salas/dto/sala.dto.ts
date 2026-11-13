@@ -65,7 +65,7 @@ export class UpdateSalaDto {
   @IsOptional()
   @IsInt()
   @Min(1)
-  limiteIntegrantesEquipo?: number;
+  limiteIntegrantesEquipo?: number | null;
 
   // Fase 5 — Proyectos.
   @IsOptional()

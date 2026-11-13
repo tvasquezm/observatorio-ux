@@ -55,6 +55,7 @@ export function useUpdateSala(salaId: string) {
     mutationFn: (data: UpdateSalaDto) => updateSala(salaId, data),
     onSuccess: (sala) => {
       qc.setQueryData(salasKeys.detail(salaId), sala);
+      qc.invalidateQueries({ queryKey: salasKeys.all });
       notify.success('Sala actualizada.');
     },
     onError: (err) => {
