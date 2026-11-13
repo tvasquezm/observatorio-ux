@@ -147,3 +147,7 @@
 - Archivos: páginas/hooks/API de salas, SalaProjectCreate, CardSortingPage/Entry, DTO/tests de salas y documentos de cierre/evidencia.
 - Decisiones: un bloqueo de router por sala; se conserva control de permisos del servidor; null retira el límite ya nullable.
 - Pendiente: validar diagnóstico con registros reales; renovación y vencimiento se mantienen para F8/F10.
+
+## 2026-11-12 — Plan de usabilidad: F6
+- Informe con clasificación compartida en pantalla y PDF; acceso Abrir informe. Sin modo express por instrucción del usuario.
+- Validación sin cambios: respuestas negativas sin notas válidas; consenso discordante mantiene justificación. 67 pruebas de servicio, 114 de informe/flujo y ambos builds verdes.

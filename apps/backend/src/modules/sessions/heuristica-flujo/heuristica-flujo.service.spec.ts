@@ -172,6 +172,20 @@ describe('Flujo heurístico: privacidad, transiciones y consenso', () => {
     await expect(service.entregar('p', e.id, { revision: e.revision }, experto)).rejects.toThrow(`Evalúa el criterio «${primero.nombre}».`);
   });
 
+  it('acepta respuestas desfavorables sin notas ni justificación cuando el consenso coincide', async () => {
+    const { service } = preparar();
+    const c = configuracion();
+    c.metodologia = structuredClone(METODOLOGIAS_HEURISTICAS.find(m => m.id === 'hassan-checklist-2003')!);
+    let e = await service.comenzar('p', c, coordinador);
+    const respuestas = c.metodologia.criterios.map(c => ({ criterioId: c.id, valor: e.configuracion.metodologia.escala.niveles.find(n => n.favorable === false)!.id, noAplica: false, motivo: '', notas: '' }));
+    e = await service.guardarTrabajo('p', e.id, { revision: e.revision, respuestas, hallazgos: [] }, experto);
+    e = await service.entregar('p', e.id, { revision: e.revision }, experto);
+    e = await service.guardarConsenso('p', e.id, { revision: e.revision, criterios: respuestas.map(r => ({ ...r, justificacion: '' })), hallazgos: [] }, coordinador);
+    e = await service.aprobar('p', e.id, { revision: e.revision }, experto);
+    e = await service.consolidar('p', e.id, { revision: e.revision }, coordinador);
+    expect(resumirCumplimiento(c, e.informe!.consenso)!.total.desfavorables).toBe(respuestas.length);
+  });
+
   it.each([1, 5])('finaliza %i evaluadores con todos los criterios No aplica sin motivo ni justificación adicional', async cantidad => {
     const { service } = preparar();
     const c = configuracion(cantidad);

@@ -1,5 +1,5 @@
 import type { AnotacionEvidencia, EvaluacionFlujo } from '@observatorio-ux/shared-types';
-import { escalaDe, origenHallazgo, resumirCumplimiento, resumirEvaluacion, SEVERIDADES } from '@observatorio-ux/shared-types';
+import { clasificarCriterios, escalaDe, origenHallazgo, resumirCumplimiento, resumirEvaluacion, SEVERIDADES } from '@observatorio-ux/shared-types';
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces';
 import { brandChrome, cargarPdfMake, date, INK, MUTED, table, TEAL, type ReportBrand } from '../../shared/utils/pdf';
 import { cargarEvidencia } from './evidencia.api';
@@ -15,6 +15,11 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
   const consenso = informe.consenso;
   const resumen = resumirEvaluacion(config, consenso);
   const cumplimiento = resumirCumplimiento(config, consenso);
+  const clases = clasificarCriterios(config, consenso);
+  const grupos = (['desfavorable', 'favorable'] as const).flatMap(clase => {
+    const criterios = config.metodologia.criterios.filter(c => clases.some(r => r.criterioId === c.id && r.clase === clase));
+    return [titulo(`${clase === 'desfavorable' ? 'Problemas' : 'Aciertos'} (${criterios.length})`), ...(criterios.length ? criterios.map(c => ({ text: c.nombre } as Content)) : [{ text: 'Sin criterios en este grupo.' } as Content])];
+  });
   if (resumen.pendientes || !config.evaluadorIds.every(id => consenso.aprobadoPor.includes(id)) || consenso.hallazgos.some(h => h.decision === 'PENDIENTE')) throw new Error('El informe consolidado tiene decisiones o aprobaciones pendientes.');
   const hallazgos = consenso.hallazgos.filter(h => h.decision === 'ACEPTADO').slice().sort((a, b) => b.severidad - a.severidad);
   const nombreCriterio = (id: string) => config.metodologia.criterios.find(c => c.id === id)?.nombre ?? id;
@@ -74,6 +79,7 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
       { text: 'No aplica y sin evaluar quedan fuera del cálculo. La severidad es ordinal: se informa por distribución, sin asumir distancias iguales entre niveles.', color: MUTED },
       ...(resumen.formula ? [campo('Fórmula del índice', resumen.formula), campo('Denominador (suma de pesos aplicables evaluados)', String(resumen.denominador)), campo('Índice', resumen.indice === null ? 'No calculable' : String(Math.round(resumen.indice * 1000) / 1000))] : []),
       ...(cumplimiento ? [titulo('Cumplimiento'), table(['Categoría', 'Cumplimiento'], [...cumplimiento.porCategoria.map(c => [c.categoria, textoCumplimiento(c)]), ['Total', textoCumplimiento(cumplimiento.total)]], ['*', '*']), { text: 'Solo cuentan las respuestas marcadas como favorables o desfavorables; no aplica y sin evaluar quedan fuera del porcentaje.', color: MUTED } as Content] : []),
+      ...grupos, { text: `${resumen.noAplica} no aplican. Los criterios neutros y sin evaluar quedan fuera de ambos grupos.` },
       titulo('Criterios y decisiones acordadas'),
       table(['Criterio / fuente', 'Valoración final', 'Justificación'], consenso.criterios.map(r => { const c = config.metodologia.criterios.find(x => x.id === r.criterioId); return [`${nombreCriterio(r.criterioId)}\n${c?.origen.autor ?? ''} · ${c?.origen.version ?? ''}\n${c?.origen.fuente ?? ''}`, valorCriterio(r), r.justificacion]; }), ['*', 100, '*']),
       ...(positivos.length ? [titulo('Aspectos positivos'), ...positivos.flatMap((p): Content[] => [{ text: p.titulo, bold: true, margin: [0, 6, 0, 2] }, ...(p.descripcion ? [{ text: p.descripcion, margin: [0, 0, 0, 4] } as Content] : [])])] : []),

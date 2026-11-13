@@ -421,7 +421,7 @@ describe('historial e informe', () => {
       return [];
     });
     renderFlow(<FlujoHeuristicaPage />);
-    await userEvent.click(await screen.findByRole('button', { name: 'Abrir' }));
+    await userEvent.click(await screen.findByRole('button', { name: /^Abrir(?: informe)?$/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Comenzar revisión' }));
     await screen.findByText('No se pudo iniciar');
     await userEvent.click(screen.getByRole('button', { name: 'Comenzar revisión' }));
@@ -1085,16 +1085,16 @@ describe('esqueleto estándar', () => {
   it('la lista muestra Mis revisiones con Abrir secundario; Nueva evaluación oculta la lista y pasa a Cancelar', async () => {
     api.mockImplementation(async (_p, path) => path === '/evaluaciones' ? [final('f1')] : path === '/metodologias' ? [config().metodologia] : path === '/equipo' ? equipo : []);
     renderFlow(<FlujoHeuristicaPage />);
-    const abrir = await screen.findByRole('button', { name: 'Abrir' });
+    const abrir = await screen.findByRole('button', { name: /^Abrir(?: informe)?$/ });
     expect(abrir).toHaveClass('secondary');
     expect(abrir.closest('.technique-item-actions')).not.toBeNull();
     await userEvent.click(screen.getByRole('button', { name: '+ Nueva evaluación' }));
     expect(screen.getByRole('button', { name: 'Cancelar' })).toHaveClass('secondary');
     expect(await screen.findByLabelText('Producto o sitio')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Abrir' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Abrir(?: informe)?$/ })).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
     expect(screen.queryByLabelText('Producto o sitio')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Abrir' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Abrir(?: informe)?$/ })).toBeInTheDocument();
   });
   it('las instrucciones arrancan colapsadas', async () => {
     api.mockImplementation(async (_p, path) => path === '/metodologias' ? [config().metodologia] : path === '/equipo' ? equipo : []);
@@ -1109,16 +1109,16 @@ describe('esqueleto estándar', () => {
   it('la lista muestra Mis revisiones con Abrir secundario; Nueva evaluación oculta la lista y pasa a Cancelar', async () => {
     api.mockImplementation(async (_p, path) => path === '/evaluaciones' ? [final('f1')] : path === '/metodologias' ? [config().metodologia] : path === '/equipo' ? equipo : []);
     renderFlow(<FlujoHeuristicaPage />);
-    const abrir = await screen.findByRole('button', { name: 'Abrir' });
+    const abrir = await screen.findByRole('button', { name: /^Abrir(?: informe)?$/ });
     expect(abrir).toHaveClass('secondary');
     expect(abrir.closest('.technique-item-actions')).not.toBeNull();
     await userEvent.click(screen.getByRole('button', { name: '+ Nueva evaluación' }));
     expect(screen.getByRole('button', { name: 'Cancelar' })).toHaveClass('secondary');
     expect(await screen.findByLabelText('Producto o sitio')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Abrir' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Abrir(?: informe)?$/ })).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
     expect(screen.queryByLabelText('Producto o sitio')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Abrir' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Abrir(?: informe)?$/ })).toBeInTheDocument();
   });
   it('las instrucciones arrancan colapsadas', async () => {
     api.mockImplementation(async (_p, path) => path === '/metodologias' ? [config().metodologia] : path === '/equipo' ? equipo : []);
@@ -1163,7 +1163,7 @@ describe('aviso de terminada y volver al inicio', () => {
       return [];
     });
     renderFlow(<FlujoHeuristicaPage />);
-    await userEvent.click(await screen.findByRole('button', { name: 'Abrir' }));
+    await userEvent.click(await screen.findByRole('button', { name: /^Abrir(?: informe)?$/ }));
     await userEvent.click(await screen.findByRole('button', { name: 'Finalizar informe' }));
     expect(await screen.findByRole('heading', { name: 'Mis revisiones' })).toBeInTheDocument();
     expect(await screen.findByText('Terminada')).toBeInTheDocument();

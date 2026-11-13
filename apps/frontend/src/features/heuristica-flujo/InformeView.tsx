@@ -12,6 +12,7 @@ import { SaveStatus } from './TrabajoEditor';
 import { flujoRequest } from './flujo.api';
 import { fechaChile, participacionInforme, textoCumplimiento, textoEscala } from './flujo-utils';
 import { useFlujoDraft } from './useFlujoDraft';
+import { ResumenCriterios } from './ResumenCriterios';
 
 function Dato({ etiqueta, valor }: { etiqueta: string; valor: ReactNode }) {
   return <div><dt>{etiqueta}</dt><dd className="hx-dato">{valor || 'No indicado'}</dd></div>;
@@ -98,6 +99,7 @@ export function InformeView({ evaluacion, historial, usuarioId, onSaved, onBack 
     </details>
     {cumplimiento && <section className="panel"><div className="panel-head"><h2>Cumplimiento</h2><InfoTip label="Ayuda: cumplimiento" visibleLabel="¿Cómo leer esto?" align="start">{TECNICAS_INFO['evaluacion-heuristica'].ayudaGraficos.cumplimiento}</InfoTip></div><p>Solo cuentan las respuestas marcadas como favorables o desfavorables; no aplica y sin evaluar quedan fuera del porcentaje.</p>
       <div className="hf-table"><table><thead><tr><th>Categoría</th><th>Cumplimiento</th></tr></thead><tbody>{cumplimiento.porCategoria.map(c => <tr key={c.categoria}><td>{c.categoria}</td><td>{textoCumplimiento(c)}</td></tr>)}<tr><th scope="row">Total</th><td>{textoCumplimiento(cumplimiento.total)}</td></tr></tbody></table></div></section>}
+    <ResumenCriterios configuracion={config} consenso={informe.consenso} />
     <details className="panel"><summary>Ver respuestas y razones del equipo, pregunta por pregunta</summary><div className="hf-table"><table><thead><tr><th>Criterio / origen</th><th>Acuerdo</th><th>Justificación</th></tr></thead><tbody>{config.metodologia.criterios.map(c => { const r = informe.consenso.criterios.find(r => r.criterioId === c.id); return <tr key={c.id}><td>{c.nombre}<br />{c.origen.autor} · {c.origen.version}<br /><Fuente value={c.origen.fuente} /></td><td>{r?.noAplica ? `No aplica${r.motivo ? `: ${r.motivo}` : ''}` : escalaDe(config.metodologia, c).niveles.find(n => n.id === r?.valor)?.etiqueta ?? 'Pendiente'}</td><td>{r?.justificacion}<br />{r?.notas}</td></tr>; })}</tbody></table></div></details>
     {positivos.length > 0 && <details className="panel"><summary>Ver lo que funciona bien</summary>{positivos.map(p => <article className="finding" key={p.id}><h3>{p.titulo}</h3>{p.descripcion && <p>{p.descripcion}</p>}</article>)}</details>}
     <section className="panel"><div className="panel-head"><h2>Qué se puede mejorar</h2></div>{informe.consenso.hallazgos.map(h => <details className="finding" key={h.id}><summary>{h.titulo} · {h.decision === 'ACEPTADO' ? 'Mejorar' : h.decision === 'DESCARTADO' ? 'Descartado' : 'Por revisar'}</summary><p>Origen: {origenHallazgo(h) === 'equipo' ? 'Nuevo del equipo' : h.origenIds.join(', ')} · {h.justificacion}</p>{h.decision === 'ACEPTADO' && <><p>{h.pantalla}: {h.descripcion}</p><p>Severidad {h.severidad} · Prioridad {h.prioridad}</p><p>Recomendación: {h.recomendacion}</p><p>{h.notas}</p><EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={h.evidenciaIds} editable={false} /></>}</details>)}</section>

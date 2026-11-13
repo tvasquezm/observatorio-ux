@@ -145,7 +145,7 @@ export function FlujoHeuristicaPage() {
           const titulo = e.configuracion.nombre || e.configuracion.producto.nombre;
           return <div key={e.id} className="hf-revision-row" role="group" aria-label={titulo}>
             <span><strong>{titulo}</strong><small>{etapa[e.fase]}</small></span>
-            <TechniqueItemActions etiquetaConsultar="Abrir" onConsultar={() => setSelected(e.id)} />
+            <TechniqueItemActions etiquetaConsultar={e.fase === 'CONSOLIDADA' || e.fase === 'FINALIZADA' ? 'Abrir informe' : 'Abrir'} onConsultar={() => setSelected(e.id)} />
           </div>;
         })}</div>
       </>}
