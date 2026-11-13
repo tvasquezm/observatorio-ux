@@ -1,3 +1,5 @@
+import { useFormDraft } from '../shared/hooks/useFormDraft';
+import { FormDraftNotice } from '../shared/components/FormDraftNotice';
 import { OptionalTag } from '../shared/components/OptionalTag';
 import React, { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
@@ -89,9 +91,19 @@ export function PersonasPage() {
   const [editandoPor, setEditandoPor] = useState('');
   const [errorImagen, setErrorImagen] = useState('');
   const [subiendoImagen, setSubiendoImagen] = useState(false);
-  const { confirmDiscard } = useUnsavedChanges(mostrarForm, { form, listInputs }, isCreating || isUpdating, editandoId ?? 'new');
+  const { confirmDiscard, isDirty } = useUnsavedChanges(mostrarForm, { form, listInputs }, isCreating || isUpdating, editandoId ?? 'new');
+
+  const draft = useFormDraft(`persona:${proyectoId}`, { form, listInputs, editingId: editandoId ?? '', version: editandoVersion ?? 0 }, saved => {
+    setForm(saved.form); setListInputs(saved.listInputs); setMostrarForm(true);
+    setEditandoId(saved.editingId || null); setEditandoVersion(saved.editingId ? saved.version : null);
+    if (saved.editingId) {
+      setReadOnly(true);
+      void editLock.acquire(saved.editingId).then(acquired => { if (acquired) setReadOnly(false); }).catch(() => notify.error('No se pudo recuperar el permiso de edición. Tu borrador sigue disponible.'));
+    }
+  }, { dirty: isDirty, enabled: mostrarForm && !readOnly, onDiscard: resetForm });
 
   function resetForm() {
+    draft.clear();
     editLock.release();
     setForm(vacio());
     setListInputs(vacioListInputs());
@@ -106,6 +118,7 @@ export function PersonasPage() {
 
   async function handleIniciarEditar(persona: PersonaArtifact) {
     if (!(await confirmDiscard())) return;
+    draft.clear();
     editLock.release();
     const artefactoId = persona.id;
     setEditandoId(artefactoId);
@@ -212,6 +225,7 @@ export function PersonasPage() {
       formulario={enFormulario && (
         <form onSubmit={handleSubmit} className="panel persona-editor" aria-labelledby="persona-editor-title" noValidate>
           <div className="persona-editor-head">
+      <FormDraftNotice draft={draft} />
             <div>
               <span className="eyebrow">CONSTRUCCIÓN DEL PERFIL</span>
               <h3 id="persona-editor-title">{editandoId ? 'Editar persona' : 'Nueva persona'}</h3>

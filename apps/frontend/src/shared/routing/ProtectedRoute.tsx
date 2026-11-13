@@ -8,10 +8,12 @@
 // /login en cada F5 antes de que /auth/me confirme la sesión.
 
 import { useEffect } from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../features/auth/store/useAuthStore';
+import { handleSessionExpired } from '../auth/session-expired';
 
 export function ProtectedRoute() {
+  const location = useLocation();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isChecking = useAuthStore((s) => s.isChecking);
   const checkSession = useAuthStore((s) => s.checkSession);
@@ -20,6 +22,10 @@ export function ProtectedRoute() {
     checkSession();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!isChecking && !isAuthenticated) handleSessionExpired(location.pathname + location.search);
+  }, [isChecking, isAuthenticated, location.pathname, location.search]);
 
   if (isChecking) return null;
 

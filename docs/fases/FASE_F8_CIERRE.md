@@ -7,3 +7,5 @@ Archivos: servicio/controlador/estrategia auth, configuración, filtro (conserva
 Verificación: pnpm --filter backend test auth env.validation --runInBand → 6 suites, 56 tests verdes. pnpm --filter backend build verde. node apps/backend/scripts/check-session-refresh.mjs → PASS CSRF, JWT vencido, expiración en me, renovación acotada, cookie Secure/httpOnly y 429. Firma JWT real, Passport/Throttler reales, identidad en memoria; no usa DB.
 Desvíos: prueba HTTP runnable fuera de Jest porque Jest rechaza el ciclo CJS/ESM de @nestjs/throttler con Nest 12. SESSION_MAX_REACHED se expone en errorCode, formato nativo del filtro.
 Pendientes: revisión humana de auth antes de producción; no se desplegó ni se probó contra la base real.
+
+Revisión final: renewed:false añade session.refreshAt (epoch ms), calculado con la ventana efectiva del servidor. Permite un único timeout en F10 cuando el TTL es corto o la ventana configurada difiere de 10m; no usa polling. Prueba de regresión reproducida roja y luego verde.

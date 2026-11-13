@@ -35,6 +35,8 @@ import type { Equipo } from '../../equipos/api/equipos.api';
 import { SalasApiError, type Sala } from '../api/salas.api';
 import { useConfirm } from '../../../shared/api/confirm';
 import { useUnsavedChanges } from '../../../shared/hooks/useUnsavedChanges';
+import { useFormDraft } from '../../../shared/hooks/useFormDraft';
+import { FormDraftNotice } from '../../../shared/components/FormDraftNotice';
 import { useDiscardChanges } from '../../../shared/hooks/useDiscardChanges';
 import { useAuthStore } from '../../auth/store/useAuthStore';
 import { resolvePerspective } from '../../../shared/auth/perspectivas';
@@ -244,10 +246,11 @@ function ProyectosDeSala({ salaId, sala, onDirtyChange }: { salaId: string; sala
   const permiteCreacionProyectos = draft ?? sala.permiteCreacionProyectos;
   useEffect(() => setDraft(null), [sala.permiteCreacionProyectos]);
   useDirtyNotice(draft !== null, onDirtyChange);
+  const localDraft = useFormDraft(`sala-config:${salaId}`, { value: draft }, saved => setDraft(saved.value), { dirty: draft !== null, enabled: true, onDiscard: () => setDraft(null) });
 
   function handleGuardarToggleProyectos(e: React.FormEvent) {
     e.preventDefault();
-    actualizarSala({ permiteCreacionProyectos }, { onSuccess: () => setDraft(null), onError: () => setDraft(null) });
+    actualizarSala({ permiteCreacionProyectos }, { onSuccess: () => { localDraft.clear(); setDraft(null); }, onError: () => { localDraft.clear(); setDraft(null); } });
   }
 
   // Solo se pueden vincular proyectos que todavía no están en ninguna sala.
@@ -270,6 +273,7 @@ function ProyectosDeSala({ salaId, sala, onDirtyChange }: { salaId: string; sala
   return (
     <div>
       <form onSubmit={handleGuardarToggleProyectos} className="form-row-inline" style={{ marginBottom: 16 }}>
+        <FormDraftNotice draft={localDraft} />
         <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <input
             type="checkbox"

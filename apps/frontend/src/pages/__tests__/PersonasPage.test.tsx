@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within, waitFor } from '@testing-library/react';
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router-dom';
 import { PersonaSchema } from '@observatorio-ux/shared-types';
 import { PersonasPage } from '../PersonasPage';
@@ -57,6 +57,22 @@ beforeEach(() => {
 });
 
 describe('Personas — presentación y edición', () => {
+  it('recupera la edición y conserva el id y la versión originales aunque la lista cambie', async () => {
+    const first = renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+    await screen.findByLabelText('Nombre completo');
+    fireEvent.change(screen.getByLabelText('Nombre completo'), { target: { value: 'Ana en borrador' } });
+    fireEvent(window, new Event('observatorio-ux-flush-drafts'));
+    first.unmount();
+    state.list.mockReturnValue([{ ...persona, id: 'a2', version: 3 }]);
+    renderPage();
+    expect(screen.getByLabelText('Nombre completo')).toHaveValue('Ana en borrador');
+    expect(state.acquire).toHaveBeenLastCalledWith('a1');
+    irAlUltimoPaso(5);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Actualizar persona' })).not.toBeDisabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Actualizar persona' }));
+    expect(state.update).toHaveBeenCalledWith(expect.objectContaining({ artefactoId: 'a1', expectedVersion: 2 }), expect.any(Object));
+  });
   it('titula la lista con el contador de perfiles', () => {
     renderPage();
     const cabecera = screen.getByRole('heading', { name: 'Perfiles del proyecto' }).closest('.technique-list-head')!;

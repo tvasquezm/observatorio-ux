@@ -1,3 +1,5 @@
+import { useFormDraft } from '../shared/hooks/useFormDraft';
+import { FormDraftNotice } from '../shared/components/FormDraftNotice';
 import { OptionalTag } from '../shared/components/OptionalTag';
 // apps/frontend/src/pages/ProjectsPage.tsx
 
@@ -31,8 +33,13 @@ export function ProjectsPage() {
   const createTrigger = useRef<HTMLButtonElement>(null);
   const restoreFocus = useRef<HTMLElement | null>(null);
   const [validationError, setValidationError] = useState('');
-  const { confirmDiscard } = useUnsavedChanges(mostrandoCreacion || editando !== null, { nombre, descripcion, salaId, edicion }, isPending || isUpdating, editando ?? 'new');
+  const { confirmDiscard, isDirty } = useUnsavedChanges(mostrandoCreacion || editando !== null, { nombre, descripcion, salaId, edicion }, isPending || isUpdating, editando ?? 'new');
   const canCreate = !loadingSalas && !salasError && salasElegibles.length > 0;
+
+  const draft = useFormDraft('projects', { nombre, descripcion, salaId, edicion, editando }, saved => {
+    setNombre(saved.nombre); setDescripcion(saved.descripcion); setSalaId(saved.salaId); setEdicion(saved.edicion);
+    setEditando(saved.editando); setMostrandoCreacion(!saved.editando);
+  }, { dirty: isDirty, enabled: mostrandoCreacion || editando !== null, onDiscard: resetEditor });
 
   function validateName(value: string, inputId: string) {
     if (value.trim()) { setValidationError(''); return true; }
@@ -60,6 +67,7 @@ export function ProjectsPage() {
   }
 
   function resetEditor() {
+    draft.clear();
     setNombre('');
     setDescripcion('');
     setSalaId('');
@@ -97,6 +105,7 @@ export function ProjectsPage() {
 
   return (
     <div>
+      <FormDraftNotice draft={draft} />
       <div className="page-head">
         <div><span className="eyebrow">ESPACIOS DE TRABAJO</span><h1>Proyectos</h1><p>Organiza tus investigaciones y accede a todas sus técnicas.</p></div>
         <div className="page-head-actions">

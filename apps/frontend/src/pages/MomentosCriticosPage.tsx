@@ -1,3 +1,5 @@
+import { useFormDraft } from '../shared/hooks/useFormDraft';
+import { FormDraftNotice } from '../shared/components/FormDraftNotice';
 import React, { useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { MomentosCriticosSchema } from '@observatorio-ux/shared-types';
@@ -78,7 +80,7 @@ export function MomentosCriticosPage() {
   const [accionesInputs, setAccionesInputs] = useState(['']);
   const [mostrarForm, setMostrarForm] = useState(false);
   const [vistaMatriz, setVistaMatriz] = useState(false);
-  const [editando, setEditando] = useState<MomentosCriticosArtifact | null>(null);
+  const [editando, setEditando] = useState<Pick<MomentosCriticosArtifact, 'id' | 'version'> | null>(null);
   const [readOnly, setReadOnly] = useState(false);
   const [editandoPor, setEditandoPor] = useState('');
   const [lockPending, setLockPending] = useState(false);
@@ -88,9 +90,22 @@ export function MomentosCriticosPage() {
   const editRequest = useRef(0);
   const isSaving = isCreating || isUpdating;
   const disabled = isSaving || lockPending || readOnly || editLock.lockLost;
-  const { confirmDiscard } = useUnsavedChanges(mostrarForm, { form, accionesInputs }, isSaving, editando?.id ?? 'new');
+  const { confirmDiscard, isDirty } = useUnsavedChanges(mostrarForm, { form, accionesInputs }, isSaving, editando?.id ?? 'new');
+
+  const draft = useFormDraft(`momentos:${proyectoId}`, { form, accionesInputs, editingId: editando?.id ?? '', version: editando?.version ?? 0 }, saved => {
+    setForm(saved.form); setAccionesInputs(saved.accionesInputs); setMostrarForm(true);
+    setEditando(saved.editingId ? { id: saved.editingId, version: saved.version } : null);
+    if (saved.editingId) {
+      const request = ++editRequest.current;
+      setLockPending(true);
+      void editLock.acquire(saved.editingId).then(acquired => { if (request === editRequest.current && !acquired) setReadOnly(true); }).catch(() => {
+        if (request === editRequest.current) { setReadOnly(true); notify.error('No se pudo recuperar el permiso de edición. Tu borrador sigue disponible.'); }
+      }).finally(() => { if (request === editRequest.current) setLockPending(false); });
+    }
+  }, { dirty: isDirty, enabled: mostrarForm && !disabled, onDiscard: resetForm });
 
   function resetForm() {
+    draft.clear();
     editRequest.current += 1;
     editLock.release();
     setForm(contenidoVacio());
@@ -301,6 +316,7 @@ export function MomentosCriticosPage() {
               )}
               {Object.keys(errores).length > 0 && (
                 <div id="mc-validation-errors" role="alert" className="error-text">
+      <FormDraftNotice draft={draft} />
                   <strong>Revisa los campos indicados:</strong>
                   <ul>
                     {Object.entries(errores).map(([path, mensaje]) => (

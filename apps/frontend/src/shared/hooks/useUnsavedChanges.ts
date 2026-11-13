@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useBlocker } from 'react-router-dom';
 import { useDiscardChanges } from './useDiscardChanges';
+import { useAuthStore } from '../../features/auth/store/useAuthStore';
 
 const DEFAULT_MESSAGE = 'Tienes cambios sin guardar. ¿Quieres salir de esta pantalla?';
 
@@ -10,14 +11,21 @@ const DEFAULT_MESSAGE = 'Tienes cambios sin guardar. ¿Quieres salir de esta pan
  */
 export function useUnsavedChanges(open: boolean, value: unknown, saving = false, identity?: string) {
   const guard = useDiscardChanges(open, value, saving, identity);
-  const active = guard.isDirty;
+  const ending = useAuthStore(s => s.sessionEnding);
+  const notice = useAuthStore(s => s.sessionNotice);
+  const active = guard.isDirty && !ending;
   const blocker = useBlocker(active);
 
   useEffect(() => {
     if (blocker.state !== 'blocked') return;
-    if (window.confirm(DEFAULT_MESSAGE)) blocker.proceed();
+    if (ending) { blocker.proceed(); return; }
+    if (notice) { blocker.reset(); return; }
+    if (window.confirm(DEFAULT_MESSAGE)) {
+      window.dispatchEvent(new Event('observatorio-ux-discard-route-drafts'));
+      blocker.proceed();
+    }
     else blocker.reset();
-  }, [blocker]);
+  }, [blocker, ending, notice]);
 
   useEffect(() => {
     if (!active) return;

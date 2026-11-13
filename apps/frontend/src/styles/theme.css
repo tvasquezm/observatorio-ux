@@ -2465,6 +2465,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .confirm-dialog::backdrop { background: rgba(8, 13, 24, .7); }
 .report-dialog { position: fixed; inset: 0; margin: auto; width: min(560px, calc(100% - 24px)); max-height: calc(100dvh - 24px); box-sizing: border-box; overflow-y: auto; padding: 28px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); color: var(--ink); box-shadow: 0 24px 100px #0005; }
 .report-dialog::backdrop { background: rgba(8, 13, 24, .72); }
+.report-dialog .session-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .report-brand { margin: -28px -28px 24px; padding: 22px 28px; background: linear-gradient(110deg, #152038, #263bc4); border-bottom: 3px solid #a7c51f; }
 .report-brand img { display: block; width: 212px; max-width: 100%; height: auto; }
 .report-dialog h2 { font-family: inherit; font-size: 1.75rem; font-weight: 700; line-height: 1.2; margin: 0 0 8px; text-wrap: balance; }

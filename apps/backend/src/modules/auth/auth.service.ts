@@ -564,7 +564,7 @@ export class AuthService {
     const ttl = this.sessionDuration('expiresIn', '1h');
     const configuredWindow = this.sessionDuration('refreshWindow', '10m');
     const window = configuredWindow < ttl ? configuredWindow : ttl / 3;
-    if (user.exp - now > window) return { renewed: false, session: { expiresAt: user.exp * 1000 } };
+    if (user.exp - now > window) return { renewed: false, session: { expiresAt: user.exp * 1000, refreshAt: (user.exp - window) * 1000 } };
     const exp = Math.min(now + ttl, end);
     const access_token = await this.signEvaluatorToken(user, user.sessionStart, exp);
     return { renewed: true, session: { expiresAt: exp * 1000 }, access_token };

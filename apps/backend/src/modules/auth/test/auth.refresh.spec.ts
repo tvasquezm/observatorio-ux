@@ -15,7 +15,7 @@ describe('Renovación de sesión del evaluador', () => {
   it('fuera de ventana no firma; vencido y tope absoluto rechazan', async () => {
     const sign = jest.spyOn(jwt, 'signAsync');
     const base = { ...user, actor: 'EVALUADOR' as const, rol: 'DOCENTE' as const, sessionStart: now(), exp: now() + 1800 };
-    expect(await service.refresh(base)).toEqual({ renewed: false, session: { expiresAt: base.exp * 1000 } });
+    expect(await service.refresh(base)).toEqual({ renewed: false, session: { expiresAt: base.exp * 1000, refreshAt: (base.exp - 600) * 1000 } });
     expect(sign).not.toHaveBeenCalled();
     await expect(service.refresh({ ...base, exp: now() - 1 })).rejects.toMatchObject({ status: 401 });
     await expect(service.refresh({ ...base, sessionStart: now() - 43200 })).rejects.toMatchObject({ status: 401 });

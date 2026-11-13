@@ -1,3 +1,5 @@
+import { useFormDraft } from '../shared/hooks/useFormDraft';
+import { FormDraftNotice } from '../shared/components/FormDraftNotice';
 import { OptionalTag } from '../shared/components/OptionalTag';
 import React, { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
@@ -138,13 +140,18 @@ export function JourneyMapPage() {
   const [mostrarForm, setMostrarForm] = useState(false);
   const [pasoActual, setPasoActual] = useState(0);
 
-  const { confirmDiscard } = useUnsavedChanges(
+  const { confirmDiscard, isDirty } = useUnsavedChanges(
     mostrarForm,
     { form, listInputs, evidenciaInput },
     isCreating,
   );
 
+  const draft = useFormDraft(`journey:${proyectoId}`, { form, listInputs, evidenciaInput }, saved => {
+    setForm(saved.form); setListInputs(saved.listInputs); setEvidenciaInput(saved.evidenciaInput); setMostrarForm(true);
+  }, { dirty: isDirty, enabled: mostrarForm, onDiscard: resetForm });
+
   function resetForm() {
+    draft.clear();
     setForm(contenidoVacio());
     setListInputs(Array.from({ length: MIN_FASES }, vacioListInputs));
     setEvidenciaInput('');
@@ -337,6 +344,7 @@ export function JourneyMapPage() {
                     ayuda: 'Define quién recorre el camino.',
                     contenido: (
                       <div className="tv-pasos-campos">
+      <FormDraftNotice draft={draft} />
                         <input
                           placeholder="Nombre del perfil de usuario *"
                           aria-label="Nombre del perfil de usuario"
