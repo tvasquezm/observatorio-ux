@@ -141,3 +141,9 @@
 - Archivos: shared/content, TechniqueHelp, técnica-pdf, vistas de gráficos, diálogo/generador de resultados y pruebas; cierre/evidencias F4.
 - Decisiones: modal nativo porque resultados no tenía uno; PDF fijo; copia de listas para evitar mutación por pdfmake; otros exportadores conservados.
 - Pendiente: revisión humana de textos. Ocho PDF de muestra descargados y 14 páginas renderizadas; Normal y Huge idénticos al renderizar.
+
+## 2026-11-12 — Plan de usabilidad: F5
+- Hecho: estado guardado/error, caché de salas, protección de formularios y diagnóstico; 765 pruebas frontend y 26 del servicio de salas, ambos builds verdes.
+- Archivos: páginas/hooks/API de salas, SalaProjectCreate, CardSortingPage/Entry, DTO/tests de salas y documentos de cierre/evidencia.
+- Decisiones: un bloqueo de router por sala; se conserva control de permisos del servidor; null retira el límite ya nullable.
+- Pendiente: validar diagnóstico con registros reales; renovación y vencimiento se mantienen para F8/F10.

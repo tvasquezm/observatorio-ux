@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **salas y formularios (F5):** configuración resincronizada con el servidor, guardado/error visibles, avisos de cambios pendientes y eliminación del límite de integrantes al dejarlo vacío.
+
 * **ayuda y resultados (F4):** explicaciones de las cinco técnicas en pantalla/PDF, ayudas junto a gráficos y exportación configurable de card sorting con tamaño de texto propio.
 
 * **usabilidad (F3):** salas con color e inicial, Miembros y Comentarios más visibles, campos opcionales identificados e ingreso de tarjetas con etiquetas explícitas.
