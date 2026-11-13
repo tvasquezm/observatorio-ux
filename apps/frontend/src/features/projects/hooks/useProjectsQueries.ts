@@ -19,6 +19,7 @@ import {
   type WhitelistEntry,
   type WhitelistEntradaInput,
 } from '../api/projects.api';
+import { salasKeys } from '../../salas/hooks/useSalasQueries';
 import { notify } from '../../../shared/api/toast';
 
 export const projectsKeys = {
@@ -53,8 +54,9 @@ export function useCreateProject() {
   return useMutation({
     mutationFn: ({ nombre, descripcion, salaId }: { nombre: string; descripcion?: string; salaId?: string }) =>
       createProject(nombre, descripcion, salaId),
-    onSuccess: () => {
+    onSuccess: (_project, variables) => {
       qc.invalidateQueries({ queryKey: projectsKeys.all });
+      if (variables.salaId) qc.invalidateQueries({ queryKey: salasKeys.proyectos(variables.salaId) });
       notify.success('Proyecto creado.');
     },
     onError: (err) => {

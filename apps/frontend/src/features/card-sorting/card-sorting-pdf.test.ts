@@ -24,7 +24,7 @@ describe('buildEstudioPdfDefinition', () => {
     const pdf = JSON.stringify(buildEstudioPdfDefinition(data, [tabla({})], 'Tarjetas', fecha));
     expect(pdf).toContain('RESULTADOS DE CARD SORTING');
     expect(pdf).toContain('Estudio demo');
-    expect(pdf).toContain('Estudio cerrado');
+    expect(pdf).toContain('Card sorting cerrado');
     expect(pdf).toContain('PARTICIPANTES');
     expect(pdf).toContain('Becas');
   });
@@ -53,5 +53,31 @@ describe('buildEstudioPdfDefinition', () => {
   it('varias vistas: cada una empieza en página nueva', () => {
     const pdf = JSON.stringify(buildEstudioPdfDefinition(data, [tabla({}), tabla({ titulo: 'Otra' })], 'TODAS', fecha));
     expect(pdf.match(/"pageBreak":"before"/g)).toHaveLength(2);
+  });
+});
+
+describe('opciones del PDF de resultados', () => {
+  it('omite portada y resumen cuando no están seleccionados', () => {
+    const pdf = buildEstudioPdfDefinition(data, [tabla({})], 'x', fecha, undefined, { resumen: false });
+    expect(JSON.stringify(pdf.content)).not.toContain('RESULTADOS DE CARD SORTING');
+    expect(JSON.stringify(pdf.content)).toContain('Tarjetas');
+  });
+  it('puede continuar secciones de la misma orientación sin saltos', () => {
+    const pdf = buildEstudioPdfDefinition(data, [tabla({}), tabla({ titulo: 'Otra' })], 'x', fecha, undefined, { separarSecciones: false });
+    expect(JSON.stringify(pdf.content)).not.toContain('"pageBreak":"before"');
+  });
+  it('el blanco y negro convierte colores de tablas y cabecera sin cambiar el texto', () => {
+    const pdf = buildEstudioPdfDefinition(data, [tabla({})], 'x', fecha, undefined, { color: false });
+    const header = typeof pdf.header === 'function' ? pdf.header(1, 2, { width: 595, height: 842, orientation: 'portrait' }) : pdf.header;
+    const serializado = JSON.stringify([pdf.content, pdf.styles, header]);
+    const colores = serializado.match(/#[a-fA-F0-9]{6}/g) ?? [];
+    expect(colores.length).toBeGreaterThan(0);
+    expect(colores.every(c => c.slice(1, 3) === c.slice(3, 5) && c.slice(3, 5) === c.slice(5, 7))).toBe(true);
+  });
+  it('el tamaño de texto del PDF no depende de la escala de la aplicación', () => {
+    const normal = buildEstudioPdfDefinition(data, [tabla({})], 'x', fecha);
+    document.documentElement.dataset.fontSize = 'huge';
+    expect(JSON.stringify(buildEstudioPdfDefinition(data, [tabla({})], 'x', fecha))).toBe(JSON.stringify(normal));
+    delete document.documentElement.dataset.fontSize;
   });
 });

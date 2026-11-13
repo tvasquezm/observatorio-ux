@@ -20,11 +20,11 @@ export function CardSortingProgress({ steps, problem }: Props) {
   const ready = problem === null;
 
   return (
-    <aside className={`panel cs-progress${ready ? ' ready' : ''}`} aria-label="Avance del estudio">
+    <aside className={`panel cs-progress${ready ? ' ready' : ''}`} aria-label="Avance del card sorting">
       <div className="cs-progress-head">
-        <AnilloAvance hecho={done} total={required.length} etiqueta="pasos del estudio" tamano={48} />
+        <AnilloAvance hecho={done} total={required.length} etiqueta="pasos del card sorting" tamano={48} />
         <div className="cs-progress-titulo">
-          <h2>Tu estudio</h2>
+          <h2>Tu card sorting</h2>
           <span data-testid="cs-progress-count">{done} de {required.length}</span>
         </div>
       </div>

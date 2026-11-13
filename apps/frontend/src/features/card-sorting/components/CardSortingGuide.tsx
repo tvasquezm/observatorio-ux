@@ -10,12 +10,12 @@ const STEPS: GuideStep[] = [
   {
     title: 'Inventario de contenidos',
     text: 'Arma una lista con las secciones principales y subsecciones que componen tu proyecto.',
-    where: 'Es el trabajo previo a crear el estudio.',
+    where: 'Es el trabajo previo a crear el card sorting.',
   },
   {
     title: 'Definir el usuario para el test',
     text: 'Usa un usuario real. Puede participar de forma individual o en grupo de 3 personas.',
-    where: 'Comparte el enlace del estudio. Para un grupo de 3, invita a las 3 personas por separado: cada una hace su propia clasificación y cuenta como un participante. No hay sesión conjunta.',
+    where: 'Comparte el enlace del card sorting. Para un grupo de 3, invita a las 3 personas por separado: cada una hace su propia clasificación y cuenta como un participante. No hay sesión conjunta.',
   },
   {
     title: 'Crear las tarjetas',
@@ -30,12 +30,12 @@ const STEPS: GuideStep[] = [
   {
     title: 'Realizar las pruebas',
     text: 'Cada usuario recibe las tarjetas y las agrupa, jerarquiza y nombra como le parezca más apropiado.',
-    where: 'Prueba el workspace antes de compartir. En estudios abiertos o híbridos el participante puede jerarquizar en 2 niveles (una categoría dentro de otra); en cerrados solo usa las categorías dadas.',
+    where: 'Prueba el workspace antes de compartir. En card sorting abiertos o híbridos el participante puede jerarquizar en 2 niveles (una categoría dentro de otra); en cerrados solo usa las categorías dadas.',
   },
   {
     title: 'Hacer preguntas',
     text: 'Pregunta al participante para entender sus decisiones.',
-    where: 'Campo "Preguntas para el participante" al crear el estudio (hasta 5, opcionales). Las respuestas están en Resultados → "Respuestas".',
+    where: 'Campo "Preguntas para el participante" al crear el card sorting (hasta 5, opcionales). Las respuestas están en Resultados → "Respuestas".',
   },
   {
     title: 'Registrar la disposición final',

@@ -13,7 +13,7 @@ vi.mock('./ComentariosPanel', () => ({
 }));
 
 function abrir() {
-  const details = screen.getByText('Comentarios de Personas').closest('details') as HTMLDetailsElement;
+  const details = screen.getByText('Comentarios').closest('details') as HTMLDetailsElement;
   details.open = true;
   fireEvent(details, new Event('toggle'));
 }
@@ -24,6 +24,7 @@ describe('ComentariosTecnica', () => {
     render(<MemoryRouter><ComentariosTecnica proyectoId="p1" tecnica="personas" /></MemoryRouter>);
     expect(screen.queryByTestId('panel')).not.toBeInTheDocument();
     expect(panel).not.toHaveBeenCalled();
+    expect(screen.getByText('Comentarios').closest('summary')).toHaveClass('secondary');
   });
 
   it('abierto monta el panel filtrado y publicando en la tecnica', () => {
@@ -36,7 +37,7 @@ describe('ComentariosTecnica', () => {
 
   it('enlaza a Comentarios filtrado por la tecnica', () => {
     render(<MemoryRouter><ComentariosTecnica proyectoId="p1" tecnica="journey-map" /></MemoryRouter>);
-    const details = screen.getByText('Comentarios de Journey Map').closest('details') as HTMLDetailsElement;
+    const details = screen.getByText('Comentarios').closest('details') as HTMLDetailsElement;
     details.open = true;
     fireEvent(details, new Event('toggle'));
     expect(screen.getByRole('link', { name: 'Ver en Comentarios' })).toHaveAttribute(

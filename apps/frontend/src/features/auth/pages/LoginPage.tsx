@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useLogin } from '../hooks/useAuthMutations';
 import { useAuthStore } from '../store/useAuthStore';
+import { getReturnTo } from '../../../shared/auth/session-expired';
 
 export function LoginPage() {
   const [email, setEmail] = useState('');
@@ -11,7 +12,7 @@ export function LoginPage() {
   const { mutate, isPending, error } = useLogin();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
-  if (isAuthenticated) return <Navigate to="/" replace />;
+  if (isAuthenticated) return <Navigate to={getReturnTo()} replace />;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -30,7 +31,7 @@ export function LoginPage() {
           {...{ fetchpriority: 'high' }}
         />
         <h1>Ingresa a tu cuenta</h1>
-        <p>Accede para gestionar tus proyectos de investigación UX.</p>
+        <p>Ingresa para trabajar en tus proyectos de investigación.</p>
 
         <form onSubmit={handleSubmit}>
           <label className="field">

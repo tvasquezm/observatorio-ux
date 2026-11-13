@@ -4,7 +4,29 @@ All notable changes to this project will be documented in this file. See [commit
 
 ## Unreleased
 
+* **CI:** Joi 18.3.1 elimina la alerta alta GHSA-4528-x5fx-h6hg; selector E2E alineado con Nombre del card sorting.
+
 ### Features
+
+* **textos (F7):** recortes aprobados de acceso, ayuda y reportes; auditoría y protocolo de prueba con personas.
+
+* **sesión frontend (F10):** renovación por actividad, aviso que permite volver a guardar, retorno a la ruta y recuperación de borradores por usuario.
+
+* **sesión backend (F8):** renovación acotada del evaluador, expiración informada por servidor, mismo CSRF/cookie y límite de 10 solicitudes por minuto.
+
+* **heurística (F6):** problemas y aciertos por criterio, no aplica separado y acceso explícito al informe; sin modo express.
+
+* **salas y formularios (F5):** configuración resincronizada con el servidor, guardado/error visibles, avisos de cambios pendientes y eliminación del límite de integrantes al dejarlo vacío.
+
+* **ayuda y resultados (F4):** explicaciones de las cinco técnicas en pantalla/PDF, ayudas junto a gráficos y exportación configurable de card sorting con tamaño de texto propio.
+
+* **usabilidad (F3):** salas con color e inicial, Miembros y Comentarios más visibles, campos opcionales identificados e ingreso de tarjetas con etiquetas explícitas.
+
+* **proyectos (F2):** creación desde salas con formulario compartido y sala obligatoria en la interfaz; jerarquía y terminología más claras, sin cambiar el contrato del backend.
+
+* **accesibilidad (F9):** ayudas e iconos mayores, grises y bordes legibles, áreas de 44 px y mensajes visibles para los estados de tarjetas.
+
+* **accesibilidad (F1):** el texto del anillo de avance respeta la escala de fuente; Preferencias mantiene accesibles sus controles a 150 % en móvil.
 
 * **personas, momentos-criticos:** si otro miembro del equipo está editando, quien intenta editar ve "Editando: nombre"
   (el 409 del bloqueo ahora incluye el nombre; solo lo ve quien tiene acceso al proyecto). Sin edición simultánea.

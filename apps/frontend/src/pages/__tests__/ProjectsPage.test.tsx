@@ -4,12 +4,14 @@ import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProjectsPage } from '../ProjectsPage';
 import { ConfirmDialog } from '../../shared/components/ui/ConfirmDialog';
+import { useAuthStore } from '../../features/auth/store/useAuthStore';
 
 const mocks = vi.hoisted(() => ({
   create: vi.fn(),
   update: vi.fn(),
   refetch: vi.fn(),
   query: { data: [] as unknown[], isLoading: false, isError: false },
+  salas: [{ id: 's1', nombre: 'Sala propia', profesor: { id: 'u1' }, permiteCreacionProyectos: true }],
 }));
 
 vi.mock('../../features/projects/hooks/useProjectsQueries', () => ({
@@ -19,15 +21,31 @@ vi.mock('../../features/projects/hooks/useProjectsQueries', () => ({
 }));
 
 vi.mock('../../features/salas/hooks/useSalasQueries', () => ({
-  useSalas: () => ({ data: [] }),
+  useSalas: () => ({ data: mocks.salas }),
 }));
 
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.query = { data: [], isLoading: false, isError: false };
+  mocks.salas = [{ id: 's1', nombre: 'Sala propia', profesor: { id: 'u1' }, permiteCreacionProyectos: true }];
+  useAuthStore.setState({ user: { id: 'u1', nombre: 'Ana', email: 'ana@utem.cl', rol: 'DOCENTE' }, perspectiveRole: 'DOCENTE' });
 });
 
 describe('ProjectsPage — creación centralizada', () => {
+  it('exige una sala también al docente', async () => {
+    render(<RouterProvider router={createMemoryRouter([{ path: '*', element: <ProjectsPage /> }])} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Nuevo proyecto' }));
+    expect(screen.getByLabelText('Sala')).toBeRequired();
+    await userEvent.type(screen.getByLabelText('Nombre del proyecto'), 'Proyecto');
+    await userEvent.click(screen.getByRole('button', { name: 'Crear' }));
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+  it('muestra cómo conseguir una sala cuando no hay opciones', () => {
+    mocks.salas = [];
+    render(<RouterProvider router={createMemoryRouter([{ path: '*', element: <ProjectsPage /> }])} />);
+    expect(screen.getByRole('button', { name: 'Nuevo proyecto' })).toBeDisabled();
+    expect(screen.getByRole('link', { name: 'Ver salas' })).toHaveAttribute('href', '/salas');
+  });
   it('diferencia un fallo de carga de una lista vacía y permite reintentar', async () => {
     mocks.query.isError = true;
     render(<RouterProvider router={createMemoryRouter([{ path: '*', element: <ProjectsPage /> }])} />);
@@ -74,10 +92,11 @@ describe('ProjectsPage — creación centralizada', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Nuevo proyecto' }));
     await userEvent.type(screen.getByLabelText('Nombre del proyecto'), 'Investigación móvil');
     await userEvent.type(screen.getByLabelText('Descripción del proyecto (opcional)'), 'Flujo de matrícula');
+    await userEvent.selectOptions(screen.getByLabelText('Sala'), 's1');
     await userEvent.click(screen.getByRole('button', { name: 'Crear' }));
 
     expect(mocks.create).toHaveBeenCalledWith(
-      { nombre: 'Investigación móvil', descripcion: 'Flujo de matrícula' },
+      { nombre: 'Investigación móvil', descripcion: 'Flujo de matrícula', salaId: 's1' },
       expect.objectContaining({ onSuccess: expect.any(Function) }),
     );
   });

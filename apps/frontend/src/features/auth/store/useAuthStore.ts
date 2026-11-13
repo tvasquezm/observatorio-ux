@@ -32,7 +32,12 @@ interface AuthState {
   isAuthenticated: boolean;
   /** true mientras checkSession() no resolvió al menos una vez. */
   isChecking: boolean;
-  setSession: (user: EvaluatorUser) => void;
+  expiresAt: number | null;
+  sessionEnding: boolean;
+  sessionNotice: boolean;
+  setExpiresAt: (value: number) => void;
+  expireSession: () => void;
+  setSession: (user: EvaluatorUser, expiresAt?: number) => void;
   setPerspective: (role: EvaluatorRole) => void;
   logout: () => void;
   /** Valida la sesión real contra /auth/me y reutiliza la misma promesa
@@ -73,11 +78,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // se confirma con el backend.
   isAuthenticated: !!cachedUser,
   isChecking: true,
+  expiresAt: null,
+  sessionEnding: false,
+  sessionNotice: false,
+  setExpiresAt: expiresAt => set({ expiresAt }),
+  expireSession: () => {
+    localStorage.removeItem(USER_KEY);
+    clearStoredPerspective(sessionStorage);
+    set({ user: null, perspectiveRole: null, isAuthenticated: false, isChecking: false, expiresAt: null, sessionEnding: true, sessionNotice: false });
+  },
 
-  setSession: (user) => {
+  setSession: (user, expiresAt) => {
     localStorage.setItem(USER_KEY, JSON.stringify(user));
     storePerspective(user, user.rol, sessionStorage);
-    set({ user, perspectiveRole: user.rol, isAuthenticated: true, isChecking: false });
+    set({ user, perspectiveRole: user.rol, isAuthenticated: true, isChecking: false, expiresAt: expiresAt ?? null, sessionEnding: false, sessionNotice: false });
   },
 
   setPerspective: (role) => {
@@ -89,9 +103,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: () => {
+    window.dispatchEvent(new Event('observatorio-ux-manual-logout'));
+    const userId = get().user?.id;
+    for (const key of Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index)!)) {
+      if (!key.startsWith('observatorio-ux-draft:')) continue;
+      try { if (JSON.parse(localStorage.getItem(key)!).userId === userId) localStorage.removeItem(key); } catch { localStorage.removeItem(key); }
+    }
+    sessionStorage.removeItem('observatorio-ux-returnTo');
     localStorage.removeItem(USER_KEY);
     clearStoredPerspective(sessionStorage);
-    set({ user: null, perspectiveRole: null, isAuthenticated: false, isChecking: false });
+    set({ user: null, perspectiveRole: null, isAuthenticated: false, isChecking: false, expiresAt: null, sessionEnding: true, sessionNotice: false });
     // Best-effort: limpia las cookies httpOnly en el backend. No se espera
     // la respuesta — el estado local ya cambió y ProtectedRoute ya va a
     // redirigir a /login; si esta llamada falla (ej. red caída), las
@@ -105,13 +126,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     sessionCheckPromise = (async () => {
       try {
-        const { user } = await fetchMe();
+        const { user, session } = await fetchMe();
         localStorage.setItem(USER_KEY, JSON.stringify(user));
         set({
           user,
           perspectiveRole: readStoredPerspective(user, sessionStorage),
           isAuthenticated: true,
           isChecking: false,
+          expiresAt: session?.expiresAt ?? null,
+          sessionEnding: false,
         });
       } catch {
         // 401 (cookie ausente/expirada/inválida) o error de red: no hay

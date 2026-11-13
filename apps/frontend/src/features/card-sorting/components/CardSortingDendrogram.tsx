@@ -1,3 +1,4 @@
+import { TECNICAS_INFO } from '../../../shared/content/tecnicas-info';
 import { useMemo } from 'react';
 import { InfoTip } from '../../../shared/components/ui/InfoTip';
 import { clusterPromedio, fusiones, type NodoCluster } from '../card-sorting-cluster';
@@ -54,10 +55,7 @@ export function CardSortingDendrogram({ tarjetas, similitud }: { tarjetas: strin
     <div className="cs-dendrogram">
       <div className="cs-view-head">
         <h3>Árbol de agrupamiento</h3>
-        <InfoTip label="Ayuda: cómo leer el dendrograma" align="start">
-          Agrupamiento jerárquico por enlace promedio sobre la similitud entre tarjetas. Cuanto más a la izquierda se
-          unen dos grupos, más veces los participantes los agruparon juntos.
-        </InfoTip>
+        <InfoTip label="Ayuda: cómo leer el dendrograma" align="start" visibleLabel="¿Cómo leer esto?">{TECNICAS_INFO['card-sorting'].ayudaGraficos.dendrogram}</InfoTip>
       </div>
       <div className="cs-table-wrap">
         <svg

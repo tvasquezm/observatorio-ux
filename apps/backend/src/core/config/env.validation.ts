@@ -1,4 +1,9 @@
 import Joi from 'joi';
+import { durationSeconds } from './session-duration.js';
+
+const duration = () => Joi.string().custom((value, helpers) => {
+  try { durationSeconds(value); return value; } catch { return helpers.error('any.invalid'); }
+});
 
 export const envValidationSchema = Joi.object({
   // Antes tenía `.default('development')`. Eso significa que si en
@@ -17,7 +22,9 @@ export const envValidationSchema = Joi.object({
     then: Joi.string().min(32),
     otherwise: Joi.string().min(16),
   }).required(),
-  JWT_EXPIRES_IN: Joi.string().default('1h'),
+  JWT_EXPIRES_IN: duration().default('1h'),
+  JWT_MAX_SESSION: duration().default('12h'),
+  JWT_REFRESH_WINDOW: duration().default('10m'),
   // Distinto de JWT_SECRET a propósito: evaluadorToken y participanteToken
   // deben poder validarse por separado (Regla de negocio: Segregación de Auth).
   JWT_PARTICIPANTE_SECRET: Joi.string()

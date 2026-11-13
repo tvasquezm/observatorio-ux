@@ -1,3 +1,5 @@
+import { validateSync } from 'class-validator';
+import { UpdateSalaDto } from '../dto/sala.dto.js';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '../../../core/database/prisma.service.js';
@@ -436,4 +438,33 @@ describe('SalasService', () => {
       expect(prisma.proyectoMiembro.createMany).not.toHaveBeenCalled();
     });
   });
+  it.each([
+    { user: docente, allowed: true },
+    { user: admin, allowed: true },
+    { user: { ...docente, id: 'otro-docente' }, allowed: false },
+    { user: estudiante, allowed: false },
+  ])('persistencia del permiso de proyectos para $user.rol ($allowed)', async ({ user, allowed }) => {
+    prisma.sala.findUnique.mockResolvedValue({ id: 'sala-1', profesorId: docente.id, deletedAt: null });
+    prisma.sala.update.mockResolvedValue({ id: 'sala-1', permiteCreacionProyectos: false });
+    const result = service.update('sala-1', { permiteCreacionProyectos: false }, user);
+    if (allowed) {
+      await expect(result).resolves.toMatchObject({ permiteCreacionProyectos: false });
+      expect(prisma.sala.update).toHaveBeenCalledWith({ where: { id: 'sala-1' }, data: { permiteCreacionProyectos: false } });
+    } else {
+      await expect(result).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prisma.sala.update).not.toHaveBeenCalled();
+    }
+  });
+
+  it('acepta null para quitar el límite sin relajar la validación de números', async () => {
+    expect(validateSync(Object.assign(new UpdateSalaDto(), { limiteIntegrantesEquipo: null }))).toHaveLength(0);
+    for (const value of [0, -1, 1.5, NaN]) {
+      expect(validateSync(Object.assign(new UpdateSalaDto(), { limiteIntegrantesEquipo: value }))).not.toHaveLength(0);
+    }
+    prisma.sala.findUnique.mockResolvedValue({ id: 'sala-1', profesorId: docente.id, deletedAt: null });
+    prisma.sala.update.mockResolvedValue({ limiteIntegrantesEquipo: null });
+    await service.update('sala-1', { limiteIntegrantesEquipo: null }, docente);
+    expect(prisma.sala.update).toHaveBeenCalledWith({ where: { id: 'sala-1' }, data: { limiteIntegrantesEquipo: null } });
+  });
+
 });

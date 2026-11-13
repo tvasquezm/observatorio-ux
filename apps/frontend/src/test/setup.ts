@@ -1,5 +1,12 @@
 // apps/frontend/src/test/setup.ts
 import '@testing-library/jest-dom/vitest';
+import { beforeEach } from 'vitest';
+
+beforeEach(() => {
+  for (const key of Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index)!)) {
+    if (key.startsWith('observatorio-ux-draft:')) localStorage.removeItem(key);
+  }
+});
 
 // jsdom no implementa el ciclo modal nativo; los flujos de foco se verifican también en Chromium.
 HTMLDialogElement.prototype.showModal = function () { this.open = true; };

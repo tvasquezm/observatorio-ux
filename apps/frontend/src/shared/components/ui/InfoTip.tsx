@@ -6,9 +6,10 @@ interface InfoTipProps {
   children: ReactNode;
   className?: string;
   align?: 'start' | 'end';
+  visibleLabel?: string;
 }
 
-export function InfoTip({ label, children, className, align = 'end' }: InfoTipProps) {
+export function InfoTip({ label, children, className, align = 'end', visibleLabel }: InfoTipProps) {
   const [open, setOpen] = useState(false);
   const [pinned, setPinned] = useState(false);
   const rootRef = useRef<HTMLSpanElement>(null);
@@ -55,7 +56,9 @@ export function InfoTip({ label, children, className, align = 'end' }: InfoTipPr
       <button
         type="button"
         className="info-tip-btn"
+        data-has-label={visibleLabel ? true : undefined}
         aria-label={label}
+        title={label}
         aria-expanded={open}
         aria-controls={panelId}
         onClick={toggle}
@@ -64,7 +67,8 @@ export function InfoTip({ label, children, className, align = 'end' }: InfoTipPr
           if (!pinned) setOpen(false);
         }}
       >
-        <Icon name="info" size={16} />
+        <Icon name="info" size={20} />
+        {visibleLabel && <span>{visibleLabel}</span>}
       </button>
       <span id={panelId} role="note" className={`info-tip-panel${align === 'start' ? ' start' : ''}${open ? ' open' : ''}`}>
         {children}

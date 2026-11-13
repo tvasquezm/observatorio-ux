@@ -7,6 +7,7 @@ import { canSwitchPerspective, canViewAnalytics, canViewSalas, resolvePerspectiv
 import { ProfilePerspectiveSwitcher } from '../shared/components/ProfilePerspectiveSwitcher';
 import { PerspectivePreviewNotice } from '../shared/components/PerspectivePreviewNotice';
 import { ChangePasswordForm } from '../features/auth/components/ChangePasswordForm';
+import { SessionExpiryDialog } from '../features/auth/components/SessionExpiryDialog';
 const ExportReportDialog = lazy(() => import('../features/reports/ExportReportDialog').then((module) => ({ default: module.ExportReportDialog })));
 
 const NAV_ITEMS = [
@@ -36,6 +37,7 @@ const CRUMB_LABELS: Record<string, string> = {
 };
 
 export function AppLayout() {
+  useEffect(() => { sessionStorage.removeItem('observatorio-ux-returnTo'); }, []);
   const { user, perspectiveRole, setPerspective, logout } = useAuthStore();
   const location = useLocation();
   const navigate = useNavigate();
@@ -117,6 +119,7 @@ export function AppLayout() {
 
   return (
     <div className={`app${sidebarCollapsed ? ' side-collapsed' : ''}`} data-perspective={activeRole?.toLowerCase()}>
+      <SessionExpiryDialog />
       <a className="skip-link" href="#main-content">Saltar al contenido</a>
       <aside ref={sidebarRef} className="side" aria-label="Navegación principal" onKeyDown={event => {
         if (event.key === 'Escape') { setSidebarCollapsed(true); sidebarRef.current?.querySelector<HTMLButtonElement>('.sidebar-toggle')?.focus(); }

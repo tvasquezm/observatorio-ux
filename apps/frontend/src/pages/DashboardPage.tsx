@@ -1,3 +1,4 @@
+import { TECNICAS_INFO } from '../shared/content/tecnicas-info';
 // apps/frontend/src/pages/DashboardPage.tsx
 
 import { useEffect, useState } from 'react';
@@ -10,11 +11,11 @@ import { PERSPECTIVE_LABELS, resolvePerspective } from '../shared/auth/perspecti
 const DOT_COLORS = ['blue', 'green', 'orange'] as const;
 
 const TECHNIQUES = [
-  { to: 'personas', label: 'Personas', icon: '◌', desc: 'Necesidades, motivaciones y escenarios reales', cls: 'c2' },
-  { to: 'journey-map', label: 'Journey Map', icon: '⌁', desc: 'Acciones, emociones y oportunidades por etapa', cls: 'c4' },
-  { to: 'momentos-criticos', label: 'Momentos críticos', icon: '✚', desc: 'Impacto, frecuencia y priorización cualitativa', cls: 'c5' },
-  { to: 'card-sorting', label: 'Card Sorting', icon: '▦', desc: 'Agrupaciones, categorías y nivel de consenso', cls: 'c1' },
-  { to: 'evaluacion-heuristica', label: 'Evaluación heurística', icon: '✦', desc: 'Revisa un sitio con preguntas y anota qué mejorar', cls: 'c3' },
+  { to: 'personas', label: 'Personas', icon: '◌', cls: 'c2' },
+  { to: 'journey-map', label: 'Journey Map', icon: '⌁', cls: 'c4' },
+  { to: 'momentos-criticos', label: 'Momentos críticos', icon: '✚', cls: 'c5' },
+  { to: 'card-sorting', label: 'Card Sorting', icon: '▦', cls: 'c1' },
+  { to: 'evaluacion-heuristica', label: 'Evaluación heurística', icon: '✦', cls: 'c3' },
 ] as const;
 
 function fechaHoy() {
@@ -49,7 +50,7 @@ export function DashboardPage() {
           <h1>Un mapa claro para decidir mejor.</h1>
           <p>
             {activo
-              ? <>Centraliza la evidencia de <b>{activo.nombre}</b> y conecta cada técnica con una decisión de diseño.</>
+              ? <>Reúne los resultados de <b>{activo.nombre}</b> y úsalos para decidir mejoras de diseño.</>
               : total > 0 ? 'Elige el proyecto en el que vas a trabajar antes de abrir una técnica.' : 'Crea tu primer proyecto para comenzar a centralizar la evidencia de investigación.'}
           </p>
         </div>
@@ -62,6 +63,11 @@ export function DashboardPage() {
         <div className="welcome-actions">
           <Link to="/proyectos" className="secondary">Ver proyectos</Link>
         </div>
+      </section>
+
+      <section className="panel" aria-label="Cómo se organiza el trabajo">
+        <h2>Sala → Proyecto → Técnica</h2>
+        <p>La sala reúne a tu curso. Cada proyecto contiene una investigación. Dentro del proyecto eliges las técnicas que necesitas.</p>
       </section>
 
       <section className="panel active-project" aria-label="Proyecto de trabajo">
@@ -112,7 +118,7 @@ export function DashboardPage() {
           >
             <span className="tech-glyph" aria-hidden="true">{t.icon}</span>
             <h3>{t.label}</h3>
-            <p>{t.desc}</p>
+            <p>{TECNICAS_INFO[t.to].descripcionCorta}</p>
             <small>{activo ? 'Abrir técnica →' : 'Elegir proyecto →'}</small>
           </Link>
         ))}

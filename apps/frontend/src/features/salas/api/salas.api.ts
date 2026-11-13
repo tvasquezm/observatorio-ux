@@ -36,7 +36,7 @@ export interface CreateSalaDto {
 
 export type UpdateSalaDto = Partial<CreateSalaDto> & {
   permiteCreacionEquipos?: boolean;
-  limiteIntegrantesEquipo?: number;
+  limiteIntegrantesEquipo?: number | null;
   permiteCreacionProyectos?: boolean;
 };
 

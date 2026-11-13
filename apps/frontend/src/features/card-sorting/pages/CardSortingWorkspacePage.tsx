@@ -43,13 +43,13 @@ export function CardSortingWorkspacePage() {
       { estudioId: session.id, cerrado: !session.cerrado },
       {
         onSuccess: (updated) => {
-          notify.success(updated.cerrado ? 'Estudio cerrado.' : 'Estudio reabierto.');
+          notify.success(updated.cerrado ? 'Card sorting cerrado.' : 'Card sorting reabierto.');
         },
       },
     );
   }
 
-  if (sessionQuery.isLoading) return <div className="panel">Cargando estudio…</div>;
+  if (sessionQuery.isLoading) return <div className="panel">Cargando card sorting…</div>;
 
   if (sessionQuery.error || !session) {
     return (
@@ -58,7 +58,7 @@ export function CardSortingWorkspacePage() {
         <p role="alert" className="error-text">
           {sessionQuery.error instanceof Error
             ? sessionQuery.error.message
-            : 'El estudio no existe o no tienes acceso.'}
+            : 'El card sorting no existe o no tienes acceso.'}
         </p>
         <button type="button" className="secondary" onClick={() => navigate(-1)}>Volver</button>
       </section>
@@ -78,13 +78,13 @@ export function CardSortingWorkspacePage() {
           className="secondary button-like"
           to={`/proyectos/${session.proyectoId}/card-sorting`}
         >
-          ← Todos los estudios
+          ← Todos los card sorting
         </Link>
       </header>
 
       <section className="panel cs-share-bar">
         <div className="cs-share-copy">
-          <strong>{session.cerrado ? 'El estudio está cerrado' : 'El estudio recibe respuestas'}</strong>
+          <strong>{session.cerrado ? 'El card sorting está cerrado' : 'El card sorting recibe respuestas'}</strong>
           {canManageStudy && <details className="cs-help"><summary>Ver enlace</summary><code>{participantLink}</code></details>}
         </div>
         <div className="cs-share-actions">
@@ -102,8 +102,8 @@ export function CardSortingWorkspacePage() {
                 {closeStudy.isPending
                   ? 'Guardando…'
                   : session.cerrado
-                    ? 'Reabrir estudio'
-                    : 'Cerrar estudio'}
+                    ? 'Reabrir card sorting'
+                    : 'Cerrar card sorting'}
               </button>
             </>
           )}

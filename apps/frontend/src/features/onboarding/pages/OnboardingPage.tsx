@@ -32,7 +32,7 @@ type Paso = 'acceso' | 'consentimiento' | 'listo' | 'uniendo';
 const PASOS: Array<{ id: 'acceso' | 'consentimiento' | 'listo'; label: string }> = [
   { id: 'acceso', label: 'Acceso' },
   { id: 'consentimiento', label: 'Consentimiento' },
-  { id: 'listo', label: 'Estudio' },
+  { id: 'listo', label: 'Card sorting' },
 ];
 
 export function OnboardingPage() {
@@ -228,7 +228,7 @@ export function OnboardingPage() {
           <div className="participant-step">
             <span className="eyebrow">Estudio de experiencia usuaria</span>
             <h1>Tu perspectiva ayuda a mejorar el diseño.</h1>
-            <p>No necesitas crear una cuenta ni compartir tu nombre o correo. El acceso es anónimo y toma solo unos segundos.</p>
+            <p>No necesitas una cuenta ni compartir tu nombre o correo. El acceso es anónimo.</p>
             <ul className="participant-trust-list">
               <li><strong>Sin registro</strong><span>No pediremos datos personales.</span></li>
               <li><strong>Participación voluntaria</strong><span>Puedes decidir si continuar.</span></li>
@@ -265,7 +265,7 @@ export function OnboardingPage() {
           <div className="participant-step participant-state">
             <div className="participant-loader" aria-hidden="true" />
             <h1>Preparando la actividad</h1>
-            <p>Estamos abriendo el estudio. Esto tomará un momento.</p>
+            <p>Estamos abriendo el card sorting. Esto tomará un momento.</p>
           </div>
         )}
 
@@ -273,7 +273,7 @@ export function OnboardingPage() {
           <div className="participant-step participant-state">
             <span className="participant-complete" aria-hidden="true">✓</span>
             <h1>Acceso confirmado</h1>
-            <p>Tu consentimiento quedó registrado. Ya puedes continuar con el estudio.</p>
+            <p>Tu consentimiento quedó registrado. Ya puedes continuar con el card sorting.</p>
           </div>
         )}
       </section>

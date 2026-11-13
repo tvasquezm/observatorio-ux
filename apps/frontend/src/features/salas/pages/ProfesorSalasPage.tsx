@@ -1,10 +1,12 @@
+import { OptionalTag } from '../../../shared/components/OptionalTag';
+import { SalaBadge } from '../components/SalaBadge';
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { getSalas, createSala, updateSala, softDeleteSala, type Sala } from '../api/salas.api';
 import { useAuthStore } from '../../auth/store/useAuthStore';
 import { resolvePerspective } from '../../../shared/auth/perspectivas';
 import { useConfirm } from '../../../shared/api/confirm';
-import { useDiscardChanges } from '../../../shared/hooks/useDiscardChanges';
+import { useUnsavedChanges } from '../../../shared/hooks/useUnsavedChanges';
 
 function fechaParaInput(fechaRaw?: string | null) {
   if (!fechaRaw) return '';
@@ -36,7 +38,7 @@ export const ProfesorSalasPage: React.FC = () => {
   const [fechaFin, setFechaFin] = useState('');
   const [instrucciones, setInstrucciones] = useState('');
   const [error, setError] = useState('');
-  const { confirmDiscard } = useDiscardChanges(isModalOpen, { nombre, periodo, fechaInicio, fechaFin, instrucciones }, saving, salaEditando?.id ?? 'new');
+  const { confirmDiscard } = useUnsavedChanges(isModalOpen, { nombre, periodo, fechaInicio, fechaFin, instrucciones }, saving, salaEditando?.id ?? 'new');
 
   useEffect(() => {
     cargarSalas();
@@ -238,12 +240,7 @@ export const ProfesorSalasPage: React.FC = () => {
                 key={sala.id}
                 className="sala-card"
               >
-                <div className="sala-card-icon" aria-hidden="true">
-                  <div>
-                    {sala.nombre.match(/\d+/)?.[0] ?? sala.nombre.charAt(0)}
-                  </div>
-                  <span>SALA</span>
-                </div>
+                <SalaBadge id={sala.id} nombre={sala.nombre} />
 
                 <div className="sala-card-content">
                   <div className="sala-card-heading">
@@ -402,7 +399,7 @@ export const ProfesorSalasPage: React.FC = () => {
             </div>
 
             <div className="sala-field">
-              <label htmlFor="sala-instrucciones">Instrucciones o descripción</label>
+              <label htmlFor="sala-instrucciones">Instrucciones o descripción<OptionalTag /></label>
               <textarea
                 id="sala-instrucciones"
                 disabled={saving}

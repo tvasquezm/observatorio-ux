@@ -1,3 +1,6 @@
+import { useFormDraft } from '../shared/hooks/useFormDraft';
+import { FormDraftNotice } from '../shared/components/FormDraftNotice';
+import { OptionalTag } from '../shared/components/OptionalTag';
 import React, { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import type { ProjectOutletContext } from '../layouts/ProjectDetailLayout';
@@ -137,13 +140,18 @@ export function JourneyMapPage() {
   const [mostrarForm, setMostrarForm] = useState(false);
   const [pasoActual, setPasoActual] = useState(0);
 
-  const { confirmDiscard } = useUnsavedChanges(
+  const { confirmDiscard, isDirty } = useUnsavedChanges(
     mostrarForm,
     { form, listInputs, evidenciaInput },
     isCreating,
   );
 
+  const draft = useFormDraft(`journey:${proyectoId}`, { form, listInputs, evidenciaInput }, saved => {
+    setForm(saved.form); setListInputs(saved.listInputs); setEvidenciaInput(saved.evidenciaInput); setMostrarForm(true);
+  }, { dirty: isDirty, enabled: mostrarForm, onDiscard: resetForm });
+
   function resetForm() {
+    draft.clear();
     setForm(contenidoVacio());
     setListInputs(Array.from({ length: MIN_FASES }, vacioListInputs));
     setEvidenciaInput('');
@@ -277,14 +285,14 @@ export function JourneyMapPage() {
 
   function camposDeFase(index: number, campos: (keyof Phase)[]) {
     return campos.map((campo) => (
+      <label className="field" key={campo}>{ETIQUETAS_CAMPOS[campo]}<OptionalTag />
       <input
-        key={campo}
         placeholder={`${ETIQUETAS_CAMPOS[campo]} (separados por coma)`}
         aria-label={`${ETIQUETAS_CAMPOS[campo]} fase ${index + 1}`}
         value={listInputs[index]?.[campo] ?? ''}
         onChange={(e) => actualizarLista(index, campo, e.target.value)}
         className="input-sm"
-      />
+      /></label>
     ));
   }
 
@@ -336,6 +344,7 @@ export function JourneyMapPage() {
                     ayuda: 'Define quién recorre el camino.',
                     contenido: (
                       <div className="tv-pasos-campos">
+      <FormDraftNotice draft={draft} />
                         <input
                           placeholder="Nombre del perfil de usuario *"
                           aria-label="Nombre del perfil de usuario"
@@ -379,7 +388,7 @@ export function JourneyMapPage() {
                     ayuda: 'Cuenta qué busca lograr la persona y qué situación da comienzo al recorrido.',
                     contenido: (
                       <div className="tv-pasos-campos tv-pasos-campos--una">
-                        <textarea
+                        <label className="field">Objetivo del recorrido<OptionalTag /><textarea
                           placeholder="Objetivo del recorrido: ¿qué busca lograr la persona?"
                           aria-label="Objetivo del recorrido"
                           value={form.objetivo ?? ''}
@@ -390,9 +399,9 @@ export function JourneyMapPage() {
                             })
                           }
                           className="textarea-sm"
-                        />
+                        /></label>
 
-                        <textarea
+                        <label className="field">Evento de inicio<OptionalTag /><textarea
                           placeholder="Evento de inicio: ¿qué situación da comienzo al recorrido?"
                           aria-label="Evento de inicio"
                           value={form.eventoInicio ?? ''}
@@ -403,7 +412,7 @@ export function JourneyMapPage() {
                             })
                           }
                           className="textarea-sm"
-                        />
+                        /></label>
                       </div>
                     ),
                   },
@@ -521,7 +530,7 @@ export function JourneyMapPage() {
                     titulo: 'Evidencia',
                     ayuda: 'Anota las fuentes que sustentan el mapa. Al terminar, guárdalo para revisarlo con tu equipo.',
                     contenido: (
-                      <textarea
+                      <label className="field">Evidencia<OptionalTag /><textarea
                         placeholder="Evidencia: fuentes, entrevistas, observaciones u otros antecedentes que sustentan el Journey Map (separados por coma)."
                         aria-label="Evidencia"
                         value={evidenciaInput}
@@ -532,7 +541,7 @@ export function JourneyMapPage() {
                           minHeight: '120px',
                           boxSizing: 'border-box',
                         }}
-                      />
+                      /></label>
                     ),
                   },
                 ]}

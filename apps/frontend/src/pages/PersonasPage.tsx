@@ -1,3 +1,6 @@
+import { useFormDraft } from '../shared/hooks/useFormDraft';
+import { FormDraftNotice } from '../shared/components/FormDraftNotice';
+import { OptionalTag } from '../shared/components/OptionalTag';
 import React, { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import type { ProjectOutletContext } from '../layouts/ProjectDetailLayout';
@@ -88,9 +91,19 @@ export function PersonasPage() {
   const [editandoPor, setEditandoPor] = useState('');
   const [errorImagen, setErrorImagen] = useState('');
   const [subiendoImagen, setSubiendoImagen] = useState(false);
-  const { confirmDiscard } = useUnsavedChanges(mostrarForm, { form, listInputs }, isCreating || isUpdating, editandoId ?? 'new');
+  const { confirmDiscard, isDirty } = useUnsavedChanges(mostrarForm, { form, listInputs }, isCreating || isUpdating, editandoId ?? 'new');
+
+  const draft = useFormDraft(`persona:${proyectoId}`, { form, listInputs, editingId: editandoId ?? '', version: editandoVersion ?? 0 }, saved => {
+    setForm(saved.form); setListInputs(saved.listInputs); setMostrarForm(true);
+    setEditandoId(saved.editingId || null); setEditandoVersion(saved.editingId ? saved.version : null);
+    if (saved.editingId) {
+      setReadOnly(true);
+      void editLock.acquire(saved.editingId).then(acquired => { if (acquired) setReadOnly(false); }).catch(() => notify.error('No se pudo recuperar el permiso de edición. Tu borrador sigue disponible.'));
+    }
+  }, { dirty: isDirty, enabled: mostrarForm && !readOnly, onDiscard: resetForm });
 
   function resetForm() {
+    draft.clear();
     editLock.release();
     setForm(vacio());
     setListInputs(vacioListInputs());
@@ -105,6 +118,7 @@ export function PersonasPage() {
 
   async function handleIniciarEditar(persona: PersonaArtifact) {
     if (!(await confirmDiscard())) return;
+    draft.clear();
     editLock.release();
     const artefactoId = persona.id;
     setEditandoId(artefactoId);
@@ -170,7 +184,7 @@ export function PersonasPage() {
   function renderListFields(campos: (keyof PersonaContenido)[]) {
     return campos.map((campo) => (
       <label className="field" key={campo}>
-        {ETIQUETAS_CAMPOS[campo]}
+        {ETIQUETAS_CAMPOS[campo]}<OptionalTag />
         <input
           aria-label={ETIQUETAS_CAMPOS[campo]}
           placeholder="Separa los elementos con comas"
@@ -211,6 +225,7 @@ export function PersonasPage() {
       formulario={enFormulario && (
         <form onSubmit={handleSubmit} className="panel persona-editor" aria-labelledby="persona-editor-title" noValidate>
           <div className="persona-editor-head">
+      <FormDraftNotice draft={draft} />
             <div>
               <span className="eyebrow">CONSTRUCCIÓN DEL PERFIL</span>
               <h3 id="persona-editor-title">{editandoId ? 'Editar persona' : 'Nueva persona'}</h3>
@@ -238,29 +253,29 @@ export function PersonasPage() {
                         onChange={(e) => setForm({ ...form, nombreCompleto: e.target.value })} />
                     </label>
                     <label className="field">
-                      Edad
+                      Edad<OptionalTag />
                       <input type="number" min={0} max={120} step={1} value={form.edad ?? ''} placeholder="En años"
                         onChange={(e) => setForm({ ...form, edad: e.target.value ? Number(e.target.value) : undefined })} />
                     </label>
                     <label className="field">
-                      Ocupación
+                      Ocupación<OptionalTag />
                       <input value={form.ocupacion ?? ''} maxLength={150} placeholder="Profesión, estudio o actividad"
                         onChange={(e) => setForm({ ...form, ocupacion: e.target.value })} />
                     </label>
                     <label className="field">
-                      Familia o contexto familiar
+                      Familia o contexto familiar<OptionalTag />
                       <input value={form.familia ?? ''} maxLength={500} placeholder="Contexto de convivencia"
                         onChange={(e) => setForm({ ...form, familia: e.target.value })} />
                     </label>
                     <label className="field persona-field-wide">
-                      Acerca de
+                      Acerca de<OptionalTag />
                       <textarea value={form.acercaDe ?? ''} maxLength={2000} rows={3}
                         placeholder="Describe brevemente quién es y qué caracteriza a este perfil."
                         onChange={(e) => setForm({ ...form, acercaDe: e.target.value })} />
                     </label>
                     {renderListFields(['hobbies', 'habilidades'])}
                     <div className="field persona-field-wide">
-                      <label htmlFor="persona-fotografia-archivo">Fotografía de la persona</label>
+                      <label htmlFor="persona-fotografia-archivo">Fotografía de la persona<OptionalTag /></label>
                       <input id="persona-fotografia-archivo" type="file" accept="image/png,image/jpeg,image/webp" disabled={bloqueado || subiendoImagen}
                         onChange={async (e) => {
                           const archivo = e.currentTarget.files?.[0]; e.currentTarget.value = '';
@@ -280,7 +295,7 @@ export function PersonasPage() {
                       <small>PNG, JPEG o WebP. Máximo 10 MB antes de optimizar.</small>
                       {subiendoImagen && <p role="status">Procesando imagen…</p>}
                       {errorImagen && <p role="alert">{errorImagen}</p>}
-                      <label htmlFor="persona-fotografia-url">O ingresa una URL de fotografía</label>
+                      <label htmlFor="persona-fotografia-url">O ingresa una URL de fotografía<OptionalTag /></label>
                       <CampoUrl id="persona-fotografia-url" value={form.fotografiaUrl?.startsWith('data:') ? '' : form.fotografiaUrl ?? ''} placeholder="https://ejemplo.cl/foto.jpg"
                         onChange={(url) => setForm({ ...form, fotografiaUrl: url || undefined })} />
                       {form.fotografiaUrl?.trim() && !form.fotografiaUrl.startsWith('data:') && !normalizarUrlProducto(form.fotografiaUrl) && (
@@ -318,19 +333,19 @@ export function PersonasPage() {
                 contenido: campos(
                   <div className="tv-pasos-campos">
                     <label className="field">
-                      Contexto de uso
+                      Contexto de uso<OptionalTag />
                       <textarea value={form.contextoDeUso ?? ''} maxLength={1000} rows={3}
                         placeholder="Entorno, situación o condiciones de uso."
                         onChange={(e) => setForm({ ...form, contextoDeUso: e.target.value })} />
                     </label>
                     <label className="field">
-                      Rol en el servicio
+                      Rol en el servicio<OptionalTag />
                       <textarea value={form.rolEnServicio ?? ''} maxLength={1000} rows={3}
                         placeholder="Función que cumple y nivel de influencia."
                         onChange={(e) => setForm({ ...form, rolEnServicio: e.target.value })} />
                     </label>
                     <label className="field persona-field-wide">
-                      Relación con el servicio
+                      Relación con el servicio<OptionalTag />
                       <textarea value={form.relacionConServicio ?? ''} maxLength={1500} rows={3}
                         placeholder="Frecuencia, canales y relevancia del servicio en su vida."
                         onChange={(e) => setForm({ ...form, relacionConServicio: e.target.value })} />
@@ -355,7 +370,7 @@ export function PersonasPage() {
                 contenido: campos(
                   <div className="tv-pasos-campos">
                     <label className="field">
-                      Estado de validación
+                      Estado de validación<OptionalTag />
                       <select value={form.estadoValidacion ?? 'PENDIENTE'}
                         onChange={(e) => setForm({ ...form, estadoValidacion: e.target.value as PersonaContenido['estadoValidacion'] })}>
                         <option value="PENDIENTE">Pendiente de validar</option>
@@ -363,7 +378,7 @@ export function PersonasPage() {
                       </select>
                     </label>
                     <label className="field persona-field-wide">
-                      Observaciones de validación
+                      Observaciones de validación<OptionalTag />
                       <textarea value={form.observacionesValidacion ?? ''} maxLength={1500} rows={3}
                         placeholder="Comentarios y aspectos considerados al revisar el perfil."
                         onChange={(e) => setForm({ ...form, observacionesValidacion: e.target.value })} />

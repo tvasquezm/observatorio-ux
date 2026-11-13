@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, Res, UseGuards } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
 import { randomBytes } from 'crypto';
@@ -49,7 +49,7 @@ export class AuthController {
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const { access_token, user } = await this.authService.login(
+    const { access_token, user, session } = await this.authService.login(
       dto.email,
       dto.password,
     );
@@ -59,7 +59,17 @@ export class AuthController {
     res.cookie('evaluadorToken', access_token, cookieOptions(nodeEnv, true));
     res.cookie('csrfToken', csrfToken, cookieOptions(nodeEnv, false));
 
-    return { user };
+    return { user, session };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('refresh')
+  @HttpCode(200)
+  async refresh(@CurrentUser() user: AuthenticatedUser & { exp: number; sessionStart: number }, @Res({ passthrough: true }) res: Response) {
+    const { access_token, ...result } = await this.authService.refresh(user);
+    if (access_token) res.cookie('evaluadorToken', access_token, cookieOptions(this.config.get<string>('app.nodeEnv', 'development'), true));
+    return result;
   }
 
   @UseGuards(JwtAuthGuard)
@@ -79,9 +89,10 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
-  me(@CurrentUser() user: AuthenticatedUser) {
+  me(@CurrentUser() user: AuthenticatedUser & { exp: number }) {
     return this.authService.getEvaluatorProfile(user.id).then((perfil) => ({
       user: perfil,
+      session: { expiresAt: user.exp * 1000 },
     }));
   }
 

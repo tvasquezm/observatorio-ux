@@ -1,3 +1,5 @@
+import { TECNICAS_INFO } from '../../../shared/content/tecnicas-info';
+import { InfoTip } from '../../../shared/components/ui/InfoTip';
 import { TechniqueChips } from '../../../shared/components/TechniqueChips';
 import { TechniqueProcess } from '../../../shared/components/TechniqueProcess';
 import type { Emocion, JourneyMapContenido, Phase } from '../api/journey-map.api';
@@ -80,6 +82,7 @@ export function JourneyVisual({ contenido }: { contenido: JourneyMapContenido })
         </div>
       )}
 
+      <InfoTip label="Ayuda: journey-map" visibleLabel="¿Cómo leer esto?" align="start">{TECNICAS_INFO['journey-map'].ayudaGraficos.curva}</InfoTip>
       <div className="tv-board" tabIndex={0} aria-label="Recorrido por fases (desplázate para ver todas)">
         <div
           className="tv-board-inner"

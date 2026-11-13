@@ -25,6 +25,7 @@ describe('ProjectsService', () => {
     sala: {
       findUnique: jest.Mock;
     };
+    salaEstudiante: { findUnique: jest.Mock };
     participanteWhitelist: {
       findUnique: jest.Mock;
       create: jest.Mock;
@@ -62,6 +63,7 @@ describe('ProjectsService', () => {
       sala: {
         findUnique: jest.fn(),
       },
+      salaEstudiante: { findUnique: jest.fn() },
       participanteWhitelist: {
         findUnique: jest.fn(),
         create: jest.fn(),
@@ -81,6 +83,28 @@ describe('ProjectsService', () => {
   });
 
   describe('create', () => {
+    it('rechaza un estudiante sin sala sin crear datos', async () => {
+      await expect(service.create(userIntruso, { nombre: 'Proyecto' } as any)).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prisma.proyecto.create).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      { permite: true, inscrito: true, permitido: true },
+      { permite: false, inscrito: true, permitido: false },
+      { permite: true, inscrito: false, permitido: false },
+    ])('estudiante: sala habilitada=$permite, inscrito=$inscrito', async ({ permite, inscrito, permitido }) => {
+      prisma.sala.findUnique.mockResolvedValue({ id: 's1', deletedAt: null, permiteCreacionProyectos: permite });
+      prisma.salaEstudiante.findUnique.mockResolvedValue(inscrito ? { id: 'inscripcion' } : null);
+      prisma.proyecto.create.mockResolvedValue(proyectoDeEjemplo);
+      const result = service.create({ ...userIntruso, email: 'Alumno@UTEM.CL' }, { nombre: 'Proyecto', salaId: 's1' } as any);
+      if (permitido) {
+        await expect(result).resolves.toEqual(proyectoDeEjemplo);
+        expect(prisma.salaEstudiante.findUnique).toHaveBeenCalledWith({ where: { salaId_email: { salaId: 's1', email: 'alumno@utem.cl' } } });
+      } else {
+        await expect(result).rejects.toBeInstanceOf(ForbiddenException);
+        expect(prisma.proyecto.create).not.toHaveBeenCalled();
+      }
+    });
     it('crea el proyecto asignando creadoPorId al usuario autenticado', async () => {
       prisma.proyecto.create.mockResolvedValue(proyectoDeEjemplo);
 

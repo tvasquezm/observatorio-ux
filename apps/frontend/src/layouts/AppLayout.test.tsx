@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { AppLayout } from './AppLayout';
 
 const auth = vi.hoisted(() => ({ role: null as string | null }));
+vi.mock('../features/auth/components/SessionExpiryDialog', () => ({ SessionExpiryDialog: () => null }));
 vi.mock('../features/auth/store/useAuthStore', () => ({
   useAuthStore: () => ({
     user: auth.role ? { id: 'u1', nombre: 'Ana Pérez', rol: auth.role } : null,

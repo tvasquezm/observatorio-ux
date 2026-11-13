@@ -53,7 +53,7 @@ export function AnilloAvance({ hecho, total, etiqueta, tamano = 56, className }:
         {completo && <path className="tv-anillo-check" d="m15.5 24.5 6 6 11-12" pathLength={1} />}
       </svg>
       {!completo && tamano >= 40 && (
-        <span className="tv-anillo-texto" aria-hidden="true" style={{ fontSize: Math.round(tamano * 0.27) }}>
+        <span className="tv-anillo-texto" aria-hidden="true" style={{ fontSize: `${tamano * 0.27 / 16}rem` }}>
           {valor}/{total}
         </span>
       )}

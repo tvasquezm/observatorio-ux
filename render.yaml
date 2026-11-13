@@ -16,6 +16,10 @@ services:
         value: production
       - key: JWT_EXPIRES_IN
         value: 1h
+      - key: JWT_MAX_SESSION
+        value: 12h
+      - key: JWT_REFRESH_WINDOW
+        value: 10m
       - key: JWT_PARTICIPANTE_EXPIRES_IN
         value: 4h
       # Secretos distintos entre sí, generados por Render (>= 32 caracteres).

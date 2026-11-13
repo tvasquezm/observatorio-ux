@@ -22,16 +22,21 @@ function mount(section = 'card-sorting/study/resultados') {
 beforeEach(() => { vi.unstubAllGlobals(); state.role = 'ADMIN'; state.owner = 'reviewer'; });
 
 describe('Menú de secciones del proyecto', () => {
-  it.each([true, false])('en el resumen evita duplicar las tarjetas de técnicas (compacto=%s)', async (compact) => {
+  it('ofrece Miembros en la cabecera sin abrir el menú', () => {
+    mount();
+    const header = screen.getByRole('heading', { name: 'Proyecto UX' }).closest('.page-head') as HTMLElement;
+    expect(within(header).getByRole('link', { name: 'Miembros' })).toBeVisible();
+  });
+  it.each([true, false])('mantiene las técnicas accesibles también en el resumen (compacto=%s)', async (compact) => {
     vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: compact, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
     mount('');
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Proyecto UX' })).toHaveFocus());
     await userEvent.click(compact
       ? screen.getByText('Secciones del proyecto').closest('summary')!
       : screen.getByRole('button', { name: /^Proyecto/ }));
-    expect(screen.getByRole('link', { name: 'Miembros' })).toBeVisible();
-    expect(screen.queryByRole('button', { name: /^Técnicas/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Card Sorting' })).not.toBeInTheDocument();
+    expect(within(screen.getByRole('navigation', { name: 'Secciones del proyecto' })).getByRole('link', { name: 'Miembros' })).toBeVisible();
+    if (!compact) await userEvent.click(screen.getByRole('button', { name: /^Técnicas/ }));
+    expect(screen.getByRole('link', { name: 'Card Sorting' })).toBeVisible();
   });
   it('permite abrir con teclado y cerrar con Escape devolviendo el foco', async () => {
     mount();

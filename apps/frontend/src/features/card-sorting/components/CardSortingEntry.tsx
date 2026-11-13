@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { InfoTip } from '../../../shared/components/ui/InfoTip';
 import { agregarLinea, analizarEntrada, elementosNuevos, existeElemento, quitarElemento } from '../card-sorting-input';
 import { CardSortingChips } from './CardSortingChips';
@@ -21,16 +21,19 @@ interface Props {
   helpLabel?: string;
   meta?: ReactNode;
   error?: string;
+  onPendingChange?: (pending: boolean) => void;
 }
 
 export function CardSortingEntry({
   title, singular, plural, value, onChange, max, aviso, defaultMode, rules, example,
-  addPlaceholder, help, helpLabel, meta, error,
+  addPlaceholder, help, helpLabel, meta, error, onPendingChange,
 }: Props) {
   const [mode, setMode] = useState<Mode>(defaultMode);
   const [single, setSingle] = useState('');
   const [draft, setDraft] = useState('');
   const [note, setNote] = useState('');
+  const pending = Boolean(single.trim() || draft.trim());
+  useEffect(() => { onPendingChange?.(pending); return () => onPendingChange?.(false); }, [pending, onPendingChange]);
   const info = analizarEntrada(value, max, aviso);
   const { nuevas, omitidas } = elementosNuevos(value, draft);
 
@@ -62,10 +65,10 @@ export function CardSortingEntry({
         </span>
         <div className="cs-mode-toggle" role="group" aria-label={`Modo de ingreso de ${plural}`}>
           <button type="button" aria-pressed={mode === 'uno'} onClick={() => { setMode('uno'); setNote(''); }}>
-            De a una
+            Una por una
           </button>
           <button type="button" aria-pressed={mode === 'lista'} onClick={() => { setMode('lista'); setNote(''); }}>
-            Pegar lista
+            Agregar varias {plural}
           </button>
         </div>
       </div>
@@ -106,7 +109,7 @@ export function CardSortingEntry({
           <div className="cs-paste-bar">
             <small data-testid={`cs-paste-preview-${plural}`}>
               {draft.trim() === ''
-                ? 'Una por línea.'
+                ? 'Escribe una por línea.'
                 : `${nuevas.length} por agregar${omitidas > 0 ? ` · ${omitidas} ${omitidas === 1 ? 'repetida se omitirá' : 'repetidas se omitirán'}` : ''}`}
             </small>
             <button type="button" className="secondary" onClick={addBlock} disabled={nuevas.length === 0}>
