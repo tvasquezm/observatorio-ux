@@ -37,7 +37,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     rol?: string;
     actor?: string;
     proyectoId?: string;
+    exp: number;
+    iat: number;
+    sessionStart?: number;
   }) {
-    return this.authService.validateTokenPayload(payload);
+    const user = await this.authService.validateTokenPayload(payload);
+    return { ...user, exp: payload.exp, sessionStart: payload.sessionStart ?? payload.iat };
   }
 }

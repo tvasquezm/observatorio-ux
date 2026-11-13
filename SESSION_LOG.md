@@ -151,3 +151,8 @@
 ## 2026-11-12 — Plan de usabilidad: F6
 - Informe con clasificación compartida en pantalla y PDF; acceso Abrir informe. Sin modo express por instrucción del usuario.
 - Validación sin cambios: respuestas negativas sin notas válidas; consenso discordante mantiene justificación. 67 pruebas de servicio, 114 de informe/flujo y ambos builds verdes.
+
+## 2026-11-12 — Plan de usabilidad: F8
+- Renovación con sesión máxima 12h, ventana 10m y TTL original 1h; cookie httpOnly, CSRF y throttling conservados. Sin cambio a participantes ni DB.
+- Verificado: 56 tests auth/config; build backend; check-session-refresh.mjs real sobre Nest/Passport/Throttler con identidad en memoria.
+- Decisión: prueba HTTP fuera de Jest por incompatibilidad CJS/ESM de throttler con Nest 12 en Jest. Pendiente revisión humana antes de producción.

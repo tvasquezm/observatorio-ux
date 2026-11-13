@@ -72,7 +72,7 @@ describe('AuthService.registerParticipant', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: JwtService, useValue: { signAsync: jest.fn() } },
         { provide: ParticipanteJwtService, useValue: { sign: jest.fn(), verify: jest.fn() } },
-        { provide: ConfigService, useValue: { get: jest.fn() } },
+        { provide: ConfigService, useValue: { get: jest.fn((_key, fallback) => fallback) } },
       ],
     }).compile();
 
@@ -399,7 +399,7 @@ describe('AuthService.accessParticipant', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: JwtService, useValue: { signAsync: jest.fn() } },
         { provide: ParticipanteJwtService, useValue: participanteJwt },
-        { provide: ConfigService, useValue: { get: jest.fn() } },
+        { provide: ConfigService, useValue: { get: jest.fn((_key, fallback) => fallback) } },
       ],
     }).compile();
 
@@ -509,7 +509,7 @@ describe('AuthService reanuda un participante anónimo', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: JwtService, useValue: { signAsync: jest.fn() } },
         { provide: ParticipanteJwtService, useValue: participanteJwt },
-        { provide: ConfigService, useValue: { get: jest.fn() } },
+        { provide: ConfigService, useValue: { get: jest.fn((_key, fallback) => fallback) } },
       ],
     }).compile();
 
@@ -586,7 +586,7 @@ describe('AuthService.login', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: JwtService, useValue: { signAsync: jest.fn().mockResolvedValue('jwt-evaluador') } },
         { provide: ParticipanteJwtService, useValue: { sign: jest.fn() } },
-        { provide: ConfigService, useValue: { get: jest.fn() } },
+        { provide: ConfigService, useValue: { get: jest.fn((_key, fallback) => fallback) } },
       ],
     }).compile();
 
@@ -643,6 +643,7 @@ describe('AuthService.login', () => {
 
     await expect(service.login('docente@ux.utem.cl', 'la-correcta-1234')).resolves.toEqual({
       access_token: 'jwt-evaluador',
+      session: { expiresAt: expect.any(Number) },
       user: {
         id: 'user-1',
         nombre: 'Docente Uno',
@@ -703,7 +704,7 @@ describe('AuthService — gating de tokens de prueba (H2)', () => {
   );
 
   it('permite test-token y test-participant-token solo cuando NODE_ENV=development', async () => {
-    config = { get: jest.fn().mockReturnValue('development') };
+    config = { get: jest.fn((key, fallback) => key === 'app.nodeEnv' ? 'development' : fallback) };
     const service = await buildService();
 
     await expect(service.issueDevelopmentEvaluatorToken()).resolves.toBeDefined();

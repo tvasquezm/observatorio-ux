@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **sesión backend (F8):** renovación acotada del evaluador, expiración informada por servidor, mismo CSRF/cookie y límite de 10 solicitudes por minuto.
+
 * **heurística (F6):** problemas y aciertos por criterio, no aplica separado y acceso explícito al informe; sin modo express.
 
 * **salas y formularios (F5):** configuración resincronizada con el servidor, guardado/error visibles, avisos de cambios pendientes y eliminación del límite de integrantes al dejarlo vacío.

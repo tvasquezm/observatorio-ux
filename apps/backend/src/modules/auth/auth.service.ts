@@ -16,6 +16,7 @@ import { PrismaService } from '../../core/database/prisma.service.js';
 import { AuthenticatedUser } from './types/authenticated-user.interface.js';
 import { ParticipanteJwtService } from './participante-jwt.service.js';
 import { TtlCache } from '../../core/cache/ttl-cache.js';
+import { durationSeconds } from '../../core/config/session-duration.js';
 
 // Identidad ya verificada contra la base: evita un findUnique por request.
 // Un cambio de rol o un borrado invalida la entrada (`invalidateUser`); si
@@ -309,15 +310,18 @@ export class AuthService {
       await this.assertEstudianteTieneSalaActiva(user.email);
     }
 
+    const sessionStart = Math.floor(Date.now() / 1000);
+    const exp = sessionStart + Math.min(this.sessionDuration('expiresIn', '1h'), this.sessionDuration('maxSession', '12h'));
     const accessToken = await this.signEvaluatorToken({
       id: user.id,
       email: user.email,
       rol: user.rol,
       actor: 'EVALUADOR',
-    });
+    }, sessionStart, exp);
 
     return {
       access_token: accessToken,
+      session: { expiresAt: exp * 1000 },
       user: {
         id: user.id,
         nombre: user.nombre,
@@ -548,12 +552,33 @@ export class AuthService {
     }
   }
 
-  private signEvaluatorToken(user: AuthenticatedUser) {
+  private sessionDuration(key: string, fallback: string) {
+    return durationSeconds(this.config.get<string>(`jwt.${key}`, fallback));
+  }
+
+  async refresh(user: AuthenticatedUser & { exp: number; sessionStart: number }) {
+    const now = Math.floor(Date.now() / 1000);
+    if (!Number.isSafeInteger(user.exp) || !Number.isSafeInteger(user.sessionStart) || user.sessionStart > now || user.exp <= now) throw new UnauthorizedException('Sesión expirada.');
+    const end = user.sessionStart + this.sessionDuration('maxSession', '12h');
+    if (now >= end) throw new UnauthorizedException({ message: 'Se alcanzó el límite de la sesión.', errorCode: 'SESSION_MAX_REACHED' });
+    const ttl = this.sessionDuration('expiresIn', '1h');
+    const configuredWindow = this.sessionDuration('refreshWindow', '10m');
+    const window = configuredWindow < ttl ? configuredWindow : ttl / 3;
+    if (user.exp - now > window) return { renewed: false, session: { expiresAt: user.exp * 1000 } };
+    const exp = Math.min(now + ttl, end);
+    const access_token = await this.signEvaluatorToken(user, user.sessionStart, exp);
+    return { renewed: true, session: { expiresAt: exp * 1000 }, access_token };
+  }
+
+  private signEvaluatorToken(user: AuthenticatedUser, sessionStart = Math.floor(Date.now() / 1000), exp = sessionStart + Math.min(this.sessionDuration('expiresIn', '1h'), this.sessionDuration('maxSession', '12h'))) {
+    const iat = Math.floor(Date.now() / 1000);
     return this.jwt.signAsync({
       sub: user.id,
       email: user.email,
       rol: user.rol,
       actor: 'EVALUADOR',
-    });
+      sessionStart,
+      iat,
+    }, { expiresIn: exp - iat });
   }
 }
