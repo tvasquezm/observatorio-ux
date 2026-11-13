@@ -1,3 +1,4 @@
+import { OptionalTag } from '../shared/components/OptionalTag';
 // apps/frontend/src/pages/ProjectsPage.tsx
 
 import { useMemo, useRef, useState } from 'react';
@@ -138,7 +139,7 @@ export function ProjectsPage() {
             <div className="project-card-foot">{!p.salaId && <span>Sin sala · <Link to="/salas">Vincular a una sala</Link></span>}<span>{p._count?.sesiones ?? 0} sesiones · {p._count?.artefactos ?? 0} artefactos</span><button type="button" className="text-button" disabled={isPending || isUpdating} onClick={(event) => void iniciarEdicion(p, event.currentTarget)}>Editar</button></div>
             {editando === p.id && <form onSubmit={guardarEdicion} className="inline-edit project-form-fields">
               <div className="field"><label htmlFor={`editar-proyecto-nombre-${p.id}`}>Nombre del proyecto</label><input id={`editar-proyecto-nombre-${p.id}`} className="text-input" value={edicion.nombre} onChange={(e) => { setEdicion({ ...edicion, nombre: e.target.value }); setValidationError(''); }} required autoFocus aria-invalid={Boolean(validationError)} aria-describedby={validationError ? 'project-edit-error' : undefined} />{validationError && <p id="project-edit-error" role="alert" className="error-text">{validationError}</p>}</div>
-              <div className="field"><label htmlFor={`editar-proyecto-descripcion-${p.id}`}>Descripción del proyecto (opcional)</label><input id={`editar-proyecto-descripcion-${p.id}`} className="text-input" value={edicion.descripcion} onChange={(e) => setEdicion({ ...edicion, descripcion: e.target.value })} /></div>
+              <div className="field"><label htmlFor={`editar-proyecto-descripcion-${p.id}`}>Descripción del proyecto<OptionalTag /></label><input id={`editar-proyecto-descripcion-${p.id}`} className="text-input" value={edicion.descripcion} onChange={(e) => setEdicion({ ...edicion, descripcion: e.target.value })} /></div>
               {updateError && <p role="alert" className="error-text">{updateError.message} Tu borrador se conserva; vuelve a intentarlo.</p>}
               <div className="form-actions"><button className="primary" disabled={isUpdating}>Guardar</button><button className="secondary" type="button" disabled={isUpdating} onClick={() => void cancelarCreacion()}>Cancelar</button></div></form>}
           </article>

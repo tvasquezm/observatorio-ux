@@ -122,7 +122,7 @@ describe('ProfesorSalasPage — edición de sala', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Editar sala Sala 4' }));
     await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
     expect(screen.getByLabelText('Nombre de la sala')).toBeDisabled();
-    expect(screen.getByLabelText('Instrucciones o descripción')).toBeDisabled();
+    expect(screen.getByLabelText('Instrucciones o descripción (opcional)')).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Guardando…' })).toBeDisabled();
     finish();
     expect(await screen.findByRole('status')).toHaveTextContent('actualizada');

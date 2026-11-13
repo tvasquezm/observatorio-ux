@@ -1,3 +1,4 @@
+import { OptionalTag } from '../../../shared/components/OptionalTag';
 import { SalaBadge } from '../components/SalaBadge';
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
@@ -398,7 +399,7 @@ export const ProfesorSalasPage: React.FC = () => {
             </div>
 
             <div className="sala-field">
-              <label htmlFor="sala-instrucciones">Instrucciones o descripción</label>
+              <label htmlFor="sala-instrucciones">Instrucciones o descripción<OptionalTag /></label>
               <textarea
                 id="sala-instrucciones"
                 disabled={saving}

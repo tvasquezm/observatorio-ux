@@ -1,3 +1,4 @@
+import { OptionalTag } from '../../../shared/components/OptionalTag';
 import type { FormEvent } from 'react';
 import type { Sala } from '../../salas/api/salas.api';
 
@@ -31,7 +32,7 @@ export function ProjectCreateForm({ value, onChange, salas, salaFija, isPending,
         {validationError && <p id="project-name-error" role="alert" className="error-text">{validationError}</p>}
       </div>
       <div className="field">
-        <label htmlFor="nuevo-proyecto-descripcion">Descripción del proyecto (opcional)</label>
+        <label htmlFor="nuevo-proyecto-descripcion">Descripción del proyecto<OptionalTag /></label>
         <input id="nuevo-proyecto-descripcion" placeholder="Objetivo de la investigación" value={value.descripcion}
           onChange={e => onChange({ ...value, descripcion: e.target.value })} className="text-input" />
       </div>
