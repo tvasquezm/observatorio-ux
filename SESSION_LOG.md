@@ -135,3 +135,9 @@
 - Archivos: componentes de salas/comentarios, layout, OptionalTag, formularios, CardSortingEntry y pruebas; cierre/evidencias F3.
 - Decisiones: no relajar campos requeridos; conservar patrones opcionales ya válidos; separar F3a y F3b por tamaño.
 - Pendiente: comprobación humana con personas no técnicas y API real.
+
+## 2026-11-12 — Plan de usabilidad: F4
+- Hecho: fuente única de ayuda, cinco PDF de explicación, ayudas en gráficos y exportación configurable; 755 pruebas y build verdes.
+- Archivos: shared/content, TechniqueHelp, técnica-pdf, vistas de gráficos, diálogo/generador de resultados y pruebas; cierre/evidencias F4.
+- Decisiones: modal nativo porque resultados no tenía uno; PDF fijo; copia de listas para evitar mutación por pdfmake; otros exportadores conservados.
+- Pendiente: revisión humana de textos. Ocho PDF de muestra descargados y 14 páginas renderizadas; Normal y Huge idénticos al renderizar.
