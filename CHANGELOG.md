@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file. See [commit
 
 ## Unreleased
 
+* **CI:** Joi 18.3.1 elimina la alerta alta GHSA-4528-x5fx-h6hg; selector E2E alineado con Nombre del card sorting.
+
 ### Features
 
 * **textos (F7):** recortes aprobados de acceso, ayuda y reportes; auditoría y protocolo de prueba con personas.

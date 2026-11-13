@@ -167,3 +167,8 @@
 ## 2026-11-12 — Plan de usabilidad: F7
 - Tabla presentada y aprobada expresamente por el usuario antes del recorte. Aplicadas propuestas, conservadas etiquetas acordadas y reglas del consentimiento/consenso.
 - Auditoría y protocolo en docs; ejecución con personas reales pendiente. El modo express continúa excluido por instrucción del usuario.
+
+## 2026-11-12 — Cierre de CI del PR #80
+- La auditoría remota detectó una alerta alta heredada en Joi 18.2.9 (GHSA-4528-x5fx-h6hg). Actualizada solo Joi a 18.3.1 y su integridad en el lock; descartadas resoluciones incidentales de otras dependencias.
+- pnpm install --offline --frozen-lockfile y pnpm audit --audit-level high pasan; permanecen 5 alertas moderadas y 2 bajas preexistentes. Backend completo 389 pruebas, build y script HTTP verdes después de actualizar.
+- Selector de E2E actualizado a Nombre del card sorting, etiqueta aprobada de F2; sin cambio de flujo ni API.
