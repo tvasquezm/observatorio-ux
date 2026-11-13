@@ -1,15 +1,16 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useCreateProject } from '../hooks/useProjectsQueries';
 import { ProjectCreateForm } from './ProjectCreateForm';
 import type { Sala } from '../../salas/api/salas.api';
-import { useUnsavedChanges } from '../../../shared/hooks/useUnsavedChanges';
+import { useDiscardChanges } from '../../../shared/hooks/useDiscardChanges';
 
-export function SalaProjectCreate({ sala }: { sala: Sala }) {
+export function SalaProjectCreate({ sala, onDirtyChange }: { sala: Sala; onDirtyChange: (dirty: boolean) => void }) {
   const [open, setOpen] = useState(false);
   const empty = { nombre: '', descripcion: '', salaId: sala.id };
   const [value, setValue] = useState(empty);
   const { mutate, isPending, error } = useCreateProject();
-  const { confirmDiscard } = useUnsavedChanges(open, value, isPending, sala.id);
+  const { confirmDiscard, isDirty } = useDiscardChanges(open, value, isPending, sala.id);
+  useEffect(() => { onDirtyChange(isDirty); return () => onDirtyChange(false); }, [isDirty, onDirtyChange]);
   const trigger = useRef<HTMLButtonElement>(null);
   function close() { setOpen(false); setValue(empty); trigger.current?.focus(); }
   function submit(event: FormEvent) {

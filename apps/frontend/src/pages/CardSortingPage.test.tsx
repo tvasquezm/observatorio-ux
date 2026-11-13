@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Outlet, Route, Routes } from 'react-router-dom';
+import { createMemoryRouter, RouterProvider, Outlet } from 'react-router-dom';
 import { CardSortingPage } from './CardSortingPage';
 
 const mutate = vi.hoisted(() => vi.fn());
@@ -13,16 +13,11 @@ vi.mock('../features/card-sorting/hooks/useCardSortingQueries', () => ({
 }));
 
 function renderPage(open = true) {
-  const result = render(
-    <MemoryRouter initialEntries={['/p']}>
-      <Routes>
-        <Route element={<Outlet context={{ proyectoId: '11111111-1111-4111-8111-111111111111' }} />}>
-          <Route path="/p" element={<CardSortingPage />} />
-        </Route>
-        <Route path="/proyectos/:pid/card-sorting/:sid" element={<p>Workspace abierto</p>} />
-      </Routes>
-    </MemoryRouter>,
-  );
+  const router = createMemoryRouter([
+    { element: <Outlet context={{ proyectoId: '11111111-1111-4111-8111-111111111111' }} />, children: [{ path: '/p', element: <CardSortingPage /> }] },
+    { path: '/proyectos/:pid/card-sorting/:sid', element: <p>Workspace abierto</p> },
+  ], { initialEntries: ['/p'] });
+  const result = render(<RouterProvider router={router} />);
   if (open) fireEvent.click(screen.getByRole('button', { name: '+ Nuevo Card Sorting' }));
   return result;
 }

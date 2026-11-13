@@ -6,7 +6,7 @@ import { getSalas, createSala, updateSala, softDeleteSala, type Sala } from '../
 import { useAuthStore } from '../../auth/store/useAuthStore';
 import { resolvePerspective } from '../../../shared/auth/perspectivas';
 import { useConfirm } from '../../../shared/api/confirm';
-import { useDiscardChanges } from '../../../shared/hooks/useDiscardChanges';
+import { useUnsavedChanges } from '../../../shared/hooks/useUnsavedChanges';
 
 function fechaParaInput(fechaRaw?: string | null) {
   if (!fechaRaw) return '';
@@ -38,7 +38,7 @@ export const ProfesorSalasPage: React.FC = () => {
   const [fechaFin, setFechaFin] = useState('');
   const [instrucciones, setInstrucciones] = useState('');
   const [error, setError] = useState('');
-  const { confirmDiscard } = useDiscardChanges(isModalOpen, { nombre, periodo, fechaInicio, fechaFin, instrucciones }, saving, salaEditando?.id ?? 'new');
+  const { confirmDiscard } = useUnsavedChanges(isModalOpen, { nombre, periodo, fechaInicio, fechaFin, instrucciones }, saving, salaEditando?.id ?? 'new');
 
   useEffect(() => {
     cargarSalas();

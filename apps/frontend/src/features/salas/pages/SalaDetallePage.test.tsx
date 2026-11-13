@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SalaDetallePage } from './SalaDetallePage';
 import { SalasApiError } from '../api/salas.api';
@@ -15,7 +15,7 @@ beforeEach(() => {
 });
 
 function setup() {
-  return render(<MemoryRouter initialEntries={['/salas/s1']}><Routes><Route path="/salas/:salaId" element={<SalaDetallePage />} /></Routes></MemoryRouter>);
+  return render(<RouterProvider router={createMemoryRouter([{ path: '/salas/:salaId', element: <SalaDetallePage /> }], { initialEntries: ['/salas/s1'] })} />);
 }
 
 describe('acceso a una sala', () => {

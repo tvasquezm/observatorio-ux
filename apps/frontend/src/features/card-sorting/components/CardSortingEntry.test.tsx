@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CardSortingEntry } from './CardSortingEntry';
@@ -58,4 +58,14 @@ describe('CardSortingEntry', () => {
     expect(screen.getByRole('button', { name: 'Quitar Becas' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Agregar varias tarjetas' })).toHaveAttribute('aria-pressed', 'true');
   });
+});
+
+
+it('avisa de texto pendiente de agregar y lo libera al desmontar', async () => {
+  const pending = vi.fn();
+  const { unmount } = render(<CardSortingEntry title="Tarjetas" singular="tarjeta" plural="tarjetas" value="" onChange={vi.fn()} max={20} defaultMode="uno" rules={[]} example="" addPlaceholder="" onPendingChange={pending} />);
+  await userEvent.type(screen.getByLabelText('Agregar tarjeta'), 'Borrador');
+  expect(pending).toHaveBeenLastCalledWith(true);
+  unmount();
+  expect(pending).toHaveBeenLastCalledWith(false);
 });

@@ -1,3 +1,4 @@
+import { useUnsavedChanges } from '../shared/hooks/useUnsavedChanges';
 import { useState } from 'react';
 import { CreateCardSortingSessionPayloadSchema } from '@observatorio-ux/shared-types';
 import { useNavigate, useOutletContext } from 'react-router-dom';
@@ -132,6 +133,11 @@ export function CardSortingPage() {
   const [cardsText, setCardsText] = useState('');
   const [categoriesText, setCategoriesText] = useState('');
   const [questionsText, setQuestionsText] = useState('');
+  const [cardsPending, setCardsPending] = useState(false);
+  const [categoriesPending, setCategoriesPending] = useState(false);
+  const [questionsPending, setQuestionsPending] = useState(false);
+  const { confirmDiscard } = useUnsavedChanges(true, { name, type, cardsText, categoriesText, questionsText, cardsPending, categoriesPending, questionsPending }, createStudy.isPending);
+
   const [mostrarForm, setMostrarForm] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
@@ -239,6 +245,7 @@ export function CardSortingPage() {
               title="Tarjetas"
               singular="tarjeta"
               plural="tarjetas"
+              onPendingChange={setCardsPending}
               value={cardsText}
               onChange={setCardsText}
               max={MAX_ETIQUETA}
@@ -275,6 +282,7 @@ export function CardSortingPage() {
                 title="Categorías predefinidas"
                 singular="categoría"
                 plural="categorías"
+                onPendingChange={setCategoriesPending}
                 value={categoriesText}
                 onChange={setCategoriesText}
                 max={MAX_CATEGORIA}
@@ -303,6 +311,7 @@ export function CardSortingPage() {
               title="Preguntas para el participante (opcional)"
               singular="pregunta"
               plural="preguntas"
+              onPendingChange={setQuestionsPending}
               value={questionsText}
               onChange={setQuestionsText}
               max={MAX_PREGUNTA}
@@ -351,7 +360,10 @@ export function CardSortingPage() {
               abierto={mostrarForm}
               puedeEditar
               disabled={createStudy.isPending}
-              onClick={() => setMostrarForm((visible) => !visible)}
+              onClick={async () => {
+                if (mostrarForm && (cardsPending || categoriesPending || questionsPending) && !(await confirmDiscard())) return;
+                setMostrarForm(visible => !visible);
+              }}
             />
           )}
         />

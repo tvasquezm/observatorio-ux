@@ -1,7 +1,9 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import type { ReactNode } from 'react';
+import { createMemoryRouter, RouterProvider } from 'react-router-dom';
+function TestRouter({ children }: { children: ReactNode }) { return <RouterProvider router={createMemoryRouter([{ path: '*', element: children }])} />; }
 import { ProfesorSalasPage } from './ProfesorSalasPage';
 
 const api = vi.hoisted(() => ({
@@ -65,9 +67,9 @@ beforeEach(() => {
 describe('ProfesorSalasPage — edición de sala', () => {
   it('precarga y guarda un nuevo rango de fechas para una sala existente', async () => {
     render(
-      <MemoryRouter>
+      <TestRouter>
         <ProfesorSalasPage />
-      </MemoryRouter>,
+      </TestRouter>,
     );
 
     await userEvent.click(await screen.findByRole('button', { name: 'Editar sala Sala 4' }));
@@ -105,7 +107,7 @@ describe('ProfesorSalasPage — edición de sala', () => {
 
   it('conserva la edición y muestra el error cuando el servidor rechaza los cambios', async () => {
     api.updateSala.mockRejectedValueOnce(new Error('No se pudo guardar la sala.'));
-    render(<MemoryRouter><ProfesorSalasPage /></MemoryRouter>);
+    render(<TestRouter><ProfesorSalasPage /></TestRouter>);
     await userEvent.click(await screen.findByRole('button', { name: 'Editar sala Sala 4' }));
     fireEvent.change(screen.getByLabelText('Nombre de la sala'), { target: { value: 'Sala corregida' } });
     await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
@@ -118,7 +120,7 @@ describe('ProfesorSalasPage — edición de sala', () => {
   it('bloquea los campos mientras guarda para no perder cambios ingresados durante la petición', async () => {
     let finish!: () => void;
     api.updateSala.mockReturnValueOnce(new Promise(resolve => { finish = () => resolve({ id: 'sala-1' }); }));
-    render(<MemoryRouter><ProfesorSalasPage /></MemoryRouter>);
+    render(<TestRouter><ProfesorSalasPage /></TestRouter>);
     await userEvent.click(await screen.findByRole('button', { name: 'Editar sala Sala 4' }));
     await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
     expect(screen.getByLabelText('Nombre de la sala')).toBeDisabled();
@@ -140,9 +142,9 @@ describe('ProfesorSalasPage — edición de sala', () => {
     };
 
     render(
-      <MemoryRouter>
+      <TestRouter>
         <ProfesorSalasPage />
-      </MemoryRouter>,
+      </TestRouter>,
     );
 
     expect(await screen.findByRole('heading', { name: 'Mis salas' })).toBeInTheDocument();
