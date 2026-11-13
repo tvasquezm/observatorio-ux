@@ -54,19 +54,19 @@ describe('DashboardPage', () => {
   it('exige elegir entre varios proyectos y conserva el contexto seleccionado', async () => {
     const mount = () => render(<MemoryRouter><DashboardPage /></MemoryRouter>);
     const first = mount();
-    expect(screen.getByRole('link', { name: /Personas Necesidades/ })).toHaveAttribute('href', '/proyectos');
+    expect(screen.getByRole('link', { name: /Personas Describe perfiles/ })).toHaveAttribute('href', '/proyectos');
     await userEvent.selectOptions(screen.getByLabelText('Proyecto activo'), 'p2');
-    expect(screen.getByRole('link', { name: /Personas Necesidades/ })).toHaveAttribute('href', '/proyectos/p2/personas');
+    expect(screen.getByRole('link', { name: /Personas Describe perfiles/ })).toHaveAttribute('href', '/proyectos/p2/personas');
     first.unmount();
     mount();
     expect(screen.getByLabelText('Proyecto activo')).toHaveValue('p2');
-    expect(screen.getByRole('link', { name: /Personas Necesidades/ })).toHaveAttribute('href', '/proyectos/p2/personas');
+    expect(screen.getByRole('link', { name: /Personas Describe perfiles/ })).toHaveAttribute('href', '/proyectos/p2/personas');
   });
   it('solicita una nueva elección si el proyecto guardado deja de estar disponible', () => {
     sessionStorage.setItem('observatorio-ux-project:u1', 'removed');
     render(<MemoryRouter><DashboardPage /></MemoryRouter>);
     expect(screen.getByLabelText('Proyecto activo')).toHaveValue('');
-    expect(screen.getByRole('link', { name: /Personas Necesidades/ })).toHaveAttribute('href', '/proyectos');
+    expect(screen.getByRole('link', { name: /Personas Describe perfiles/ })).toHaveAttribute('href', '/proyectos');
   });
   it('resume las sesiones reales informadas por los proyectos', () => {
     render(

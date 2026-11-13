@@ -1,3 +1,4 @@
+import { TECNICAS_INFO } from '../shared/content/tecnicas-info';
 // apps/frontend/src/pages/DashboardPage.tsx
 
 import { useEffect, useState } from 'react';
@@ -10,11 +11,11 @@ import { PERSPECTIVE_LABELS, resolvePerspective } from '../shared/auth/perspecti
 const DOT_COLORS = ['blue', 'green', 'orange'] as const;
 
 const TECHNIQUES = [
-  { to: 'personas', label: 'Personas', icon: '◌', desc: 'Necesidades, motivaciones y escenarios reales', cls: 'c2' },
-  { to: 'journey-map', label: 'Journey Map', icon: '⌁', desc: 'Acciones, emociones y oportunidades por etapa', cls: 'c4' },
-  { to: 'momentos-criticos', label: 'Momentos críticos', icon: '✚', desc: 'Impacto, frecuencia y priorización cualitativa', cls: 'c5' },
-  { to: 'card-sorting', label: 'Card Sorting', icon: '▦', desc: 'Agrupaciones, categorías y nivel de consenso', cls: 'c1' },
-  { to: 'evaluacion-heuristica', label: 'Evaluación heurística', icon: '✦', desc: 'Revisa un sitio con preguntas y anota qué mejorar', cls: 'c3' },
+  { to: 'personas', label: 'Personas', icon: '◌', cls: 'c2' },
+  { to: 'journey-map', label: 'Journey Map', icon: '⌁', cls: 'c4' },
+  { to: 'momentos-criticos', label: 'Momentos críticos', icon: '✚', cls: 'c5' },
+  { to: 'card-sorting', label: 'Card Sorting', icon: '▦', cls: 'c1' },
+  { to: 'evaluacion-heuristica', label: 'Evaluación heurística', icon: '✦', cls: 'c3' },
 ] as const;
 
 function fechaHoy() {
@@ -117,7 +118,7 @@ export function DashboardPage() {
           >
             <span className="tech-glyph" aria-hidden="true">{t.icon}</span>
             <h3>{t.label}</h3>
-            <p>{t.desc}</p>
+            <p>{TECNICAS_INFO[t.to].descripcionCorta}</p>
             <small>{activo ? 'Abrir técnica →' : 'Elegir proyecto →'}</small>
           </Link>
         ))}
