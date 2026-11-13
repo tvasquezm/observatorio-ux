@@ -1,3 +1,5 @@
+import { TECNICAS_INFO } from '../../shared/content/tecnicas-info';
+import { InfoTip } from '../../shared/components/ui/InfoTip';
 import { Fragment, useEffect, useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { acuerdoDifiere, escalaDe } from '@observatorio-ux/shared-types';
@@ -137,7 +139,7 @@ export function MatrizItem({ criterios, config, respuestas, modo, individuales =
   }
 
   function tabla(s: Subgrupo, rotulo: string, conEnunciado: boolean) {
-    return <div className="hf-tabla-wrap" key={firmaEscala(s.escala)}><table className="hf-matriz">
+    return <div className="hf-tabla-wrap" key={firmaEscala(s.escala)}><InfoTip label="Ayuda: matriz de evaluación" visibleLabel="¿Cómo leer esto?" align="start">{TECNICAS_INFO['evaluacion-heuristica'].ayudaGraficos.matriz}</InfoTip><table className="hf-matriz">
       <caption className="sr-only">{rotulo}</caption>
       <thead><tr><th scope="col">Pregunta</th>{s.escala.niveles.map(n => <th scope="col" key={n.id}>{n.etiqueta}<small>{n.significado}</small></th>)}<th scope="col">No aplica</th><th scope="col">Acciones</th></tr></thead>
       <tbody>{s.criterios.map(c => fila(c, s.escala.niveles, conEnunciado))}</tbody>

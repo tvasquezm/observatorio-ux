@@ -14,6 +14,11 @@ function setup() {
 }
 
 describe('InfoTip', () => {
+  it('muestra la etiqueta de lectura junto al icono y conserva su nombre específico', () => {
+    render(<InfoTip label="Ayuda: matriz" visibleLabel="¿Cómo leer esto?">Cada celda cuenta respuestas.</InfoTip>);
+    expect(screen.getByText('¿Cómo leer esto?')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Ayuda: matriz' })).toHaveAttribute('aria-expanded', 'false');
+  });
   it('identifica la ayuda y usa un icono de al menos veinte píxeles en tamaño normal', () => {
     const btn = setup();
     expect(btn).toHaveAttribute('title', 'Ayuda de prueba');

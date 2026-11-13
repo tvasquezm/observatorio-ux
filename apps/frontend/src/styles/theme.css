@@ -2653,6 +2653,18 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .info-tip { position: relative; display: inline-flex; }
 .info-tip-btn { display: inline-grid; place-items: center; width: 44px; height: 44px; min-height: 44px; min-width: 44px; padding: 0; border: 0; border-radius: 999px; background: transparent; color: var(--muted); cursor: pointer; }
 .info-tip-btn .icon { width: var(--icon-size-info); height: var(--icon-size-info); }
+.info-tip-btn[data-has-label] { display: inline-flex; align-items: center; gap: .5rem; width: auto; border-radius: .5rem; font-size: .8125rem; text-align: left; }
+.tech-choice { min-width: 0; }
+.technique-help { display: grid; gap: .75rem; padding: 1rem; border: 1px solid var(--line); border-radius: .75rem; background: var(--surface); }
+.technique-help :is(h4, h5, p) { margin-block: .75rem; overflow-wrap: anywhere; }
+.technique-help h4 { font-size: 1.125rem; }
+.technique-help h5 { font-size: 1rem; }
+.technique-help summary { cursor: pointer; font-weight: 700; }
+.pdf-section { display: flex; align-items: center; gap: .75rem; min-height: 44px; margin-block: .5rem; }
+.pdf-section small { display: block; margin-block: .25rem; color: var(--muted); }
+.cs-results .cs-analysis-tab { flex: 0 0 auto; }
+.cs-results .panel { padding: 1rem; }
+.cs-results .cs-dendrogram svg { min-width: 48rem; width: 100%; height: auto; }
 .project-menu-link .icon, .pm-item-icon .icon, .pm-now-name .icon { width: var(--icon-size-technique); height: var(--icon-size-technique); }
 .tech-icon, .tech-glyph { font-size: var(--icon-size-technique); }
 .info-tip-btn:hover, .info-tip-btn[aria-expanded='true'] { background: var(--teal-soft); color: var(--teal); }
@@ -2688,7 +2700,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .cs-guide-list details > p.cs-guide-where { padding-bottom: 12px; color: var(--muted); }
 /* Card sorting: resultados, pestañas y dendrograma */
 .info-tip-panel.start { right: auto; left: 0; }
-.cs-view-head { display: flex; align-items: center; gap: 4px; margin-bottom: 10px; }
+.cs-view-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-bottom: 10px; }
 .cs-view-head h2, .cs-view-head h3 { margin: 0; color: var(--ink); font-size: 0.875rem; }
 .cs-kpi-label { display: flex; align-items: center; gap: 2px; margin: -4px 0 -3px; }
 .analytics-kpi .info-tip { display: inline-flex; }
