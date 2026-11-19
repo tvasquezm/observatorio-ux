@@ -422,7 +422,7 @@ export function PersonasPage() {
                   eliminando={isDeleting && deletingId === p.id}
                   onEditar={() => handleIniciarEditar(p)}
                   onEliminar={async () => {
-                    if (!(await confirm(`¿Eliminar la persona «${p.contenido.nombreCompleto}» y todas sus versiones? Dejará de aparecer en el proyecto; se conserva el historial de evidencia.`, { confirmLabel: 'Eliminar' }))) return;
+                    if (!(await confirm(`¿Eliminar la persona «${p.contenido.nombreCompleto}» y todas sus versiones? Dejará de aparecer en el proyecto; se conserva el historial de evidencia.`, { confirmLabel: 'Eliminar', requireText: p.contenido.nombreCompleto }))) return;
                     resetDelete();
                     eliminar(p.id, { onSuccess: () => {
                       if (editandoId === p.id) resetForm();

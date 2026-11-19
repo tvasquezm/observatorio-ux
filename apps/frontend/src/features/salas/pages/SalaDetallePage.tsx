@@ -581,7 +581,7 @@ function EquiposDeSalaDocente({ salaId, sala, onDirtyChange }: { salaId: string;
   }
 
   async function handleEliminarEquipo(equipoId: string, nombre: string) {
-    if (await confirm(`¿Eliminar el equipo "${nombre}"? Esto no se puede deshacer.`)) {
+    if (await confirm(`¿Eliminar el equipo "${nombre}"? Esto no se puede deshacer.`, { requireText: nombre })) {
       eliminarEquipo(equipoId);
     }
   }

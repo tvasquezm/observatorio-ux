@@ -1,8 +1,9 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SalaDetallePage } from './SalaDetallePage';
+import { ConfirmDialog } from '../../../shared/components/ui/ConfirmDialog';
 import { SalasApiError } from '../api/salas.api';
 import { useAuthStore } from '../../auth/store/useAuthStore';
 
@@ -23,11 +24,12 @@ vi.mock('../../projects/hooks/useProjectsQueries', () => ({
   useProjects: () => ({ data: [] }),
   useCreateProject: () => ({ mutate: vi.fn(), isPending: false }),
 }));
+const equipos = vi.hoisted(() => ({ lista: [] as unknown[], remove: vi.fn() }));
 vi.mock('../../equipos/hooks/useEquiposQueries', () => ({
-  useEquipos: () => ({ data: [] }),
+  useEquipos: () => ({ data: equipos.lista }),
   useCreateEquipo: () => ({ mutate: vi.fn() }),
   useUpdateEquipo: () => ({ mutate: vi.fn() }),
-  useRemoveEquipo: () => ({ mutate: vi.fn() }),
+  useRemoveEquipo: () => ({ mutate: equipos.remove }),
   useAddMiembroEquipo: () => ({ mutate: vi.fn() }),
   useRemoveMiembroEquipo: () => ({ mutate: vi.fn() }),
 }));
@@ -39,6 +41,8 @@ beforeAll(() => {
 
 beforeEach(() => {
   update.mockReset();
+  equipos.remove.mockReset();
+  equipos.lista = [];
   salaQuery.data = undefined;
   salaQuery.isError = true;
   salaQuery.error = new SalasApiError(403, 'No estás asignado a esta sala. Pide a tu docente que registre el correo de tu cuenta.');
@@ -46,7 +50,7 @@ beforeEach(() => {
 });
 
 function setup() {
-  return render(<RouterProvider router={createMemoryRouter([{ path: '/salas/:salaId', element: <SalaDetallePage /> }], { initialEntries: ['/salas/s1'] })} />);
+  return render(<RouterProvider router={createMemoryRouter([{ path: '/salas/:salaId', element: <><SalaDetallePage /><ConfirmDialog /></> }], { initialEntries: ['/salas/s1'] })} />);
 }
 
 function salaDe(rol: 'DOCENTE' | 'ADMIN', id: string, profesorId: string) {
@@ -148,12 +152,10 @@ describe('edición de la sala desde su detalle', () => {
   it('pide una sola vez descartar los cambios al cerrar el formulario', async () => {
     salaDe('DOCENTE', 'u1', 'u1');
     const pedidos: string[] = [];
-    const responder = (event: Event) => {
-      const detail = (event as CustomEvent<{ id: number; message: string }>).detail;
-      pedidos.push(detail.message);
-      window.dispatchEvent(new CustomEvent('app:confirm-response', { detail: { id: detail.id, result: true } }));
+    const escuchar = (event: Event) => {
+      pedidos.push((event as CustomEvent<{ message: string }>).detail.message);
     };
-    window.addEventListener('app:confirm', responder);
+    window.addEventListener('app:confirm', escuchar);
     try {
       setup();
       await userEvent.click(screen.getByRole('button', { name: 'Editar sala' }));
@@ -161,9 +163,25 @@ describe('edición de la sala desde su detalle', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
       expect(pedidos).toHaveLength(1);
       expect(pedidos[0]).toContain('cambios sin guardar');
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      await userEvent.click(screen.getByRole('button', { name: 'Descartar cambios' }));
+      expect(pedidos).toHaveLength(1);
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     } finally {
-      window.removeEventListener('app:confirm', responder);
+      window.removeEventListener('app:confirm', escuchar);
     }
+  });
+
+  it('pide escribir el nombre del equipo antes de eliminarlo', async () => {
+    salaDe('DOCENTE', 'u1', 'u1');
+    equipos.lista = [{ id: 'eq1', nombre: 'Equipo Rojo', salaId: 's1', miembros: [] }];
+    setup();
+    await userEvent.click(screen.getByRole('button', { name: 'Equipos' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Eliminar' }));
+    const campo = screen.getByLabelText('Escribe «Equipo Rojo» para confirmar');
+    expect(screen.getByRole('button', { name: 'Confirmar' })).toBeDisabled();
+    expect(equipos.remove).not.toHaveBeenCalled();
+    await userEvent.type(campo, 'Equipo Rojo');
+    await userEvent.click(screen.getByRole('button', { name: 'Confirmar' }));
+    await waitFor(() => expect(equipos.remove).toHaveBeenCalledWith('eq1'));
   });
 });

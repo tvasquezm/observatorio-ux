@@ -98,8 +98,9 @@ describe('Personas — presentación y edición', () => {
     renderPage();
     fireEvent.click(screen.getByRole('button', { name: 'Eliminar' }));
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText(/Ana Pérez/)).toBeVisible();
+    expect(within(dialog).getByText(/¿Eliminar la persona «Ana Pérez»/)).toBeVisible();
     expect(state.remove).not.toHaveBeenCalled();
+    fireEvent.change(within(dialog).getByLabelText('Escribe «Ana Pérez» para confirmar'), { target: { value: 'Ana Pérez' } });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Eliminar' }));
     await vi.waitFor(() => expect(state.remove).toHaveBeenCalledWith('a1', expect.any(Object)));
   });
