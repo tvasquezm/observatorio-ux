@@ -87,10 +87,10 @@ export function restoreSala(salaId: string): Promise<Sala> {
   return request<Sala>(`/salas/${salaId}/restore`, { method: 'POST' });
 }
 
-export function hardDeleteSala(salaId: string): Promise<{ eliminado: boolean }> {
+export function hardDeleteSala(salaId: string, nombre: string): Promise<{ eliminado: boolean }> {
   return request<{ eliminado: boolean }>(`/salas/${salaId}/hard`, {
     method: 'DELETE',
-    body: JSON.stringify({ confirm: 'DELETE' }),
+    body: JSON.stringify({ confirm: nombre }),
   });
 }
 

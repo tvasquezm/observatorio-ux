@@ -62,7 +62,7 @@ No existe (falta 100%):
 - Al soft-delete de Sala → cascada lógica: todos los `Proyecto` con ese `salaId` también se marcan como eliminados (agregar `deletedAt` a `Proyecto` si no existe, o campo equivalente).
 - Ventana de recuperación: **20 días**. Job o chequeo en el propio endpoint de restore que valide `deletedAt + 20d > now()`.
 - Endpoint restore: `POST /salas/:id/restore` (DOCENTE dueño o ADMIN) — revierte `deletedAt` de la sala y de sus proyectos.
-- Hard delete definitivo: `DELETE /salas/:id/hard`, solo `@Roles('ADMIN')`, requiere confirmación explícita en el body (`{ confirm: "DELETE" }`) — si no coincide exactamente, rechazar. Borra en cascada real: Sala → Proyectos → ResearchSession/UxArtifact/ParticipanteWhitelist asociados.
+- Hard delete definitivo: `DELETE /salas/:id/hard`, solo `@Roles('ADMIN')`, requiere confirmación explícita en el body (`{ confirm: "<nombre exacto de la sala>" }`) — si no coincide, rechazar con 400 después de comprobar el permiso. Borra en cascada real: Sala → Proyectos → ResearchSession/UxArtifact/ParticipanteWhitelist asociados.
 - Filtrar `deletedAt: null` en los `findMany`/`findAll` existentes de Sala y Proyecto (findAll, listProyectos, etc.) para que lo soft-deleted no aparezca.
 
 **Archivos:**
