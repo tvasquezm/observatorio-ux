@@ -43,15 +43,25 @@ async function agregarUna(etiqueta: string, texto: string) {
 }
 
 describe('CardSortingPage · guía', () => {
-  it('muestra la guía de 8 pasos en las instrucciones de la cabecera, colapsada', () => {
+  it('muestra las instrucciones de 6 pasos con el formato común, colapsadas', () => {
     renderPage(false);
     const resumen = screen.getByText('Cómo trabajar con Card Sorting');
     const detalle = resumen.closest('details')!;
     expect(detalle).not.toHaveAttribute('open');
     expect(detalle.closest('.page-head')).toBeNull();
-    expect(screen.getByText('Extraer conclusiones')).toBeInTheDocument();
+    const lista = detalle.querySelector('ol')!;
+    expect(lista.querySelectorAll('li')).toHaveLength(6);
+    expect(lista.textContent).toContain('Si una tarjeta podría ir en varios lugares, elige la mejor opción y colócala ahí.');
     fireEvent.click(resumen);
-    expect(screen.getByText('Extraer conclusiones')).toBeVisible();
+    expect(lista).toBeVisible();
+    expect(detalle.querySelectorAll('ol > li .technique-step-where')).toHaveLength(6);
+  });
+
+  it('ya no dibuja los acordeones anidados de la guía anterior', () => {
+    renderPage(false);
+    const detalle = screen.getByText('Cómo trabajar con Card Sorting').closest('details')!;
+    expect(detalle.querySelector('.cs-guide-list')).toBeNull();
+    expect(detalle.querySelectorAll('details')).toHaveLength(0);
   });
 
   it('explica cuándo usar abierto o cerrado según el tipo elegido', async () => {
