@@ -58,7 +58,7 @@ export const ProfesorSalasPage: React.FC = () => {
   };
 
   const handleEliminarSala = async (sala: Sala) => {
-    if (!(await confirm(`¿Eliminar la sala "${sala.nombre}"? Se puede recuperar dentro de 20 días.`))) return;
+    if (!(await confirm(`¿Eliminar la sala "${sala.nombre}"? Se puede recuperar dentro de 20 días.`, { requireText: sala.nombre }))) return;
     try {
       await softDeleteSala(sala.id);
       await cargarSalas();
