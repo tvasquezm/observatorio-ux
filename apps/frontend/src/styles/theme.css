@@ -2655,12 +2655,6 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .info-tip-btn { display: inline-grid; place-items: center; width: 44px; height: 44px; min-height: 44px; min-width: 44px; padding: 0; border: 0; border-radius: 999px; background: transparent; color: var(--muted); cursor: pointer; }
 .info-tip-btn .icon { width: var(--icon-size-info); height: var(--icon-size-info); }
 .info-tip-btn[data-has-label] { display: inline-flex; align-items: center; gap: .5rem; width: auto; border-radius: .5rem; font-size: .8125rem; text-align: left; }
-.tech-choice { min-width: 0; }
-.technique-help { display: grid; gap: .75rem; padding: 1rem; border: 1px solid var(--line); border-radius: .75rem; background: var(--surface); }
-.technique-help :is(h4, h5, p) { margin-block: .75rem; overflow-wrap: anywhere; }
-.technique-help h4 { font-size: 1.125rem; }
-.technique-help h5 { font-size: 1rem; }
-.technique-help summary { cursor: pointer; font-weight: 700; }
 .pdf-section { display: flex; align-items: center; gap: .75rem; min-height: 44px; margin-block: .5rem; }
 .pdf-section small { display: block; margin-block: .25rem; color: var(--muted); }
 .cs-results .cs-analysis-tab { flex: 0 0 auto; }
