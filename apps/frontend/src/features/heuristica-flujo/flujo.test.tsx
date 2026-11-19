@@ -352,6 +352,15 @@ describe('configuración y consenso', () => {
 });
 
 describe('historial e informe', () => {
+  it('pinta los comentarios de la técnica dentro del contenedor común', async () => {
+    api.mockImplementation(async (_p, path) => path === '/metodologias' ? [METODOLOGIAS_HEURISTICAS[0]] : []);
+    const { container } = renderFlow(<FlujoHeuristicaPage />);
+    await screen.findByText('Aún no hay revisiones guardadas');
+    const comentarios = screen.getByText('Comentarios').closest('details')!;
+    const pagina = container.querySelector('.technique-page');
+    expect(pagina).not.toBeNull();
+    expect(pagina!.contains(comentarios)).toBe(true);
+  });
   it('presenta nuevo flujo como inicio y acceso explícito a sesiones anteriores', async () => {
     api.mockImplementation(async (_p, path) => path === '/metodologias' ? [METODOLOGIAS_HEURISTICAS[0]] : []);
     renderFlow(<FlujoHeuristicaPage />);
