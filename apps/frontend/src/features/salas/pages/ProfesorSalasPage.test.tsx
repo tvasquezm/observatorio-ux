@@ -10,6 +10,7 @@ const api = vi.hoisted(() => ({
   getSalas: vi.fn(),
   createSala: vi.fn(),
   updateSala: vi.fn(),
+  softDeleteSala: vi.fn(),
 }));
 
 const auth = vi.hoisted(() => ({
@@ -62,6 +63,7 @@ beforeEach(() => {
     },
   ]);
   api.updateSala.mockResolvedValue({ id: 'sala-1' });
+  api.softDeleteSala.mockResolvedValue({ id: 'sala-1' });
 });
 
 describe('ProfesorSalasPage — edición de sala', () => {

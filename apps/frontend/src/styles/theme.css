@@ -127,6 +127,7 @@ button { cursor: pointer; }
 .sala-detail-hero, .sala-management-panel, .sala-student-panel { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
 .sala-detail-hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; padding: 24px; }
 .sala-detail-hero .sala-periodo { align-self: start; justify-self: end; }
+.sala-hero-action { margin-top: 12px; }
 .sala-detail-hero .kicker { margin: 0 0 7px; }
 .sala-detail-hero h1 { margin: 0; color: var(--ink); font: 700 1.8125rem/1.1 Georgia, serif; letter-spacing: -.035em; }
 .sala-detail-hero p { max-width: 68ch; margin: 9px 0 0; color: var(--muted); line-height: 1.55; }
@@ -1572,6 +1573,10 @@ button { cursor: pointer; }
   box-shadow: 0 8px 30px rgba(0,0,0,0.35); animation: confirm-in 140ms ease-out;
 }
 .confirm-message { margin: 0 0 16px; font-size: 0.875rem; line-height: 1.5; }
+.confirm-field { display: grid; gap: 6px; margin-bottom: 16px; }
+.confirm-field label { font-size: 0.875rem; font-weight: 600; }
+.confirm-field input { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; }
+.confirm-btn:disabled { opacity: .55; cursor: not-allowed; }
 .confirm-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .confirm-btn { border-radius: 4px; padding: 6px 14px; font-size: 0.8125rem; cursor: pointer; }
 .app .metric p, .app .tech-card p, .app .tech-card small,
@@ -2673,24 +2678,10 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .cs-count-excedido { color: #b3261e; font-weight: 700; }
 .cs-input-warn { display: block; margin-top: 4px; color: #b3261e; font-size: 0.75rem; }
 .cs-input-note { color: var(--ink-soft); }
-.cs-guide-list { display: grid; gap: 8px; margin: 14px 0 0; padding: 0; list-style: none; }
-.cs-guide-list li { border-top: 1px solid var(--line); }
-.cs-guide-list > li { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
-.cs-guide-list summary { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 12px; color: var(--ink); font-size: 0.8125rem; font-weight: 700; list-style: none; cursor: pointer; }
-.cs-guide-list summary::-webkit-details-marker { display: none; }
-.cs-guide-list summary:focus-visible { outline: 3px solid color-mix(in srgb, var(--teal) 35%, transparent); outline-offset: 2px; border-radius: 10px; }
-.cs-guide-n { display: grid; place-items: center; flex: none; width: 26px; height: 26px; border-radius: 999px; background: var(--teal-soft); color: var(--teal-ink); font-size: 0.75rem; font-weight: 800; }
-.cs-guide-list p { margin: 0 0 8px 24px; color: var(--ink); font-size: 0.75rem; line-height: 1.55; }
-.cs-guide-list .cs-guide-where { margin-bottom: 12px; color: var(--muted); }
 .participant-intro { display: grid; gap: 14px; max-width: 560px; text-align: left; }
 .participant-intro h1 { margin: 0; }
 .participant-intro ul { margin: 0; padding-left: 18px; display: grid; gap: 8px; color: var(--ink); font-size: 0.875rem; line-height: 1.55; }
 .participant-intro .primary { justify-self: start; }
-.cs-guide-title { flex: 1; min-width: 0; }
-.cs-guide-chev { flex: none; width: 8px; height: 8px; margin-right: 4px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); transition: transform .15s ease; }
-.cs-guide-list details[open] .cs-guide-chev { transform: rotate(-135deg); }
-.cs-guide-list details > p { margin: 0; padding: 0 12px 10px 48px; color: var(--ink-soft); font-size: 0.75rem; line-height: 1.5; }
-.cs-guide-list details > p.cs-guide-where { padding-bottom: 12px; color: var(--muted); }
 /* Card sorting: resultados, pestañas y dendrograma */
 .info-tip-panel.start { right: auto; left: 0; }
 .cs-view-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-bottom: 10px; }

@@ -1,4 +1,5 @@
 import { SalaBadge } from '../components/SalaBadge';
+import { SalaFormDialog } from '../components/SalaFormDialog';
 // apps/frontend/src/features/salas/pages/SalaDetallePage.tsx
 //
 // Detalle de una sala. DOCENTE dueño/ADMIN: tabs "Proyectos" (crear uno
@@ -54,8 +55,10 @@ export function SalaDetallePage() {
   const [configDirty, setConfigDirty] = useState(false);
   const [studentsDirty, setStudentsDirty] = useState(false);
   const [teamsDirty, setTeamsDirty] = useState(false);
+  const [editandoSala, setEditandoSala] = useState(false);
+  const [edicionDirty, setEdicionDirty] = useState(false);
   // El router admite un solo bloqueo: reúne aquí los borradores de los paneles de la sala.
-  useUnsavedChanges(true, creationDirty || configDirty || studentsDirty || teamsDirty);
+  useUnsavedChanges(true, creationDirty || configDirty || studentsDirty || teamsDirty || edicionDirty);
   const { salaId } = useParams<{ salaId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get('tab');
@@ -72,6 +75,7 @@ export function SalaDetallePage() {
   const activeRole = user ? resolvePerspective(user.rol, perspectiveRole) : null;
   const esEstudiante = activeRole === 'ESTUDIANTE';
   const { data: sala, isLoading, isError, error, refetch } = useSala(salaId ?? null);
+  const { mutateAsync: guardarSala } = useUpdateSala(salaId ?? '');
 
   if (!salaId) return null;
 
@@ -97,6 +101,11 @@ export function SalaDetallePage() {
               <span className="kicker">{esEstudiante ? 'MI SALA' : 'GESTIÓN DE SALA'}</span>
               <h1><SalaBadge id={sala.id} nombre={sala.nombre} /> {sala.nombre}</h1>
               <p>{sala.instrucciones || 'Esta sala todavía no tiene instrucciones.'}</p>
+              {!esEstudiante && (activeRole === 'ADMIN' || sala.profesor?.id === user?.id) && (
+                <button type="button" className="secondary sala-hero-action" onClick={() => setEditandoSala(true)}>
+                  Editar sala
+                </button>
+              )}
             </div>
             <span className="sala-periodo">{sala.periodo}</span>
             <dl className="sala-detail-meta">
@@ -170,6 +179,16 @@ export function SalaDetallePage() {
             </section>
           )}
         </>
+      )}
+
+      {sala && !isError && (
+        <SalaFormDialog
+          sala={sala}
+          abierto={editandoSala}
+          onClose={() => setEditandoSala(false)}
+          guardar={payload => guardarSala(payload)}
+          onDirtyChange={setEdicionDirty}
+        />
       )}
     </div>
   );
