@@ -8,6 +8,8 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **inicio (plan UX):** Inicio se simplifica en dos pasos (1 · Proyecto y 2 · Técnica); se quitan métricas, proyectos recientes, mensajes repetidos y el panel de jerarquía.
+
 * **textos (F7):** recortes aprobados de acceso, ayuda y reportes; auditoría y protocolo de prueba con personas.
 
 * **sesión frontend (F10):** renovación por actividad, aviso que permite volver a guardar, retorno a la ruta y recuperación de borradores por usuario.

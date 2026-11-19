@@ -276,6 +276,12 @@ button { cursor: pointer; }
 .active-project select { width: 100%; min-height: 44px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--surface); font-size: 1rem; }
 .active-project > p { flex: 1 1 200px; margin: 0; font-size: 0.875rem; overflow-wrap: anywhere; }
 .active-project .primary { max-width: 100%; overflow-wrap: anywhere; }
+/* Inicio en dos pasos: 1 · Proyecto y 2 · Técnica */
+.step-title { display: flex; align-items: center; gap: 10px; flex: 1 1 100%; margin: 0 0 12px; font: 700 1.25rem/1.15 Georgia, serif; letter-spacing: -.03em; color: var(--heading); }
+.dashboard-page > .step-title { margin: 24px 0 12px; }
+.step-num { display: inline-grid; place-items: center; flex: none; width: 2rem; height: 2rem; border-radius: 999px; background: var(--teal-soft); color: var(--teal-ink); font-size: 1rem; font-weight: 800; }
+.step-project-row { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; flex: 1 1 100%; }
+.step-project-row .field { flex: 1 1 260px; }
 /* Menú de secciones (escritorio): barra navy compacta + panel flotante por grupo. */
 .pm {
   position: relative; z-index: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px;
@@ -416,13 +422,7 @@ button { cursor: pointer; }
 .page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; margin-bottom: 21px; }
 .page-head h1 { font-size: 1.6875rem; line-height: 1.05; letter-spacing: -.06em; color: var(--heading); margin: 6px 0; font-family: Georgia, serif; }
 .page-head p { font-size: 0.75rem; color: var(--muted); margin: 0; line-height: 1.5; }
-.metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 25px; }
-.dashboard-page .metrics { margin-top: 32px; }
-.metric, .panel, .project-card { background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); }
-.metric { min-width: 0; padding: 16px; min-height: 106px; }
-.metric small { display: block; font-size: 0.75rem; color: #718c97; text-transform: uppercase; letter-spacing: .11em; font-weight: 850; }
-.metric strong { display: block; overflow-wrap: anywhere; font-size: 1.875rem; letter-spacing: -.06em; color: var(--heading); margin-top: 7px; }
-.metric p { display: block; font-size: 0.75rem; color: #78929c; margin: 3px 0 0; }
+.panel, .project-card { background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); }
 .panel, .project-card { background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); }
 .section-title { display: flex; justify-content: space-between; align-items: end; margin: 20px 0 11px; }
 .section-title h2 { font: 700 1.0625rem/1 Georgia, serif; letter-spacing: -.04em; color: var(--heading); margin: 6px 0; }
@@ -549,7 +549,6 @@ button { cursor: pointer; }
 .node.a { left: 10%; top: 20%; }
 .node.b { right: 9%; top: 20%; }
 .node.c { left: 50%; bottom: 0.5rem; transform: translateX(-50%); }
-.welcome-actions { display: flex; gap: 8px; flex-wrap: wrap; white-space: nowrap; }
 .techniques { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 18px; }
 .techniques .tech-card {display: grid; grid-template-rows: 36px minmax(40px, auto) 1fr auto; gap: 12px; }
 .techniques .tech-glyph,
@@ -565,7 +564,6 @@ button { cursor: pointer; }
 .tech-card h3 { font-size: 0.875rem; color: var(--heading); margin: 0 0 7px; letter-spacing: -.03em; }
 .tech-card p { font-size: 0.75rem; line-height: 1.45; color: var(--muted); margin: 0; }
 .tech-card small { display: block; margin-top: 12px; font-size: 0.75rem; font-weight: 800; color: var(--muted); }
-.recent-grid { display: grid; grid-template-columns: 1.35fr .65fr; gap: 16px; margin-top: 18px; }
 .decision { background: linear-gradient(145deg, var(--navy), var(--navy-3)); color: #fff; }
 .decision .kicker { color: #a9dcd6; }
 .decision h2 { color: #fff; font-size: 1.25rem; line-height: 1.1; }
@@ -759,7 +757,7 @@ button { cursor: pointer; }
 .toast b { color: var(--mint); margin-right: 7px; }
 @media (max-width: 900px) {
   .welcome { grid-template-columns: 1fr; }
-  .analytics-layout, .analytics-bottom, .sort-layout, .recent-grid { grid-template-columns: 1fr; }
+  .analytics-layout, .analytics-bottom, .sort-layout { grid-template-columns: 1fr; }
   .analytics-kpis { grid-template-columns: repeat(2, 1fr); }
   .sort-workspace { grid-template-columns: 1fr; }
   .insight { grid-template-columns: 1fr; }
@@ -790,7 +788,6 @@ button { cursor: pointer; }
   .top-actions > .secondary { min-height: 44px; font-size: 0.75rem; }
   .dashboard-page .welcome { gap: 8px; margin-bottom: 16px; }
   .dashboard-page .welcome-visual { display: none; }
-  .dashboard-page .welcome-actions { display: none; }
   .dashboard-page .welcome h1 { font-size: 1.6875rem; line-height: 1.15; }
   .dashboard-page .welcome p { margin-bottom: 0; }
   .active-project { gap: 12px; padding: 16px; }
@@ -802,7 +799,6 @@ button { cursor: pointer; }
   .perspective-preview-copy { flex: 1 1 calc(100% - 28px); flex-wrap: wrap; gap: 2px 8px; }
   .perspective-preview button { margin-left: 18px; }
   .content { padding: 16px 14px 32px; }
-  .metrics { grid-template-columns: repeat(2, 1fr); }
   .sala-date-grid, .sala-management-grid { grid-template-columns: 1fr; }
   .salas-header, .sala-card-heading { align-items: stretch; flex-direction: column; }
   .salas-header .primary { align-self: flex-start; }
@@ -1121,7 +1117,6 @@ button { cursor: pointer; }
 .privacy-card .privacy-updated { margin: 0 0 18px; font-size: 0.75rem; }
 @media (max-width: 360px) {
   .content { min-width: 0; padding: 12px; }
-  .metrics { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) {
   .perspective-option,

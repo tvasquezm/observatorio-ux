@@ -1,11 +1,27 @@
-# CIERRE FASE F8
-Fecha: 2026-11-12
-Hecho: renovación del JWT del evaluador con sessionStart invariable (iat como fallback legado), ventana, tope absoluto y 10 solicitudes/minuto. Login y me informan expiración. No cambia participantes, Prisma ni dependencias.
-Contratos: POST /auth/refresh → 200 {renewed, session:{expiresAt}}; 401 vencido/tope, 429 límite. Login conserva 201. expiresAt es epoch milisegundos. JWT solo en cookie evaluadorToken; opciones originales.
-Configuración: JWT_MAX_SESSION=12h, JWT_REFRESH_WINDOW=10m, JWT_EXPIRES_IN=1h. Duraciones positivas enteras s/m/h/d; formato ambiguo rechazado al arrancar. Ventana >= TTL se acota a TTL/3. Login también acota su primer token al máximo.
-Archivos: servicio/controlador/estrategia auth, configuración, filtro (conserva errorCode SESSION_MAX_REACHED), middleware CSRF extraído sin cambios para probarlo, env y render.
-Verificación: pnpm --filter backend test auth env.validation --runInBand → 6 suites, 56 tests verdes. pnpm --filter backend build verde. node apps/backend/scripts/check-session-refresh.mjs → PASS CSRF, JWT vencido, expiración en me, renovación acotada, cookie Secure/httpOnly y 429. Firma JWT real, Passport/Throttler reales, identidad en memoria; no usa DB.
-Desvíos: prueba HTTP runnable fuera de Jest porque Jest rechaza el ciclo CJS/ESM de @nestjs/throttler con Nest 12. SESSION_MAX_REACHED se expone en errorCode, formato nativo del filtro.
-Pendientes: revisión humana de auth antes de producción; no se desplegó ni se probó contra la base real.
+# FASE F8: Inicio en dos pasos
 
-Revisión final: renewed:false añade session.refreshAt (epoch ms), calculado con la ventana efectiva del servidor. Permite un único timeout en F10 cuando el TTL es corto o la ventana configurada difiere de 10m; no usa polling. Prueba de regresión reproducida roja y luego verde.
+Estado: hecha
+Archivos tocados: `apps/frontend/src/pages/DashboardPage.tsx`, `apps/frontend/src/pages/__tests__/DashboardPage.test.tsx`, `apps/frontend/src/styles/theme.css`, `CHANGELOG.md`.
+
+Comandos ejecutados y resultado:
+- `pnpm --filter frontend exec vitest run src/pages/__tests__/DashboardPage.test.tsx` -> 1 archivo, 6 pruebas en verde.
+- `pnpm --filter frontend test` -> 82 archivos, 792 pruebas en verde.
+- `pnpm --filter frontend build` -> verde (`built in 748ms`).
+- `grep -rn "metrics|recent-grid|welcome-actions|methods-title"` -> en JSX ya no aparecen; en CSS se retiraron las reglas de Inicio.
+
+Hecho:
+- Encabezado: el kicker queda solo con la fecha; se quitan el conteo de proyectos, el párrafo bajo el `h1` y el bloque `welcome-actions` con "Ver proyectos". Se conserva el `h1` y la ilustración `welcome-visual`.
+- Se quita la sección "Cómo se organiza el trabajo" (panel Sala → Proyecto → Técnica).
+- Paso 1: `section.active-project` con `h2` "1 · Proyecto" (número en `span.step-num` con `aria-hidden`). Se conserva el selector `#active-project` con etiqueta "Proyecto activo", el error con "Reintentar", la carga y el estado sin proyectos. Se quitan "Trabajando en: …" y "Continuar en …". Sin proyecto elegido solo queda la ayuda "Selecciona un proyecto para abrir sus técnicas.". Se agrega el enlace "Todos los proyectos" a `/proyectos` (clase `ghost`) junto al selector.
+- Paso 2: `h2` "2 · Técnica" en lugar del `section-title` con "MÉTODOS DISPONIBLES"; `section.techniques` y las cinco tarjetas quedan igual (mismos enlaces, `descripcionCorta`, "Abrir técnica →" / "Elegir proyecto →").
+- El bloque "Salas en las que estás inscrito" (solo si el rol es ESTUDIANTE) se mueve debajo de las técnicas, sin cambiar su contenido.
+- Se eliminan las métricas, "Proyectos creados recientemente" y el artículo "Cada técnica alimenta la misma decisión"; también `DOT_COLORS`, `recientes`, `totalSesiones`, `activeRole`, `PERSPECTIVE_LABELS`, `resolvePerspective` y sus importaciones.
+- La lógica del proyecto activo (`selectedId`, `activo`, `chooseProject` y la clave `observatorio-ux-project:<userId>`) no cambia; las pruebas lo comprueban.
+- CSS: se retiran `.metrics`, `.dashboard-page .metrics`, `.metric` (reglas propias), `.welcome-actions` (incluida su regla móvil), `.recent-grid` (incluida su parte del media query) y sus apariciones en los media queries de 900, 760 y 360 px. `.decision`, `.panel-head`, `.project-row`, `.welcome-visual`, `.active-project` y `.techniques` no se tocan. Se agregan `.step-title`, `.step-num` y `.step-project-row` con variables del tema y `rem`.
+- `CHANGELOG.md`: línea nueva del Inicio en dos pasos.
+
+Cambios respecto al plan (desvíos): ninguno funcional. No se creó una lista de "últimos 3 proyectos" porque no hay dato del usuario sobre docentes con más de ~10 proyectos: queda como pendiente de dato, según la fase.
+
+Pendientes y dudas:
+- Sin Playwright no se tomó la captura informativa a 1366x768; queda registrado que no se comprobó si las cinco tarjetas se ven sin desplazarse.
+- Quedan referencias a `.metric` dentro de selectores agrupados del tema oscuro y de alto contraste (reglas compartidas con `.panel`, `.tech-card`, etc.). No tienen efecto porque ningún elemento usa esa clase; se dejan para la higiene de tokens de F15.
