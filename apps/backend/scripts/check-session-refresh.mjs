@@ -4,6 +4,7 @@ import { Test } from '@nestjs/testing';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { UnauthorizedException } from '@nestjs/common';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import cookieParser from 'cookie-parser';
 import request from 'supertest';
@@ -16,8 +17,21 @@ const secret = 'evaluador-secret-solo-para-pruebas';
 const jwt = new JwtService({ secret });
 const user = { id: 'u1', email: 'docente@utem.cl', rol: 'DOCENTE', actor: 'EVALUADOR' };
 const config = new ConfigService({ jwt: { secret }, app: { nodeEnv: 'production' } });
-const service = new AuthService({}, jwt, {}, config);
-service.validateTokenPayload = async () => user;
+// Identidad en memoria: `version` emula Usuario.sesionVersion (F9).
+let version = 0;
+const prisma = {
+  usuario: {
+    updateMany: async ({ data }) => {
+      if (data?.sesionVersion?.increment) version += data.sesionVersion.increment;
+      return { count: 1 };
+    },
+  },
+};
+const service = new AuthService(prisma, jwt, {}, config);
+service.validateTokenPayload = async (payload) => {
+  if ((payload.sv ?? 0) !== version) throw new UnauthorizedException('Tu sesión ya no es válida. Vuelve a iniciar sesión.');
+  return user;
+};
 service.getEvaluatorProfile = async () => user;
 const module = await Test.createTestingModule({
   imports: [ThrottlerModule.forRoot([{ ttl: 60_000, limit: 1000 }])], controllers: [AuthController],
@@ -29,11 +43,15 @@ app.use(csrfProtection);
 await app.init();
 try {
   const now = Math.floor(Date.now() / 1000);
-  const token = (exp, sessionStart = now) => jwt.sign({ sub: 'u1', actor: 'EVALUADOR', exp, sessionStart });
-  const cookie = (exp, start) => `evaluadorToken=${token(exp, start)}; csrfToken=test-csrf`;
+  const sinVersion = (exp, sessionStart = now) => jwt.sign({ sub: 'u1', actor: 'EVALUADOR', exp, sessionStart });
+  const token = (exp, sessionStart = now) => jwt.sign({ sub: 'u1', actor: 'EVALUADOR', exp, sessionStart, sv: version });
+  const cookieWith = (value) => `evaluadorToken=${value}; csrfToken=test-csrf`;
+  const cookie = (exp, start) => cookieWith(token(exp, start));
   const server = app.getHttpServer();
   await request(server).post('/auth/refresh').set('Cookie', cookie(now + 100)).expect(403);
   await request(server).post('/auth/refresh').set('Cookie', cookie(now - 1)).set('x-csrf-token', 'test-csrf').expect(401);
+  // Un token anterior a la versión de sesión (sin `sv`) sigue sirviendo mientras la versión sea 0.
+  await request(server).get('/auth/me').set('Cookie', cookieWith(sinVersion(now + 100))).expect(200);
   const exp = now + 1800;
   const me = await request(server).get('/auth/me').set('Cookie', cookie(exp)).expect(200);
   assert.equal(me.body.session.expiresAt, exp * 1000);
@@ -42,8 +60,17 @@ try {
   assert.deepEqual(refreshed.body, { renewed: true, session: { expiresAt: (start + 43200) * 1000 } });
   assert.match(refreshed.headers['set-cookie'][0], /HttpOnly/);
   assert.match(refreshed.headers['set-cookie'][0], /Secure/);
+  // Revocación (F9): cerrar sesión sube la versión y la cookie anterior deja de renovar.
+  const anterior = cookie(now + 100);
+  await request(server).post('/auth/logout').set('Cookie', anterior).set('x-csrf-token', 'test-csrf').expect(201);
+  assert.equal(version, 1);
+  await request(server).post('/auth/refresh').set('Cookie', anterior).set('x-csrf-token', 'test-csrf').expect(401);
+  await request(server).get('/auth/me').set('Cookie', anterior).expect(401);
+  await request(server).post('/auth/refresh').set('Cookie', cookie(now + 100)).set('x-csrf-token', 'test-csrf').expect(200);
+  // Cerrar sesión sin token válido solo limpia cookies.
+  await request(server).post('/auth/logout').set('Cookie', 'evaluadorToken=basura; csrfToken=test-csrf').set('x-csrf-token', 'test-csrf').expect(201);
   let status;
   for (let i = 0; i < 11; i++) status = (await request(server).post('/auth/refresh').set('Cookie', cookie(exp)).set('x-csrf-token', 'test-csrf')).status;
   assert.equal(status, 429);
-  console.log('PASS refresh: CSRF, expired JWT, me expiry, capped renewal, secure httpOnly cookie, 429.');
+  console.log('PASS refresh: CSRF, expired JWT, me expiry, capped renewal, secure httpOnly cookie, revocación tras logout, 429.');
 } finally { await app.close(); }

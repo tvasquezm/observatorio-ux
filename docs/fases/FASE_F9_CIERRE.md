@@ -1,43 +1,27 @@
-# CIERRE FASE F9
+# FASE F9: Sesión revocable
 
-Fecha: 2026-11-12
+Estado: hecha
+Archivos tocados: `apps/backend/prisma/schema.prisma`, `apps/backend/prisma/migrations/20261118120000_add_sesion_version/migration.sql` (nueva), `apps/backend/src/modules/auth/auth.service.ts`, `apps/backend/src/modules/auth/auth.controller.ts`, `apps/backend/src/modules/auth/test/auth.revocation.spec.ts` (nueva), `apps/backend/src/modules/auth/test/password-change.spec.ts`, `apps/backend/src/modules/auth/test/auth.identity-cache.spec.ts`, `apps/backend/scripts/check-session-refresh.mjs`.
+
+Comandos ejecutados y resultado:
+- `pnpm --filter backend exec prisma generate` -> Prisma Client 7.10.0 generado (sin errores de esquema).
+- `pnpm --filter backend build` -> `nest build` sin errores.
+- `pnpm --filter backend test` -> 27 suites, 395 pruebas en verde (5 nuevas de revocación).
+- `node apps/backend/scripts/check-session-refresh.mjs` -> `PASS refresh: CSRF, expired JWT, me expiry, capped renewal, secure httpOnly cookie, revocación tras logout, 429.`
 
 Hecho:
-- Grises y separadores con contraste medido; se retira la opacidad que degradaba textos de resultados.
-- InfoTip con nombre, title, icono de 1.25rem y área de 44 × 44 px. Técnicas con iconos/glifos de 1.5rem y sus nombres visibles.
-- Enlaces, summaries, pestañas, etiquetas de checkbox/radio y botones superiores/de sala con áreas mínimas de 44 px.
-- Tarjetas inválidas explican «Supera el límite», «Repetida» o «Texto largo». Se conservan mensajes, checkmarks y etiquetas existentes para completado/activo/error.
-- Espacio entre proyectos, técnicas y secciones de sala mediante `--section-gap: 1.5rem`.
+1. Migración aditiva: `Usuario.sesionVersion Int @default(0)` (columna `"sesionVersion"` en la tabla `usuarios`, `NOT NULL DEFAULT 0`). Ninguna migración existente se modificó.
+2. La identidad cacheada (`TtlCache` de 30 s) incluye `sesionVersion`; `signEvaluatorToken` agrega el claim `sv` con la versión vigente en login, refresh, token de desarrollo y reemisión tras cambiar contraseña.
+3. `validateTokenPayload` compara `payload.sv ?? 0` con la versión de la identidad y lanza 401 si difieren (un token sin `sv` cuenta como 0 y caduca solo en el plazo máximo de sesión).
+4. `changePassword` sube `sesionVersion` en el mismo `updateMany` que cambia el hash (donde guarda contra cambios concurrentes), invalida la caché del usuario y devuelve la versión nueva; el controlador emite una cookie nueva con esa versión conservando `sessionStart` y `exp`, así la sesión que cambia la contraseña sigue viva.
+5. `logout` ya no es un simple borrado de cookies: sin guard, lee `evaluadorToken`, la verifica con el secreto y, si es válida, sube la versión del `sub` e invalida la caché. Si falta o es inválida, solo limpia cookies. El endpoint responde 201 como antes.
+6. `refresh` no cambia: el guard ya rechaza tokens con versión vieja.
+7. El script de sesión agrega el caso de revocación (logout -> refresh y `/auth/me` con la cookie anterior -> 401; cookie nueva -> 200; logout con token inválido -> 201) y el del token sin `sv` aceptado con versión 0. El bloque de 429 quedó al final para no consumir el límite de renovación.
 
-Archivos tocados: theme.css, InfoTip(.test).tsx, CardSortingChips(.test).tsx.
+Cambios respecto al plan (desvíos):
+- Las pruebas nuevas de revocación van en `auth.revocation.spec.ts` en lugar de sumarse a `auth.service.spec.ts` (este ya tiene 713 líneas y su propio simulacro de Prisma). Mismo servicio y mismos casos.
+- `password-change.spec.ts` ajusta la expectativa del valor devuelto (`{ ok: true, sesionVersion: 1 }`) y comprueba el incremento en `data`. `auth.identity-cache.spec.ts` incluye `sesionVersion: 0` en la identidad esperada. No se silenció ninguna prueba.
 
-Contratos reales: `--icon-size-info: 1.25rem`, `--icon-size-technique: 1.5rem`. Icon acepta tamaño numérico y es decorativo por defecto; CSS adapta el tamaño a la preferencia de fuente. El botón «Faltan N fases» ya tenía área de 44 px mediante pseudo-elemento (18 + 13 + 13), que se conserva.
-
-Inventario previo: 15 archivos de producto con Icon/InfoTip: menú, UI, tres páginas de técnicas, CardSortingPage y resultados, TechniqueProcess, Chips, Dendrogram, Entry, Progress y dos editores de heurística. Técnicas ya tienen nombres visibles; no se redibujan iconos. Los estados de chips eran el caso sin explicación visible.
-
-Desvíos: los colores efectivos estaban repetidos en el bloque «Refinamiento visual 2026»; se corrigieron allí sin limpiar duplicados. La auditoría en navegador descubrió también reglas posteriores de 38 px en la cabecera y 34 px en las pestañas de sala; se corrigieron en su origen.
-
-Verificación:
-```text
-Regresión: las nuevas pruebas fallan sin title/tamaño y textos de estado.
-pnpm --filter frontend test InfoTip CardSortingChips ProjectMenu: verde
-pnpm --filter frontend test: 72 archivos, 723 pruebas aprobadas
-pnpm --filter frontend build: exit 0
-Chromium: 64 combinaciones (4 pantallas × 2 anchos × 2 escalas × 4 modos).
-Pantallas: detalle de proyecto, sala, ingreso y resultados.
-375/1280 px, Normal/Huge, claro/oscuro/alto contraste claro/oscuro.
-Resultado final: 0 grupos con clicables menores de 44 × 44 px.
-```
-
-Contraste (mínimo entre los cinco fondos de superficie; tabla completa en evidencias):
-
-| Modo | Texto / fondo más exigente | Ratio | Borde / fondo más exigente | Ratio |
-|---|---|---:|---|---:|
-| Claro | #4c5b70 / #eef1f6 | 6.11 | #7c889b / #eef1f6 | 3.17 |
-| Oscuro | #b9c5d8 / #263148 | 7.45 | #7889a3 / #263148 | 3.66 |
-| Alto claro | #222222 / #eeeeee | 13.71 | #000000 / #eeeeee | 18.10 |
-| Alto oscuro | #eeeeee / #222222 | 13.71 | #ffffff / #222222 | 15.91 |
-
-Capturas / evidencia manual: `evidencias/F9`, ocho capturas claro/oscuro a 375/Huge, API simulada. Antes: bordes claros ~1.14:1 y textos grises sobre superficies ~4.12:1; después: mínimos de la tabla. Mayor separación de tarjetas y contornos definidos. Tipografía Normal sin cambios.
-
-Pendientes: pestañas de resultados superpuestas a 375/Huge (registrado en F1, abordar al ampliar gráficos en F4). No se asegura contraste de cada ilustración ni se probó con lectores de pantalla o datos productivos.
+Pendientes y dudas:
+- No hay Postgres en este entorno, así que no se pudo correr `prisma migrate deploy` en limpio (F0 ya lo había anotado). El SQL es una sola sentencia aditiva y el cliente generado compila y pasa las pruebas.
+- Residual aceptado por D5: con más de una instancia, otra podría aceptar la cookie hasta 30 s por su caché de identidad. No se pudo comprobar cuántas instancias corre Render (F0): pendiente de dato.

@@ -94,6 +94,9 @@ model Usuario {
   email        String   @unique
   passwordHash String?
   rol          Rol
+  // Versión de sesión: se sube al cerrar sesión y al cambiar la contraseña.
+  // Los JWT del evaluador llevan `sv` y se comparan contra este valor.
+  sesionVersion Int     @default(0)
   createdAt    DateTime @default(now())
 
   proyectosCreados  Proyecto[]              @relation("ProyectosCreados")
