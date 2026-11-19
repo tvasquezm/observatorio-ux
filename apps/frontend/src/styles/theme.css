@@ -2573,9 +2573,6 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .project-heading h1 { font-size: clamp(1.5rem, 2.4vw, 1.875rem); line-height: 1.2; margin: 4px 0; }
 .personas-page > .page-head { margin-bottom: 16px; gap: 16px; }
 .personas-page > .page-head h2 { font-size: 1.75rem; line-height: 1.2; margin: 4px 0 6px; }
-.personas-page > .technique-instructions { padding: 10px 16px; margin-bottom: 16px; border-left: 1px solid var(--line); border-radius: 10px; box-shadow: none; }
-.personas-page > .technique-instructions > summary { padding: 8px 0; font-size: 0.875rem; }
-.personas-page > .technique-instructions > ol { margin: 6px 0 10px; font-size: 0.875rem; line-height: 1.6; }
 .persona-profile-identity p, .persona-profile-about, .persona-detail-grid :is(dt, dd), .persona-profile .text-muted-xs { font-size: 0.875rem; }
 .persona-profile-details .tv-process { border: 1px solid var(--line); border-radius: 8px; background: var(--surface-alt); color: var(--ink); box-shadow: none; }
 .persona-profile-details .tv-process :is(.kicker, .tv-process-fase-n, .tv-process-fase-nombre) { color: var(--ink); font-size: 0.8125rem; }
@@ -2612,6 +2609,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .technique-instructions > ol { padding-left: 24px; margin-top: 12px; line-height: 1.7;}
 .technique-instructions > ol > li + li { margin-top: 8px;}
 .technique-instructions > p { line-height: 1.6; }
+.technique-step-where { display: block; margin-top: 4px; color: var(--muted); font-size: 0.875rem; }
 .preferences-appearance { display: flex; flex-wrap: wrap; gap: 12px; padding-top: 20px; border-top: 1px solid var(--line); }
 .preferences-appearance h3 { flex-basis: 100%; margin: 0; font-size: 0.875rem; }
 .preferences-appearance .theme-toggle { flex: 1; min-height: 44px; font-size: 0.8125rem; }

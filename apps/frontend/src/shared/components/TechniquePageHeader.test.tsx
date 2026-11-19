@@ -22,6 +22,18 @@ describe('instrucciones de una técnica', () => {
     fireEvent.click(container.querySelector('summary')!);
     expect(screen.getByText('Guía propia')).toBeVisible();
   });
+  it('acepta pasos con la línea "En la herramienta:" junto a los pasos simples', () => {
+    const { container } = render(<TechniquePageHeader label="Técnica" title="Card Sorting" description="Agrupa" instructions={[
+      { texto: 'Crea las tarjetas', enLaHerramienta: 'Campo "Tarjetas", una por línea.' },
+      'Comparte el enlace',
+    ]} />);
+    fireEvent.click(container.querySelector('summary')!);
+    const pasos = screen.getAllByRole('listitem');
+    expect(pasos).toHaveLength(2);
+    expect(pasos[0].textContent).toContain('Crea las tarjetas');
+    expect(pasos[0].textContent).toContain('En la herramienta: Campo "Tarjetas", una por línea.');
+    expect(pasos[1].textContent).toBe('Comparte el enlace');
+  });
 });
 
 describe('aviso de datos nuevos', () => {
