@@ -70,6 +70,23 @@ function leerUserGuardado(): EvaluatorUser | null {
 
 const cachedUser = leerUserGuardado();
 
+function purgeDrafts(shouldRemove: (owner: unknown) => boolean) {
+  const keys = Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index));
+  for (const key of keys) {
+    if (!key?.startsWith('observatorio-ux-draft:')) continue;
+    const raw = localStorage.getItem(key);
+    if (raw === null) continue;
+    let owner: unknown;
+    try {
+      owner = JSON.parse(raw).userId;
+    } catch {
+      localStorage.removeItem(key);
+      continue;
+    }
+    if (shouldRemove(owner)) localStorage.removeItem(key);
+  }
+}
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: cachedUser,
   perspectiveRole: cachedUser ? readStoredPerspective(cachedUser, sessionStorage) : null,
@@ -89,6 +106,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   setSession: (user, expiresAt) => {
+    purgeDrafts(owner => owner !== user.id);
     localStorage.setItem(USER_KEY, JSON.stringify(user));
     storePerspective(user, user.rol, sessionStorage);
     set({ user, perspectiveRole: user.rol, isAuthenticated: true, isChecking: false, expiresAt: expiresAt ?? null, sessionEnding: false, sessionNotice: false });
@@ -105,10 +123,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   logout: () => {
     window.dispatchEvent(new Event('observatorio-ux-manual-logout'));
     const userId = get().user?.id;
-    for (const key of Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index)!)) {
-      if (!key.startsWith('observatorio-ux-draft:')) continue;
-      try { if (JSON.parse(localStorage.getItem(key)!).userId === userId) localStorage.removeItem(key); } catch { localStorage.removeItem(key); }
-    }
+    purgeDrafts(owner => owner === userId);
     sessionStorage.removeItem('observatorio-ux-returnTo');
     localStorage.removeItem(USER_KEY);
     clearStoredPerspective(sessionStorage);

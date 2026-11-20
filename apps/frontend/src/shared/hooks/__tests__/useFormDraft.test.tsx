@@ -39,13 +39,40 @@ it('la expiración vacía el debounce; logout manual elimina sin resucitar el bo
   expect(localStorage.getItem('observatorio-ux-draft:u1:test')).toBeNull();
 });
 it('ignora otro usuario y contenido inválido; Descarta el contenido recuperado', () => {
-  localStorage.setItem('observatorio-ux-draft:u1:test', JSON.stringify({ userId: 'otro', value: { name: 'Ajeno' } }));
+  const savedAt = Date.now();
+  localStorage.setItem('observatorio-ux-draft:u1:test', JSON.stringify({ userId: 'otro', value: { name: 'Ajeno' }, savedAt }));
   const first = renderHook(editor); expect(first.result.current.value.name).toBe(''); first.unmount();
-  localStorage.setItem('observatorio-ux-draft:u1:test', JSON.stringify({ userId: 'u1', value: { name: 42 } }));
+  localStorage.setItem('observatorio-ux-draft:u1:test', JSON.stringify({ userId: 'u1', value: { name: 42 }, savedAt }));
   const malformed = renderHook(editor); expect(malformed.result.current.value.name).toBe(''); malformed.unmount();
-  localStorage.setItem('observatorio-ux-draft:u1:test', JSON.stringify({ userId: 'u1', value: { name: 'Propio' } }));
+  localStorage.setItem('observatorio-ux-draft:u1:test', JSON.stringify({ userId: 'u1', value: { name: 'Propio' }, savedAt }));
   const own = renderHook(editor);
+  expect(own.result.current.value.name).toBe('Propio');
   act(() => own.result.current.draft.discard());
   expect(own.result.current.value.name).toBe('');
+});
+
+it.each([
+  { dias: 6, restaura: true },
+  { dias: 7, restaura: false },
+  { dias: 8, restaura: false },
+  { dias: undefined, restaura: false },
+])('restauración por antigüedad del borrador ($dias días)', ({ dias, restaura }) => {
+  const key = 'observatorio-ux-draft:u1:test';
+  const savedAt = dias === undefined ? undefined : Date.now() - dias * 86_400_000;
+  localStorage.setItem(key, JSON.stringify({ userId: user.id, value: { name: 'Proyecto' }, savedAt }));
+  const { result } = renderHook(editor);
+  expect(result.current.draft.restored).toBe(restaura);
+  expect(result.current.value.name).toBe(restaura ? 'Proyecto' : '');
+  if (!restaura) expect(localStorage.getItem(key)).toBeNull();
+});
+
+it('el inicio de sesión purga borradores ajenos y conserva los propios', () => {
+  const own = 'observatorio-ux-draft:u1:test';
+  const other = 'observatorio-ux-draft:u2:test';
+  localStorage.setItem(own, JSON.stringify({ userId: user.id, savedAt: Date.now(), value: { name: 'Propio' } }));
+  localStorage.setItem(other, JSON.stringify({ userId: 'u2', savedAt: Date.now(), value: { name: 'Ajeno' } }));
+  useAuthStore.getState().setSession(user);
+  expect(localStorage.getItem(other)).toBeNull();
+  expect(localStorage.getItem(own)).not.toBeNull();
 });
 it.each(['//evil.test', 'https://evil.test', '/\\evil.test', '/\n/evil.test'])('rechaza returnTo externo o ambiguo %s', value => expect(safeReturnTo(value)).toBe('/'));
