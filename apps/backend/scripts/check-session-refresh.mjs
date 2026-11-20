@@ -13,6 +13,8 @@ import { AuthController } from '../dist/src/modules/auth/auth.controller.js';
 import { JwtStrategy } from '../dist/src/modules/auth/jwt.strategy.js';
 import { csrfProtection } from '../dist/src/common/csrf.js';
 
+process.env.CORS_ORIGIN = 'https://observatorio.example';
+const origin = process.env.CORS_ORIGIN;
 const secret = 'evaluador-secret-solo-para-pruebas';
 const jwt = new JwtService({ secret });
 const user = { id: 'u1', email: 'docente@utem.cl', rol: 'DOCENTE', actor: 'EVALUADOR' };
@@ -48,6 +50,14 @@ try {
   const cookieWith = (value) => `evaluadorToken=${value}; csrfToken=test-csrf`;
   const cookie = (exp, start) => cookieWith(token(exp, start));
   const server = app.getHttpServer();
+  const otherOrigin = await request(server).post('/auth/refresh')
+    .set('Origin', 'https://otro.example')
+    .set('Cookie', cookie(now + 100))
+    .set('Authorization', `Bearer ${token(now + 100)}`)
+    .set('x-csrf-token', 'test-csrf')
+    .expect(403);
+  assert.equal(otherOrigin.body.message, 'Origen no permitido.');
+  await request(server).post('/auth/logout').set('Origin', 'https://otro.example').expect(201);
   await request(server).post('/auth/refresh').set('Cookie', cookie(now + 100)).expect(403);
   await request(server).post('/auth/refresh').set('Cookie', cookie(now - 1)).set('x-csrf-token', 'test-csrf').expect(401);
   // Un token anterior a la versión de sesión (sin `sv`) sigue sirviendo mientras la versión sea 0.
@@ -56,7 +66,11 @@ try {
   const me = await request(server).get('/auth/me').set('Cookie', cookie(exp)).expect(200);
   assert.equal(me.body.session.expiresAt, exp * 1000);
   const start = now - 43000;
-  const refreshed = await request(server).post('/auth/refresh').set('Cookie', cookie(now + 100, start)).set('x-csrf-token', 'test-csrf').expect(200);
+  const refreshed = await request(server).post('/auth/refresh')
+    .set('Origin', origin)
+    .set('Cookie', cookie(now + 100, start))
+    .set('Authorization', `Bearer ${token(now + 100, start)}`)
+    .expect(200);
   assert.deepEqual(refreshed.body, { renewed: true, session: { expiresAt: (start + 43200) * 1000 } });
   assert.match(refreshed.headers['set-cookie'][0], /HttpOnly/);
   assert.match(refreshed.headers['set-cookie'][0], /Secure/);
@@ -72,5 +86,5 @@ try {
   let status;
   for (let i = 0; i < 11; i++) status = (await request(server).post('/auth/refresh').set('Cookie', cookie(exp)).set('x-csrf-token', 'test-csrf')).status;
   assert.equal(status, 429);
-  console.log('PASS refresh: CSRF, expired JWT, me expiry, capped renewal, secure httpOnly cookie, revocación tras logout, 429.');
+  console.log('PASS refresh: origen, CSRF, expired JWT, me expiry, capped renewal, secure httpOnly cookie, revocación tras logout, 429.');
 } finally { await app.close(); }

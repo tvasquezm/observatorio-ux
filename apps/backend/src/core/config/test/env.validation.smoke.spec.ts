@@ -28,6 +28,14 @@ describe('envValidationSchema (A4 fix smoke test)', () => {
     expect(error).toBeUndefined();
   });
 
+  it('valida la duración de la sesión de participante', () => {
+    const env = { ...base, NODE_ENV: 'production' };
+    expect(envValidationSchema.validate(env).value.JWT_PARTICIPANTE_EXPIRES_IN).toBe('4h');
+    expect(envValidationSchema.validate({ ...env, JWT_PARTICIPANTE_EXPIRES_IN: '30m' }).error).toBeUndefined();
+    expect(envValidationSchema.validate({ ...env, JWT_PARTICIPANTE_EXPIRES_IN: '30' }).error?.message)
+      .toMatch(/JWT_PARTICIPANTE_EXPIRES_IN/);
+  });
+
   it('rechaza secretos cortos o compartidos entre tipos de sesión', () => {
     const shortResult = envValidationSchema.validate({
       ...base,
