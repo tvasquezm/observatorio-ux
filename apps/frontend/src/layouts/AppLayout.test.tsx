@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, cleanup, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, cleanup, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { AppLayout } from './AppLayout';
@@ -59,6 +59,28 @@ describe('Preferencia de tamaño del texto', () => {
   const open = () => fireEvent.click(screen.getByRole('button', { name: 'Preferencias' }));
   const up = () => fireEvent.click(screen.getByRole('button', { name: 'Aumentar tamaño del texto' }));
   const down = () => fireEvent.click(screen.getByRole('button', { name: 'Reducir tamaño del texto' }));
+
+  it('ajusta el tamaño desde la barra, cierra el panel y comparte el valor con Preferencias', async () => {
+    mount();
+    const button = screen.getByRole('button', { name: 'Tamaño del texto' });
+    expect(button.closest('.top-actions')).toBeInTheDocument();
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    await userEvent.click(button);
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+    const picker = screen.getByRole('group', { name: 'Tamaño del texto' });
+    await userEvent.click(within(picker).getByRole('button', { name: 'Aumentar tamaño del texto' }));
+    expect(within(picker).getByText('112.5 %')).toBeVisible();
+    expect(document.documentElement.dataset.fontSize).toBe('large');
+    await userEvent.keyboard('{Escape}');
+    expect(button).toHaveFocus();
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    expect(picker).not.toBeVisible();
+    await userEvent.click(button);
+    await userEvent.click(screen.getByRole('button', { name: 'Preferencias' }));
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    const dialog = screen.getByRole('dialog', { name: 'Preferencias' });
+    expect(within(dialog).getByRole('group', { name: 'Tamaño del texto' })).toHaveTextContent('112.5 %');
+  });
 
   it('aumenta, lo conserva al remontar y reduce hasta Normal', () => {
     mount();

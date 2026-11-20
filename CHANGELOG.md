@@ -8,6 +8,8 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **accesibilidad:** acceso al tamaño del texto desde la barra superior, con los mismos ajustes de Preferencias.
+
 * **interfaz:** íconos en las tarjetas de técnicas y en las ayudas, con bordes decorativos más suaves en modo claro.
 
 * **resultados de Card Sorting:** la matriz mejora el contraste de las celdas y las vistas aprovechan el ancho disponible.
