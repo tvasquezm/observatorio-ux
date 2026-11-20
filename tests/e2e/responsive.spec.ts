@@ -14,6 +14,23 @@ test('adapta el acceso al viewport sin perder contenido', async ({ page }, testI
   }
 });
 
+test.describe('movimiento reducido', () => {
+  test.use({ reducedMotion: 'reduce' });
+
+  test('desactiva animaciones decorativas y muestra el foco al navegar con teclado', async ({ page }) => {
+    await page.goto('/login');
+    const email = page.getByLabel('Email');
+    for (let step = 0; step < 8 && !(await email.evaluate(field => field.matches(':focus-visible'))); step++) {
+      await page.keyboard.press('Tab');
+    }
+    await expect(email).toBeFocused();
+    await expect(email).toHaveCSS('outline-width', '3px');
+    await expect(email).toHaveCSS('outline-style', 'solid');
+    await loginAsProfessor(page);
+    await expect(page.locator('.fade.dashboard-page')).toHaveCSS('animation-name', 'none');
+  });
+});
+
 test('mantiene la barra abierta hasta cerrarla y conserva la elección al recargar', async ({ page }) => {
   await loginAsProfessor(page);
   const sidebar = page.getByRole('complementary', { name: 'Navegación principal' });
