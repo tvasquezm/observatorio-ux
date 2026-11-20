@@ -745,7 +745,7 @@ button { cursor: pointer; }
 .cs-inline-result { display: inline-block; margin: 0 5px 5px 0; padding: 4px 7px; border-radius: 999px; background: var(--surface-muted); color: var(--ink); }
 .cs-matrix th, .cs-matrix td { text-align: center; }
 .cs-matrix th:first-child { min-width: 150px; text-align: left; }
-.cs-matrix-cell.heat { background: color-mix(in srgb, var(--teal) calc(12% + var(--cell-intensity) * 68%), var(--surface)); color: var(--ink); font-weight: 750; }
+.cs-matrix-cell.heat { background: color-mix(in srgb, var(--teal) calc(12% + var(--cell-intensity) * 40%), var(--surface)); color: var(--ink); font-weight: 750; }
 @media (max-width: 760px) {
   .cs-workspace-grid { grid-template-columns: 1fr; }
   .cs-study-row { grid-template-columns: 1fr auto; }
@@ -2087,6 +2087,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .crumb strong { color: var(--ink); }
 .theme-toggle { min-height: 38px; padding: 8px 11px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); color: var(--ink); font-size: 0.75rem; }
 .content { width: 100%; max-width: 1320px; padding: 36px 36px 56px; }
+.content:has(.cs-results) { max-width: none; }
 .page-head { align-items: flex-end; gap: 28px; margin-bottom: 28px; }
 .page-head > div:first-child { max-width: 760px; }
 .page-head h1, .salas-header h1, .sala-detail-hero h1, .comments-intro h2, .participant-step h1, .participant-study-head h1 {
@@ -2657,7 +2658,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .pdf-section small { display: block; margin-block: .25rem; color: var(--muted); }
 .cs-results .cs-analysis-tab { flex: 0 0 auto; }
 .cs-results .panel { padding: 1rem; }
-.cs-results .cs-dendrogram svg { min-width: 48rem; width: 100%; height: auto; }
+.cs-results .cs-dendro-svg { min-width: 48rem; width: 100%; height: auto; }
 .project-menu-link .icon, .pm-item-icon .icon, .pm-now-name .icon { width: var(--icon-size-technique); height: var(--icon-size-technique); }
 .tech-icon, .tech-glyph { font-size: var(--icon-size-technique); }
 .info-tip-btn:hover, .info-tip-btn[aria-expanded='true'] { background: var(--teal-soft); color: var(--teal); }
