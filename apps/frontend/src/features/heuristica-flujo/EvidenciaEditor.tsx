@@ -65,11 +65,11 @@ function VisorAmpliado({ url, anotaciones, conMarcas, onClose, edicion }: { url:
         <div className="evidencia-visor-imagen">
           <img src={url} alt="Captura de evidencia ampliada" />
           {conMarcas && (edicion
-            ? <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-label="Anotaciones de la captura ampliada" {...edicion.gestos} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', touchAction: 'none', cursor: 'crosshair' }}>
+            ? <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-label="Anotaciones de la captura ampliada" {...edicion.gestos} className="evidencia-capa evidencia-capa-edicion">
               {anotaciones.map(a => <Marca key={a.id} anotacion={a} />)}{edicion.preview && <Marca anotacion={edicion.preview} />}
               {edicion.seleccionada && <Tiradores anotacion={edicion.seleccionada} />}
             </svg>
-            : <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>{anotaciones.map(a => <Marca key={a.id} anotacion={a} />)}</svg>)}
+            : <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true" className="evidencia-capa">{anotaciones.map(a => <Marca key={a.id} anotacion={a} />)}</svg>)}
         </div>
       </div>
     </div>,
@@ -86,7 +86,7 @@ function Lienzo({ proyectoId, evaluacionId, meta, blob, editable, onPendingChang
   const [revision, setRevision] = useState(meta.revision);
   const [historial, setHistorial] = useState<AnotacionEvidencia[][]>([]);
   const [forma, setForma] = useState<Forma>('rectangulo');
-  const [color, setColor] = useState('#d83232');
+  const [color, setColor] = useState(() => getComputedStyle(document.documentElement).getPropertyValue('--annotation').trim());
   const [resaltada, setResaltada] = useState<string | null>(null);
   const [original, setOriginal] = useState(false);
   const [guardando, setGuardando] = useState(false);
@@ -172,10 +172,10 @@ function Lienzo({ proyectoId, evaluacionId, meta, blob, editable, onPendingChang
       </div>
     </>}
     <div className="evidencia-original"><label><input type="checkbox" checked={original} onChange={e => setOriginal(e.target.checked)} aria-describedby="evidencia-original-ayuda" /> Mostrar imagen original</label><span id="evidencia-original-ayuda" className="text-muted-xs">Oculta las marcas para ver la captura sin anotar</span></div>
-    <div style={{ position: 'relative', width: '100%', maxWidth: 720, marginBlock: 12 }}>
-      <img src={url} alt="Captura de evidencia" style={{ display: 'block', width: '100%', height: 'auto', cursor: 'zoom-in' }} onClick={() => setAmpliada(true)} />
+    <div className="evidencia-captura">
+      <img src={url} alt="Captura de evidencia" onClick={() => setAmpliada(true)} />
       <button type="button" className="evidencia-accion evidencia-ampliar" aria-label="Ampliar captura" title="Ver en grande" onClick={() => setAmpliada(true)}><Icon name="zoom-in" size={20} /></button>
-      {!original && <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-label="Vista de las anotaciones" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', touchAction: editable ? 'none' : 'auto', cursor: editable ? 'crosshair' : 'zoom-in' }}
+      {!original && <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-label="Vista de las anotaciones" className={editable ? 'evidencia-capa evidencia-capa-edicion' : 'evidencia-capa evidencia-capa-vista'}
         onClick={() => { if (!editable) setAmpliada(true); }}
         {...gestos(() => setAmpliada(true))}>
         {visibles.map(a => <Marca key={a.id} anotacion={a} resaltada={a.id === resaltada} />)}{preview && <Marca anotacion={preview} />}

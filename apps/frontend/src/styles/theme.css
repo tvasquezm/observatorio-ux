@@ -15,19 +15,19 @@
   --room-6: #ad516e;
   --room-7: #587a38;
   --room-8: #65748b;
-  --navy: #1f2d4a;
-  --navy-2: #152038;
-  --teal: #3049b2;
+  --navy: #1b2944;
+  --navy-2: #111a2d;
+  --teal: #465fc7;
   --focus-ring: #3049b2;
-  --mint: #a7c51f;
-  --ink: #25344d;
-  --muted: #5c6b7f;
-  --bg: #f3f5f9;
-  --line: #d7dde7;
+  --mint: #b5cf32;
+  --ink: #202b3f;
+  --muted: #4c5b70;
+  --bg: #f3f5f8;
+  --line: #7c889b;
   --surface: #ffffff;
-  --surface-alt: #f8fafc;
-  --surface-muted: #edf1f6;
-  --surface-subtle: #f1f5f9;
+  --surface-alt: #f8f9fc;
+  --surface-muted: #eef1f6;
+  --surface-subtle: #f2f4f8;
   --critical-surface: #fff1f2;
   --critical-line: #fecdd3;
   --critical-ink: #881337;
@@ -37,7 +37,7 @@
   --room-badge-ink: #31550f;
   --coral: #be665b;
   --lav: #7770b4;
-  --shadow: 0 10px 28px rgba(31, 45, 74, 0.08);
+  --shadow: 0 10px 32px rgba(27, 41, 68, .07);
   --ink-soft: #3d4d66;
   --on-navy: #d6deed;
   --on-navy-muted: #b4c0d6;
@@ -57,6 +57,16 @@
   --heat-media-line: #b9770e;
   --heat-baja: #cfe0f5;
   --heat-baja-line: #3f6fb0;
+  --shadow-raised: 0 18px 48px rgba(27, 41, 68, .12);
+  --c1: #3049b2;
+  --c2: #0f8b7a;
+  --c3: #c2571a;
+  --c4: #8a3fb3;
+  --c5: #a98300;
+  --c6: #c0305a;
+  --c7: #4f7a28;
+  --c8: #6b7a90;
+  --annotation: #d83232;
 }
 .app :is(button, .primary, .secondary, .ghost, .nav-btn) { min-height: 44px; min-width: 44px; }
 :where(.app) a { display: inline-flex; align-items: center; }
@@ -1165,18 +1175,18 @@ button { cursor: pointer; }
   --heat-media-line: #f2c14e;
   --heat-baja: #234a7a;
   --heat-baja-line: #7fb0f0;
-  --navy: #2a3b66;
-  --navy-2: #0f172b;
-  --teal: #788bd5;
-  --mint: #b1c83d;
-  --ink: #e7ebf5;
-  --muted: #aab5c8;
-  --bg: #101726;
-  --line: #2d3a53;
-  --surface: #19243a;
-  --surface-alt: #202d45;
-  --surface-muted: #26334b;
-  --surface-subtle: #26344c;
+  --navy: #27385e;
+  --navy-2: #0d1423;
+  --teal: #8195ed;
+  --mint: #b9d43c;
+  --ink: #edf1f8;
+  --muted: #b9c5d8;
+  --bg: #0f1523;
+  --line: #7889a3;
+  --surface: #182033;
+  --surface-alt: #1e283d;
+  --surface-muted: #263148;
+  --surface-subtle: #222c42;
   --critical-surface: #44232b;
   --critical-line: #7f3545;
   --critical-ink: #ffd9df;
@@ -1186,7 +1196,7 @@ button { cursor: pointer; }
   --room-badge-ink: #d9efa7;
   --coral: #d17a70;
   --lav: #9b96d2;
-  --shadow: 0 12px 30px rgba(0, 0, 0, .22);
+  --shadow: 0 12px 34px rgba(0, 0, 0, .2);
   --ink-soft: #c5cfdf;
   --teal-ink: #c4cff8;
   --primary: #5067c2;
@@ -1195,6 +1205,18 @@ button { cursor: pointer; }
   --primary-shadow: #00000029;
   --heading: var(--ink);
   --bubble-ink: #101726;
+  --focus-ring: #8195ed;
+  --line-soft: var(--line);
+  --shadow-raised: 0 22px 54px rgba(0, 0, 0, .32);
+  --c1: #8195ed;
+  --c2: #4fc9b6;
+  --c3: #f08a4b;
+  --c4: #c58be8;
+  --c5: #e0b93a;
+  --c6: #f07a9b;
+  --c7: #8fc460;
+  --c8: #9aa8bd;
+  --annotation: #d83232;
 }
 :root[data-theme='dark'] html,
 :root[data-theme='dark'] body,
@@ -1949,40 +1971,6 @@ button { cursor: pointer; }
 /* ========================================================================== */
 /* Refinamiento visual 2026: shell, superficies y módulos agregados           */
 /* ========================================================================== */
-:root {
-  --navy: #1b2944;
-  --navy-2: #111a2d;
-  --teal: #465fc7;
-  --mint: #b5cf32;
-  --ink: #202b3f;
-  --muted: #4c5b70;
-  --bg: #f3f5f8;
-  --line: #7c889b;
-  --surface: #ffffff;
-  --surface-alt: #f8f9fc;
-  --surface-muted: #eef1f6;
-  --surface-subtle: #f2f4f8;
-  --shadow: 0 10px 32px rgba(27, 41, 68, .07);
-  --shadow-raised: 0 18px 48px rgba(27, 41, 68, .12);
-}
-:root[data-theme='dark'] {
-  --navy: #27385e;
-  --navy-2: #0d1423;
-  --teal: #8195ed;
-  --focus-ring: #8195ed;
-  --mint: #b9d43c;
-  --ink: #edf1f8;
-  --muted: #b9c5d8;
-  --bg: #0f1523;
-  --line: #7889a3;
-  --line-soft: var(--line);
-  --surface: #182033;
-  --surface-alt: #1e283d;
-  --surface-muted: #263148;
-  --surface-subtle: #222c42;
-  --shadow: 0 12px 34px rgba(0, 0, 0, .2);
-  --shadow-raised: 0 22px 54px rgba(0, 0, 0, .32);
-}
 html { scroll-behavior: smooth; }
 html, body, #root {
   font-family: Aptos, "Segoe UI Variable Text", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
@@ -2842,8 +2830,6 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
   .cs-paste-bar { align-items: stretch; flex-direction: column; }
 }
 /* Card sorting: vistas Tarjetas y Categorías (barras, consenso, enlaces entre pestañas) */
-:root { --c1: #3049b2; --c2: #0f8b7a; --c3: #c2571a; --c4: #8a3fb3; --c5: #a98300; --c6: #c0305a; --c7: #4f7a28; --c8: #6b7a90; }
-:root[data-theme='dark'] { --c1: #8195ed; --c2: #4fc9b6; --c3: #f08a4b; --c4: #c58be8; --c5: #e0b93a; --c6: #f07a9b; --c7: #8fc460; --c8: #9aa8bd; }
 .seg.c1, .dot.c1 { background: var(--c1); }
 .seg.c2, .dot.c2 { background: var(--c2); }
 .seg.c3, .dot.c3 { background: var(--c3); }
@@ -3230,3 +3216,23 @@ div:has(> .project-section > .hf) > .project-heading p { margin:4px 0 0; font-si
 .hf .hf-matrices > .hf-navegar { margin-bottom: 20px; }
 .hf .hf-pie-trabajo { border-top: 1px solid var(--line); margin-top: 8px; padding-top: 12px; row-gap: 12px; }
 .hf .hf-pie-trabajo > button { margin-left: auto; }
+
+/* Formatos de formulario y anotación compartidos por sus vistas. */
+.journey-campo-ancho { grid-column: 1 / -1; }
+.journey-evidencia { width: 100%; min-height: 120px; box-sizing: border-box; }
+.persona-fotografia-preview img { max-width: 160px; max-height: 160px; object-fit: cover; border-radius: 8px; }
+.tv-anillo-gradiente-teal { stop-color: var(--teal); }
+.tv-anillo-gradiente-mint { stop-color: var(--mint); }
+.form-grid.form-importar-lista { max-width: 480px; }
+.form-row-inline.sala-configuracion { margin-bottom: 16px; }
+.sala-configuracion > label:first-child { display: flex; align-items: center; gap: 8px; }
+.form-row-inline.sala-proyecto-acciones { margin: 0; }
+.sala-configuracion .sala-limite-integrantes { max-width: 120px; }
+.sala-equipo-detalle { width: 100%; }
+.evidencia-captura { position: relative; width: 100%; max-width: 720px; margin-block: 12px; }
+.evidencia-captura > img { display: block; width: 100%; height: auto; cursor: zoom-in; }
+.evidencia-capa { position: absolute; inset: 0; width: 100%; height: 100%; }
+.evidencia-capa-edicion { touch-action: none; cursor: crosshair; }
+.evidencia-capa-vista { touch-action: auto; cursor: zoom-in; }
+.hf-titulo-seccion { display: inline; margin-right: 8px; }
+.hf-texto-multilinea { white-space: pre-wrap; }

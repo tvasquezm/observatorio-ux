@@ -449,8 +449,7 @@ export function JourneyMapPage() {
                                     nombre: e.target.value,
                                   })
                                 }
-                                className="input-sm"
-                                style={{ gridColumn: '1 / -1' }}
+                                className="input-sm journey-campo-ancho"
                               />
 
                               {camposDeFase(index, CAMPOS_FASES)}
@@ -487,8 +486,7 @@ export function JourneyMapPage() {
                                     emocion: e.target.value as Phase['emocion'],
                                   })
                                 }
-                                className="input-sm"
-                                style={{ gridColumn: '1 / -1' }}
+                                className="input-sm journey-campo-ancho"
                               >
                                 <option value="Positiva">Emoción: positiva</option>
                                 <option value="Neutral">Emoción: neutral</option>
@@ -535,12 +533,7 @@ export function JourneyMapPage() {
                         aria-label="Evidencia"
                         value={evidenciaInput}
                         onChange={(e) => setEvidenciaInput(e.target.value)}
-                        className="textarea-sm"
-                        style={{
-                          width: '100%',
-                          minHeight: '120px',
-                          boxSizing: 'border-box',
-                        }}
+                        className="textarea-sm journey-evidencia"
                       /></label>
                     ),
                   },

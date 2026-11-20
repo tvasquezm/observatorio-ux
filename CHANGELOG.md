@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file. See [commit
 
 ## Unreleased
 
+* **estilos:** se consolidan los tokens de tema y los estilos estáticos de los formularios y anotaciones.
+
 * **dependencias:** parches mediante overrides de qs, fast-xml-parser, minimatch y glob.
 
 * **CI:** Joi 18.3.1 elimina la alerta alta GHSA-4528-x5fx-h6hg; selector E2E alineado con Nombre del card sorting.

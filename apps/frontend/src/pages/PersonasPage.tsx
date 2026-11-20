@@ -301,7 +301,7 @@ export function PersonasPage() {
                       {form.fotografiaUrl?.trim() && !form.fotografiaUrl.startsWith('data:') && !normalizarUrlProducto(form.fotografiaUrl) && (
                         <span className="error-text" role="alert">Esta URL no es válida. Usa una dirección web (por ejemplo miweb.cl/foto) para poder guardar.</span>
                       )}
-                      {form.fotografiaUrl && <div className="persona-fotografia-preview"><img src={form.fotografiaUrl} alt={`Vista previa de ${form.nombreCompleto || 'la persona'}`} style={{ maxWidth: 160, maxHeight: 160, objectFit: 'cover', borderRadius: 8 }} /><button type="button" className="text-button" disabled={bloqueado} onClick={() => setForm({ ...form, fotografiaUrl: undefined })}>Quitar fotografía</button></div>}
+                      {form.fotografiaUrl && <div className="persona-fotografia-preview"><img src={form.fotografiaUrl} alt={`Vista previa de ${form.nombreCompleto || 'la persona'}`} /><button type="button" className="text-button" disabled={bloqueado} onClick={() => setForm({ ...form, fotografiaUrl: undefined })}>Quitar fotografía</button></div>}
                     </div>
                   </div>,
                 ),

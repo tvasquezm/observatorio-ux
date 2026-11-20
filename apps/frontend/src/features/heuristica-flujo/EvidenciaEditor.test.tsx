@@ -7,6 +7,7 @@ import { EvidenciaEditor } from './EvidenciaEditor';
 
 const api = vi.hoisted(() => ({ cargarEvidencia: vi.fn(), subirEvidenciaFlujo: vi.fn(), guardarAnotaciones: vi.fn() }));
 vi.mock('./evidencia.api', () => api);
+const colorPredeterminado = '#a23333';
 const PNG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0];
 const png = (name = 'a.png') => new File([new Uint8Array(PNG)], name, { type: 'image/png' });
 const meta = { id: 'cap1', evaluacionId: 'ev1', autorId: 'u1', mimeType: 'image/png', tamano: 5, anotaciones: [], revision: 0, createdAt: '2026-10-09' };
@@ -24,6 +25,7 @@ function dibujar(de: [number, number], a: [number, number]) {
 }
 const rectangulo = () => dibujar([100, 100], [500, 500]);
 beforeEach(() => {
+  document.documentElement.style.setProperty('--annotation', colorPredeterminado);
   vi.resetAllMocks();
   Object.defineProperty(URL, 'createObjectURL', { value: vi.fn(() => 'blob:captura'), configurable: true });
   Object.defineProperty(URL, 'revokeObjectURL', { value: vi.fn(), configurable: true });
@@ -83,7 +85,7 @@ describe('EvidenciaEditor', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Deshacer' }));
     expect(screen.getByLabelText('Forma de la anotación 1')).toHaveValue('rectangulo');
     await userEvent.click(screen.getByRole('button', { name: 'Deshacer' }));
-    expect(screen.getByLabelText('Color de la anotación 1')).toHaveValue('#d83232');
+    expect(screen.getByLabelText('Color de la anotación 1')).toHaveValue(colorPredeterminado);
     fireEvent.change(screen.getByLabelText('Color de la anotación 1'), { target: { value: '#0000ff' } });
     await userEvent.selectOptions(screen.getByLabelText('Forma de la anotación 1'), 'destacado');
     await userEvent.click(screen.getByRole('button', { name: 'Guardar anotaciones' }));
@@ -270,7 +272,7 @@ describe('EvidenciaEditor', () => {
     expect(fireEvent.keyDown(tarjeta(), { key: 'ArrowLeft' })).toBe(false);
   });
   it('en solo lectura y con anotaciones de texto las flechas no cambian nada', async () => {
-    api.cargarEvidencia.mockResolvedValue({ meta: { ...meta, anotaciones: [{ id: 't1', tipo: 'texto', x: 0.2, y: 0.2, x2: 0.2, y2: 0.2, color: '#d83232', texto: 'Revisar' }] }, blob: new Blob(['png'], { type: 'image/png' }) });
+    api.cargarEvidencia.mockResolvedValue({ meta: { ...meta, anotaciones: [{ id: 't1', tipo: 'texto', x: 0.2, y: 0.2, x2: 0.2, y2: 0.2, color: colorPredeterminado, texto: 'Revisar' }] }, blob: new Blob(['png'], { type: 'image/png' }) });
     abrir();
     await screen.findByAltText('Captura de evidencia');
     act(() => tarjeta().focus());
@@ -299,7 +301,7 @@ describe('EvidenciaEditor', () => {
     expect(libre.defaultPrevented).toBe(false);
   });
   it('con 50 anotaciones no se crea la 51 pero sí se puede mover con teclado', async () => {
-    const cincuenta = Array.from({ length: 50 }, (_, i) => ({ id: `a${i}`, tipo: 'rectangulo' as const, x: 0.1, y: 0.1, x2: 0.2, y2: 0.2, color: '#d83232', texto: '' }));
+    const cincuenta = Array.from({ length: 50 }, (_, i) => ({ id: `a${i}`, tipo: 'rectangulo' as const, x: 0.1, y: 0.1, x2: 0.2, y2: 0.2, color: colorPredeterminado, texto: '' }));
     api.cargarEvidencia.mockResolvedValue({ meta: { ...meta, anotaciones: cincuenta }, blob: new Blob(['png'], { type: 'image/png' }) });
     abrir();
     await screen.findByAltText('Captura de evidencia');
@@ -323,7 +325,7 @@ describe('EvidenciaEditor', () => {
     expect(screen.getAllByRole('listitem')).toHaveLength(1);
   });
   it('una anotación antigua de texto se muestra y se puede eliminar, pero no editar', async () => {
-    api.cargarEvidencia.mockResolvedValue({ meta: { ...meta, anotaciones: [{ id: 't1', tipo: 'texto', x: 0.2, y: 0.2, x2: 0.2, y2: 0.2, color: '#d83232', texto: 'Revisar botón' }] }, blob: new Blob(['png'], { type: 'image/png' }) });
+    api.cargarEvidencia.mockResolvedValue({ meta: { ...meta, anotaciones: [{ id: 't1', tipo: 'texto', x: 0.2, y: 0.2, x2: 0.2, y2: 0.2, color: colorPredeterminado, texto: 'Revisar botón' }] }, blob: new Blob(['png'], { type: 'image/png' }) });
     abrir();
     await screen.findByAltText('Captura de evidencia');
     const tarjeta = screen.getByRole('listitem', { name: 'Anotación 1' });
@@ -558,7 +560,7 @@ describe('EvidenciaEditor', () => {
       expect(screen.getAllByRole('listitem')).toHaveLength(1);
     });
     it('muestra una anotación antigua de texto y no ofrece eliminarla sin selección', async () => {
-      api.cargarEvidencia.mockResolvedValue({ meta: { ...meta, anotaciones: [{ id: 't1', tipo: 'texto', x: 0.2, y: 0.2, x2: 0.2, y2: 0.2, color: '#d83232', texto: 'Revisar botón' }] }, blob: new Blob(['png'], { type: 'image/png' }) });
+      api.cargarEvidencia.mockResolvedValue({ meta: { ...meta, anotaciones: [{ id: 't1', tipo: 'texto', x: 0.2, y: 0.2, x2: 0.2, y2: 0.2, color: colorPredeterminado, texto: 'Revisar botón' }] }, blob: new Blob(['png'], { type: 'image/png' }) });
       await visor();
       expect(screen.getByLabelText('Anotaciones de la captura ampliada')).toHaveTextContent('Revisar botón');
       expect(screen.getByRole('button', { name: 'Eliminar anotación seleccionada' })).toBeDisabled();

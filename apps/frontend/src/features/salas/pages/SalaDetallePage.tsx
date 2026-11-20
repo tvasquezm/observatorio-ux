@@ -285,8 +285,8 @@ function ProyectosDeSala({ salaId, sala, actualizacionPermiso }: { salaId: strin
 
   return (
     <div>
-      <div className="form-row-inline" style={{ marginBottom: 16 }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div className="form-row-inline sala-configuracion">
+        <label>
           <input
             type="checkbox"
             checked={permiteCreacionProyectos}
@@ -342,7 +342,7 @@ function ProyectosDeSala({ salaId, sala, actualizacionPermiso }: { salaId: strin
               <b>{p.nombre}</b>
               {p.descripcion && <div className="text-muted-sm">{p.descripcion}</div>}
             </div>
-            <div className="form-row-inline" style={{ margin: 0 }}>
+            <div className="form-row-inline sala-proyecto-acciones">
               <Link to={`/proyectos/${p.id}`} className="secondary">Ver proyecto →</Link>
               <button
                 type="button"
@@ -412,7 +412,7 @@ function EstudiantesDeSala({ salaId, onDirtyChange }: { salaId: string; onDirtyC
 
   return (
     <div>
-      <div className="form-row-inline" style={{ marginBottom: 12 }}>
+      <div className="form-row-inline">
         <button
           type="button"
           className={modo === 'individual' ? 'primary' : 'secondary'}
@@ -455,7 +455,7 @@ function EstudiantesDeSala({ salaId, onDirtyChange }: { salaId: string; onDirtyC
       )}
 
       {modo === 'bulk' && (
-        <form onSubmit={handleAgregarBulk} className="form-grid" style={{ maxWidth: 480 }}>
+        <form onSubmit={handleAgregarBulk} className="form-grid form-importar-lista">
           <label className="field">
             Un estudiante por línea — <code>email</code> o <code>email, nombre</code>
             <textarea
@@ -594,8 +594,8 @@ function EquiposDeSalaDocente({ salaId, sala, onDirtyChange }: { salaId: string;
 
   return (
     <div>
-      <form onSubmit={handleGuardarToggle} className="form-row-inline" style={{ marginBottom: 16 }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <form onSubmit={handleGuardarToggle} className="form-row-inline sala-configuracion">
+        <label>
           <input
             type="checkbox"
             checked={permiteCreacion}
@@ -612,8 +612,7 @@ function EquiposDeSalaDocente({ salaId, sala, onDirtyChange }: { salaId: string;
             min={1}
             value={limite}
             onChange={(e) => setLimite(e.target.value)}
-            className="input-flex"
-            style={{ maxWidth: 120 }}
+            className="input-flex sala-limite-integrantes"
           />
         </label>
         <button type="submit" className="primary" disabled={guardandoToggle}>
@@ -649,7 +648,7 @@ function EquiposDeSalaDocente({ salaId, sala, onDirtyChange }: { salaId: string;
       <div className="list-stack mt-16">
         {equipos?.map((equipo) => (
           <div key={equipo.id} className="entity-card">
-            <div style={{ width: '100%' }}>
+            <div className="sala-equipo-detalle">
               {equipoRenombrando === equipo.id ? (
                 <div className="form-row-inline">
                   <input
@@ -803,7 +802,7 @@ function EquiposDeSalaEstudiante({ salaId, sala, onDirtyChange }: { salaId: stri
           const esMiEquipo = equipo.id === miEquipo?.id;
           return (
             <article key={equipo.id} className="entity-card">
-              <div style={{ width: '100%' }}>
+              <div className="sala-equipo-detalle">
                 <div className="row-between">
                   <b>{equipo.nombre}</b>
                   {esMiEquipo && (

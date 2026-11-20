@@ -164,7 +164,7 @@ export function MatrizItem({ criterios, config, respuestas, modo, individuales =
         </>;
         if (esEquipo) return <section className="hf-cat" key={g.categoria} aria-labelledby={`${id}-t-${g.categoria}`}>
           <details open={categoriaAbierta[g.categoria] ?? !completasAlInicio.has(g.categoria)} onToggle={e => { const abierta = e.currentTarget.open; setCategoriaAbierta(m => m[g.categoria] === abierta ? m : { ...m, [g.categoria]: abierta }); }}>
-            <summary><h3 ref={titulo} tabIndex={-1} id={`${id}-t-${g.categoria}`} style={{ display: 'inline', marginRight: 8 }}>{g.categoria}</h3><span>{completa ? '· ✓ Completa' : `· Faltan ${g.criterios.length - respondidos}`}</span></summary>
+            <summary><h3 ref={titulo} tabIndex={-1} id={`${id}-t-${g.categoria}`} className="hf-titulo-seccion">{g.categoria}</h3><span>{completa ? '· ✓ Completa' : `· Faltan ${g.criterios.length - respondidos}`}</span></summary>
             {cuerpo}
           </details>
         </section>;
