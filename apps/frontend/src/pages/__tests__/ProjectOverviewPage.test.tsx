@@ -8,7 +8,12 @@ vi.mock('react-router-dom', async original => ({ ...await original<typeof import
 describe('selector de técnicas', () => {
   it('muestra las cinco descripciones breves', () => {
     render(<MemoryRouter><ProjectOverviewPage /></MemoryRouter>);
-    for (const info of Object.values(TECNICAS_INFO)) expect(screen.getByText(info.descripcionCorta)).toBeVisible();
+    for (const info of Object.values(TECNICAS_INFO)) {
+      expect(info.descripcionCorta.trim()).not.toBe('');
+      const descripcion = screen.getByText(info.descripcionCorta);
+      expect(descripcion).toBeVisible();
+      expect(descripcion.closest('a.tech-card')).toBeInTheDocument();
+    }
   });
 
   it('ya no ofrece la explicación completa ni su descarga', () => {

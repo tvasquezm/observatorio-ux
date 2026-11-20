@@ -66,11 +66,13 @@ describe('Inicio en dos pasos', () => {
     const tecnicas = screen.getByRole('region', { name: 'Técnica' });
     const tarjetas = within(tecnicas).getAllByRole('link');
     expect(tarjetas).toHaveLength(5);
-    for (const tecnica of Object.keys(TECNICAS_INFO)) {
+    for (const [tecnica, info] of Object.entries(TECNICAS_INFO)) {
       const link = within(tecnicas).getByRole('link', { name: new RegExp(`^${nombreTecnica(tecnica)}`) });
       expect(link).toHaveAttribute('href', `/proyectos/p1/${tecnica}`);
       expect(link.querySelector('.tech-glyph svg')).toHaveAttribute('aria-hidden', 'true');
       expect(link.querySelector('.tech-glyph')?.textContent).toBe('');
+      expect(info.descripcionCorta.trim()).not.toBe('');
+      expect(within(link).getByText(info.descripcionCorta)).toBeVisible();
     }
     expect(screen.getByRole('link', { name: 'Todos los proyectos' })).toHaveAttribute('href', '/proyectos');
   });
@@ -105,6 +107,8 @@ describe('Inicio en dos pasos', () => {
       'Ver proyectos',
       'Tu investigación, en vistas conectadas',
       'MÉTODOS DISPONIBLES',
+      'Ver explicación completa',
+      'Descargar explicación',
     ]) {
       expect(screen.queryByText(texto, { exact: false })).toBeNull();
     }
