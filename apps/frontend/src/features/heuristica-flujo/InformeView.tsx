@@ -13,6 +13,7 @@ import { flujoRequest } from './flujo.api';
 import { fechaChile, participacionInforme, textoCumplimiento, textoEscala } from './flujo-utils';
 import { useFlujoDraft } from './useFlujoDraft';
 import { ResumenCriterios } from './ResumenCriterios';
+import { InformePdfDialog } from './InformePdfDialog';
 
 function Dato({ etiqueta, valor }: { etiqueta: string; valor: ReactNode }) {
   return <div><dt>{etiqueta}</dt><dd className="hx-dato">{valor || 'No indicado'}</dd></div>;
@@ -43,6 +44,8 @@ export function InformeView({ evaluacion, historial, usuarioId, onSaved, onBack 
   const [previaId, setPreviaId] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [pdfOpen, setPdfOpen] = useState(false);
+  const [pdfError, setPdfError] = useState('');
   const leaveGuard = useRef<(() => Promise<boolean>) | null>(null);
   const compare = useQuery({ queryKey: ['heuristica-flujo', evaluacion.proyectoId, usuarioId, evaluacion.id, 'comparacion', previaId], queryFn: () => flujoRequest<ComparacionFlujo>(evaluacion.proyectoId, `/evaluaciones/${evaluacion.id}/comparacion/${previaId}`), enabled: !!previaId });
   const informe = evaluacion.informe;
@@ -67,7 +70,8 @@ export function InformeView({ evaluacion, historial, usuarioId, onSaved, onBack 
   return <>
     <button type="button" className="secondary hf-volver" onClick={async () => { if (!leaveGuard.current || await leaveGuard.current()) onBack(); }}><span aria-hidden="true">←</span> Volver</button>
     <div className="page-head"><div><h2>Informe · {config.nombre}</h2><p>{evaluacion.fase === 'FINALIZADA' ? 'Informe final inmutable' : 'Informe consolidado pendiente de finalización'} · Revisión {informe.version}</p></div><span className="badge">{evaluacion.fase}</span></div>
-    <section className="panel"><div className="panel-head"><h2>Resultado de la revisión</h2></div><dl className="hx-stats"><div><dt>Criterios evaluados</dt><dd>{resumen.evaluados}/{config.metodologia.criterios.length}</dd></div><div><dt>No aplica</dt><dd>{resumen.noAplica}</dd></div><div><dt>Pendientes</dt><dd>{resumen.pendientes}</dd></div><div><dt>Problemas únicos aceptados</dt><dd>{resumen.totalHallazgos}</dd></div></dl>
+    <section className="panel"><div className="panel-head"><h2>Resultado de la revisión</h2></div><dl className="hx-stats"><div><dt>Criterios evaluados</dt><dd>{resumen.evaluados}/{config.metodologia.criterios.length}</dd></div><div><dt>No aplica</dt><dd>{resumen.noAplica}</dd></div><div><dt>Pendientes</dt><dd>{resumen.pendientes}</dd></div><div><dt>Hallazgos aceptados para mejorar</dt><dd>{resumen.totalHallazgos}</dd></div></dl>
+      <p className="hf-ayuda">Un criterio puede tener varios hallazgos o ninguno: por eso esta cifra no coincide con la cantidad de criterios con problema.</p>
       <details><summary>Ver respuestas y gravedad de los problemas</summary><ul aria-label="Distribución de valoraciones">{resumen.porCategoria.map(c => <li key={c.id}>{c.etiqueta}: {c.count}</li>)}</ul>{resumen.porEscala.map(g => <ul key={g.fuente + g.tipo + g.distribucion.map(n => n.id).join()} aria-label={`Distribución con escala propia: ${g.fuente}`}>{g.distribucion.map(n => <li key={n.id}>{n.etiqueta}: {n.count} (escala propia: {g.fuente})</li>)}</ul>)}<ul aria-label="Distribución de severidad">{resumen.porSeveridad.map((count, i) => <li key={i}>Severidad {i}: {count}</li>)}</ul>
       {resumen.formula && <p>Índice: {resumen.indice ?? 'No calculable'} · Fórmula: {resumen.formula} · Denominador: {resumen.denominador}</p>}
       </details>
@@ -103,15 +107,28 @@ export function InformeView({ evaluacion, historial, usuarioId, onSaved, onBack 
     <details className="panel"><summary>Ver respuestas y razones del equipo, pregunta por pregunta</summary><div className="hf-table"><table><thead><tr><th>Criterio / origen</th><th>Acuerdo</th><th>Justificación</th></tr></thead><tbody>{config.metodologia.criterios.map(c => { const r = informe.consenso.criterios.find(r => r.criterioId === c.id); return <tr key={c.id}><td>{c.nombre}<br />{c.origen.autor} · {c.origen.version}<br /><Fuente value={c.origen.fuente} /></td><td>{r?.noAplica ? `No aplica${r.motivo ? `: ${r.motivo}` : ''}` : escalaDe(config.metodologia, c).niveles.find(n => n.id === r?.valor)?.etiqueta ?? 'Pendiente'}</td><td>{r?.justificacion}<br />{r?.notas}</td></tr>; })}</tbody></table></div></details>
     {positivos.length > 0 && <details className="panel"><summary>Ver lo que funciona bien</summary>{positivos.map(p => <article className="finding" key={p.id}><h3>{p.titulo}</h3>{p.descripcion && <p>{p.descripcion}</p>}</article>)}</details>}
     <section className="panel"><div className="panel-head"><h2>Qué se puede mejorar</h2></div>{informe.consenso.hallazgos.map(h => <details className="finding" key={h.id}><summary>{h.titulo} · {h.decision === 'ACEPTADO' ? 'Mejorar' : h.decision === 'DESCARTADO' ? 'Descartado' : 'Por revisar'}</summary><p>Origen: {origenHallazgo(h) === 'equipo' ? 'Nuevo del equipo' : h.origenIds.join(', ')} · {h.justificacion}</p>{h.decision === 'ACEPTADO' && <><p>{h.pantalla}: {h.descripcion}</p><p>Severidad {h.severidad} · Prioridad {h.prioridad}</p><p>Recomendación: {h.recomendacion}</p><p>{h.notas}</p><EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={h.evidenciaIds} editable={false} /></>}</details>)}</section>
-    {mejoras.length > 0 && <details className="panel"><summary>Ver imágenes de antes y después</summary>{mejoras.map((m, i) => <article className="finding" key={m.id}><h3>{i + 1}. {m.titulo}</h3>{m.descripcion && <p style={{ whiteSpace: 'pre-wrap' }}>{m.descripcion}</p>}
+    {mejoras.length > 0 && <details className="panel"><summary>Ver imágenes de antes y después</summary>{mejoras.map((m, i) => <article className="finding" key={m.id}><h3>{i + 1}. {m.titulo}</h3>{m.descripcion && <p className="hf-texto-multilinea">{m.descripcion}</p>}
       <h4>Antes</h4>{m.antesIds.length ? <EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={m.antesIds} editable={false} /> : <p>Sin capturas.</p>}
       <h4>Después</h4>{m.despuesIds.length ? <EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={m.despuesIds} editable={false} /> : <p>Sin capturas.</p>}</article>)}</details>}
-    {conclusion && <section className="panel"><div className="panel-head"><h2>Conclusión y recomendaciones finales</h2></div><p style={{ whiteSpace: 'pre-wrap' }}>{conclusion}</p></section>}
-    <div className="hf-actions"><button type="button" className="secondary" disabled={busy} onClick={async () => { setBusy(true); setError(''); try { const { exportarInformeFlujoPdf } = await import('./informe-pdf'); await exportarInformeFlujoPdf(evaluacion.proyectoId, evaluacion); } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo generar PDF'); } finally { setBusy(false); } }}>Descargar informe PDF</button>
+    {conclusion && <section className="panel"><div className="panel-head"><h2>Conclusión y recomendaciones finales</h2></div><p className="hf-texto-multilinea">{conclusion}</p></section>}
+    <div className="hf-actions"><button type="button" className="secondary" disabled={busy} onClick={() => { setPdfError(''); setPdfOpen(true); }}>Descargar informe PDF</button>
       {evaluacion.coordinadorId === usuarioId && (evaluacion.fase === 'CONSOLIDADA' ? <button type="button" className="primary" disabled={busy} onClick={() => void action('finalizar')}>Finalizar informe</button> : <button type="button" className="primary" disabled={busy} onClick={() => void action('version')}>Crear nueva revisión independiente</button>)}</div>
     {evaluacion.fase === 'FINALIZADA' && <details className="panel"><summary>Comparar con una revisión anterior</summary><Field label="Comparar con evaluación finalizada del mismo producto"><select value={previaId} onChange={async e => { const id = e.target.value; if (!leaveGuard.current || await leaveGuard.current()) setPreviaId(id); }}><option value="">Seleccionar evaluación anterior</option>{opciones.map(e => <option key={e.id} value={e.id}>{e.configuracion.nombre} · {e.configuracion.producto.version} · {new Date(e.finalizadoEn ?? e.updatedAt).toLocaleDateString()}</option>)}</select></Field>
       {compare.isLoading && <p role="status">Comprobando compatibilidad…</p>}{compare.error && <p role="alert" className="hf-error">{compare.error.message}</p>}
       {compare.data && opciones.find(e => e.id === previaId) && <ComparacionEditor key={previaId} actual={evaluacion} anterior={opciones.find(e => e.id === previaId)!} comparacion={compare.data} usuarioId={usuarioId} onSaved={onSaved} registerGuard={guard => { leaveGuard.current = guard; }} />}</details>}
+    {pdfOpen && <InformePdfDialog informe={informe} busy={busy} error={pdfError} onClose={() => setPdfOpen(false)} onGenerate={async partes => {
+      setBusy(true);
+      setPdfError('');
+      try {
+        const { exportarInformeFlujoPdf } = await import('./informe-pdf');
+        await exportarInformeFlujoPdf(evaluacion.proyectoId, evaluacion, { partes });
+        setPdfOpen(false);
+      } catch (cause) {
+        setPdfError(cause instanceof Error ? cause.message : 'No se pudo generar PDF');
+      } finally {
+        setBusy(false);
+      }
+    }} />}
     {error && <p role="alert" className="hf-error">{error}</p>}
   </>;
 }

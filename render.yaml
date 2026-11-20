@@ -34,3 +34,7 @@ services:
         sync: false
       - key: CORS_ORIGIN
         sync: false
+      # Saltos de proxy delante del backend (req.ip para el límite de
+      # intentos). Fijar en el panel de Render tras medir la ruta de producción.
+      - key: TRUST_PROXY_HOPS
+        sync: false

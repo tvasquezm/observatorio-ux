@@ -301,7 +301,7 @@ export function PersonasPage() {
                       {form.fotografiaUrl?.trim() && !form.fotografiaUrl.startsWith('data:') && !normalizarUrlProducto(form.fotografiaUrl) && (
                         <span className="error-text" role="alert">Esta URL no es válida. Usa una dirección web (por ejemplo miweb.cl/foto) para poder guardar.</span>
                       )}
-                      {form.fotografiaUrl && <div className="persona-fotografia-preview"><img src={form.fotografiaUrl} alt={`Vista previa de ${form.nombreCompleto || 'la persona'}`} style={{ maxWidth: 160, maxHeight: 160, objectFit: 'cover', borderRadius: 8 }} /><button type="button" className="text-button" disabled={bloqueado} onClick={() => setForm({ ...form, fotografiaUrl: undefined })}>Quitar fotografía</button></div>}
+                      {form.fotografiaUrl && <div className="persona-fotografia-preview"><img src={form.fotografiaUrl} alt={`Vista previa de ${form.nombreCompleto || 'la persona'}`} /><button type="button" className="text-button" disabled={bloqueado} onClick={() => setForm({ ...form, fotografiaUrl: undefined })}>Quitar fotografía</button></div>}
                     </div>
                   </div>,
                 ),
@@ -422,7 +422,7 @@ export function PersonasPage() {
                   eliminando={isDeleting && deletingId === p.id}
                   onEditar={() => handleIniciarEditar(p)}
                   onEliminar={async () => {
-                    if (!(await confirm(`¿Eliminar la persona «${p.contenido.nombreCompleto}» y todas sus versiones? Dejará de aparecer en el proyecto; se conserva el historial de evidencia.`, { confirmLabel: 'Eliminar' }))) return;
+                    if (!(await confirm(`¿Eliminar la persona «${p.contenido.nombreCompleto}» y todas sus versiones? Dejará de aparecer en el proyecto; se conserva el historial de evidencia.`, { confirmLabel: 'Eliminar', requireText: p.contenido.nombreCompleto }))) return;
                     resetDelete();
                     eliminar(p.id, { onSuccess: () => {
                       if (editandoId === p.id) resetForm();

@@ -1,10 +1,23 @@
-# CIERRE FASE F10
-Fecha: 2026-11-12
-Hecho: useSessionRefresh montado una vez en AppLayout, actividad con throttle 30s, ventana mediante timeouts (sin polling), aviso accesible a 2 min y vencimiento centralizado. Expiración solo del servidor, nunca JWT decodificado en JS. 429 espera actividad después de 60s; 401 limpia sesión y conserva returnTo/borradores.
-Borradores: useFormDraft debounce 800ms y vaciado inmediato al expirar/pagehide/desmontar; claves por usuario y contexto, validación de estructura y aviso de almacenamiento fallido. Proyectos, journey map, personas, momentos críticos y configuración de sala. Guardar, descartar y logout manual limpian; vencimiento conserva. Ediciones recuperan id/versión originales y vuelven a pedir lock; nunca se convierten en una creación ni adoptan una versión más reciente para esquivar conflictos.
-Contratos: POST /auth/refresh 200 {renewed,session:{expiresAt,refreshAt?}}. refreshAt aparece fuera de la ventana real para programar un único intento allí; necesario con TTL 3m/ventana efectiva 1m. expiresAt reinicia la ventana; conservar la actividad hasta renovar realmente. returnTo interno validado con URL/origin y rechazo de doble slash/backslash/saltos.
-Accesibilidad: dialog nativo alertdialog, foco atrapado/restaurado, cuenta atrás de presentación. Volver a mi trabajo y Escape permiten guardar antes de vencer; al volver queda aviso no modal. El aviso de sesión tiene prioridad sobre descarte de navegación.
-Verificación: suite completa frontend 83 archivos, 781 pruebas verdes; build frontend verde. Backend 26 suites, 389 pruebas y build verdes; check-session-refresh.mjs verde. Tests cubren ventana real (falló antes del arreglo), 429 sin bucle, inactividad/manual, retorno, aislamiento/limpieza de borradores y recuperación de ediciones conservando versión.
-Evidencia: evidencias/F10/verificacion.json y capturas claro, oscuro y 375px/Huge. Chromium con API simulada y reloj de 3 minutos: sin renovación por inactividad, renovación manual única, vencimiento sin confirmaciones duplicadas, regreso a /proyectos?q=pendiente con borrador. Backend se verificó con Nest/Passport/Throttler/JWT reales e identidad en memoria, sin DB.
-Revisión final: se corrigieron dos hallazgos (intento prematuro que consumía renovación y aviso que impedía guardar). No se añadieron dependencias ni cambios a participantes.
-Pendientes: revisión humana de auth antes de producción y prueba con entorno real; navegador con almacenamiento bloqueado no puede garantizar recuperación local.
+# FASE F10: Configuración, CSRF, límite de intentos y script de sesión en CI
+
+Estado: hecha en local. Medición de producción pendiente.
+
+Archivos tocados: `.github/workflows/ci.yml`, `apps/backend/scripts/check-session-refresh.mjs`, `apps/backend/src/common/csrf.ts`, `apps/backend/src/core/config/env.validation.ts`, `apps/backend/src/core/config/test/env.validation.smoke.spec.ts`, `docker-compose.production.yml`, `render.yaml` y este cierre. El cierre de la fase homónima del plan anterior queda en el historial Git.
+
+- Las mutaciones con cookie de evaluador comprueban `Origin` antes de aplicar las exenciones. El middleware reutiliza el origen de la configuración de CORS. Las solicitudes sin cookie o sin `Origin` mantienen su flujo.
+- El validador aplica la regla de duración a `JWT_PARTICIPANTE_EXPIRES_IN`. Compose pasa las tres variables solicitadas y el archivo de ejemplo ya documentaba sus valores.
+- GitHub Actions compila el backend y ejecuta la verificación HTTP de sesión. El script comprueba origen con credenciales de prueba válidas, renovación, revocación y límite de intentos.
+
+Comandos ejecutados y resultado
+
+- `pnpm --filter backend build` → salida 0.
+- `pnpm --filter backend test` → 27 suites y 396 pruebas pasan.
+- `node apps/backend/scripts/check-session-refresh.mjs` → salida 0. Origen, CSRF, vencimiento, renovación limitada, atributos de cookie, revocación tras cerrar sesión y 429 pasan.
+- Una copia temporal de la prueba formuló una sola solicitud en el bucle final. El resultado 200 produjo el fallo esperado `200 !== 429` y confirmó que el script detecta la ausencia de 429.
+- `docker compose --env-file env.production.example -f docker-compose.production.yml config --quiet` → salida 0.
+- `git diff --check` → salida 0.
+
+Pendientes
+
+- Verificar en Render que `CORS_ORIGIN` coincida con el origen público de Vercel. `TRUST_PROXY_HOPS` queda como variable de panel (`sync: false`) para ajustarla con la medición de `req.ip` desde dos clientes reales.
+- Queda pendiente la ejecución del workflow remoto.

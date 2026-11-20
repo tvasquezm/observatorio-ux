@@ -53,61 +53,71 @@ function detalleCardSorting(analytics: Parameters<typeof tablaDeVista>[1]): Cont
 }
 
 function sections(report: ProjectReport): Record<ReportMethod, Content[]> {
+  const incluye = (metodo: ReportMethod, parte: string) => report.partes?.[metodo]?.includes(parte) ?? true;
   return {
     personas: report.personas?.flatMap(({ contenido: person, version }, i) => [
       title(`${i + 1}. ${person.nombreCompleto}`),
       { text: `PERSONA · VERSIÓN ${version}`, style: 'eyebrow', margin: [0, 0, 0, 8] },
       details([
-        ['Edad', person.edad], ['Ocupación', person.ocupacion], ['Acerca de', person.acercaDe],
-        ['Familia', person.familia], ['Hobbies', person.hobbies], ['Habilidades', person.habilidades],
-        ['Objetivos', person.objetivos], ['Necesidades', person.necesidades], ['Motivaciones', person.motivaciones],
-        ['Frustraciones', person.frustraciones], ['Comportamientos', person.comportamientos],
-        ['Contexto de uso', person.contextoDeUso], ['Expectativas', person.expectativas],
-        ['Rol en el servicio', person.rolEnServicio], ['Relación con el servicio', person.relacionConServicio],
-        ['Características distintivas', person.caracteristicasDistintivas], ['Evidencia', person.evidencia],
-        ['Estado de validación', person.estadoValidacion === 'VALIDADA' ? 'Validada' : 'Pendiente'],
-        ['Observaciones de validación', person.observacionesValidacion],
+        ...(incluye('personas', 'perfil') ? [
+          ['Edad', person.edad], ['Ocupación', person.ocupacion], ['Acerca de', person.acercaDe],
+          ['Familia', person.familia], ['Hobbies', person.hobbies], ['Habilidades', person.habilidades],
+        ] as Array<[string, unknown]> : []),
+        ...(incluye('personas', 'necesidades') ? [
+          ['Objetivos', person.objetivos], ['Necesidades', person.necesidades], ['Motivaciones', person.motivaciones],
+          ['Frustraciones', person.frustraciones], ['Comportamientos', person.comportamientos],
+          ['Contexto de uso', person.contextoDeUso], ['Expectativas', person.expectativas],
+          ['Rol en el servicio', person.rolEnServicio], ['Relación con el servicio', person.relacionConServicio],
+          ['Características distintivas', person.caracteristicasDistintivas],
+        ] as Array<[string, unknown]> : []),
+        ...(incluye('personas', 'validacion') ? [
+          ['Evidencia', person.evidencia],
+          ['Estado de validación', person.estadoValidacion === 'VALIDADA' ? 'Validada' : 'Pendiente'],
+          ['Observaciones de validación', person.observacionesValidacion],
+        ] as Array<[string, unknown]> : []),
       ]),
     ]) ?? [],
     journey: report.journeys?.flatMap(({ contenido: journey, version }, i) => [
       title(`${i + 1}. Recorrido de ${journey.perfilUsuario.nombre}`),
       paragraph(`${journey.perfilUsuario.rol} · Versión ${version} · ${journey.fases.length} fases`),
-      details([
+      ...(incluye('journey', 'resumen') ? [details([
         ['Objetivo del recorrido', journey.objetivo], ['Evento de inicio', journey.eventoInicio],
         ['Evidencia', journey.evidencia],
-      ]),
-      table(['Fase', 'Puntos de contacto', 'Pensamientos', 'Emoción', 'Oportunidades'], journey.fases.map((phase, index) => [
+      ])] : []),
+      ...(incluye('journey', 'fases') ? [table(['Fase', 'Puntos de contacto', 'Pensamientos', 'Emoción', 'Oportunidades'], journey.fases.map((phase, index) => [
         `${index + 1}. ${phase.nombre}`, phase.touchpoints, phase.pensamientos, phase.emocion, phase.oportunidades,
-      ]), [80, '*', '*', 55, '*']),
-      ...journey.fases.flatMap((phase, index) => [
+      ]), [80, '*', '*', 55, '*'])] : []),
+      ...(incluye('journey', 'detalle') ? journey.fases.flatMap((phase, index) => [
         title(`Fase ${index + 1}: ${phase.nombre}`),
         details([
           ['Actividades', phase.actividades], ['Dificultades / puntos de dolor', phase.dificultades],
           ['Ganancias / aspectos positivos', phase.ganancias],
         ]),
-      ]),
+      ]) : []),
     ]) ?? [],
     momentos: report.moments?.flatMap(({ contenido: moment, version }, i) => [
       title(`${i + 1}. Incidentes de ${moment.perfilUsuario.nombre}`),
       paragraph(`${moment.perfilUsuario.rol} · Versión ${version} · ${moment.incidentes.length} incidentes`),
-      table(['Incidente', 'Tipo', 'Impacto', 'Frecuencia'], moment.incidentes.map((incident) => [incident.nombre, incident.tipo, incident.impacto, incident.frecuencia]), ['*', 65, 60, 68]),
-      ...moment.incidentes.flatMap((incident, index) => [
+      ...(incluye('momentos', 'tabla') ? [table(['Incidente', 'Tipo', 'Impacto', 'Frecuencia'], moment.incidentes.map((incident) => [incident.nombre, incident.tipo, incident.impacto, incident.frecuencia]), ['*', 65, 60, 68])] : []),
+      ...(incluye('momentos', 'detalle') ? moment.incidentes.flatMap((incident, index) => [
         title(`${index + 1}. ${incident.nombre}`),
         details([['Descripción', incident.descripcion], ['Causa', incident.causa], ['Acciones sugeridas', incident.accionesSugeridas]]),
-      ]),
+      ]) : []),
     ]) ?? [],
     cards: report.cards?.flatMap(({ study, analytics }, i) => [
       title(`${i + 1}. ${study.nombre}`),
       paragraph(`Modalidad: ${study.tipoCardSorting ?? 'Sin modalidad'} · Estudio ${study.cerrado ? 'cerrado' : 'abierto'} · Creado el ${date(study.createdAt)}`),
-      table(['Respuestas completas', 'Tarjetas', 'Acuerdo global'], [[analytics.participantesCount, analytics.cardsCount, analytics.participantesCount ? `${analytics.acuerdoGlobal}%` : 'Sin respuestas']]),
-      paragraph('Los resultados agregados consideran únicamente sesiones completadas. El acuerdo global representa similitud entre pares de tarjetas, no una puntuación de usabilidad.'),
-      details([['Tarjetas definidas', study.cardsDefinidas.map((card) => card.etiqueta)], ['Categorías predefinidas', study.categoriasDefinidas.map((category) => category.nombre)]]),
-      ...(analytics.participantesCount ? [{
+      ...(incluye('cards', 'resumen') ? [
+        table(['Respuestas completas', 'Tarjetas', 'Acuerdo global'], [[analytics.participantesCount, analytics.cardsCount, analytics.participantesCount ? `${analytics.acuerdoGlobal}%` : 'Sin respuestas']]),
+        paragraph('Los resultados agregados consideran únicamente sesiones completadas. El acuerdo global representa similitud entre pares de tarjetas, no una puntuación de usabilidad.'),
+        details([['Tarjetas definidas', study.cardsDefinidas.map((card) => card.etiqueta)], ['Categorías predefinidas', study.categoriasDefinidas.map((category) => category.nombre)]]),
+      ] : []),
+      ...(incluye('cards', 'resultados') || incluye('cards', 'agrupaciones') ? (analytics.participantesCount ? [{
         stack: [
-          ...detalleCardSorting(analytics),
-          ...(analytics.clusters.length ? [title('Agrupaciones sugeridas'), table(['Grupo', 'Tarjetas', 'Acuerdo'], analytics.clusters.map((cluster) => [cluster.nombre, cluster.tarjetas, `${cluster.acuerdo}%`]), [100, '*', 60])] : []),
+          ...(incluye('cards', 'resultados') ? detalleCardSorting(analytics) : []),
+          ...(incluye('cards', 'agrupaciones') && analytics.clusters.length ? [title('Agrupaciones sugeridas'), table(['Grupo', 'Tarjetas', 'Acuerdo'], analytics.clusters.map((cluster) => [cluster.nombre, cluster.tarjetas, `${cluster.acuerdo}%`]), [100, '*', 60])] : []),
         ],
-      } as Content] : [paragraph('Aún no hay respuestas completadas para calcular resultados.')]),
+      } as Content] : [paragraph('Aún no hay respuestas completadas para calcular resultados.')]) : []),
     ]) ?? [],
     heuristica: report.heuristics?.flatMap((evaluacion, i): Content[] => {
       const { configuracion: config, informe } = evaluacion;
@@ -115,22 +125,22 @@ function sections(report: ProjectReport): Record<ReportMethod, Content[]> {
         title(`${i + 1}. ${config.nombre || config.producto.nombre}`),
         paragraph(`${config.producto.nombre} · ${config.metodologia.nombre} · Versión ${evaluacion.version} · ${fases[evaluacion.fase]}`),
       ];
-      if (!informe) return [...cabecera, paragraph('Esta evaluación todavía no está consolidada: aún no hay problemas acordados.')];
+      if (!informe) return [...cabecera, paragraph('Esta evaluación todavía no está consolidada: aún no hay hallazgos aceptados.')];
       const resumen = resumirEvaluacion(informe.configuracion, informe.consenso);
       const nombreCriterio = (id: string) => informe.configuracion.metodologia.criterios.find((criterio) => criterio.id === id)?.nombre ?? id;
       const problemas = informe.consenso.hallazgos.filter((h) => h.decision === 'ACEPTADO').sort((a, b) => b.severidad - a.severidad);
       return [
         ...cabecera,
-        paragraph(`${problemas.length} problemas acordados · ${informe.finalizadoEn ? `Finalizada el ${date(informe.finalizadoEn)}` : 'Informe preliminar, pendiente de cierre'}`),
+        ...(incluye('heuristica', 'severidad') ? [paragraph(`${problemas.length} hallazgos aceptados · ${informe.finalizadoEn ? `Finalizada el ${date(informe.finalizadoEn)}` : 'Informe preliminar, pendiente de cierre'}`)] : []),
         ...(problemas.length ? [
-          table(['Severidad', 'Problemas'], severityLabels.map((label, level) => [`${level} · ${label}`, resumen.porSeveridad[level] ?? 0]), ['*', 90]),
-          ...problemas.map((problema, index): Content => ({
+          ...(incluye('heuristica', 'severidad') ? [table(['Severidad', 'Problemas'], severityLabels.map((label, level) => [`${level} · ${label}`, resumen.porSeveridad[level] ?? 0]), ['*', 90])] : []),
+          ...(incluye('heuristica', 'problemas') ? problemas.map((problema, index): Content => ({
             stack: [
               title(`Problema ${index + 1} · ${problema.titulo}`),
               { text: `SEVERIDAD ${problema.severidad} · ${severityLabels[problema.severidad] ?? 'Sin clasificar'} · PRIORIDAD ${problema.prioridad}`, bold: true, color: severityColors[problema.severidad] ?? INK, margin: [0, 0, 0, 8] },
               details([['Pantalla o tarea', problema.pantalla], ['Criterios', problema.criterioIds.map(nombreCriterio)], ['Problema', problema.descripcion], ['Recomendación', problema.recomendacion]]),
             ], unbreakable: JSON.stringify(problema).length < 1600,
-          })),
+          })) : []),
         ] : [paragraph('La revisión acordada no identificó problemas de usabilidad.')]),
       ];
     }) ?? [],

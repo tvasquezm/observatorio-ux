@@ -23,7 +23,7 @@ import { durationSeconds } from '../../core/config/session-duration.js';
 // ocurre fuera de este proceso, el plazo máximo de retraso es este TTL.
 const IDENTIDAD_TTL_MS = 30_000;
 
-type IdentidadEvaluador = Pick<AuthenticatedUser, 'id' | 'email' | 'rol'>;
+type IdentidadEvaluador = Pick<AuthenticatedUser, 'id' | 'email' | 'rol'> & { sesionVersion: number };
 
 @Injectable()
 export class AuthService {
@@ -278,15 +278,18 @@ export class AuthService {
       throw new ForbiddenException('La contraseña actual es incorrecta.');
     }
     const passwordHash = await bcrypt.hash(newPassword, 10);
+    const sesionVersion = (user.sesionVersion ?? 0) + 1;
     const result = await this.prisma.usuario.updateMany({
       where: { id, passwordHash: user.passwordHash },
-      data: { passwordHash },
+      data: { passwordHash, sesionVersion },
     });
     if (result.count !== 1) {
       throw new ConflictException('La contraseña cambió durante la solicitud. Vuelve a intentarlo con la contraseña actual.');
     }
-    // shortcut: los JWT emitidos siguen vigentes hasta expirar; añadir revocación si se requiere cerrar otros dispositivos.
-    return { ok: true };
+    // Sube la versión de sesión: las cookies copiadas dejan de servir, también
+    // para renovar. La sesión que hace el cambio recibe una cookie nueva.
+    this.invalidateUser(id);
+    return { ok: true, sesionVersion };
   }
 
   async login(email: string, password: string) {
@@ -317,6 +320,7 @@ export class AuthService {
       email: user.email,
       rol: user.rol,
       actor: 'EVALUADOR',
+      sesionVersion: user.sesionVersion ?? 0,
     }, sessionStart, exp);
 
     return {
@@ -429,6 +433,7 @@ export class AuthService {
         email: user.email,
         rol: user.rol,
         actor: 'EVALUADOR',
+        sesionVersion: user.sesionVersion ?? 0,
       }),
       user: { id: user.id, email: user.email, rol: user.rol },
     };
@@ -465,6 +470,7 @@ export class AuthService {
     rol?: string;
     actor?: string;
     proyectoId?: string;
+    sv?: number;
   }): Promise<AuthenticatedUser> {
     const cacheEpoch = this.identityCacheEpoch;
     if (payload.actor === 'PARTICIPANTE') {
@@ -498,10 +504,16 @@ export class AuthService {
       if (!user) {
         throw new UnauthorizedException('El usuario del token no existe.');
       }
-      identidad = { id: user.id, email: user.email, rol: user.rol };
+      identidad = { id: user.id, email: user.email, rol: user.rol, sesionVersion: user.sesionVersion ?? 0 };
       if (cacheEpoch === this.identityCacheEpoch) {
         this.evaluadores.set(payload.sub, identidad);
       }
+    }
+
+    // Tokens emitidos antes de la versión de sesión no llevan `sv` y cuentan
+    // como 0; caducan solos en el plazo máximo de sesión.
+    if ((payload.sv ?? 0) !== identidad.sesionVersion) {
+      throw new UnauthorizedException('Tu sesión ya no es válida. Vuelve a iniciar sesión.');
     }
 
     return { ...identidad, actor: 'EVALUADOR' };
@@ -570,13 +582,42 @@ export class AuthService {
     return { renewed: true, session: { expiresAt: exp * 1000 }, access_token };
   }
 
-  private signEvaluatorToken(user: AuthenticatedUser, sessionStart = Math.floor(Date.now() / 1000), exp = sessionStart + Math.min(this.sessionDuration('expiresIn', '1h'), this.sessionDuration('maxSession', '12h'))) {
+  /**
+   * Cierra la sesión del evaluador en el servidor: si la cookie trae un token
+   * válido, sube su versión de sesión (las copias de esa cookie dejan de
+   * servir, también para renovar) e invalida la identidad cacheada. Sin token
+   * o con un token inválido solo se limpian las cookies en el controlador.
+   */
+  async logout(token?: string) {
+    if (!token) return { ok: true };
+    try {
+      const payload = await this.jwt.verifyAsync<{ sub?: string; actor?: string }>(token);
+      if (payload?.actor === 'EVALUADOR' && payload.sub) {
+        await this.prisma.usuario.updateMany({
+          where: { id: payload.sub },
+          data: { sesionVersion: { increment: 1 } },
+        });
+        this.invalidateUser(payload.sub);
+      }
+    } catch {
+      // Token vencido o inválido: no hay sesión que revocar.
+    }
+    return { ok: true };
+  }
+
+  /** Reemite la cookie del evaluador con la versión de sesión vigente, conservando el inicio de sesión. */
+  async reissueEvaluatorToken(user: AuthenticatedUser & { exp: number; sessionStart: number }, sesionVersion: number) {
+    return this.signEvaluatorToken({ ...user, sesionVersion }, user.sessionStart, user.exp);
+  }
+
+  private signEvaluatorToken(user: AuthenticatedUser & { sesionVersion?: number }, sessionStart = Math.floor(Date.now() / 1000), exp = sessionStart + Math.min(this.sessionDuration('expiresIn', '1h'), this.sessionDuration('maxSession', '12h'))) {
     const iat = Math.floor(Date.now() / 1000);
     return this.jwt.signAsync({
       sub: user.id,
       email: user.email,
       rol: user.rol,
       actor: 'EVALUADOR',
+      sv: user.sesionVersion ?? 0,
       sessionStart,
       iat,
     }, { expiresIn: exp - iat });

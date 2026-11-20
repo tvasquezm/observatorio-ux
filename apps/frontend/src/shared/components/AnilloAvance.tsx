@@ -32,8 +32,8 @@ export function AnilloAvance({ hecho, total, etiqueta, tamano = 56, className }:
       <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
         <defs>
           <linearGradient id={gradienteId} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" style={{ stopColor: 'var(--teal)' }} />
-            <stop offset="1" style={{ stopColor: 'var(--mint)' }} />
+            <stop offset="0" className="tv-anillo-gradiente-teal" />
+            <stop offset="1" className="tv-anillo-gradiente-mint" />
           </linearGradient>
         </defs>
         <circle className="tv-anillo-pista" cx="24" cy="24" r="20" strokeWidth="5" />

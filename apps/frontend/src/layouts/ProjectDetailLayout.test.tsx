@@ -22,6 +22,11 @@ function mount(section = 'card-sorting/study/resultados') {
 beforeEach(() => { vi.unstubAllGlobals(); state.role = 'ADMIN'; state.owner = 'reviewer'; });
 
 describe('Menú de secciones del proyecto', () => {
+  it('muestra el estado de un proyecto sin ofrecer un vínculo a una sala', () => {
+    mount();
+    expect(screen.getByText('Sin sala', { exact: true })).toBeVisible();
+    expect(screen.queryByRole('link', { name: 'Vincular a una sala' })).toBeNull();
+  });
   it('ofrece Miembros en la cabecera sin abrir el menú', () => {
     mount();
     const header = screen.getByRole('heading', { name: 'Proyecto UX' }).closest('.page-head') as HTMLElement;

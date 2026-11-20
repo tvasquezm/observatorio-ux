@@ -53,7 +53,7 @@ export function CrearDocenteForm() {
           <button type="button" className="secondary" aria-pressed={showPassword} aria-controls="docente-password" onClick={() => setShowPassword(!showPassword)}>{showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}</button>
         </div>
       </div>
-      <p className="form-help">El docente podrá ingresar y cambiar su contraseña desde Preferencias.</p>
+      <p className="form-help">El docente podrá ingresar y cambiar su contraseña desde Configuración.</p>
       <button type="submit" className="primary admin-submit" disabled={isPending}>
         {isPending ? 'Creando docente…' : 'Crear docente'}
       </button>
@@ -82,7 +82,7 @@ function DocentesList() {
   const { mutate: eliminar, isPending: eliminando } = useRemoveDocente();
 
   async function handleEliminar(id: string, nombre: string) {
-    if (await confirm(`¿Eliminar al docente "${nombre}"?`)) eliminar(id);
+    if (await confirm(`¿Eliminar al docente "${nombre}"?`, { requireText: nombre })) eliminar(id);
   }
 
   if (isLoading) return <div className="loading-block" aria-label="Cargando docentes" />;

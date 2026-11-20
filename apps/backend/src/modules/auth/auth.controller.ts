@@ -1,8 +1,8 @@
-import { Body, Controller, Get, HttpCode, Post, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
 import { randomBytes } from 'crypto';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { CurrentUser } from './decorators/current-user.decorator.js';
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard.js';
 import { AuthService } from './auth.service.js';
@@ -75,13 +75,23 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Throttle({ default: { limit: LOGIN_RATE_LIMIT, ttl: 60_000 } })
   @Post('password')
-  changePassword(@CurrentUser() user: AuthenticatedUser, @Body() dto: ChangePasswordDto) {
-    return this.authService.changePassword(user.id, dto.currentPassword, dto.newPassword);
+  async changePassword(
+    @CurrentUser() user: AuthenticatedUser & { exp: number; sessionStart: number },
+    @Body() dto: ChangePasswordDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { sesionVersion } = await this.authService.changePassword(user.id, dto.currentPassword, dto.newPassword);
+    // La sesión que cambia la contraseña sigue viva: cookie nueva con la
+    // versión recién subida, conservando el inicio de sesión.
+    const access_token = await this.authService.reissueEvaluatorToken(user, sesionVersion);
+    res.cookie('evaluadorToken', access_token, cookieOptions(this.config.get<string>('app.nodeEnv', 'development'), true));
+    return { ok: true };
   }
 
   @Post('logout')
-  logout(@Res({ passthrough: true }) res: Response) {
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const nodeEnv = this.config.get<string>('app.nodeEnv', 'development');
+    await this.authService.logout((req as Request & { cookies?: Record<string, string> }).cookies?.evaluadorToken);
     res.clearCookie('evaluadorToken', cookieOptions(nodeEnv, true));
     res.clearCookie('csrfToken', cookieOptions(nodeEnv, false));
     return { ok: true };

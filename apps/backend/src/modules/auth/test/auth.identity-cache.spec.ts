@@ -40,7 +40,7 @@ describe('AuthService.validateTokenPayload — cache de identidad', () => {
 
     expect(prisma.usuario.findUnique).toHaveBeenCalledTimes(1);
     expect(segunda).toEqual(primera);
-    expect(primera).toEqual({ id: 'u1', email: 'a@x.cl', rol: 'DOCENTE', actor: 'EVALUADOR' });
+    expect(primera).toEqual({ id: 'u1', email: 'a@x.cl', rol: 'DOCENTE', sesionVersion: 0, actor: 'EVALUADOR' });
   });
 
   it('un cambio de rol invalidado se ve en la siguiente validación', async () => {

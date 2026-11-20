@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
+import appConfig from '../core/config/app.config.js';
 
 // CSRF (double-submit cookie): solo aplica a requests que ya traen la
 // cookie httpOnly `evaluadorToken` (o sea, sesión de EVALUADOR autenticada
@@ -14,15 +15,33 @@ import type { Request, Response, NextFunction } from 'express';
 //   - las rutas públicas de acceso de participante (`/auth/participants/*`),
 //     que ni siquiera tienen token todavía en el primer paso y nunca se
 //     autentican con la cookie de evaluador.
+//
+// Las mutaciones con cookie de evaluador deben venir del origen configurado
+// cuando el cliente envía Origin.
 
 const METODOS_MUTANTES = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const PREFIJOS_EXENTOS_CSRF = ['/api/auth/participants'];
 
 export function csrfProtection(req: Request, res: Response, next: NextFunction) {
   const tieneCookieDeSesion = Boolean((req as any).cookies?.evaluadorToken);
+  if (!METODOS_MUTANTES.has(req.method) || !tieneCookieDeSesion) {
+    next();
+    return;
+  }
+
+  const origin = req.header('origin');
+  if (origin !== undefined && origin !== appConfig().corsOrigin) {
+    res.status(403).json({
+      statusCode: 403,
+      error: 'Forbidden',
+      message: 'Origen no permitido.',
+    });
+    return;
+  }
+
   const tieneBearer = Boolean(req.header('authorization'));
   const esRutaExenta = PREFIJOS_EXENTOS_CSRF.some((prefijo) => req.path.startsWith(prefijo));
-  if (!METODOS_MUTANTES.has(req.method) || !tieneCookieDeSesion || tieneBearer || esRutaExenta) {
+  if (tieneBearer || esRutaExenta) {
     next();
     return;
   }

@@ -28,9 +28,13 @@ services:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL es obligatorio}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET es obligatorio}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1h}
+      JWT_MAX_SESSION: ${JWT_MAX_SESSION:-12h}
+      JWT_REFRESH_WINDOW: ${JWT_REFRESH_WINDOW:-10m}
       JWT_PARTICIPANTE_SECRET: ${JWT_PARTICIPANTE_SECRET:?JWT_PARTICIPANTE_SECRET es obligatorio}
       JWT_PARTICIPANTE_EXPIRES_IN: ${JWT_PARTICIPANTE_EXPIRES_IN:-4h}
       CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN es obligatorio}
+      # Saltos de proxy de confianza: 1 = el Nginx de este compose.
+      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-1}
     expose:
       - "3000"
     depends_on:

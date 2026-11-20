@@ -1,41 +1,21 @@
-# CIERRE FASE F4
+# FASE F4: Editar sala desde su detalle
 
-Fecha: 2026-11-12
+Estado: hecha
+Archivos tocados: `apps/frontend/src/features/salas/components/SalaFormDialog.tsx` (nuevo), `apps/frontend/src/features/salas/pages/ProfesorSalasPage.tsx`, `apps/frontend/src/features/salas/pages/SalaDetallePage.tsx`, `apps/frontend/src/features/salas/pages/SalaDetallePage.test.tsx`, `apps/frontend/src/styles/theme.css`.
+
+Comandos ejecutados y resultado:
+- `pnpm --filter frontend exec vitest run src/features/salas` -> 4 archivos, 27 pruebas en verde (incluye 6 pruebas nuevas de edición en el detalle).
+- `pnpm --filter frontend build` -> verde (ver CIERRE de F5 para la corrida conjunta final).
+- `pnpm --filter frontend test` (corrida conjunta con F5) -> 81 archivos, 787 pruebas en verde.
 
 Hecho:
-- Fuente única `shared/content/tecnicas-info.ts`: cinco descripciones (≤160 caracteres), cuatro secciones de explicación y ayudas de gráficos. **Textos nuevos pendientes de revisión humana.**
-- El selector de proyecto ofrece explicación completa y descarga PDF por técnica; inicio reutiliza las descripciones.
-- Ayuda visible «¿Cómo leer esto?» mediante InfoTip en vistas/matrices de card sorting, dendrograma, matriz heurística, cumplimiento, Journey Map y Momentos críticos.
-- Gráficos con más ancho y menor relleno; pestañas de resultados conservan su ancho y dejan de superponerse a 375/Huge.
-- «Exportar resultados (PDF)» abre selección de portada/resumen y vistas existentes, color/blanco y negro y separación. Incluye descripción por casilla, resumen reactivo, progreso, error y reintento.
+- Se extrajo de `ProfesorSalasPage` el formulario modal a `SalaFormDialog({ sala?, abierto, onClose, onSaved?, guardar?, onDirtyChange? })`, con los mismos campos, textos, validación (término posterior al inicio), bloqueo de campos al guardar, error dentro del formulario y protección de cambios sin guardar. `ProfesorSalasPage` lo usa sin cambiar su comportamiento: mismas etiquetas, mismo `dialog`, mismos botones, mismo aviso "Sala «X» creada/actualizada".
+- `SalaDetallePage` muestra "Editar sala" en el encabezado con la condición `activeRole === 'ADMIN' || sala.profesor?.id === user?.id`; el estudiante y el docente no dueño no lo ven. Guarda con `useUpdateSala(salaId)` (`mutateAsync`), así el encabezado y la caché de la sala se actualizan, y el error 400/403 se muestra dentro del formulario.
+- El formulario nuevo se suma al bloqueo único de navegación de `SalaDetallePage` con `onDirtyChange` -> `edicionDirty` (no abre un segundo bloqueo). El cierre del diálogo pide descartar una sola vez.
+- CSS mínimo: `.sala-hero-action` para el botón del encabezado. Backend sin cambios.
 
-Archivos tocados: contenido/ayuda/PDF de técnicas, selector e inicio, InfoTip y sus consumidores de gráficos, diálogo y generador PDF de card sorting, CSS acotado y tests.
+Cambios respecto al plan (desvíos): ninguno. La firma real es `SalaFormDialog({ sala, abierto, onClose, onSaved, guardar, onDirtyChange })`: se agregaron `guardar` (para inyectar la mutación de TanStack Query desde el detalle) y `onDirtyChange` (para el bloqueo único), como preveía el plan al decir "firma nueva, a confirmar al ejecutar".
 
-Contratos reales:
-- `exportarEstudioPdf(data, vistas, alcance, opciones?)`; alcance añade `seleccion` sin retirar `vista`/`todas`. Opciones: `resumen`, `color`, `separarSecciones`. Sin opciones se conserva el comportamiento previo.
-- Las vistas disponibles son cards, categories, results, popular, similarity, dendrogram, participants y answers (solo si hay preguntas). El dendrograma exporta su tabla de uniones, como ya hacía el generador.
-- La explicación usa 11 puntos y resultados 9.5 puntos de texto base, independientes del CSS de la app.
-- Blanco y negro transforma los colores de contenido/cabeceras; utiliza la identidad tipográfica existente para evitar logos rasterizados en color.
-- Un cambio de orientación puede requerir página nueva aun con separación desactivada.
-
-Desvíos: no existía el modal de resultados descrito por el plan. Se añadió usando el diálogo nativo y estilos del exportador general existente; este último mantiene su propia interfaz. Guía y PDF de explicación comparten implementación/contenido y se agrupan como un tema.
-
-Verificación:
-```text
-Regresión de opciones y componentes nuevos: fallan antes de implementar.
-Descarga real descubre que pdfmake normaliza las listas recibidas y mutaba el contenido de pantalla.
-Prueba de propiedad del contenido: roja con referencia compartida; verde al copiar la lista de pasos.
-pnpm --filter frontend test: 80 archivos, 755 pruebas aprobadas
-pnpm --filter frontend build: built in 644ms; exit 0
-Chromium: cinco explicaciones descargadas y tres combinaciones de resultados.
-pdfinfo: las cinco explicaciones tienen una página A4 cada una.
-Resultados Normal: 4 páginas; Huge: 4 páginas; blanco/negro sin portada ni separación: 1 página.
-pdftoppm -png -r 80: 14 páginas renderizadas sin error.
-Hash de las cuatro páginas PNG Normal/Huge: idénticos uno por uno.
-Diálogo: Shift+Tab/Tab conservan foco dentro; Escape cierra.
-375/Huge: sin desborde horizontal del documento; pestañas sin superposición.
-```
-
-Capturas / evidencia manual: `evidencias/F4` contiene los ocho PDF de muestra, capturas de pantalla y renderizados de portada, tabla, blanco/negro y explicación. API simulada. Se revisaron visualmente estos renderizados; no se atribuye a producción.
-
-Pendientes: revisión humana de los textos nuevos. Los PDF generales y de otras técnicas mantienen sus exportadores porque no usan este modal. No se añadieron formatos, dependencias ni técnicas.
+Pendientes y dudas:
+- No hay Playwright para las capturas de comparación; la posición del botón se verificó con las pruebas de render.
+- Nota: el CSS `.confirm-field` de F5 quedó incluido en el commit de F4 porque ambas fases se redactaron seguidas; no afecta el comportamiento.

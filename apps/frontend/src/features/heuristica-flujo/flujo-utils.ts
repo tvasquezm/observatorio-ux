@@ -1,5 +1,5 @@
 import { acuerdoDifiere, escalaDe, normalizarUrlProducto, redactorDe } from '@observatorio-ux/shared-types';
-import type { ConfiguracionFlujo, CriterioFlujo, CumplimientoGrupo, DecisionCriterio, EscalaFlujo, HallazgoFlujo, InformeFlujo, RespuestaCriterio, TrabajoFlujo } from '@observatorio-ux/shared-types';
+import type { ConfiguracionFlujo, CriterioFlujo, CumplimientoGrupo, DecisionCriterio, DecisionHallazgo, EscalaFlujo, HallazgoFlujo, InformeFlujo, RespuestaCriterio, TrabajoFlujo } from '@observatorio-ux/shared-types';
 
 export function pendientesTrabajo(config: ConfiguracionFlujo, respuestas: RespuestaCriterio[], hallazgos: HallazgoFlujo[]) {
   const pendientes = config.metodologia.criterios.flatMap((c, i) => {
@@ -64,6 +64,12 @@ export function leerSesion(clave: string): string | null { try { return sessionS
 export function guardarSesion(clave: string, valor: string | null): void { try { if (valor === null) sessionStorage.removeItem(clave); else sessionStorage.setItem(clave, valor); } catch { /* sin almacenamiento */ } }
 export const respuestaVacia = (criterioId: string): RespuestaCriterio => ({ criterioId, valor: null, noAplica: false, motivo: '', notas: '' });
 export const hallazgoVacio = (criterioId: string): HallazgoFlujo => ({ id: crypto.randomUUID(), criterioIds: [criterioId], titulo: '', pantalla: '', descripcion: '', recomendacion: '', severidad: 2, prioridad: 'MEDIA', notas: '', evidenciaIds: [] });
+
+/** Cada problema individual sin decisión pasa al acuerdo como una decisión pendiente; no toca las existentes. */
+export function precargarDecisiones(trabajos: TrabajoFlujo[], hallazgos: DecisionHallazgo[]): DecisionHallazgo[] {
+  const cubiertos = new Set(hallazgos.flatMap(h => h.origenIds));
+  return trabajos.flatMap(t => t.hallazgos).filter(h => !cubiertos.has(h.id)).map(h => ({ ...hallazgoVacio(h.criterioIds[0]), titulo: h.titulo, pantalla: h.pantalla, descripcion: h.descripcion, recomendacion: h.recomendacion, severidad: h.severidad, prioridad: h.prioridad, notas: h.notas, criterioIds: [...h.criterioIds], evidenciaIds: [...h.evidenciaIds], origenIds: [h.id], decision: 'PENDIENTE' as const, justificacion: '' }));
+}
 
 /** Respondido = un valor válido, o «No aplica» sin valoración; el motivo es opcional. */
 export function criterioRespondido(config: ConfiguracionFlujo, criterio: CriterioFlujo, respuesta: RespuestaCriterio | undefined): boolean {

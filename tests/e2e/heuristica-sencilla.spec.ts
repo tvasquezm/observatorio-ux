@@ -46,9 +46,7 @@ test('guía una evaluación desde su creación hasta el informe', async ({ page 
   await expect(page.getByText('Las respuestas individuales coinciden en todas las preguntas.', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Ver todo', exact: true }).click();
   await expect(page.getByRole('row').filter({ has: page.getByRole('radio') })).toHaveCount(total);
-  await page.getByRole('tab', { name: 'Revisar los problemas', exact: true }).click();
-  await page.getByRole('checkbox', { name: /El menú es confuso/ }).check();
-  await page.getByRole('button', { name: 'Crear decisión de los originales seleccionados', exact: true }).click();
+  await page.getByRole('tab', { name: 'Preparar el informe', exact: true }).click();
   await page.getByLabel('Decisión del consenso').selectOption('ACEPTADO');
   await page.getByLabel('Justificación de aceptación, fusión o descarte', { exact: true }).fill('El equipo lo comprobó al navegar.');
   await page.getByRole('tab', { name: 'Preparar el informe', exact: true }).click();

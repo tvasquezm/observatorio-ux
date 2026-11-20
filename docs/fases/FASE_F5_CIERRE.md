@@ -1,39 +1,19 @@
-# CIERRE FASE F5
+# FASE F5: Confirmación escrita, mecanismo y eliminar sala
 
-Fecha: 2026-11-12
+Estado: hecha
+Archivos tocados: `apps/frontend/src/shared/api/confirm.ts`, `apps/frontend/src/shared/components/ui/ConfirmDialog.tsx`, `apps/frontend/src/shared/components/ui/ConfirmDialog.test.tsx` (nuevo), `apps/frontend/src/features/salas/pages/ProfesorSalasPage.tsx`, `apps/frontend/src/features/salas/pages/ProfesorSalasPage.test.tsx`, `apps/frontend/src/styles/theme.css`.
+
+Comandos ejecutados y resultado:
+- `pnpm --filter frontend exec vitest run src/shared/components/ui/ConfirmDialog.test.tsx src/features/salas` -> 5 archivos, 35 pruebas en verde (7 nuevas del diálogo y 1 de la página de salas).
+- `pnpm --filter frontend test` -> 81 archivos, 783 pruebas en verde.
+- `pnpm --filter frontend build` -> `built in 1.56s`, código de salida 0.
 
 Hecho:
-- Toggle de proyectos derivado de la sala guardada, con borrador local y resincronización. Guardando/Guardado y error visible con reversión.
-- PATCH invalida las consultas de salas, incluida la lista usada para elegir sala al crear proyectos.
-- Navegación/recarga protegidas en configuración, estudiantes, equipos/miembros, formulario de sala y card sorting. Se detecta también texto aún no agregado a la lista de tarjetas.
-- Un solo bloqueo de navegación en SalaDetallePage reúne el estado pendiente de sus paneles; las confirmaciones de cierre del formulario se conservan.
-- Pruebas del servidor para guardar el permiso con dueño/admin y rechazar otro docente/estudiante.
-- Diagnóstico basado en código en `docs/DIAGNOSTICO_ACCESOS.md`.
+- `askConfirm(message, { confirmLabel?, cancelLabel?, requireText? })` en `confirm.ts`; `ConfirmRequestDetail` lleva `requireText`.
+- `ConfirmDialog`: solo con `requireText` agrega un campo con etiqueta visible `Escribe «nombre» para confirmar`, `aria-describedby` apuntando al mensaje del diálogo y foco inicial en el campo. La coincidencia es exacta tras normalizar Unicode (NFC) y recortar espacios, distingue mayúsculas y minúsculas, y admite pegar. El botón de confirmar queda deshabilitado hasta coincidir; Enter confirma solo si coincide; Escape cancela y deja el campo vacío. Sin `requireText`, el diálogo simple y su foco en Cancelar quedan igual.
+- Aplicado a `handleEliminarSala` de `ProfesorSalasPage` con el texto actual del mensaje y `requireText: sala.nombre`.
+- CSS: `.confirm-field`, `.confirm-field label/input` y `.confirm-btn:disabled` (área táctil de 44 px).
 
-Archivos tocados: SalaDetallePage y pruebas, SalaProjectCreate, ProfesorSalasPage y pruebas, hooks/API de salas, CardSortingPage/Entry y pruebas, DTO y spec de salas.
+Cambios respecto al plan (desvíos): ninguno. El CSS del campo quedó en el commit de F4 (fases redactadas seguidas); no afecta el comportamiento.
 
-Contratos reales: PATCH /salas/:salaId mantiene permiteCreacionProyectos boolean. `limiteIntegrantesEquipo` admite number | null; omitirlo sigue sin cambiarlo. null quita el límite y los números mantienen validación de entero ≥1. El esquema ya era nullable; no hay migración.
-
-Auditoría previa: useUnsavedChanges protege enlaces/rutas/query/Atrás/Adelante mediante useBlocker y cierre/recarga mediante beforeunload. useDiscardChanges solo protege cierres explícitos. Formularios sin protección de navegación: sala, configuración, estudiantes, equipos/miembros y card sorting. Todos reciben protección; cambios inmediatos, selección de proyecto a vincular y filtros no se consideran edición perdida.
-
-Desvíos: se corrige además el vacío del límite de integrantes, porque la UI prometía «vacío = sin límite» pero no enviaba el cambio. El servidor ya aceptaba null; se alinean tipos y envío sin relajar permisos.
-
-Verificación:
-```text
-Pruebas nuevas de estado, error, payload y navegación: rojas antes, verdes después.
-pnpm --filter frontend test: 80 archivos, 765 pruebas aprobadas
-pnpm --filter frontend build: built in 715ms; exit 0
-pnpm --filter backend test salas.service --runInBand: 26 pruebas aprobadas
-pnpm --filter backend build: nest build; exit 0
-Chromium, API simulada:
-- Cambio pendiente bloquea salida; cancelar conserva el formulario.
-- PATCH permiteCreacionProyectos=true, Guardando/Guardado, recarga conserva true.
-- PATCH rechazado con 403 revierte al valor del servidor y deja explicación visible.
-- Borrador de estudiante bloquea navegación; cancelarla conserva el correo.
-- Aceptar descarte permite cambiar de pestaña.
-- Vaciar límite envía null y sigue vacío tras recargar.
-```
-
-Capturas / evidencia manual: `evidencias/F5`, claro/oscuro, estados de guardado y error. Payloads y confirmaciones en verificacion.json. Los ensayos del servidor usan Prisma simulado; los permisos no se probaron contra producción.
-
-Pendientes: contraste del diagnóstico con registros reales; sesión/renovación en F8/F10. La procedencia de los incidentes de la prueba se mantiene separada de los defectos confirmados en código.
+Pendientes y dudas: ninguno.

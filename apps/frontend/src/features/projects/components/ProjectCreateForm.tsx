@@ -43,6 +43,7 @@ export function ProjectCreateForm({ value, onChange, salas, salaFija, isPending,
             <option value="">Selecciona una sala…</option>
             {salas.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
           </select>}
+        <p className="text-muted">Un proyecto vive dentro de una sala y reúne las técnicas de una investigación.</p>
       </div>
       <div className="form-actions project-create-actions">
         <button type="button" className="secondary" disabled={isPending} onClick={onCancel}>Cancelar</button>

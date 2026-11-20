@@ -80,6 +80,7 @@ export function AdminProjectsPanel() {
   async function handleDelete(project: AdminProjectOverview) {
     const accepted = await confirm(
       `¿Eliminar el proyecto "${project.nombre}"? Sus datos dejarán de estar disponibles.`,
+      { requireText: project.nombre },
     );
     if (accepted) deleteProject.mutate(project.id);
   }
