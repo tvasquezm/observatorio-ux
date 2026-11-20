@@ -66,7 +66,7 @@ export function ProjectDetailLayout() {
           <span className="kicker">PROYECTO DE INVESTIGACIÓN</span>
           <h1 id="project-title" tabIndex={-1}>{proyecto?.nombre ?? 'Proyecto'}</h1>
           {proyecto?.descripcion && <p>{proyecto.descripcion}</p>}
-          {proyecto && !proyecto.salaId && <p>Sin sala · <Link to="/salas">Vincular a una sala</Link></p>}
+          {proyecto && !proyecto.salaId && <p>Sin sala</p>}
         </div>
         <Link className="secondary" to={`/proyectos/${proyectoId}/miembros`}>Miembros</Link>
       </div>

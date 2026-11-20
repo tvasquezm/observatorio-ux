@@ -32,6 +32,12 @@ beforeEach(() => {
 });
 
 describe('ProjectsPage — creación centralizada', () => {
+  it('identifica un proyecto sin sala sin ofrecer un vínculo engañoso', () => {
+    mocks.query.data = [{ id: 'p1', nombre: 'Proyecto sin sala', salaId: null }];
+    render(<RouterProvider router={createMemoryRouter([{ path: '*', element: <ProjectsPage /> }])} />);
+    expect(screen.getByText('Sin sala', { exact: true })).toBeVisible();
+    expect(screen.queryByRole('link', { name: 'Vincular a una sala' })).toBeNull();
+  });
   it('exige una sala también al docente', async () => {
     render(<RouterProvider router={createMemoryRouter([{ path: '*', element: <ProjectsPage /> }])} />);
     await userEvent.click(screen.getByRole('button', { name: 'Nuevo proyecto' }));

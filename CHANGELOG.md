@@ -8,6 +8,8 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **proyectos:** el formulario explica la relación entre sala y técnicas. Los proyectos sin sala muestran su estado.
+
 * **formularios:** marca de campo opcional compartida en Card Sorting y en la configuración heurística.
 
 * **informes PDF:** se pueden elegir apartados en heurística y en el informe del proyecto.
