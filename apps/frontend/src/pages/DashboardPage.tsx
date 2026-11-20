@@ -11,13 +11,14 @@ import { Link } from 'react-router-dom';
 import { useProjects } from '../features/projects/hooks/useProjectsQueries';
 import { useSalas } from '../features/salas/hooks/useSalasQueries';
 import { useAuthStore } from '../features/auth/store/useAuthStore';
+import { Icon } from '../shared/components/ui/Icon';
 
 const TECHNIQUES = [
-  { to: 'personas', label: 'Personas', icon: '◌', cls: 'c2' },
-  { to: 'journey-map', label: 'Journey Map', icon: '⌁', cls: 'c4' },
-  { to: 'momentos-criticos', label: 'Momentos críticos', icon: '✚', cls: 'c5' },
-  { to: 'card-sorting', label: 'Card Sorting', icon: '▦', cls: 'c1' },
-  { to: 'evaluacion-heuristica', label: 'Evaluación heurística', icon: '✦', cls: 'c3' },
+  { to: 'personas', label: 'Personas', icon: 'personas', cls: 'c2' },
+  { to: 'journey-map', label: 'Journey Map', icon: 'journey', cls: 'c4' },
+  { to: 'momentos-criticos', label: 'Momentos críticos', icon: 'momentos', cls: 'c5' },
+  { to: 'card-sorting', label: 'Card Sorting', icon: 'card-sorting', cls: 'c1' },
+  { to: 'evaluacion-heuristica', label: 'Evaluación heurística', icon: 'heuristica', cls: 'c3' },
 ] as const;
 
 function fechaHoy() {
@@ -75,7 +76,7 @@ export function DashboardPage() {
             to={activo ? `/proyectos/${activo.id.replace(/^\//, '')}/${t.to}` : '/proyectos'}
             className={`tech-card rise ${t.cls}`}
           >
-            <span className="tech-glyph" aria-hidden="true">{t.icon}</span>
+            <span className="tech-glyph" aria-hidden="true"><Icon name={t.icon} /></span>
             <h3>{t.label}</h3>
             <p>{TECNICAS_INFO[t.to].descripcionCorta}</p>
             <small>{activo ? 'Abrir técnica →' : 'Elegir proyecto →'}</small>

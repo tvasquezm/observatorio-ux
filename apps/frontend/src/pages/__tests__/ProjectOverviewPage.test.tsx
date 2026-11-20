@@ -17,4 +17,15 @@ describe('selector de técnicas', () => {
     expect(screen.queryByRole('button', { name: 'Descargar explicación (PDF)' })).not.toBeInTheDocument();
     expect(screen.queryByText(/Descargar explicación/)).not.toBeInTheDocument();
   });
+
+  it('cada tarjeta enlaza a su técnica con un ícono SVG decorativo', () => {
+    render(<MemoryRouter><ProjectOverviewPage /></MemoryRouter>);
+    const nombres = ['Personas', 'Journey Map', 'Momentos críticos', 'Card Sorting', 'Evaluación heurística'];
+    for (const nombre of nombres) {
+      const link = screen.getByRole('link', { name: new RegExp(`^${nombre}`) });
+      expect(link).toHaveAttribute('href');
+      expect(link.querySelector('.tech-icon svg')).toHaveAttribute('aria-hidden', 'true');
+      expect(link.querySelector('.tech-icon')?.textContent).toBe('');
+    }
+  });
 });

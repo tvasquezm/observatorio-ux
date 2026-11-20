@@ -8,6 +8,8 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **interfaz:** íconos en las tarjetas de técnicas y en las ayudas, con bordes decorativos más suaves en modo claro.
+
 * **resultados de Card Sorting:** la matriz mejora el contraste de las celdas y las vistas aprovechan el ancho disponible.
 
 * **inicio (plan UX):** Inicio se simplifica en dos pasos (1 · Proyecto y 2 · Técnica); se quitan métricas, proyectos recientes, mensajes repetidos y el panel de jerarquía.

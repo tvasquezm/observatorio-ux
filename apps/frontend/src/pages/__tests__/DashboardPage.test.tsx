@@ -67,7 +67,10 @@ describe('Inicio en dos pasos', () => {
     const tarjetas = within(tecnicas).getAllByRole('link');
     expect(tarjetas).toHaveLength(5);
     for (const tecnica of Object.keys(TECNICAS_INFO)) {
-      expect(screen.getByRole('link', { name: new RegExp(`^${nombreTecnica(tecnica)}`) })).toHaveAttribute('href', `/proyectos/p1/${tecnica}`);
+      const link = within(tecnicas).getByRole('link', { name: new RegExp(`^${nombreTecnica(tecnica)}`) });
+      expect(link).toHaveAttribute('href', `/proyectos/p1/${tecnica}`);
+      expect(link.querySelector('.tech-glyph svg')).toHaveAttribute('aria-hidden', 'true');
+      expect(link.querySelector('.tech-glyph')?.textContent).toBe('');
     }
     expect(screen.getByRole('link', { name: 'Todos los proyectos' })).toHaveAttribute('href', '/proyectos');
   });

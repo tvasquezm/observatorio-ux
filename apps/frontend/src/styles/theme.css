@@ -2,8 +2,10 @@
    Extraído de UX-Observatory-Presentacion.html (mockup de referencia).
    Importar UNA vez en el entrypoint (main.tsx): import './styles/theme.css'; */
 :root {
-  --icon-size-info: 1.25rem;
+  --icon-size-info: 1.5rem;
   --icon-size-technique: 1.5rem;
+  --icon-size-technique-card: 2rem;
+  --line-soft: #d7dde7;
   --section-gap: 1.5rem;
   --room-1: #416ab0;
   --room-2: #287f75;
@@ -607,7 +609,7 @@ button { cursor: pointer; }
 .toolbar input { width: 220px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 7px; font-size: 0.75rem; }
 .table-wrap { overflow: auto; }
 .data-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
-.data-table th, .data-table td { padding: 11px 8px; text-align: left; border-bottom: 1px solid var(--line); }
+.data-table th, .data-table td { padding: 11px 8px; text-align: left; border-bottom: 1px solid var(--line-soft); }
 .data-table th { background: var(--surface-muted); color: var(--ink-soft); }
 .data-table td b { color: var(--ink-soft); }
 /* ---------- Card sorting: mazo + zonas de destino + análisis ---------- */
@@ -986,7 +988,7 @@ button { cursor: pointer; }
   .cs-results .cluster .chip-list { grid-column: 1 / -1; }
 }
 /* Fase 2B — vista "Respuestas" (bajo .cs-results) y preguntas del participante */
-.cs-results .cs-answer-block { padding: 14px 0; border-top: 1px solid var(--line); }
+.cs-results .cs-answer-block { padding: 14px 0; border-top: 1px solid var(--line-soft); }
 .cs-results .cs-answer-block:first-child { border-top: 0; padding-top: 0; }
 .cs-results .cs-answer-block h3 { margin: 0 0 4px; font-size: 0.875rem; font-weight: 600; color: var(--ink); }
 .cs-results .cs-answer-block ul { margin: 8px 0 0; padding: 0; list-style: none; }
@@ -1008,6 +1010,7 @@ button { cursor: pointer; }
 }
 /* Preferencia de contraste independiente del tema claro u oscuro. */
 :root[data-contrast='high'] {
+  --line-soft: var(--line);
   --heat-alta: #ffc9c4;
   --heat-alta-line: #8b0000;
   --heat-media: #ffe9a0;
@@ -1972,6 +1975,7 @@ button { cursor: pointer; }
   --muted: #b9c5d8;
   --bg: #0f1523;
   --line: #7889a3;
+  --line-soft: var(--line);
   --surface: #182033;
   --surface-alt: #1e283d;
   --surface-muted: #263148;
@@ -2106,8 +2110,9 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .page-summary strong { color: var(--ink); font-variant-numeric: tabular-nums; }
 .metric, .panel, .project-card, .finding { background: var(--surface); border-color: var(--line); box-shadow: var(--shadow); }
 .panel, .project-card, .finding { background: var(--surface); border-color: var(--line); box-shadow: var(--shadow); }
+.panel, .project-card { border-color: var(--line-soft); }
 .panel { padding: 22px; border-radius: 16px; }
-.panel-head { margin-bottom: 14px; padding-bottom: 14px; border-color: var(--line); }
+.panel-head { margin-bottom: 14px; padding-bottom: 14px; border-color: var(--line-soft); }
 .panel h2, .section-title h2, .toolbar > div h2, .create-project h2 {
   margin: 4px 0; color: var(--ink); font: 700 1.1875rem/1.2 Georgia, serif;
 }
@@ -2133,7 +2138,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .table-shell { max-width: 100%; overflow-x: auto; border: 1px solid var(--line); border-radius: 11px; }
 .data-table { width: 100%; border-collapse: collapse; color: var(--ink); font-size: 0.75rem; }
 .data-table th { padding: 11px 13px; background: var(--surface-alt); color: var(--muted); font-size: 0.75rem; font-weight: 700; text-align: left; }
-.data-table td { padding: 12px 13px; border-top: 1px solid var(--line); color: var(--ink); vertical-align: middle; }
+.data-table td { padding: 12px 13px; border-top: 1px solid var(--line-soft); color: var(--ink); vertical-align: middle; }
 .data-table tbody tr:hover { background: color-mix(in srgb, var(--teal) 4%, transparent); }
 .admin-table { min-width: 620px; }
 .admin-projects-table { min-width: 960px; }
@@ -2651,7 +2656,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 /* Card sorting: ayuda contextual (InfoTip), contadores y guía */
 .cs-field { position: relative; }
 .info-tip { position: relative; display: inline-flex; }
-.info-tip-btn { display: inline-grid; place-items: center; width: 44px; height: 44px; min-height: 44px; min-width: 44px; padding: 0; border: 0; border-radius: 999px; background: transparent; color: var(--muted); cursor: pointer; }
+.info-tip-btn { display: inline-grid; place-items: center; width: 44px; height: 44px; min-height: 44px; min-width: 44px; padding: 0; border: 0; border-radius: 999px; background: transparent; color: var(--teal); cursor: pointer; }
 .info-tip-btn .icon { width: var(--icon-size-info); height: var(--icon-size-info); }
 .info-tip-btn[data-has-label] { display: inline-flex; align-items: center; gap: .5rem; width: auto; border-radius: .5rem; font-size: .8125rem; text-align: left; }
 .pdf-section { display: flex; align-items: center; gap: .75rem; min-height: 44px; margin-block: .5rem; }
@@ -2661,7 +2666,9 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .cs-results .cs-dendro-svg { min-width: 48rem; width: 100%; height: auto; }
 .project-menu-link .icon, .pm-item-icon .icon, .pm-now-name .icon { width: var(--icon-size-technique); height: var(--icon-size-technique); }
 .tech-icon, .tech-glyph { font-size: var(--icon-size-technique); }
+.tech-glyph .icon, .tech-icon .icon { width: var(--icon-size-technique-card); height: var(--icon-size-technique-card); }
 .info-tip-btn:hover, .info-tip-btn[aria-expanded='true'] { background: var(--teal-soft); color: var(--teal); }
+:root[data-contrast='high'] .info-tip-btn { color: var(--ink); }
 .info-tip-btn:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 1px; }
 .info-tip-panel { position: absolute; top: calc(100% + 6px); right: 0; z-index: 20; display: none; width: min(320px, 80vw); padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink-soft); box-shadow: var(--shadow); font-size: 0.75rem; font-weight: 500; line-height: 1.5; text-align: left; text-transform: none; letter-spacing: 0; }
 .info-tip-panel.open { display: block; }
@@ -2709,7 +2716,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .cs-no-consensus { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
 .cs-no-consensus h3 { margin: 0 0 8px; color: var(--ink); font-size: 0.8125rem; }
 .cs-answers { display: grid; gap: 14px; }
-.cs-answer-block { padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-alt); }
+.cs-answer-block { padding: 14px; border: 1px solid var(--line-soft); border-radius: 10px; background: var(--surface-alt); }
 .cs-answer-block h3 { margin: 0 0 4px; color: var(--ink); font-size: 0.875rem; }
 .cs-answer-block ul { margin: 10px 0 0; padding-left: 18px; color: var(--ink-soft); font-size: 0.8125rem; line-height: 1.5; }
 .cs-dendro-svg { display: block; width: 100%; min-width: 560px; height: auto; }
