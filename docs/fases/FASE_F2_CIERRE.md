@@ -19,4 +19,4 @@ Hecho:
 Cambios respecto al plan (desvíos): en el paso 5 se conserva la frase "Pregunta al participante para entender sus decisiones." del antiguo paso 6, para no perder contenido al fusionar (la tabla aprobada fusionaba los pasos 4 y 6 en el 5). No se agregó contenido nuevo salvo el texto de R27 que el plan fija literal.
 
 Pendientes y dudas:
-- Sin Playwright no se pudieron tomar las capturas de las cinco páginas con el panel abierto a 375 px y escritorio; el formato se verifica con las pruebas del componente y de la página.
+- Chromium con PostgreSQL local completó las diez capturas de las cinco técnicas con el panel abierto, a 375 px y escritorio. [Capturas](FASE_F2_capturas/)

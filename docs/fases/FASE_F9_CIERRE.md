@@ -23,5 +23,5 @@ Cambios respecto al plan (desvíos):
 - `password-change.spec.ts` ajusta la expectativa del valor devuelto (`{ ok: true, sesionVersion: 1 }`) y comprueba el incremento en `data`. `auth.identity-cache.spec.ts` incluye `sesionVersion: 0` en la identidad esperada. No se silenció ninguna prueba.
 
 Pendientes y dudas:
-- No hay Postgres en este entorno, así que no se pudo correr `prisma migrate deploy` en limpio (F0 ya lo había anotado). El SQL es una sola sentencia aditiva y el cliente generado compila y pasa las pruebas.
+- Verificación complementaria con PostgreSQL 16 vacío. `prisma migrate deploy` aplicó las 26 migraciones, incluida `20261118120000_add_sesion_version`.
 - Residual aceptado por D5: con más de una instancia, otra podría aceptar la cookie hasta 30 s por su caché de identidad. No se pudo comprobar cuántas instancias corre Render (F0): pendiente de dato.

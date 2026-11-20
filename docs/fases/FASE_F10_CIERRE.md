@@ -13,10 +13,11 @@ Comandos ejecutados y resultado
 - `pnpm --filter backend build` → salida 0.
 - `pnpm --filter backend test` → 27 suites y 396 pruebas pasan.
 - `node apps/backend/scripts/check-session-refresh.mjs` → salida 0. Origen, CSRF, vencimiento, renovación limitada, atributos de cookie, revocación tras cerrar sesión y 429 pasan.
+- Una copia temporal de la prueba formuló una sola solicitud en el bucle final. El resultado 200 produjo el fallo esperado `200 !== 429` y confirmó que el script detecta la ausencia de 429.
 - `docker compose --env-file env.production.example -f docker-compose.production.yml config --quiet` → salida 0.
 - `git diff --check` → salida 0.
 
 Pendientes
 
 - Verificar en Render que `CORS_ORIGIN` coincida con el origen público de Vercel. `TRUST_PROXY_HOPS` queda como variable de panel (`sync: false`) para ajustarla con la medición de `req.ip` desde dos clientes reales.
-- Quedan pendientes la ejecución del workflow remoto y la prueba con el límite alterado. El script local afirma que la respuesta final es 429.
+- Queda pendiente la ejecución del workflow remoto.

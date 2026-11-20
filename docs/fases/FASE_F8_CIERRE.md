@@ -23,5 +23,5 @@ Hecho:
 Cambios respecto al plan (desvíos): ninguno funcional. No se creó una lista de "últimos 3 proyectos" porque no hay dato del usuario sobre docentes con más de ~10 proyectos: queda como pendiente de dato, según la fase.
 
 Pendientes y dudas:
-- Sin Playwright no se tomó la captura informativa a 1366x768; queda registrado que no se comprobó si las cinco tarjetas se ven sin desplazarse.
+- A 1366 × 768 las cinco tarjetas aparecen en una fila con el proyecto seleccionado. El borde inferior de cada una queda fuera del área visible inicial. [Captura](FASE_F8_capturas/inicio-1366.png)
 - Quedan referencias a `.metric` dentro de selectores agrupados del tema oscuro y de alto contraste (reglas compartidas con `.panel`, `.tech-card`, etc.). No tienen efecto porque ningún elemento usa esa clase; se dejan para la higiene de tokens de F15.

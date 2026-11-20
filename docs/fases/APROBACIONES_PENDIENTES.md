@@ -1,12 +1,12 @@
 # Aprobaciones pendientes
 
-Textos que el plan exige aprobar al usuario antes de escribirlos. No se aplican hasta que el usuario responda.
+Textos que el plan sometió a aprobación y su estado.
 
 ## F2 · Instrucciones de Card Sorting (aprobación expresa, regla 8 y D1)
 
-Estado: **pendiente de aprobación**. F2 queda parcial: se implementó el componente compartido y se unificó el estilo del panel, pero los textos de Card Sorting NO se tocaron.
+Estado: **aprobado el 18 de noviembre de 2026**, según el [cierre de F2](FASE_F2_CIERRE.md).
 
-Motivo: el plan (F2, paso 3) pide condensar los 8 pasos del curso en 5 o 6 con el formato común (lista numerada de pasos cortos, con línea opcional "En la herramienta:") y advierte que esos textos requieren aprobación expresa. No hay respuesta del usuario todavía.
+La tabla conserva el texto que se revisó para condensar los pasos del curso.
 
 | # | Antes (8 acordeones anidados, `CardSortingGuide`) | Después (lista común) |
 |---|---|---|
@@ -22,4 +22,6 @@ Motivo: el plan (F2, paso 3) pide condensar los 8 pasos del curso en 5 o 6 con e
 
 Resultado: de 8 acordeones a 6 pasos; se conservan el grupo de 3 invitado por separado (cuenta como tres participantes), la jerarquía de 2 niveles solo en abiertos e híbridos, el umbral de consenso editable (50 % por defecto), dónde se ven los resultados, y se agrega la indicación de la tarjeta que podría ir en varios lugares.
 
-Pendiente de decisión también: el párrafo de entrada (fila 0) desaparece al pasar a lista. Si se quiere conservar, se puede dejar como párrafo dentro del panel.
+## F11 · Aviso de caducidad de borradores
+
+Estado: **aprobado el 19 de noviembre de 2026**. Texto aplicado: «El borrador se conserva durante 7 días desde el último guardado.» [Cierre de F11](FASE_F11_CIERRE.md)

@@ -17,3 +17,9 @@ Comandos ejecutados y resultado:
 
 Cambios respecto al plan (desvíos): ninguno.
 Pendientes y dudas: ninguno. Base B validada y lista para F1.
+
+Verificación complementaria en la rama implementada.
+
+- `pnpm install --frozen-lockfile` pasa con el lockfile actualizado en F14.
+- `pnpm --filter backend exec prisma migrate deploy` aplica las 26 migraciones en PostgreSQL 16 de pruebas vacío.
+- `pnpm test:e2e` pasa con 28 pruebas de Chromium, escritorio y móvil, sobre el backend y la base locales.

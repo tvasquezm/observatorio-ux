@@ -10,4 +10,4 @@ Comandos ejecutados y resultado:
 Cambios respecto al plan (desvíos): ninguno. `EvaluacionHeuristicaPage` queda solo con `<FlujoHeuristicaPage />`; el panel de comentarios no cambia de contenido, solo de sitio. Confirmado al ejecutar que `TechniquePage` envuelve todas las ramas de la página (carga, error, evaluación abierta e historial), así que el desplegable de Comentarios se ve siempre, también con una evaluación abierta.
 
 Pendientes y dudas:
-- No hay Playwright disponible para la captura comparada con Personas a 375 px y escritorio; la igualdad de posición, ancho y margen se garantiza porque las cinco técnicas usan ahora el mismo slot de `TechniquePage`. Se anota como evidencia no capturada.
+- Chromium verificó que el desplegable vive dentro de `.technique-page` en Personas y Evaluación heurística, a 375 px y escritorio. [Capturas comparadas](FASE_F3_capturas/)
