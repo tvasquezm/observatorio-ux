@@ -302,7 +302,7 @@ describe('configuración y consenso', () => {
     const e = evaluation({ fase: 'PENDIENTE_CONSENSO' });
     e.trabajos[0].hallazgos = [{ id: 'origen', criterioIds: [e.configuracion.metodologia.criterios[0].id], titulo: 'Problema original', pantalla: 'Inicio', descripcion: 'Error', recomendacion: 'Mejorar', severidad: 2, prioridad: 'MEDIA', notas: '', evidenciaIds: [] }];
     renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
-    await userEvent.click(screen.getByRole('tab', { name: 'Revisar los problemas' }));
+    await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
     await userEvent.click(screen.getByLabelText('Ana: Problema original'));
     await userEvent.click(screen.getByRole('button', { name: 'Crear decisión de los originales seleccionados' }));
     expect(screen.getByLabelText('Decisión del consenso')).toHaveValue('PENDIENTE');
@@ -311,7 +311,7 @@ describe('configuración y consenso', () => {
   it('avisa y lleva el foco a la decisión nueva al crearla', async () => {
     const e = consensoConOriginal();
     renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
-    await userEvent.click(screen.getByRole('tab', { name: 'Revisar los problemas' }));
+    await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
     await userEvent.click(screen.getByLabelText('Ana: Problema original'));
     await userEvent.click(screen.getByRole('button', { name: 'Crear decisión de los originales seleccionados' }));
     expect(screen.getByText(/Decisión 1 creada con 1 problema/).closest('[role="status"]')).not.toBeNull();
@@ -319,7 +319,7 @@ describe('configuración y consenso', () => {
   });
   it('explica por qué no se puede crear una decisión sin selección', async () => {
     renderFlow(<ConsensoEditor evaluacion={consensoConOriginal()} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
-    await userEvent.click(screen.getByRole('tab', { name: 'Revisar los problemas' }));
+    await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
     const crear = screen.getByRole('button', { name: 'Crear decisión de los originales seleccionados' });
     expect(crear).toBeDisabled();
     expect(screen.getByText(/Marca al menos un problema/)).toBeInTheDocument();
@@ -331,7 +331,7 @@ describe('configuración y consenso', () => {
     renderFlow(<ConsensoEditor evaluacion={consensoConOriginal()} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
     expect(screen.getByRole('button', { name: 'Actualizar consenso y confirmaciones' })).toHaveClass('ghost');
     expect(screen.getByRole('button', { name: 'Continuar' })).toHaveClass('primary');
-    await userEvent.click(screen.getByRole('tab', { name: 'Revisar los problemas' }));
+    await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
     expect(screen.getByRole('button', { name: 'Anterior' })).toHaveClass('secondary');
     await userEvent.click(screen.getByLabelText('Ana: Problema original'));
     const crear = screen.getByRole('button', { name: 'Crear decisión de los originales seleccionados' });
@@ -599,7 +599,7 @@ describe('coincidencias de problemas', () => {
     const c = evaluation().configuracion.metodologia.criterios[0].id;
     const e = equipo([['u1', 'Ana', [problema('a1', [c], 'Sin foco')]], ['u2', 'Beto', [problema('b1', [c], 'Foco oculto')]], ['u3', 'Carla', [problema('k1', ['otra'], 'Otro tema')]]]);
     renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
-    await userEvent.click(screen.getByRole('tab', { name: 'Revisar los problemas' }));
+    await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
     expect(screen.getByText(/Ana: Sin foco · Pendiente de decisión · Coincide con: Beto/)).toBeInTheDocument();
     expect(screen.getByText(/Carla: Otro tema · Pendiente de decisión$/)).toBeInTheDocument();
     expect(screen.getAllByText('Coincide con: Beto')).toHaveLength(1);
@@ -685,7 +685,7 @@ describe('consenso en equipo sobre la tabla', () => {
     expect(screen.getByText('Redacta el acuerdo: Ana. Solo esa persona puede editarlo; tú puedes leerlo y confirmarlo.')).toBeInTheDocument();
     expect(screen.getByText('Falta confirmar: Ana, Beto.')).toBeInTheDocument();
     expect(screen.getAllByRole('radio').every(r => (r as HTMLInputElement).disabled)).toBe(true);
-    await userEvent.click(screen.getByRole('tab', { name: 'Revisar los problemas' }));
+    await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
     expect(screen.queryByRole('button', { name: 'Agregar hallazgo nuevo del equipo' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Crear decisión de los originales seleccionados' })).toBeNull();
     await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
@@ -826,8 +826,6 @@ describe('consenso en equipo sobre la tabla', () => {
   });
   it('agrega un hallazgo nuevo del equipo, lo rotula y permite quitarlo', async () => {
     renderFlow(<ConsensoEditor evaluacion={equipoEval('no_cumple')} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
-    await userEvent.click(screen.getByRole('tab', { name: 'Revisar los problemas' }));
-    expect(screen.queryByRole('button', { name: 'Agregar hallazgo nuevo del equipo' })).toBeNull();
     await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
     const equipo = within(screen.getByRole('region', { name: 'Problemas que detectó el equipo' }));
     await userEvent.click(equipo.getByRole('button', { name: 'Agregar hallazgo nuevo del equipo' }));

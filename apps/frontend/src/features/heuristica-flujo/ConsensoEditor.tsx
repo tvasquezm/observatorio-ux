@@ -102,7 +102,8 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
         guardado={{ dirty: state.dirty, saving: state.saving, error: state.error }}
         onChange={r => state.setDraft(prev => ({ ...prev, criterios: [...prev.criterios.filter(x => x.criterioId !== r.criterioId), { ...r, justificacion: r.justificacion ?? '' }] }))} />
     </fieldset>
-    </>) }, { titulo: 'Revisar los problemas', ayuda: 'Seleccionen los problemas encontrados. Pueden unir los repetidos, aceptarlos o descartarlos con una razón. Los originales se conservan.', contenido: (<div className="hf-acordar-columnas">
+    </>) }, { titulo: 'Preparar el informe', ayuda: 'Decidan qué hacer con los problemas encontrados (unir, aceptar o descartar), agreguen los que detectó el equipo y escriban qué recomiendan mejorar. Cada persona debe confirmar el acuerdo antes de que el coordinador prepare el informe.', contenido: (<>
+    <div className="hf-acordar-columnas">
     <section className="panel"><div className="panel-head"><h2>Problemas encontrados por el equipo</h2></div>
       {originales.map(h => <details key={h.id}><summary>{h.evaluador}: {h.titulo} · {cubiertos.has(h.id) ? 'Vinculado a decisión' : 'Pendiente de decisión'}{coincidencias.has(h.id) && ` · ${textoCoincide(h.id)}`}</summary><p>ID de origen: {h.id}</p><p>{h.pantalla}: {h.descripcion}</p><p>Severidad {h.severidad} · Prioridad {h.prioridad}</p><p>Recomendación: {h.recomendacion}</p><p>{h.notas}</p><EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={h.evidenciaIds} editable={false} /></details>)}
       {!soloLectura && <>
@@ -121,7 +122,7 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
     <section className="panel"><div className="panel-head"><h2>Decisiones y problemas únicos</h2></div><p role="status" className="hf-aviso">{aviso}</p>
       {state.draft.hallazgos.map((h, i) => origenHallazgo(h) !== 'equipo' ? renderDecision(h, i) : null)}
     </section>
-    </div>) }, { titulo: 'Preparar el informe', ayuda: 'Escriban qué recomiendan mejorar. Cada persona debe confirmar el acuerdo antes de que el coordinador prepare el informe.', contenido: (<>
+    </div>
     <section className="panel" aria-labelledby="hf-problemas-equipo">
       <div className="panel-head"><h2 id="hf-problemas-equipo">Problemas que detectó el equipo</h2></div>
       <fieldset disabled={bloqueo}>
