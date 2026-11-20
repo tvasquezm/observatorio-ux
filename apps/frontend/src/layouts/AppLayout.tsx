@@ -8,7 +8,6 @@ import { ProfilePerspectiveSwitcher } from '../shared/components/ProfilePerspect
 import { PerspectivePreviewNotice } from '../shared/components/PerspectivePreviewNotice';
 import { ChangePasswordForm } from '../features/auth/components/ChangePasswordForm';
 import { SessionExpiryDialog } from '../features/auth/components/SessionExpiryDialog';
-import { FontSizePicker } from './FontSizePicker';
 import { FontSizeQuickAccess } from './FontSizeQuickAccess';
 const ExportReportDialog = lazy(() => import('../features/reports/ExportReportDialog').then((module) => ({ default: module.ExportReportDialog })));
 
@@ -191,12 +190,12 @@ export function AppLayout() {
           <div className="top-actions">
             <FontSizeQuickAccess {...fontSizeControls} />
             <button type="button" className="secondary" aria-haspopup="dialog" onClick={() => preferencesRef.current?.showModal()}>
-              Preferencias
+              Configuración
             </button>
-            <dialog ref={preferencesRef} className="report-dialog preferences-dialog" aria-labelledby="preferences-title">
+            <dialog ref={preferencesRef} className="report-dialog preferences-dialog" aria-labelledby="settings-title">
               <div className="preferences-heading">
-                <h2 id="preferences-title">Preferencias</h2>
-                <button type="button" className="secondary" aria-label="Cerrar preferencias" onClick={() => preferencesRef.current?.close()}>✕</button>
+                <h2 id="settings-title">Configuración</h2>
+                <button type="button" className="secondary" aria-label="Cerrar configuración" onClick={() => preferencesRef.current?.close()}>✕</button>
               </div>
               <div className="preferences-panel">
             {user && activeRole && canSwitchPerspective(user.rol) && (
@@ -225,9 +224,8 @@ export function AppLayout() {
             >
               Alto contraste
             </button>
-            <FontSizePicker {...fontSizeControls} />
             </div>
-            {user && <ChangePasswordForm />}
+            {user && <details className="password-collapse"><summary>Cambiar contraseña</summary><ChangePasswordForm /></details>}
               </div>
             </dialog>
             <button

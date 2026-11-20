@@ -53,7 +53,7 @@ export function CrearDocenteForm() {
           <button type="button" className="secondary" aria-pressed={showPassword} aria-controls="docente-password" onClick={() => setShowPassword(!showPassword)}>{showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}</button>
         </div>
       </div>
-      <p className="form-help">El docente podrá ingresar y cambiar su contraseña desde Preferencias.</p>
+      <p className="form-help">El docente podrá ingresar y cambiar su contraseña desde Configuración.</p>
       <button type="submit" className="primary admin-submit" disabled={isPending}>
         {isPending ? 'Creando docente…' : 'Crear docente'}
       </button>
