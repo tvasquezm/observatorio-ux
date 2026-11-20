@@ -8,6 +8,8 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **salas:** el permiso de creación de proyectos se guarda al cambiarlo y el estudiante recibe una explicación si está desactivado.
+
 * **proyectos:** el formulario explica la relación entre sala y técnicas. Los proyectos sin sala muestran su estado.
 
 * **formularios:** marca de campo opcional compartida en Card Sorting y en la configuración heurística.

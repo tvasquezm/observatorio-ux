@@ -9,9 +9,10 @@ import { useAuthStore } from '../../auth/store/useAuthStore';
 
 const salaQuery = vi.hoisted(() => ({ data: undefined as unknown, isLoading: false, isError: true, error: null as Error | null, refetch: vi.fn() }));
 const update = vi.hoisted(() => vi.fn());
+const reset = vi.hoisted(() => vi.fn());
 vi.mock('../hooks/useSalasQueries', () => ({
   useSala: () => salaQuery,
-  useUpdateSala: () => ({ mutateAsync: update }),
+  useUpdateSala: () => ({ mutateAsync: update, reset }),
   useProyectosDeSala: () => ({ data: [] }),
   useVincularProyecto: () => ({ mutate: vi.fn() }),
   useDesvincularProyecto: () => ({ mutate: vi.fn() }),

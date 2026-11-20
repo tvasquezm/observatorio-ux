@@ -36,8 +36,6 @@ import type { Equipo } from '../../equipos/api/equipos.api';
 import { SalasApiError, type Sala } from '../api/salas.api';
 import { useConfirm } from '../../../shared/api/confirm';
 import { useUnsavedChanges } from '../../../shared/hooks/useUnsavedChanges';
-import { useFormDraft } from '../../../shared/hooks/useFormDraft';
-import { FormDraftNotice } from '../../../shared/components/FormDraftNotice';
 import { useDiscardChanges } from '../../../shared/hooks/useDiscardChanges';
 import { useAuthStore } from '../../auth/store/useAuthStore';
 import { resolvePerspective } from '../../../shared/auth/perspectivas';
@@ -52,13 +50,12 @@ type TabEstudiante = 'proyectos' | 'equipos';
 
 export function SalaDetallePage() {
   const [creationDirty, setCreationDirty] = useState(false);
-  const [configDirty, setConfigDirty] = useState(false);
   const [studentsDirty, setStudentsDirty] = useState(false);
   const [teamsDirty, setTeamsDirty] = useState(false);
   const [editandoSala, setEditandoSala] = useState(false);
   const [edicionDirty, setEdicionDirty] = useState(false);
   // El router admite un solo bloqueo: reúne aquí los borradores de los paneles de la sala.
-  useUnsavedChanges(true, creationDirty || configDirty || studentsDirty || teamsDirty || edicionDirty);
+  useUnsavedChanges(true, creationDirty || studentsDirty || teamsDirty || edicionDirty);
   const { salaId } = useParams<{ salaId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get('tab');
@@ -76,6 +73,9 @@ export function SalaDetallePage() {
   const esEstudiante = activeRole === 'ESTUDIANTE';
   const { data: sala, isLoading, isError, error, refetch } = useSala(salaId ?? null);
   const { mutateAsync: guardarSala } = useUpdateSala(salaId ?? '');
+  const actualizacionPermiso = useUpdateSala(salaId ?? '');
+  const { reset: reiniciarPermiso } = actualizacionPermiso;
+  useEffect(() => reiniciarPermiso(), [salaId, reiniciarPermiso]);
 
   if (!salaId) return null;
 
@@ -140,7 +140,10 @@ export function SalaDetallePage() {
               </div>
 
               {tabEstudiante === 'proyectos'
-                ? <ProyectosDeSalaLectura salaId={salaId} />
+                ? <>
+                    {!sala.permiteCreacionProyectos && <p role="note" className="text-muted">Esta sala no permite que los estudiantes creen proyectos. Pídele a tu docente que lo habilite.</p>}
+                    <ProyectosDeSalaLectura salaId={salaId} />
+                  </>
                 : <EquiposDeSalaEstudiante key={salaId} salaId={salaId} sala={sala} onDirtyChange={setTeamsDirty} />}
             </section>
           ) : (
@@ -173,7 +176,7 @@ export function SalaDetallePage() {
                 </button>
               </div>
 
-              {tab === 'proyectos' && <ProyectosDeSala key={salaId} salaId={salaId} sala={sala} onDirtyChange={setConfigDirty} />}
+              {tab === 'proyectos' && <ProyectosDeSala key={salaId} salaId={salaId} sala={sala} actualizacionPermiso={actualizacionPermiso} />}
               {tab === 'estudiantes' && <EstudiantesDeSala key={salaId} salaId={salaId} onDirtyChange={setStudentsDirty} />}
               {tab === 'equipos' && <EquiposDeSalaDocente key={salaId} salaId={salaId} sala={sala} onDirtyChange={setTeamsDirty} />}
             </section>
@@ -252,25 +255,16 @@ function ProyectosDeSalaLectura({ salaId }: { salaId: string }) {
 // Tab Proyectos
 // ---------------------------------------------------------------
 
-function ProyectosDeSala({ salaId, sala, onDirtyChange }: { salaId: string; sala: Sala; onDirtyChange: DirtyNotice }) {
+function ProyectosDeSala({ salaId, sala, actualizacionPermiso }: { salaId: string; sala: Sala; actualizacionPermiso: ReturnType<typeof useUpdateSala> }) {
   const confirm = useConfirm();
   const { data: proyectosSala, isLoading, isError, error, refetch } = useProyectosDeSala(salaId);
   const { data: todosLosProyectos } = useProjects();
   const { mutate: vincular, isPending: vinculando } = useVincularProyecto(salaId);
   const { mutate: desvincular } = useDesvincularProyecto(salaId);
-  const { mutate: actualizarSala, isPending: guardandoToggle, isSuccess: guardado, error: saveError } = useUpdateSala(salaId);
+  const { mutate: actualizarSala, isPending: guardandoToggle, isSuccess: guardado, error: saveError, variables } = actualizacionPermiso;
 
   const [proyectoAVincular, setProyectoAVincular] = useState('');
-  const [draft, setDraft] = useState<boolean | null>(null);
-  const permiteCreacionProyectos = draft ?? sala.permiteCreacionProyectos;
-  useEffect(() => setDraft(null), [sala.permiteCreacionProyectos]);
-  useDirtyNotice(draft !== null, onDirtyChange);
-  const localDraft = useFormDraft(`sala-config:${salaId}`, { value: draft }, saved => setDraft(saved.value), { dirty: draft !== null, enabled: true, onDiscard: () => setDraft(null) });
-
-  function handleGuardarToggleProyectos(e: React.FormEvent) {
-    e.preventDefault();
-    actualizarSala({ permiteCreacionProyectos }, { onSuccess: () => { localDraft.clear(); setDraft(null); }, onError: () => { localDraft.clear(); setDraft(null); } });
-  }
+  const permiteCreacionProyectos = (guardandoToggle ? variables?.permiteCreacionProyectos : undefined) ?? sala.permiteCreacionProyectos;
 
   // Solo se pueden vincular proyectos que todavía no están en ninguna sala.
   const disponiblesParaVincular = (todosLosProyectos ?? []).filter(
@@ -291,22 +285,18 @@ function ProyectosDeSala({ salaId, sala, onDirtyChange }: { salaId: string; sala
 
   return (
     <div>
-      <form onSubmit={handleGuardarToggleProyectos} className="form-row-inline" style={{ marginBottom: 16 }}>
-        <FormDraftNotice draft={localDraft} />
+      <div className="form-row-inline" style={{ marginBottom: 16 }}>
         <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <input
             type="checkbox"
             checked={permiteCreacionProyectos}
             disabled={guardandoToggle}
-            onChange={(e) => setDraft(e.target.checked === sala.permiteCreacionProyectos ? null : e.target.checked)}
+            onChange={(e) => actualizarSala({ permiteCreacionProyectos: e.target.checked })}
           />
           Permitir que los estudiantes creen proyectos en esta sala
         </label>
-        <button type="submit" className="primary" disabled={guardandoToggle || draft === null}>
-          {guardandoToggle ? 'Guardando…' : 'Guardar configuración'}
-        </button>
-      </form>
-      <p role="status">{guardandoToggle ? 'Guardando…' : draft !== null ? 'Cambios sin guardar' : guardado ? 'Guardado' : ''}</p>
+      </div>
+      <p role="status">{guardandoToggle ? 'Guardando…' : guardado ? 'Guardado' : ''}</p>
       {saveError && <p role="alert" className="error-text">{saveError.message} La configuración no se guardó. Vuelve a intentarlo.</p>}
 
       <div className="sala-project-linker">
