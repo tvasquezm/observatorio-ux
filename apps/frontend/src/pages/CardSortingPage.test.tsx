@@ -180,6 +180,8 @@ describe('CardSortingPage · preguntas del evaluador', () => {
     await base();
     await agregarUna('Agregar pregunta', '  ¿Qué costó?  ');
     await agregarUna('Agregar pregunta', '¿Faltó algo?');
+    expect(screen.getByText('Preguntas para el participante').querySelector('.optional-tag')).toHaveTextContent('(opcional)');
+    expect(screen.getByLabelText(/Nombre del card sorting/)).toBeRequired();
     expect(screen.getByTestId('cs-question-count')).toHaveTextContent('2 de 5 preguntas');
     await crear();
     expect(mutate.mock.calls[0][0].preguntas).toEqual([{ texto: '¿Qué costó?' }, { texto: '¿Faltó algo?' }]);

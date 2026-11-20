@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { InfoTip } from '../../../shared/components/ui/InfoTip';
+import { OptionalTag } from '../../../shared/components/OptionalTag';
 import { agregarLinea, analizarEntrada, elementosNuevos, existeElemento, quitarElemento } from '../card-sorting-input';
 import { CardSortingChips } from './CardSortingChips';
 
@@ -7,6 +8,7 @@ type Mode = 'uno' | 'lista';
 
 interface Props {
   title: string;
+  optional?: boolean;
   singular: string;
   plural: string;
   value: string;
@@ -25,7 +27,7 @@ interface Props {
 }
 
 export function CardSortingEntry({
-  title, singular, plural, value, onChange, max, aviso, defaultMode, rules, example,
+  title, optional, singular, plural, value, onChange, max, aviso, defaultMode, rules, example,
   addPlaceholder, help, helpLabel, meta, error, onPendingChange,
 }: Props) {
   const [mode, setMode] = useState<Mode>(defaultMode);
@@ -60,7 +62,7 @@ export function CardSortingEntry({
     <div className="cs-field cs-entry">
       <div className="cs-entry-head">
         <span className="cs-entry-title">
-          {title}
+          {title}{optional && <OptionalTag />}
           {help && <InfoTip label={helpLabel ?? `Ayuda: ${title}`} align="start">{help}</InfoTip>}
         </span>
         <div className="cs-mode-toggle" role="group" aria-label={`Modo de ingreso de ${plural}`}>

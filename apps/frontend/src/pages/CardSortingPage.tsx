@@ -337,7 +337,8 @@ export function CardSortingPage() {
       contenido: (
             <CardSortingEntry
               error={validationErrors.preguntas}
-              title="Preguntas para el participante (opcional)"
+              title="Preguntas para el participante"
+              optional
               singular="pregunta"
               plural="preguntas"
               onPendingChange={setQuestionsPending}

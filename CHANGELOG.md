@@ -8,6 +8,8 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **formularios:** marca de campo opcional compartida en Card Sorting y en la configuración heurística.
+
 * **informes PDF:** se pueden elegir apartados en heurística y en el informe del proyecto.
 
 * **PDF de resultados:** separadores de filas, títulos con acento y selector de contenido compartido.
