@@ -10,10 +10,10 @@ it('separa problemas, aciertos y no aplica con la clasificación de la escala', 
   const configuracion: ConfiguracionFlujo = { nombre: 'Prueba', producto: { clave: 'p', nombre: 'P', version: '', url: '', dispositivo: '' }, objetivo: '', tareas: '', pantallas: '', exclusiones: '', metodologia, evaluadorIds: [], lectorIds: [] };
   const consenso: ConsensoFlujo = { aprobadoPor: [], hallazgos: [], criterios: metodologia.criterios.map((c, i) => ({ criterioId: c.id, valor: i === 2 ? null : metodologia.escala.niveles.find(n => n.favorable === (i === 1))!.id, noAplica: i === 2, motivo: '', notas: '', justificacion: '' })) };
   render(<ResumenCriterios configuracion={configuracion} consenso={consenso} />);
-  expect(within(screen.getByRole('region', { name: 'Problemas' })).getByText(metodologia.criterios[0].nombre)).toBeInTheDocument();
-  expect(within(screen.getByRole('region', { name: 'Aciertos' })).getByText(metodologia.criterios[1].nombre)).toBeInTheDocument();
+  expect(within(screen.getByRole('region', { name: 'Criterios con problema (1)' })).getByText(metodologia.criterios[0].nombre)).toBeInTheDocument();
+  expect(within(screen.getByRole('region', { name: 'Criterios cumplidos (1)' })).getByText(metodologia.criterios[1].nombre)).toBeInTheDocument();
   expect(screen.queryByText(metodologia.criterios[2].nombre)).not.toBeInTheDocument();
   expect(screen.getByText('1 no aplican.')).toBeInTheDocument();
-  expect(screen.getByRole('heading', { name: /Problemas \(1\)/ })).toBeInTheDocument();
-  expect(screen.getByRole('heading', { name: /Aciertos \(1\)/ })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Criterios con problema (1)' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Criterios cumplidos (1)' })).toBeInTheDocument();
 });

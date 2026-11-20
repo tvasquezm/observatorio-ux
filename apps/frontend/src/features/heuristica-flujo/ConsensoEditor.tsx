@@ -25,6 +25,7 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
   const [comentario, setComentario] = useState('');
   const [seleccion, setSeleccion] = useState<string[]>([]);
   const [aviso, setAviso] = useState('');
+  const [avisoEquipo, setAvisoEquipo] = useState('');
   const [nuevaId, setNuevaId] = useState<string | null>(null);
   const [positivosPlegados, setPositivosPlegados] = useState<ReadonlySet<string>>(new Set());
   const [positivoSinTitulo, setPositivoSinTitulo] = useState<string | null>(null);
@@ -48,6 +49,22 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
   const textoCoincide = (id: string) => coincidencias.has(id) ? `Coincide con: ${coincidencias.get(id)!.join(', ')}` : '';
   const cubiertos = new Set(state.draft.hallazgos.flatMap(h => h.origenIds));
   const update = (h: DecisionHallazgo) => state.setDraft({ ...state.draft, hallazgos: state.draft.hallazgos.map(x => x.id === h.id ? h : x) });
+  function renderDecision(h: DecisionHallazgo, i: number) {
+    const esEquipo = origenHallazgo(h) === 'equipo';
+    return <fieldset key={h.id} disabled={bloqueo} tabIndex={-1} ref={el => { decisiones.current[h.id] = el; }}>
+      <legend>Decisión {i + 1}: {h.titulo}</legend>
+      {esEquipo ? <p><strong>Nuevo del equipo</strong>, sin hallazgo individual de origen</p> : <p>Orígenes preservados: {h.origenIds.join(', ')} · {h.origenIds.length > 1 ? 'Fusión' : 'Hallazgo individual'}</p>}
+      <Field label="Decisión del consenso"><select value={h.decision} onChange={e => update({ ...h, decision: e.target.value as DecisionHallazgo['decision'] })}><option value="PENDIENTE">Pendiente</option><option value="ACEPTADO">Aceptar problema único</option><option value="DESCARTADO">Descartar conservando original</option></select></Field>
+      <HallazgoEditor value={h} config={evaluacion.configuracion} onChange={x => update({ ...h, ...x })} />
+      <Field label="Justificación de aceptación, fusión o descarte"><textarea value={h.justificacion} onChange={e => update({ ...h, justificacion: e.target.value })} /></Field>
+      <EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={h.evidenciaIds} editable={false} />
+      <button type="button" className="danger" onClick={() => {
+        if (esEquipo) setAvisoEquipo('');
+        else setAviso('');
+        state.setDraft({ ...state.draft, hallazgos: state.draft.hallazgos.filter(x => x.id !== h.id) });
+      }}>{esEquipo ? `Quitar hallazgo nuevo del equipo ${i + 1}` : `Reabrir orígenes de decisión ${i + 1}`}</button>
+    </fieldset>;
+  }
   async function action(action: 'aprobar' | 'consolidar' | 'entregar-acuerdo') {
     setBusy(true); setError('');
     try {
@@ -99,23 +116,26 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
         state.setDraft({ ...state.draft, hallazgos: [...state.draft.hallazgos, nueva] }); setSeleccion([]);
         setAviso(`Decisión ${state.draft.hallazgos.length + 1} creada con ${sources.length} ${sources.length === 1 ? 'problema' : 'problemas'}. Está en "Decisiones y problemas únicos", más abajo.`); setNuevaId(nueva.id);
       }}>Crear decisión de los originales seleccionados</button>
-      <h3>Hallazgo que el equipo detectó al comparar</h3>
-      <p className="hf-ayuda">Úsalo para un problema que ninguna persona anotó por separado. {nuevos} de {MAX_HALLAZGOS_NUEVOS_EQUIPO} hallazgos nuevos.</p>
-      <button type="button" className="secondary" disabled={busy || nuevos >= MAX_HALLAZGOS_NUEVOS_EQUIPO} onClick={() => {
-        const nueva: DecisionHallazgo = { ...hallazgoVacio(criterios[0].id), criterioIds: [], origenIds: [], decision: 'PENDIENTE', justificacion: '' };
-        state.setDraft({ ...state.draft, hallazgos: [...state.draft.hallazgos, nueva] });
-        setAviso(`Hallazgo nuevo del equipo creado como decisión ${state.draft.hallazgos.length + 1}. Está en "Decisiones y problemas únicos", más abajo.`); setNuevaId(nueva.id);
-      }}>Agregar hallazgo nuevo del equipo</button>
       </>}
     </section>
-    <section className="panel"><div className="panel-head"><h2>Decisiones y problemas únicos</h2></div><p role="status" className="hf-aviso">{aviso}</p>{state.draft.hallazgos.map((h, i) => <fieldset key={h.id} disabled={bloqueo} tabIndex={-1} ref={el => { decisiones.current[h.id] = el; }}><legend>Decisión {i + 1}: {h.titulo}</legend>{origenHallazgo(h) === 'equipo' ? <p><strong>Nuevo del equipo</strong>, sin hallazgo individual de origen</p> : <p>Orígenes preservados: {h.origenIds.join(', ')} · {h.origenIds.length > 1 ? 'Fusión' : 'Hallazgo individual'}</p>}
-      <Field label="Decisión del consenso"><select value={h.decision} onChange={e => update({ ...h, decision: e.target.value as DecisionHallazgo['decision'] })}><option value="PENDIENTE">Pendiente</option><option value="ACEPTADO">Aceptar problema único</option><option value="DESCARTADO">Descartar conservando original</option></select></Field>
-      <HallazgoEditor value={h} config={evaluacion.configuracion} onChange={x => update({ ...h, ...x })} />
-      <Field label="Justificación de aceptación, fusión o descarte"><textarea value={h.justificacion} onChange={e => update({ ...h, justificacion: e.target.value })} /></Field>
-      <EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={h.evidenciaIds} editable={false} />
-      <button type="button" className="danger" onClick={() => { setAviso(''); state.setDraft({ ...state.draft, hallazgos: state.draft.hallazgos.filter(x => x.id !== h.id) }); }}>{origenHallazgo(h) === 'equipo' ? `Quitar hallazgo nuevo del equipo ${i + 1}` : `Reabrir orígenes de decisión ${i + 1}`}</button>
-    </fieldset>)}</section>
+    <section className="panel"><div className="panel-head"><h2>Decisiones y problemas únicos</h2></div><p role="status" className="hf-aviso">{aviso}</p>
+      {state.draft.hallazgos.map((h, i) => origenHallazgo(h) !== 'equipo' ? renderDecision(h, i) : null)}
+    </section>
     </div>) }, { titulo: 'Preparar el informe', ayuda: 'Escriban qué recomiendan mejorar. Cada persona debe confirmar el acuerdo antes de que el coordinador prepare el informe.', contenido: (<>
+    <section className="panel" aria-labelledby="hf-problemas-equipo">
+      <div className="panel-head"><h2 id="hf-problemas-equipo">Problemas que detectó el equipo</h2></div>
+      <fieldset disabled={bloqueo}>
+        <p role="status" className="hf-aviso">{avisoEquipo}</p>
+        <p className="hf-ayuda">Úsalo para un problema que ninguna persona anotó por separado. {nuevos} de {MAX_HALLAZGOS_NUEVOS_EQUIPO} hallazgos nuevos.</p>
+        {!soloLectura && <button type="button" className="secondary" disabled={busy || nuevos >= MAX_HALLAZGOS_NUEVOS_EQUIPO} onClick={() => {
+          const nueva: DecisionHallazgo = { ...hallazgoVacio(criterios[0].id), criterioIds: [], origenIds: [], decision: 'PENDIENTE', justificacion: '' };
+          state.setDraft({ ...state.draft, hallazgos: [...state.draft.hallazgos, nueva] });
+          setAvisoEquipo(`Hallazgo nuevo del equipo creado como decisión ${state.draft.hallazgos.length + 1}. Complétalo en esta sección.`);
+          setNuevaId(nueva.id);
+        }}>Agregar hallazgo nuevo del equipo</button>}
+        {state.draft.hallazgos.map((h, i) => origenHallazgo(h) === 'equipo' ? renderDecision(h, i) : null)}
+      </fieldset>
+    </section>
     <details className="panel"><summary>Agregar lo que funciona bien (opcional)</summary>
       <fieldset disabled={bloqueo}><legend>Lo que funciona bien en el producto</legend>{state.draft.positivos.map((p, i) => positivosPlegados.has(p.id) ? <fieldset key={p.id}><legend>Aspecto positivo {i + 1}: {p.titulo}</legend><p role="status">Aspecto positivo guardado con éxito</p><button type="button" className="secondary" onClick={() => setPositivosPlegados(prev => { const n = new Set(prev); n.delete(p.id); return n; })}>Editar aspecto positivo {i + 1}</button><button type="button" className="danger" onClick={() => state.setDraft({ ...state.draft, positivos: state.draft.positivos.filter(x => x.id !== p.id) })}>Quitar aspecto positivo {i + 1}</button></fieldset> : <fieldset key={p.id}><legend>Aspecto positivo {i + 1}: {p.titulo || 'Sin título'}</legend>
         <Field label={`Título del aspecto positivo ${i + 1}`}><input maxLength={300} value={p.titulo} onChange={e => state.setDraft({ ...state.draft, positivos: state.draft.positivos.map(x => x.id === p.id ? { ...x, titulo: e.target.value } : x) })} /></Field>

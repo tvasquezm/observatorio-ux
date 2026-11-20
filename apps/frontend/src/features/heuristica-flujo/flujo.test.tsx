@@ -688,6 +688,8 @@ describe('consenso en equipo sobre la tabla', () => {
     expect(screen.queryByRole('button', { name: 'Agregar hallazgo nuevo del equipo' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Crear decisión de los originales seleccionados' })).toBeNull();
     await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
+    const hallazgosEquipo = screen.getByRole('region', { name: 'Problemas que detectó el equipo' });
+    expect(within(hallazgosEquipo).queryByRole('button', { name: 'Agregar hallazgo nuevo del equipo' })).toBeNull();
     expect(screen.getByLabelText('Conclusión y recomendaciones finales')).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Estoy de acuerdo' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Pido cambios' })).toBeEnabled();
@@ -824,9 +826,16 @@ describe('consenso en equipo sobre la tabla', () => {
   it('agrega un hallazgo nuevo del equipo, lo rotula y permite quitarlo', async () => {
     renderFlow(<ConsensoEditor evaluacion={equipoEval('no_cumple')} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
     await userEvent.click(screen.getByRole('tab', { name: 'Revisar los problemas' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Agregar hallazgo nuevo del equipo' }));
-    expect(screen.getByText('Nuevo del equipo')).toBeInTheDocument();
-    expect(screen.getByLabelText('Decisión del consenso')).toHaveValue('PENDIENTE');
+    expect(screen.queryByRole('button', { name: 'Agregar hallazgo nuevo del equipo' })).toBeNull();
+    await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
+    const equipo = within(screen.getByRole('region', { name: 'Problemas que detectó el equipo' }));
+    await userEvent.click(equipo.getByRole('button', { name: 'Agregar hallazgo nuevo del equipo' }));
+    expect(equipo.getByText('Nuevo del equipo')).toBeInTheDocument();
+    expect(equipo.getByText(/1 de 50 hallazgos nuevos/)).toBeInTheDocument();
+    expect(equipo.getByLabelText('Decisión del consenso')).toHaveValue('PENDIENTE');
+    expect(equipo.getByRole('status')).toHaveTextContent('Hallazgo nuevo del equipo creado como decisión 1. Complétalo en esta sección.');
+    const pendientes = within(screen.getByRole('region', { name: 'Pendientes del acuerdo' }));
+    expect(pendientes.getByText(/Hallazgo sin título: Falta decidir/)).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole('group', { name: /Decisión 1/ })).toHaveFocus());
     await userEvent.click(screen.getByRole('button', { name: 'Quitar hallazgo nuevo del equipo 1' }));
     expect(screen.queryByLabelText('Decisión del consenso')).toBeNull();
@@ -835,7 +844,7 @@ describe('consenso en equipo sobre la tabla', () => {
     const e = equipoEval('cumple');
     e.consenso.hallazgos = Array.from({ length: 50 }, (_, i) => ({ id: `n${i}`, criterioIds: [], titulo: `Nuevo ${i}`, pantalla: '', descripcion: '', recomendacion: '', severidad: 2 as const, prioridad: 'MEDIA' as const, notas: '', evidenciaIds: [], origenIds: [], decision: 'PENDIENTE' as const, justificacion: '' }));
     renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
-    await userEvent.click(screen.getByRole('tab', { name: 'Revisar los problemas' }));
+    await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
     expect(screen.getByRole('button', { name: 'Agregar hallazgo nuevo del equipo' })).toBeDisabled();
   });
   it('informe: bloque abierto en 3 grupos, escala traducida, fechas de Chile, confirmaciones y redactor', () => {
@@ -845,6 +854,9 @@ describe('consenso en equipo sobre la tabla', () => {
     e.informe!.iniciadoEn = '2026-10-09T12:00:00Z'; e.informe!.consolidadoEn = '2026-10-10T03:30:00Z'; e.informe!.finalizadoEn = null;
     e.informe!.configuracion = { ...e.informe!.configuracion, objetivo: '', exclusiones: '' };
     renderFlow(<InformeView evaluacion={e} historial={[]} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.getByText('Hallazgos aceptados para mejorar')).toBeInTheDocument();
+    expect(screen.getByText('Un criterio puede tener varios hallazgos o ninguno: por eso esta cifra no coincide con la cantidad de criterios con problema.')).toBeInTheDocument();
+    expect(screen.queryByText('Problemas únicos aceptados')).toBeNull();
     const bloque = screen.getByText('Ver qué se revisó y quién participó').closest('details')!;
     expect(bloque).toHaveAttribute('open');
     for (const g of ['Qué se evaluó', 'Con qué criterios', 'Quién participó']) expect(within(bloque).getByRole('heading', { name: g })).toBeInTheDocument();

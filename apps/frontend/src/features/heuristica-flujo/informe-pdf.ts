@@ -18,7 +18,7 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
   const clases = clasificarCriterios(config, consenso);
   const grupos = (['desfavorable', 'favorable'] as const).flatMap(clase => {
     const criterios = config.metodologia.criterios.filter(c => clases.some(r => r.criterioId === c.id && r.clase === clase));
-    return [titulo(`${clase === 'desfavorable' ? 'Problemas' : 'Aciertos'} (${criterios.length})`), ...(criterios.length ? criterios.map(c => ({ text: c.nombre } as Content)) : [{ text: 'Sin criterios en este grupo.' } as Content])];
+    return [titulo(`${clase === 'desfavorable' ? 'Criterios con problema' : 'Criterios cumplidos'} (${criterios.length})`), ...(criterios.length ? criterios.map(c => ({ text: c.nombre } as Content)) : [{ text: 'Sin criterios en este grupo.' } as Content])];
   });
   if (resumen.pendientes || !config.evaluadorIds.every(id => consenso.aprobadoPor.includes(id)) || consenso.hallazgos.some(h => h.decision === 'PENDIENTE')) throw new Error('El informe consolidado tiene decisiones o aprobaciones pendientes.');
   const hallazgos = consenso.hallazgos.filter(h => h.decision === 'ACEPTADO').slice().sort((a, b) => b.severidad - a.severidad);
@@ -72,7 +72,7 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
         table(['Respuesta', 'Significado', 'Valor'], e.niveles.map(n => [n.etiqueta, n.significado, n.valor ?? 'Sin puntaje']), [100, '*', 70]),
       ]),
       titulo('Cobertura y resultados'),
-      table(['Criterios evaluados', 'No aplica', 'Pendientes', 'Problemas únicos'], [[resumen.evaluados, resumen.noAplica, resumen.pendientes, resumen.totalHallazgos]]),
+      table(['Criterios evaluados', 'No aplica', 'Pendientes', 'Hallazgos aceptados para mejorar'], [[resumen.evaluados, resumen.noAplica, resumen.pendientes, resumen.totalHallazgos]]),
       table([resumen.porEscala.length ? 'Valoración (escala de la metodología)' : 'Valoración del criterio', 'Cantidad'], resumen.porCategoria.map(n => [n.etiqueta, n.count]), ['*', 90]),
       ...resumen.porEscala.map(g => table([`Valoración (escala propia: ${g.fuente})`, 'Cantidad'], g.distribucion.map(n => [n.etiqueta, n.count]), ['*', 90])),
       table(['Severidad del problema', 'Cantidad'], SEVERIDADES.map(n => [`${n.valor} · ${n.etiqueta}`, resumen.porSeveridad[n.valor]]), ['*', 90]),

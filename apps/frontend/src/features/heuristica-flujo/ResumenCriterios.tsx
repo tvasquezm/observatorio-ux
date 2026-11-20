@@ -7,8 +7,8 @@ export function ResumenCriterios({ configuracion, consenso }: { configuracion: C
   return <section className="panel" aria-label="Problemas y aciertos por criterio">
     {(['desfavorable', 'favorable'] as const).map(clase => {
       const criterios = configuracion.metodologia.criterios.filter(c => clases.some(r => r.criterioId === c.id && r.clase === clase));
-      const titulo = clase === 'desfavorable' ? 'Problemas' : 'Aciertos';
-      return <section key={clase} aria-label={titulo}><h2><span aria-hidden="true">{clase === 'desfavorable' ? '!' : '✓'}</span> {titulo} ({criterios.length})</h2>
+      const titulo = `${clase === 'desfavorable' ? 'Criterios con problema' : 'Criterios cumplidos'} (${criterios.length})`;
+      return <section key={clase} aria-label={titulo}><h2><span aria-hidden="true">{clase === 'desfavorable' ? '!' : '✓'}</span> {titulo}</h2>
         {criterios.length ? <ul>{criterios.map(c => <li key={c.id}>{c.nombre}</li>)}</ul> : <p>Sin criterios en este grupo.</p>}
       </section>;
     })}
