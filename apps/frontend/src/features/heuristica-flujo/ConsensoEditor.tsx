@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { RecorridoSencillo } from './RecorridoSencillo';
 import { ETIQUETA_SECCION_ACUERDO, MAX_HALLAZGOS_NUEVOS_EQUIPO, origenHallazgo, pendientesAcuerdo, redactorDe } from '@observatorio-ux/shared-types';
 import type { DecisionHallazgo, EvaluacionFlujo, MejoraAntesDespues, MiembroEquipoFlujo, SeccionAcuerdo } from '@observatorio-ux/shared-types';
@@ -9,7 +9,7 @@ import { RedactorPanel } from './RedactorPanel';
 import { HallazgoEditor, SaveStatus } from './TrabajoEditor';
 import { notify } from '../../shared/api/toast';
 import { flujoRequest } from './flujo.api';
-import { coincidenciasProblemas, fechaChile, hallazgoVacio, precargarConsenso } from './flujo-utils';
+import { fechaChile, hallazgoVacio, precargarConsenso, precargarDecisiones } from './flujo-utils';
 import { useFlujoDraft } from './useFlujoDraft';
 
 export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo }: { evaluacion: EvaluacionFlujo; usuarioId: string; onSaved: (e: EvaluacionFlujo) => void; onBack: () => void; equipo?: MiembroEquipoFlujo[] }) {
@@ -23,8 +23,6 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
   const bloqueo = busy || soloLectura;
   const [pidiendo, setPidiendo] = useState(false);
   const [comentario, setComentario] = useState('');
-  const [seleccion, setSeleccion] = useState<string[]>([]);
-  const [aviso, setAviso] = useState('');
   const [avisoEquipo, setAvisoEquipo] = useState('');
   const [nuevaId, setNuevaId] = useState<string | null>(null);
   const [positivosPlegados, setPositivosPlegados] = useState<ReadonlySet<string>>(new Set());
@@ -34,6 +32,8 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
   useEffect(() => { if (!nuevaId) return; decisiones.current[nuevaId]?.focus(); setNuevaId(null); }, [nuevaId]);
   // Si todos coinciden en una pregunta, la respuesta común queda precargada (el borrador queda sin guardar y se autoguarda).
   useEffect(() => { if (soloLectura) return; if (precargarConsenso(evaluacion.configuracion, evaluacion.trabajos, state.draft.criterios) !== state.draft.criterios) state.setDraft(prev => ({ ...prev, criterios: precargarConsenso(evaluacion.configuracion, evaluacion.trabajos, prev.criterios) })); }, [evaluacion.configuracion, evaluacion.trabajos, state.draft.criterios, soloLectura]);
+  // Los problemas individuales llegan al acuerdo como decisiones pendientes (el borrador queda sin guardar y se autoguarda).
+  useEffect(() => { if (soloLectura || !precargarDecisiones(evaluacion.trabajos, state.draft.hallazgos).length) return; state.setDraft(prev => ({ ...prev, hallazgos: [...prev.hallazgos, ...precargarDecisiones(evaluacion.trabajos, prev.hallazgos)] })); }, [evaluacion.trabajos, state.draft.hallazgos, soloLectura]);
   const criterios = evaluacion.configuracion.metodologia.criterios;
   const acordadas = criterios.filter(c => { const r = state.draft.criterios.find(x => x.criterioId === c.id); return !!r && (r.noAplica || r.valor !== null); }).length;
   const confirmaron = evaluacion.trabajos.filter(t => evaluacion.consenso.aprobadoPor.includes(t.evaluadorId) && !state.dirty);
@@ -44,10 +44,6 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
   const pendientes = pendientesAcuerdo({ ...evaluacion, consenso: { ...evaluacion.consenso, ...state.draft } });
   const completo = pendientes.length === 0;
   const nuevos = state.draft.hallazgos.filter(h => origenHallazgo(h) === 'equipo').length;
-  const originales = evaluacion.trabajos.flatMap(t => t.hallazgos.map(h => ({ ...h, evaluador: t.nombre })));
-  const coincidencias = coincidenciasProblemas(evaluacion.trabajos);
-  const textoCoincide = (id: string) => coincidencias.has(id) ? `Coincide con: ${coincidencias.get(id)!.join(', ')}` : '';
-  const cubiertos = new Set(state.draft.hallazgos.flatMap(h => h.origenIds));
   const update = (h: DecisionHallazgo) => state.setDraft({ ...state.draft, hallazgos: state.draft.hallazgos.map(x => x.id === h.id ? h : x) });
   function renderDecision(h: DecisionHallazgo, i: number) {
     const esEquipo = origenHallazgo(h) === 'equipo';
@@ -58,11 +54,10 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
       <HallazgoEditor value={h} config={evaluacion.configuracion} onChange={x => update({ ...h, ...x })} />
       <Field label="Justificación de aceptación, fusión o descarte"><textarea value={h.justificacion} onChange={e => update({ ...h, justificacion: e.target.value })} /></Field>
       <EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={h.evidenciaIds} editable={false} />
-      <button type="button" className="danger" onClick={() => {
-        if (esEquipo) setAvisoEquipo('');
-        else setAviso('');
+      {esEquipo && <button type="button" className="danger" onClick={() => {
+        setAvisoEquipo('');
         state.setDraft({ ...state.draft, hallazgos: state.draft.hallazgos.filter(x => x.id !== h.id) });
-      }}>{esEquipo ? `Quitar hallazgo nuevo del equipo ${i + 1}` : `Reabrir orígenes de decisión ${i + 1}`}</button>
+      }}>{`Quitar hallazgo nuevo del equipo ${i + 1}`}</button>}
     </fieldset>;
   }
   async function action(action: 'aprobar' | 'consolidar' | 'entregar-acuerdo') {
@@ -102,27 +97,7 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
         guardado={{ dirty: state.dirty, saving: state.saving, error: state.error }}
         onChange={r => state.setDraft(prev => ({ ...prev, criterios: [...prev.criterios.filter(x => x.criterioId !== r.criterioId), { ...r, justificacion: r.justificacion ?? '' }] }))} />
     </fieldset>
-    </>) }, { titulo: 'Preparar el informe', ayuda: 'Decidan qué hacer con los problemas encontrados (unir, aceptar o descartar), agreguen los que detectó el equipo y escriban qué recomiendan mejorar. Cada persona debe confirmar el acuerdo antes de que el coordinador prepare el informe.', contenido: (<>
-    <div className="hf-acordar-columnas">
-    <section className="panel"><div className="panel-head"><h2>Problemas encontrados por el equipo</h2></div>
-      {originales.map(h => <details key={h.id}><summary>{h.evaluador}: {h.titulo} · {cubiertos.has(h.id) ? 'Vinculado a decisión' : 'Pendiente de decisión'}{coincidencias.has(h.id) && ` · ${textoCoincide(h.id)}`}</summary><p>ID de origen: {h.id}</p><p>{h.pantalla}: {h.descripcion}</p><p>Severidad {h.severidad} · Prioridad {h.prioridad}</p><p>Recomendación: {h.recomendacion}</p><p>{h.notas}</p><EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={h.evidenciaIds} editable={false} /></details>)}
-      {!soloLectura && <>
-      <fieldset disabled={bloqueo}><legend>Seleccionar originales para aceptar, fusionar o descartar</legend>{originales.map(h => <Fragment key={h.id}><label className="hf-check"><input type="checkbox" checked={seleccion.includes(h.id)} disabled={cubiertos.has(h.id)} onChange={e => setSeleccion(e.target.checked ? [...seleccion, h.id] : seleccion.filter(x => x !== h.id))} />{h.evaluador}: {h.titulo}</label>{coincidencias.has(h.id) && <small className="hf-ayuda">{textoCoincide(h.id)}</small>}</Fragment>)}</fieldset>
-      {!seleccion.length && <p className="hf-ayuda" id="hf-ayuda-crear">{originales.every(h => cubiertos.has(h.id)) ? 'Todos los problemas ya tienen una decisión.' : 'Marca al menos un problema para crear una decisión.'}</p>}
-      <button type="button" className="primary" aria-describedby={seleccion.length ? undefined : 'hf-ayuda-crear'} disabled={!seleccion.length || busy} onClick={() => {
-        const sources = originales.filter(x => seleccion.includes(x.id) && !cubiertos.has(x.id));
-        if (!sources.length) return;
-        const first = sources[0];
-        const nueva: DecisionHallazgo = { ...hallazgoVacio(first.criterioIds[0]), titulo: first.titulo, pantalla: first.pantalla, descripcion: first.descripcion, recomendacion: first.recomendacion, severidad: first.severidad, prioridad: first.prioridad, criterioIds: [...new Set(sources.flatMap(x => x.criterioIds))], evidenciaIds: [...new Set(sources.flatMap(x => x.evidenciaIds))], origenIds: sources.map(x => x.id), decision: 'PENDIENTE', justificacion: '' };
-        state.setDraft({ ...state.draft, hallazgos: [...state.draft.hallazgos, nueva] }); setSeleccion([]);
-        setAviso(`Decisión ${state.draft.hallazgos.length + 1} creada con ${sources.length} ${sources.length === 1 ? 'problema' : 'problemas'}. Está en "Decisiones y problemas únicos", más abajo.`); setNuevaId(nueva.id);
-      }}>Crear decisión de los originales seleccionados</button>
-      </>}
-    </section>
-    <section className="panel"><div className="panel-head"><h2>Decisiones y problemas únicos</h2></div><p role="status" className="hf-aviso">{aviso}</p>
-      {state.draft.hallazgos.map((h, i) => origenHallazgo(h) !== 'equipo' ? renderDecision(h, i) : null)}
-    </section>
-    </div>
+    </>) }, { titulo: 'Preparar el informe', ayuda: 'Decidan qué hacer con cada problema encontrado (aceptarlo o descartarlo), agreguen los que detectó el equipo y escriban qué recomiendan mejorar. Cada persona debe confirmar el acuerdo antes de que el coordinador prepare el informe.', contenido: (<>
     <section className="panel" aria-labelledby="hf-problemas-equipo">
       <div className="panel-head"><h2 id="hf-problemas-equipo">Problemas que detectó el equipo</h2></div>
       <fieldset disabled={bloqueo}>
@@ -134,7 +109,7 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
           setAvisoEquipo(`Hallazgo nuevo del equipo creado como decisión ${state.draft.hallazgos.length + 1}. Complétalo en esta sección.`);
           setNuevaId(nueva.id);
         }}>Agregar hallazgo nuevo del equipo</button>}
-        {state.draft.hallazgos.map((h, i) => origenHallazgo(h) === 'equipo' ? renderDecision(h, i) : null)}
+        {state.draft.hallazgos.map((h, i) => renderDecision(h, i))}
       </fieldset>
     </section>
     <details className="panel"><summary>Agregar lo que funciona bien (opcional)</summary>
