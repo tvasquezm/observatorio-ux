@@ -13,6 +13,7 @@ import { flujoRequest } from './flujo.api';
 import { fechaChile, participacionInforme, textoCumplimiento, textoEscala } from './flujo-utils';
 import { useFlujoDraft } from './useFlujoDraft';
 import { ResumenCriterios } from './ResumenCriterios';
+import { InformePdfDialog } from './InformePdfDialog';
 
 function Dato({ etiqueta, valor }: { etiqueta: string; valor: ReactNode }) {
   return <div><dt>{etiqueta}</dt><dd className="hx-dato">{valor || 'No indicado'}</dd></div>;
@@ -43,6 +44,8 @@ export function InformeView({ evaluacion, historial, usuarioId, onSaved, onBack 
   const [previaId, setPreviaId] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [pdfOpen, setPdfOpen] = useState(false);
+  const [pdfError, setPdfError] = useState('');
   const leaveGuard = useRef<(() => Promise<boolean>) | null>(null);
   const compare = useQuery({ queryKey: ['heuristica-flujo', evaluacion.proyectoId, usuarioId, evaluacion.id, 'comparacion', previaId], queryFn: () => flujoRequest<ComparacionFlujo>(evaluacion.proyectoId, `/evaluaciones/${evaluacion.id}/comparacion/${previaId}`), enabled: !!previaId });
   const informe = evaluacion.informe;
@@ -108,11 +111,24 @@ export function InformeView({ evaluacion, historial, usuarioId, onSaved, onBack 
       <h4>Antes</h4>{m.antesIds.length ? <EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={m.antesIds} editable={false} /> : <p>Sin capturas.</p>}
       <h4>Después</h4>{m.despuesIds.length ? <EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={m.despuesIds} editable={false} /> : <p>Sin capturas.</p>}</article>)}</details>}
     {conclusion && <section className="panel"><div className="panel-head"><h2>Conclusión y recomendaciones finales</h2></div><p style={{ whiteSpace: 'pre-wrap' }}>{conclusion}</p></section>}
-    <div className="hf-actions"><button type="button" className="secondary" disabled={busy} onClick={async () => { setBusy(true); setError(''); try { const { exportarInformeFlujoPdf } = await import('./informe-pdf'); await exportarInformeFlujoPdf(evaluacion.proyectoId, evaluacion); } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo generar PDF'); } finally { setBusy(false); } }}>Descargar informe PDF</button>
+    <div className="hf-actions"><button type="button" className="secondary" disabled={busy} onClick={() => { setPdfError(''); setPdfOpen(true); }}>Descargar informe PDF</button>
       {evaluacion.coordinadorId === usuarioId && (evaluacion.fase === 'CONSOLIDADA' ? <button type="button" className="primary" disabled={busy} onClick={() => void action('finalizar')}>Finalizar informe</button> : <button type="button" className="primary" disabled={busy} onClick={() => void action('version')}>Crear nueva revisión independiente</button>)}</div>
     {evaluacion.fase === 'FINALIZADA' && <details className="panel"><summary>Comparar con una revisión anterior</summary><Field label="Comparar con evaluación finalizada del mismo producto"><select value={previaId} onChange={async e => { const id = e.target.value; if (!leaveGuard.current || await leaveGuard.current()) setPreviaId(id); }}><option value="">Seleccionar evaluación anterior</option>{opciones.map(e => <option key={e.id} value={e.id}>{e.configuracion.nombre} · {e.configuracion.producto.version} · {new Date(e.finalizadoEn ?? e.updatedAt).toLocaleDateString()}</option>)}</select></Field>
       {compare.isLoading && <p role="status">Comprobando compatibilidad…</p>}{compare.error && <p role="alert" className="hf-error">{compare.error.message}</p>}
       {compare.data && opciones.find(e => e.id === previaId) && <ComparacionEditor key={previaId} actual={evaluacion} anterior={opciones.find(e => e.id === previaId)!} comparacion={compare.data} usuarioId={usuarioId} onSaved={onSaved} registerGuard={guard => { leaveGuard.current = guard; }} />}</details>}
+    {pdfOpen && <InformePdfDialog informe={informe} busy={busy} error={pdfError} onClose={() => setPdfOpen(false)} onGenerate={async partes => {
+      setBusy(true);
+      setPdfError('');
+      try {
+        const { exportarInformeFlujoPdf } = await import('./informe-pdf');
+        await exportarInformeFlujoPdf(evaluacion.proyectoId, evaluacion, { partes });
+        setPdfOpen(false);
+      } catch (cause) {
+        setPdfError(cause instanceof Error ? cause.message : 'No se pudo generar PDF');
+      } finally {
+        setBusy(false);
+      }
+    }} />}
     {error && <p role="alert" className="hf-error">{error}</p>}
   </>;
 }

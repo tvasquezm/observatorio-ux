@@ -58,6 +58,20 @@ describe('informes por técnicas', () => {
     const content = JSON.stringify(buildReportDefinition(report).content);
     for (const value of ['Usuaria principal', 'Consulta semanal', 'Usa lector de pantalla',
       'Entrevista del 15 de septiembre', 'Validada', 'Revisada con el equipo']) expect(content).toContain(value);
+
+    const parcial = await loadProjectReport('p1', ['personas', 'journey'], { personas: ['necesidades'], journey: [] });
+    expect(parcial.partes).toEqual({ personas: ['necesidades'] });
+    expect(parcial.methods.map(method => method.id)).toEqual(['personas']);
+    expect(listJourneys).not.toHaveBeenCalled();
+    const recortado = JSON.stringify(buildReportDefinition(parcial).content);
+    expect(recortado).toContain('Ana');
+    expect(recortado).toContain('Usuaria principal');
+    expect(recortado).not.toContain('Entrevista del 15 de septiembre');
+    expect(recortado).not.toContain('Hobbies');
+
+    const todas = await loadProjectReport('p1', ['personas'], { personas: ['perfil', 'necesidades', 'validacion'] });
+    expect(JSON.stringify(buildReportDefinition({ ...todas, generatedAt: report.generatedAt })))
+      .toBe(JSON.stringify(buildReportDefinition(report)));
   });
 
   it('incluye el contexto, la evidencia y los nuevos campos de cada fase del Journey Map', async () => {

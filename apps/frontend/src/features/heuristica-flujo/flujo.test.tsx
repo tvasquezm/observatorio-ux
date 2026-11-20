@@ -9,6 +9,7 @@ import type { ConfiguracionFlujo, EvaluacionFlujo } from '@observatorio-ux/share
 import { TrabajoEditor } from './TrabajoEditor';
 import { ConsensoEditor } from './ConsensoEditor';
 import { InformeView } from './InformeView';
+import { InformePdfDialog } from './InformePdfDialog';
 import { ConfiguracionEditor } from './ConfiguracionEditor';
 import { FlujoHeuristicaPage } from './FlujoHeuristicaPage';
 import { coincidenciasProblemas, participacionInforme, pendientesTrabajo, precargarConsenso, textoCumplimiento, textoEscala } from './flujo-utils';
@@ -846,6 +847,18 @@ describe('consenso en equipo sobre la tabla', () => {
     renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
     await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
     expect(screen.getByRole('button', { name: 'Agregar hallazgo nuevo del equipo' })).toBeDisabled();
+  });
+  it('elige las partes disponibles del PDF de heurística', async () => {
+    const informe = final('pdf').informe!;
+    const onGenerate = vi.fn();
+    renderFlow(<InformePdfDialog informe={informe} busy={false} error="" onClose={vi.fn()} onGenerate={onGenerate} />);
+    const dialog = within(screen.getByRole('dialog', { name: 'Exportar informe (PDF)' }));
+    expect(dialog.getByRole('checkbox', { name: 'Lo que funciona bien' })).toBeDisabled();
+    await userEvent.click(dialog.getByRole('checkbox', { name: 'Criterios' }));
+    await userEvent.click(dialog.getByRole('button', { name: 'Generar PDF' }));
+    expect(onGenerate).toHaveBeenCalledWith(expect.arrayContaining(['resumen']));
+    expect(onGenerate.mock.calls[0][0]).not.toContain('criterios');
+    expect(onGenerate.mock.calls[0][0]).not.toContain('positivos');
   });
   it('informe: bloque abierto en 3 grupos, escala traducida, fechas de Chile, confirmaciones y redactor', () => {
     const e = final('grupos');

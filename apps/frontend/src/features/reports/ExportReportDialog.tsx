@@ -1,7 +1,8 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { Fragment, useEffect, useId, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { listProjects } from '../projects/api/projects.api';
-import { loadProjectReport, REPORT_METHODS, type ReportMethod } from './report-data';
+import { loadProjectReport, REPORT_METHODS, type ReportMethod, type ReportParts } from './report-data';
+import { PdfContentPicker } from '../../shared/components/PdfContentPicker';
 import { notify } from '../../shared/api/toast';
 
 export function ExportReportDialog({ projectId, onClose }: { projectId?: string; onClose: () => void }) {
@@ -13,6 +14,11 @@ export function ExportReportDialog({ projectId, onClose }: { projectId?: string;
   const statusId = useId();
   const [selectedProject, setSelectedProject] = useState(projectId ?? '');
   const [selection, setSelection] = useState<ReportMethod[]>(REPORT_METHODS.map(({ id }) => id));
+  const [partes, setPartes] = useState<ReportParts>({});
+  const incluidas = selection.filter(id => partes[id]?.length !== 0);
+  const seleccionesParciales = REPORT_METHODS.some(method =>
+    selection.includes(method.id) && (partes[method.id]?.length ?? method.partes.length) < method.partes.length,
+  );
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const [error, setError] = useState('');
@@ -33,7 +39,7 @@ export function ExportReportDialog({ projectId, onClose }: { projectId?: string;
     setError('');
     try {
       const [report, { exportarReportePdf }] = await Promise.all([
-        loadProjectReport(selectedProject, selection),
+        loadProjectReport(selectedProject, incluidas, partes),
         import('../../shared/utils/pdf'),
       ]);
       await exportarReportePdf(report);
@@ -68,22 +74,30 @@ export function ExportReportDialog({ projectId, onClose }: { projectId?: string;
         <fieldset disabled={busy} className="report-selection">
           <legend>Técnicas que se incluirán</legend>
           <div className="report-select-actions">
-            <button type="button" onClick={() => setSelection(REPORT_METHODS.map(({ id }) => id))}>Informe completo</button>
-            <button type="button" onClick={() => setSelection([])}>Quitar todas</button>
+            <button type="button" onClick={() => { setSelection(REPORT_METHODS.map(({ id }) => id)); setPartes({}); }}>Informe completo</button>
+            <button type="button" onClick={() => { setSelection([]); setPartes({}); }}>Quitar todas</button>
           </div>
-          {REPORT_METHODS.map(({ id, label, detail }) => (
-            <label key={id} className="report-option">
-              <input type="checkbox" checked={selection.includes(id)} onChange={(event) => setSelection((current) => event.target.checked ? [...current, id] : current.filter((value) => value !== id))} />
-              <span><strong>{label}</strong><small>{detail}</small></span>
-            </label>
+          {REPORT_METHODS.map(({ id, label, detail, partes: opciones }) => (
+            <Fragment key={id}>
+              <label className="report-option">
+                <input type="checkbox" checked={selection.includes(id)} onChange={(event) => setSelection((current) => event.target.checked ? [...current, id] : current.filter((value) => value !== id))} />
+                <span><strong>{label}</strong><small>{detail}</small></span>
+              </label>
+              {selection.includes(id) && <PdfContentPicker
+                legend={`Qué incluir de ${label}`}
+                opciones={opciones}
+                seleccion={partes[id] ?? opciones.map(opcion => opcion.id)}
+                onChange={ids => setPartes(current => ({ ...current, [id]: ids }))}
+              />}
+            </Fragment>
           ))}
         </fieldset>
         <p className="report-note">Incluye datos guardados del proyecto y las evaluaciones accesibles para tu cuenta.</p>
-        <p id={statusId} role="status" className="report-status">{busy ? 'Preparando los datos y generando el PDF…' : !selectedProject ? 'Selecciona un proyecto para descargar.' : !selection.length ? 'Selecciona al menos una técnica para descargar.' : `${selection.length} de 5 técnicas seleccionadas`}</p>
+        <p id={statusId} role="status" className="report-status">{busy ? 'Preparando los datos y generando el PDF…' : !selectedProject ? 'Selecciona un proyecto para descargar.' : !incluidas.length ? 'Selecciona al menos una técnica para descargar.' : `${incluidas.length} de 5 técnicas seleccionadas${seleccionesParciales ? ' · Hay partes sin incluir.' : ''}`}</p>
         {error && <p role="alert" className="report-error">{error}</p>}
         <div className="report-actions">
           <button type="button" className="secondary" disabled={busy} onClick={onClose}>Cancelar</button>
-          <button type="submit" className="primary" aria-describedby={statusId} disabled={busy || !selection.length || !projects.data?.some(({ id }) => id === selectedProject)}>{busy ? 'Generando…' : 'Descargar PDF'}</button>
+          <button type="submit" className="primary" aria-describedby={statusId} disabled={busy || !incluidas.length || !projects.data?.some(({ id }) => id === selectedProject)}>{busy ? 'Generando…' : 'Descargar PDF'}</button>
         </div>
       </form>
     </dialog>

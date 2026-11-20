@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 
 interface PdfContentPickerProps {
   legend: string;
-  opciones: Array<{ id: string; label: string; descripcion?: string }>;
+  opciones: readonly { id: string; label: string; descripcion?: string; disabled?: boolean }[];
   seleccion: string[];
   onChange: (ids: string[]) => void;
   disabled?: boolean;
@@ -14,11 +14,12 @@ export function PdfContentPicker({ legend, opciones, seleccion, onChange, disabl
     <fieldset disabled={disabled}>
       <legend>{legend}</legend>
       {extra}
-      {opciones.map(({ id, label, descripcion }) => (
+      {opciones.map(({ id, label, descripcion, disabled: optionDisabled }) => (
         <label key={id} className="pdf-section">
           <input
             type="checkbox"
             aria-label={label}
+            disabled={optionDisabled}
             checked={seleccion.includes(id)}
             onChange={event => onChange(event.target.checked ? [...seleccion, id] : seleccion.filter(value => value !== id))}
           />

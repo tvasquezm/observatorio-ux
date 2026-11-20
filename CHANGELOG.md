@@ -8,6 +8,8 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **informes PDF:** se pueden elegir apartados en heurística y en el informe del proyecto.
+
 * **PDF de resultados:** separadores de filas, títulos con acento y selector de contenido compartido.
 
 * **accesibilidad:** acceso al tamaño del texto desde la barra superior, con los mismos ajustes de Preferencias.
