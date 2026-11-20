@@ -2,10 +2,14 @@ import type { AnotacionEvidencia, EvaluacionFlujo } from '@observatorio-ux/share
 import { clasificarCriterios, escalaDe, origenHallazgo, resumirCumplimiento, resumirEvaluacion, SEVERIDADES } from '@observatorio-ux/shared-types';
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces';
 import { brandChrome, cargarPdfMake, date, INK, MUTED, table, TEAL, type ReportBrand } from '../../shared/utils/pdf';
+import { titleAccent } from '../../shared/utils/pdf-base';
 import { cargarEvidencia } from './evidencia.api';
 import { textoCumplimiento } from './flujo-utils';
 
-const titulo = (text: string): Content => ({ text, fontSize: 14, bold: true, margin: [0, 18, 0, 8], color: TEAL });
+const titulo = (text: string): Content => ({
+  stack: [{ text, fontSize: 14, bold: true, color: TEAL }, titleAccent()],
+  margin: [0, 18, 0, 8],
+});
 const campo = (text: string, value: string): Content => ({ text: `${text}: ${value || 'No registrado'}`, margin: [0, 2, 0, 4] });
 
 export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: Map<string, string | null>, generadoEn: Date, brand?: ReportBrand): TDocumentDefinitions {

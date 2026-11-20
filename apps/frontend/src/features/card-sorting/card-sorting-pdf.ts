@@ -2,6 +2,7 @@
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces';
 import type { CardSortingAnalytics } from './api/card-sorting.api';
 import { brandChrome, cargarPdfMake, date, INK, MUTED, TEAL, type ReportBrand } from '../../shared/utils/pdf';
+import { titleAccent } from '../../shared/utils/pdf-base';
 import { cuerpoVista } from './card-sorting-pdf-content';
 import {
   nombreArchivo, resumenEstudio, tablaDeVista, tablaSinConsenso, type TablaVista, type VistaExportable,
@@ -13,17 +14,18 @@ export interface OpcionesEstudioPdf {
   separarSecciones?: boolean;
 }
 
-function sinColor(value: unknown): unknown {
-  if (typeof value === 'function') return (...args: unknown[]) => sinColor(value(...args));
-  if (Array.isArray(value)) return value.map(sinColor);
-  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([key, v]) => {
-    if (['color', 'fillColor', 'lineColor', 'background'].includes(key) && typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v)) {
-      const rgb = v.slice(1).match(/../g)!.map(c => parseInt(c, 16));
-      const gray = Math.round(rgb[0] * .299 + rgb[1] * .587 + rgb[2] * .114).toString(16).padStart(2, '0');
-      return [key, `#${gray.repeat(3)}`];
-    }
-    return [key, sinColor(v)];
-  }));
+function sinColor(value: unknown, key = ''): unknown {
+  if (typeof value === 'function') return (...args: unknown[]) => sinColor(value(...args), key);
+  if (Array.isArray(value)) return value.map(item => sinColor(item));
+  if (value && typeof value === 'object') return Object.fromEntries(
+    Object.entries(value).map(([property, child]) => [property, sinColor(child, property)]),
+  );
+  if (['color', 'fillColor', 'lineColor', 'background', 'hLineColor', 'vLineColor'].includes(key)
+    && typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value)) {
+    const [r, g, b] = value.slice(1).match(/../g)!.map(c => parseInt(c, 16));
+    const gray = Math.round(r * .299 + g * .587 + b * .114).toString(16).padStart(2, '0');
+    return `#${gray.repeat(3)}`;
+  }
   return value;
 }
 
@@ -31,6 +33,7 @@ function seccion(tabla: TablaVista, saltar: boolean): Content[] {
   return [
     { text: 'VISTA', style: 'eyebrow', ...(saltar ? { pageBreak: 'before' as const } : {}), pageOrientation: tabla.ancha ? ('landscape' as const) : ('portrait' as const), margin: [0, saltar ? 10 : 18, 0, 8] },
     { text: tabla.titulo, fontSize: 22, bold: true, margin: [0, 0, 0, 6] },
+    titleAccent(),
     { text: tabla.descripcion, color: MUTED, margin: [0, 0, 0, 12] },
     ...cuerpoVista(tabla),
   ];

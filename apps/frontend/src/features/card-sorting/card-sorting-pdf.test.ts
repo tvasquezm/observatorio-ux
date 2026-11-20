@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { ContentTable } from 'pdfmake/interfaces';
 import type { CardSortingAnalytics } from './api/card-sorting.api';
 import { buildEstudioPdfDefinition } from './card-sorting-pdf';
 import type { TablaVista } from './card-sorting-export';
@@ -73,6 +74,12 @@ describe('opciones del PDF de resultados', () => {
     const colores = serializado.match(/#[a-fA-F0-9]{6}/g) ?? [];
     expect(colores.length).toBeGreaterThan(0);
     expect(colores.every(c => c.slice(1, 3) === c.slice(3, 5) && c.slice(3, 5) === c.slice(5, 7))).toBe(true);
+    const node = (Array.isArray(pdf.content) ? pdf.content : [pdf.content])
+      .find((item): item is ContentTable => typeof item === 'object' && 'table' in item);
+    if (!node || typeof node.layout !== 'object' || typeof node.layout.hLineColor !== 'function') {
+      throw new Error('Se esperaba una tabla con separadores de filas');
+    }
+    expect(node.layout.hLineColor(1, node, 0)).toMatch(/^#([a-f0-9]{2})\1\1$/i);
   });
   it('el tamaño de texto del PDF no depende de la escala de la aplicación', () => {
     const normal = buildEstudioPdfDefinition(data, [tabla({})], 'x', fecha);

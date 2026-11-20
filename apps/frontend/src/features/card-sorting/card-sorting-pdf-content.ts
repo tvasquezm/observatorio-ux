@@ -33,7 +33,7 @@ export function cuerpoVista(tabla: TablaVista): Content[] {
   const nota = abreviadas ? [{ text: 'Los nombres largos de columna se abrevian; el CSV los incluye completos.', color: MUTED, italics: true, fontSize: 8, margin: [0, 0, 0, 6] } as Content] : [];
   if (tabla.barras) {
     const barras = tabla.barras;
-    return [table([...columnas, 'Distribución'], tabla.filas.map((fila, i) => [...fila.map(vacio), barras[i].length ? barra(barras[i]) : '—']), ['*', 52, 80, 34, 58, '*', BARRA_W + 8], true)];
+    return [table([...columnas, 'Distribución'], tabla.filas.map((fila, i) => [...fila.map(vacio), barras[i].length ? barra(barras[i]) : '—']), ['*', 52, 80, 52, 58, '*', BARRA_W + 8], true)];
   }
   const widths = tabla.ancha ? [110, ...columnas.slice(1).map(() => '*' as const)] : undefined;
   return [...nota, table(columnas, tabla.filas.map((fila) => fila.map(vacio)), widths, tabla.ancha || columnas.length >= 5)];
