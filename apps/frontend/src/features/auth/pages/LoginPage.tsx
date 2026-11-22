@@ -35,7 +35,6 @@ export function LoginPage() {
         <h1>Ingresa a tu cuenta</h1>
         <p>Ingresa para trabajar en tus proyectos de investigación.</p>
 
-        <GoogleSignIn />
 
         <form onSubmit={handleSubmit}>
           <label className="field">
@@ -70,6 +69,8 @@ export function LoginPage() {
             {isPending ? 'Ingresando…' : 'Ingresar'}
           </button>
         </form>
+
+        <GoogleSignIn />
 
         <details className="login-help">
           <summary>¿Olvidaste tu contraseña o no puedes ingresar?</summary>
