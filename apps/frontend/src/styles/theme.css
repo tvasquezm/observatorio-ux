@@ -3258,3 +3258,14 @@ div:has(> .project-section > .hf) > .project-heading p { margin:4px 0 0; font-si
 .evidencia-capa-vista { touch-action: auto; cursor: zoom-in; }
 .hf-titulo-seccion { display: inline; margin-right: 8px; }
 .hf-texto-multilinea { white-space: pre-wrap; }
+
+/* F38: informe de la heurística en orden de lectura. */
+.hf-informe-encabezado { flex-wrap: wrap; }
+.hf-informe-encabezado .hf-informe-acciones { margin: 0 0 0 auto; }
+.hf-informe-indice ul { display: flex; flex-wrap: wrap; gap: var(--espacio-2) var(--espacio-4); margin: 0 0 var(--espacio-4); padding: 0; list-style: none; font-size: 0.875rem; }
+.hf-informe-indice a { color: var(--teal); font-weight: 600; }
+[id^="inf-"] { scroll-margin-top: 80px; }
+.hf-hallazgo-tarjeta { display: grid; gap: var(--espacio-2); padding: var(--espacio-4); border: 1px solid var(--line); border-radius: 8px; margin-bottom: var(--espacio-3); }
+.hf-hallazgo-tarjeta h3, .hf-hallazgo-tarjeta p { margin: 0; }
+.hf-hallazgo-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--espacio-2) var(--espacio-3); color: var(--muted); font-size: 0.875rem; }
+.hf-severidad-3, .hf-severidad-4 { color: var(--danger-text); border-color: var(--danger-text); }

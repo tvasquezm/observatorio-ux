@@ -811,10 +811,12 @@ describe('consenso en equipo sobre la tabla', () => {
     e.informe!.configuracion = { ...e.informe!.configuracion, objetivo: '', exclusiones: '' };
     renderFlow(<InformeView evaluacion={e} historial={[]} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
     expect(screen.getByText('Hallazgos aceptados para mejorar')).toBeInTheDocument();
-    expect(screen.getByText('Un criterio puede tener varios hallazgos o ninguno: por eso esta cifra no coincide con la cantidad de criterios con problema.')).toBeInTheDocument();
+    // F38: la aclaración pasa a una ayuda.
+    expect(screen.getByRole('button', { name: /Ayuda: resultado/ })).toBeInTheDocument();
     expect(screen.queryByText('Problemas únicos aceptados')).toBeNull();
     const bloque = screen.getByText('Ver qué se revisó y quién participó').closest('details')!;
-    expect(bloque).toHaveAttribute('open');
+    // F38: el detalle queda al final y plegado.
+    expect(bloque).not.toHaveAttribute('open');
     for (const g of ['Qué se evaluó', 'Con qué criterios', 'Quién participó']) expect(within(bloque).getByRole('heading', { name: g })).toBeInTheDocument();
     expect(bloque).not.toHaveTextContent(/categorica|sin_orden|mayor_mejor|menor_mejor| \| /);
     expect(bloque).not.toHaveTextContent(/Z\b/);
@@ -948,14 +950,14 @@ describe('aspectos positivos y conclusión', () => {
   it('el informe muestra las secciones solo con contenido', () => {
     const vacio = final('actual');
     const { unmount } = renderFlow(<InformeView evaluacion={vacio} historial={[]} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
-    expect(screen.queryByText('Ver lo que funciona bien')).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Lo que funciona bien' })).toBeNull();
     expect(screen.queryByRole('heading', { name: 'Conclusión y recomendaciones finales' })).toBeNull();
     unmount();
     const lleno = final('actual');
     lleno.informe!.consenso.positivos = [{ id: 'pos1', titulo: 'Menú claro', descripcion: 'Etiquetas comprensibles.' }];
     lleno.informe!.consenso.conclusion = 'Corregir el formulario.';
     renderFlow(<InformeView evaluacion={lleno} historial={[]} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
-    expect(screen.getByText('Ver lo que funciona bien')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Lo que funciona bien' })).toBeInTheDocument();
     expect(screen.getByText('Etiquetas comprensibles.')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Conclusión y recomendaciones finales' })).toBeInTheDocument();
     expect(screen.getByText('Corregir el formulario.')).toBeInTheDocument();
@@ -984,15 +986,33 @@ describe('mejoras antes/después', () => {
     await userEvent.type(screen.getByLabelText('Título de la mejora 1'), 'Botón visible');
     await waitFor(() => expect(api).toHaveBeenCalledWith('p1', '/evaluaciones/e1/consenso', 'PATCH', expect.objectContaining({ mejoras: [expect.objectContaining({ titulo: 'Botón visible', antesIds: [], despuesIds: [] })] })), { timeout: 3000 });
   });
+  it('F38: el informe sigue el orden de lectura, su índice omite secciones vacías y ordena problemas por severidad', () => {
+    const e = final('orden');
+    const base = e.informe!.consenso.hallazgos[0];
+    e.informe!.consenso.hallazgos = [{ ...base, id: 'leve', titulo: 'Leve', severidad: 1 }, { ...base, id: 'grave', titulo: 'Grave', severidad: 4 }, { ...base, id: 'media', titulo: 'Media', severidad: 2 }];
+    e.informe!.consenso.conclusion = 'Cerrar brechas.';
+    renderFlow(<InformeView evaluacion={e} historial={[]} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    const indice = within(screen.getByRole('navigation', { name: 'Secciones del informe' }));
+    expect(indice.getAllByRole('link').map(a => a.getAttribute('href'))).toEqual(expect.arrayContaining(['#inf-resultado', '#inf-mejoras', '#inf-conclusion', '#inf-detalle']));
+    expect(indice.queryByRole('link', { name: 'Lo que funciona bien' })).toBeNull();
+    expect(indice.queryByRole('link', { name: 'Antes y después' })).toBeNull();
+    const ids = [...document.querySelectorAll('section[id^="inf-"]')].map(x => x.id);
+    expect(ids.indexOf('inf-resultado')).toBeLessThan(ids.indexOf('inf-mejoras'));
+    expect(ids.indexOf('inf-mejoras')).toBeLessThan(ids.indexOf('inf-conclusion'));
+    expect(ids.indexOf('inf-conclusion')).toBeLessThan(ids.indexOf('inf-detalle'));
+    const mejoras = within(document.getElementById('inf-mejoras')!);
+    expect(mejoras.getAllByRole('heading', { level: 3 }).map(h => h.textContent)).toEqual(['Grave', 'Media', 'Leve']);
+    expect(mejoras.getByText('Severidad 4 · Crítico')).toBeInTheDocument();
+  });
   it('el informe muestra la sección solo si hay mejoras', () => {
     const vacio = final('actual');
     const { unmount } = renderFlow(<InformeView evaluacion={vacio} historial={[]} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
-    expect(screen.queryByText('Ver imágenes de antes y después')).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Antes y después' })).toBeNull();
     unmount();
     const lleno = final('actual');
     lleno.informe!.consenso.mejoras = [{ id: 'm1', titulo: 'Botón visible', descripcion: 'Se aumentó el contraste.', antesIds: [], despuesIds: [] }];
     renderFlow(<InformeView evaluacion={lleno} historial={[]} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
-    expect(screen.getByText('Ver imágenes de antes y después')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Antes y después' })).toBeInTheDocument();
     expect(screen.getByText('Se aumentó el contraste.')).toBeInTheDocument();
     expect(screen.getAllByText('Sin capturas.')).toHaveLength(2);
   });
