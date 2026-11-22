@@ -11,6 +11,7 @@ import request from 'supertest';
 import { AuthService } from '../dist/src/modules/auth/auth.service.js';
 import { AuthController } from '../dist/src/modules/auth/auth.controller.js';
 import { JwtStrategy } from '../dist/src/modules/auth/jwt.strategy.js';
+import { GoogleAuthService } from '../dist/src/modules/auth/google-auth.service.js';
 import { csrfProtection } from '../dist/src/common/csrf.js';
 
 process.env.CORS_ORIGIN = 'https://observatorio.example';
@@ -37,7 +38,7 @@ service.validateTokenPayload = async (payload) => {
 service.getEvaluatorProfile = async () => user;
 const module = await Test.createTestingModule({
   imports: [ThrottlerModule.forRoot([{ ttl: 60_000, limit: 1000 }])], controllers: [AuthController],
-  providers: [JwtStrategy, { provide: AuthService, useValue: service }, { provide: ConfigService, useValue: config }, { provide: APP_GUARD, useClass: ThrottlerGuard }],
+  providers: [JwtStrategy, { provide: AuthService, useValue: service }, { provide: ConfigService, useValue: config }, { provide: GoogleAuthService, useValue: { clientId: '' } }, { provide: APP_GUARD, useClass: ThrottlerGuard }],
 }).compile();
 const app = module.createNestApplication({ logger: false });
 app.use(cookieParser());
