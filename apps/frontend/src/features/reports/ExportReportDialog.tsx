@@ -1,8 +1,8 @@
-import { Fragment, useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { listProjects } from '../projects/api/projects.api';
 import { loadProjectReport, REPORT_METHODS, type ReportMethod, type ReportParts } from './report-data';
-import { PdfContentPicker } from '../../shared/components/PdfContentPicker';
+import { TecnicaAcordeon } from './TecnicaAcordeon';
 import { notify } from '../../shared/api/toast';
 
 export function ExportReportDialog({ projectId, onClose }: { projectId?: string; onClose: () => void }) {
@@ -15,6 +15,8 @@ export function ExportReportDialog({ projectId, onClose }: { projectId?: string;
   const [selectedProject, setSelectedProject] = useState(projectId ?? '');
   const [selection, setSelection] = useState<ReportMethod[]>(REPORT_METHODS.map(({ id }) => id));
   const [partes, setPartes] = useState<ReportParts>({});
+  /** Solo una técnica desplegada a la vez (F39). */
+  const [abierta, setAbierta] = useState<ReportMethod | null>(null);
   const incluidas = selection.filter(id => partes[id]?.length !== 0);
   const seleccionesParciales = REPORT_METHODS.some(method =>
     selection.includes(method.id) && (partes[method.id]?.length ?? method.partes.length) < method.partes.length,
@@ -74,22 +76,16 @@ export function ExportReportDialog({ projectId, onClose }: { projectId?: string;
         <fieldset disabled={busy} className="report-selection">
           <legend>Técnicas que se incluirán</legend>
           <div className="report-select-actions">
-            <button type="button" onClick={() => { setSelection(REPORT_METHODS.map(({ id }) => id)); setPartes({}); }}>Informe completo</button>
-            <button type="button" onClick={() => { setSelection([]); setPartes({}); }}>Quitar todas</button>
+            <button type="button" onClick={() => { setSelection(REPORT_METHODS.map(({ id }) => id)); setPartes({}); setAbierta(null); }}>Informe completo</button>
+            <button type="button" onClick={() => { setSelection([]); setPartes({}); setAbierta(null); }}>Quitar todas</button>
           </div>
           {REPORT_METHODS.map(({ id, label, detail, partes: opciones }) => (
-            <Fragment key={id}>
-              <label className="report-option">
-                <input type="checkbox" checked={selection.includes(id)} onChange={(event) => setSelection((current) => event.target.checked ? [...current, id] : current.filter((value) => value !== id))} />
-                <span><strong>{label}</strong><small>{detail}</small></span>
-              </label>
-              {selection.includes(id) && <PdfContentPicker
-                legend={`Qué incluir de ${label}`}
-                opciones={opciones}
-                seleccion={partes[id] ?? opciones.map(opcion => opcion.id)}
-                onChange={ids => setPartes(current => ({ ...current, [id]: ids }))}
-              />}
-            </Fragment>
+            <TecnicaAcordeon key={id} id={id} label={label} detail={detail} opciones={opciones}
+              incluida={selection.includes(id)} abierta={abierta === id}
+              partes={partes[id] ?? opciones.map(opcion => opcion.id)}
+              onIncluir={incluir => { setSelection(current => incluir ? [...current, id] : current.filter(value => value !== id)); setAbierta(incluir ? id : abierta === id ? null : abierta); }}
+              onAbrir={abrir => setAbierta(abrir ? id : null)}
+              onPartes={ids => setPartes(current => ({ ...current, [id]: ids }))} />
           ))}
         </fieldset>
         <p className="report-note">Incluye datos guardados del proyecto y las evaluaciones accesibles para tu cuenta.</p>

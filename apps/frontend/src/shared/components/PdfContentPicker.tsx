@@ -7,12 +7,15 @@ interface PdfContentPickerProps {
   onChange: (ids: string[]) => void;
   disabled?: boolean;
   extra?: ReactNode;
+  /** F39: sin leyenda visible (queda para lectores de pantalla) y en dos columnas desde 560 px. */
+  compacto?: boolean;
+  id?: string;
 }
 
-export function PdfContentPicker({ legend, opciones, seleccion, onChange, disabled, extra }: PdfContentPickerProps) {
+export function PdfContentPicker({ legend, opciones, seleccion, onChange, disabled, extra, compacto = false, id }: PdfContentPickerProps) {
   return (
-    <fieldset disabled={disabled}>
-      <legend>{legend}</legend>
+    <fieldset id={id} disabled={disabled} className={compacto ? 'pdf-picker pdf-picker--compacto' : 'pdf-picker'}>
+      <legend className={compacto ? 'sr-only' : undefined}>{legend}</legend>
       {extra}
       {opciones.map(({ id, label, descripcion, disabled: optionDisabled }) => (
         <label key={id} className="pdf-section">

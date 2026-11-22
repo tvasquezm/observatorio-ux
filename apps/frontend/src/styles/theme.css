@@ -2478,7 +2478,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .report-dialog .report-note { font-size: 0.75rem; }
 .report-dialog .report-status { color: var(--ink); font-size: 0.75rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .report-dialog .report-error { padding: 8px 10px; border: 1px solid var(--critical-line); border-radius: 8px; background: var(--critical-surface); color: var(--ink); }
-.report-actions { display: flex; justify-content: flex-end; gap: 10px; position: sticky; bottom: -28px; margin-bottom: -28px; padding: 12px 0 28px; background: var(--surface); box-shadow: 0 -10px 16px var(--surface); }
+.report-actions { display: flex; justify-content: space-between; gap: 10px; position: sticky; bottom: -28px; margin-bottom: -28px; padding: 12px 0 28px; background: var(--surface); box-shadow: 0 -10px 16px var(--surface); }
 .report-actions button { min-height: 44px; }
 @media (max-width: 480px) {
   .report-dialog { padding: 20px; }
@@ -3269,3 +3269,14 @@ div:has(> .project-section > .hf) > .project-heading p { margin:4px 0 0; font-si
 .hf-hallazgo-tarjeta h3, .hf-hallazgo-tarjeta p { margin: 0; }
 .hf-hallazgo-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--espacio-2) var(--espacio-3); color: var(--muted); font-size: 0.875rem; }
 .hf-severidad-3, .hf-severidad-4 { color: var(--danger-text); border-color: var(--danger-text); }
+
+/* F39: técnicas del PDF como acordeón; apartados en dos columnas desde 560 px. */
+.report-selection { display: grid; gap: 0; }
+.report-tecnica .report-option { flex-wrap: wrap; }
+.report-tecnica .report-option > span:nth-of-type(1) { flex: 1 1 180px; }
+.report-tecnica-resumen { font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.report-tecnica-toggle { min-height: 44px; }
+.report-tecnica-panel { display: grid; gap: 12px; padding: 12px; border-bottom: 1px solid var(--line); }
+.report-tecnica-panel .pdf-picker { margin: 0; }
+.pdf-picker--compacto { display: grid; gap: 4px 16px; }
+@media (min-width: 560px) { .pdf-picker--compacto { grid-template-columns: 1fr 1fr; } }

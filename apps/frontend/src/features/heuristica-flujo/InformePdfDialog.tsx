@@ -39,7 +39,7 @@ export function InformePdfDialog({ informe, busy, error, onClose, onGenerate }: 
       if (!busy) onClose();
     }}>
       <h2 id={titleId}>Exportar informe (PDF)</h2>
-      <PdfContentPicker legend="Qué incluir" opciones={opciones} seleccion={partes} onChange={setSeleccion} disabled={busy} />
+      <PdfContentPicker compacto legend="Qué incluir" opciones={opciones} seleccion={partes} onChange={setSeleccion} disabled={busy} />
       {error && <p role="alert" className="report-error">{error}</p>}
       <div className="report-actions">
         <button type="button" className="secondary" disabled={busy} onClick={onClose}>Cancelar</button>
