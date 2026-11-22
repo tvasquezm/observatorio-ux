@@ -11,13 +11,9 @@ import {
   listMembers,
   addMember,
   removeMember,
-  listWhitelist,
-  addToWhitelist,
   ProjectsApiError,
   type MiembroProyecto,
   type AdminProjectOverview,
-  type WhitelistEntry,
-  type WhitelistEntradaInput,
 } from '../api/projects.api';
 import { salasKeys } from '../../salas/hooks/useSalasQueries';
 import { notify } from '../../../shared/api/toast';
@@ -27,7 +23,6 @@ export const projectsKeys = {
   adminOverview: ['projects', 'admin', 'overview'] as const,
   detail: (id: string) => ['projects', id] as const,
   members: (id: string) => ['projects', id, 'miembros'] as const,
-  whitelist: (id: string) => ['projects', id, 'participantes'] as const,
 };
 
 export function useProjects() {
@@ -130,30 +125,3 @@ export function useRemoveMember(proyectoId: string) {
   });
 }
 
-export function useWhitelist(proyectoId: string | null) {
-  return useQuery<WhitelistEntry[]>({
-    queryKey: projectsKeys.whitelist(proyectoId ?? ''),
-    queryFn: () => listWhitelist(proyectoId as string),
-    enabled: !!proyectoId,
-  });
-}
-
-export function useAddToWhitelist(proyectoId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (participantes: WhitelistEntradaInput[]) => addToWhitelist(proyectoId, participantes),
-    onSuccess: (res) => {
-      qc.invalidateQueries({ queryKey: projectsKeys.whitelist(proyectoId) });
-      notify.success(
-        res.agregados === res.enviados
-          ? `${res.agregados} participante(s) agregado(s).`
-          : `${res.agregados} de ${res.enviados} agregado(s) — el resto ya estaba en la lista.`,
-      );
-    },
-    onError: (err) => {
-      notify.error(
-        err instanceof ProjectsApiError ? err.message : 'No se pudo agregar a los participantes.',
-      );
-    },
-  });
-}

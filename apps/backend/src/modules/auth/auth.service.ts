@@ -53,82 +53,6 @@ export class AuthService {
     this.participantes.delete(id);
   }
 
-  private assertInvitationCode(codigo: string, esperado?: string | null) {
-    const recibido = createHash('sha256').update(codigo).digest();
-    const esperadoBuffer = esperado ? Buffer.from(esperado, 'hex') : Buffer.alloc(recibido.length);
-    if (!esperado || esperadoBuffer.length !== recibido.length || !timingSafeEqual(recibido, esperadoBuffer)) {
-      throw new ForbiddenException('El código de invitación no es válido.');
-    }
-  }
-  /**
-   * Autorregistro de un participante. Solo funciona si su email está en
-   * la whitelist cargada por el docente/evaluador para ese proyecto.
-   * Es idempotente: si la persona ya se había registrado, devuelve el
-   * mismo participanteId en vez de fallar.
-   */
-  async registerParticipant(
-    proyectoId: string,
-    emailCrudo: string,
-    nombre?: string,
-    codigoInvitacion?: string,
-  ) {
-    const email = emailCrudo.trim().toLowerCase();
-
-    return this.prisma.$transaction(async (tx) => {
-      const entry = await tx.participanteWhitelist.findUnique({
-        where: { proyectoId_email: { proyectoId, email } },
-      });
-
-      if (!entry) {
-        throw new ForbiddenException(
-          'Este email no está autorizado para participar en este proyecto. ' +
-            'Pídele al docente que lo agregue a la lista.',
-        );
-      }
-
-      this.assertInvitationCode(codigoInvitacion ?? '', entry.codigoInvitacionHash);
-
-      if (entry.participanteId) {
-        return { participanteId: entry.participanteId, yaRegistrado: true };
-      }
-
-      const participante = await tx.participante.create({
-        data: {
-          metadata: nombre?.trim() ? { nombre: nombre.trim() } : undefined,
-        },
-      });
-
-      // La condición evita que dos solicitudes concurrentes reclamen la misma
-      // invitación. La segunda solicitud elimina su participante provisional y
-      // devuelve el participante ganador.
-      const claimed = await tx.participanteWhitelist.updateMany({
-        where: { id: entry.id, participanteId: null },
-        data: { usado: true, participanteId: participante.id },
-      });
-
-      if (claimed.count === 1) {
-        return { participanteId: participante.id, yaRegistrado: false };
-      }
-
-      const currentEntry = await tx.participanteWhitelist.findUnique({
-        where: { id: entry.id },
-      });
-
-      await tx.participante.delete({ where: { id: participante.id } });
-
-      if (currentEntry?.participanteId) {
-        return {
-          participanteId: currentEntry.participanteId,
-          yaRegistrado: true,
-        };
-      }
-
-      throw new ConflictException(
-        'No se pudo completar el registro. Inténtalo nuevamente.',
-      );
-    });
-  }
-
   /**
    * Fase 1 (PLAN_AJUSTES.md): punto de acceso público sin datos
    * personales. Acceso 100% abierto por link/QR — decisión tomada por el
@@ -196,7 +120,6 @@ export class AuthService {
     proyectoId: string,
     aceptado: boolean,
     version: string,
-    codigoInvitacion?: string,
     resumeToken?: string,
   ) {
     const participante = await this.prisma.participante.findUnique({
@@ -212,18 +135,9 @@ export class AuthService {
       throw new NotFoundException('El proyecto no existe.');
     }
 
-    // Fase 1 (PLAN_AJUSTES.md): si el participante entró por el acceso
-    // público abierto (accessParticipant), nunca existe una entrada de
-    // whitelist a su nombre — no hay código que validar. Si sí existe
-    // (flujo previo con invitación por email), se sigue exigiendo el
-    // código, igual que antes.
-    const whitelistEntry = await this.prisma.participanteWhitelist.findFirst({
-      where: { proyectoId, participanteId, usado: true },
-    });
-
-    if (whitelistEntry) {
-      this.assertInvitationCode(codigoInvitacion ?? '', whitelistEntry.codigoInvitacionHash);
-    } else {
+    // F36: todos los participantes son anónimos (acceso abierto); la única
+    // credencial es el resumeToken entregado en accessParticipant.
+    {
       if (participante.proyectoId !== proyectoId) {
         throw new ForbiddenException(
           'El participante no pertenece a este proyecto.',
@@ -342,7 +256,6 @@ export class AuthService {
   async issueParticipantToken(
     participanteId: string,
     proyectoId: string,
-    codigoInvitacion?: string,
     allowUnlisted = false,
     resumeToken?: string,
   ) {
@@ -355,13 +268,7 @@ export class AuthService {
     }
 
     if (!allowUnlisted) {
-      const whitelistEntry = await this.prisma.participanteWhitelist.findFirst({
-        where: { proyectoId, participanteId, usado: true },
-      });
-
-      if (whitelistEntry) {
-        this.assertInvitationCode(codigoInvitacion ?? '', whitelistEntry.codigoInvitacionHash);
-      } else {
+      {
         if (participante.proyectoId !== proyectoId) {
           throw new ForbiddenException(
             'El participante no pertenece a este proyecto.',
@@ -463,7 +370,6 @@ export class AuthService {
     return this.issueParticipantToken(
       consent.participanteId,
       consent.proyectoId,
-      undefined,
       true,
     );
   }

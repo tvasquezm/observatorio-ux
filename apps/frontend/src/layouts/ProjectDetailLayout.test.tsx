@@ -63,9 +63,11 @@ describe('Menú de secciones del proyecto', () => {
     await userEvent.click(summary);
     const nav = screen.getByRole('navigation', { name: 'Secciones del proyecto' });
     for (const name of ['Resumen', 'Personas', 'Journey Map', 'Momentos críticos',
-      'Card Sorting', 'Evaluación heurística', 'Comentarios', 'Analítica', 'Miembros', 'Participantes']) {
+      'Card Sorting', 'Evaluación heurística', 'Comentarios', 'Analítica', 'Miembros']) {
       expect(within(nav).getByRole('link', { name })).toBeVisible();
     }
+    // F36: los participantes son anónimos; ya no hay sección para invitarlos.
+    expect(within(nav).queryByRole('link', { name: 'Participantes' })).toBeNull();
   });
 
   it('agrupa los enlaces por bloque con título propio', async () => {
@@ -96,7 +98,7 @@ describe('Menú de secciones del proyecto', () => {
     expect(within(crumbs).getByText('Journey Map')).toHaveAttribute('aria-current', 'page');
   });
 
-  it('mantiene las restricciones de analítica y participantes para un estudiante que no es dueño', async () => {
+  it('mantiene la restricción de analítica para un estudiante que no es dueño', async () => {
     state.role = 'ESTUDIANTE'; state.owner = 'another-user';
     mount('card-sorting');
     await userEvent.click(screen.getByText('Secciones del proyecto').closest('summary')!);

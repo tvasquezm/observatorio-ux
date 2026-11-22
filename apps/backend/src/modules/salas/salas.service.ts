@@ -412,9 +412,6 @@ export class SalasService {
       this.prisma.uxArtifact.deleteMany({
         where: { proyectoId: { in: proyectoIds } },
       }),
-      this.prisma.participanteWhitelist.deleteMany({
-        where: { proyectoId: { in: proyectoIds } },
-      }),
       this.prisma.proyectoMiembro.deleteMany({
         where: { proyectoId: { in: proyectoIds } },
       }),

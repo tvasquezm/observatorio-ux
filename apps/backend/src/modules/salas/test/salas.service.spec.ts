@@ -31,7 +31,6 @@ describe('SalasService', () => {
     };
     equipoMiembro: { findMany: jest.Mock };
     proyectoMiembro: { deleteMany: jest.Mock; createMany: jest.Mock };
-    participanteWhitelist: { deleteMany: jest.Mock };
     uxArtifact: { deleteMany: jest.Mock };
     researchSession: { deleteMany: jest.Mock };
     category: { deleteMany: jest.Mock };
@@ -77,7 +76,6 @@ describe('SalasService', () => {
         deleteMany: jest.fn(),
         createMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
-      participanteWhitelist: { deleteMany: jest.fn() },
       uxArtifact: { deleteMany: jest.fn() },
       researchSession: { deleteMany: jest.fn() },
       category: { deleteMany: jest.fn() },
@@ -352,7 +350,6 @@ describe('SalasService', () => {
       prisma.category.deleteMany.mockResolvedValue({ count: 0 });
       prisma.researchSession.deleteMany.mockResolvedValue({ count: 0 });
       prisma.uxArtifact.deleteMany.mockResolvedValue({ count: 0 });
-      prisma.participanteWhitelist.deleteMany.mockResolvedValue({ count: 0 });
       prisma.proyectoMiembro.deleteMany.mockResolvedValue({ count: 0 });
       prisma.proyecto.deleteMany.mockResolvedValue({ count: 2 });
       prisma.salaEstudiante.deleteMany.mockResolvedValue({ count: 0 });

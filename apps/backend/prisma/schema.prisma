@@ -62,7 +62,6 @@ model Proyecto {
   sesiones            ResearchSession[]
   evaluacionesHeuristicas EvaluacionHeuristicaCompleta[]
   artefactos          UxArtifact[]
-  whitelist           ParticipanteWhitelist[]
   miembros            ProyectoMiembro[]
   comentarios         Comentario[]
   participantesAcceso Participante[]
@@ -103,7 +102,6 @@ model Usuario {
   proyectosCreados  Proyecto[]              @relation("ProyectosCreados")
   sesionesEvaluador ResearchSession[]       @relation("SesionesComoEvaluador")
   artefactosAutor   UxArtifact[]            @relation("ArtefactosComoAutor")
-  whitelistCreada   ParticipanteWhitelist[]
   proyectosMiembro  ProyectoMiembro[]
   comentariosAutor  Comentario[]            @relation("ComentariosComoAutor")
   equiposCreados    Equipo[]                @relation("EquiposCreados")
@@ -129,31 +127,9 @@ model Participante {
   consentimientos   Consentimiento[]
   sesiones          ResearchSession[]       @relation("SesionesComoParticipante")
   categoriasCreadas Category[]
-  whitelistEntries  ParticipanteWhitelist[]
 
   @@index([proyectoId, createdAt])
   @@map("participantes")
-}
-
-model ParticipanteWhitelist {
-  id                   String   @id @default(uuid())
-  proyecto             Proyecto @relation(fields: [proyectoId], references: [id])
-  proyectoId           String
-  email                String
-  nombre               String?
-  usado                Boolean  @default(false)
-  codigoInvitacionHash String?
-
-  participante   Participante? @relation(fields: [participanteId], references: [id])
-  participanteId String?
-
-  creadoPor   Usuario  @relation(fields: [creadoPorId], references: [id])
-  creadoPorId String
-  createdAt   DateTime @default(now())
-
-  @@unique([proyectoId, email])
-  @@index([proyectoId, participanteId])
-  @@map("participantes_whitelist")
 }
 
 // Consentimiento informado

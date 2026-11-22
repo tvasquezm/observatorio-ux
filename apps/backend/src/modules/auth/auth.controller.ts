@@ -13,7 +13,6 @@ import {
   ChangePasswordDto,
   ParticipantAccessDto,
   ParticipantTokenDto,
-  RegisterParticipantDto,
   RegisterParticipantConsentDto,
 } from './auth.dto.js';
 import type { AuthenticatedUser } from './types/authenticated-user.interface.js';
@@ -141,21 +140,6 @@ export class AuthController {
     return this.authService.accessParticipant(dto.proyectoId);
   }
 
-  // Flujo previo con whitelist/email + código de invitación. Se mantiene
-  // para el caso en que el docente sí quiera controlar quién participa
-  // (ej. invitaciones de Evaluación Heurística vía projects.addToWhitelist);
-  // ya no es el flujo por defecto de Card Sorting/onboarding público.
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  @Post('participants/register')
-  registerParticipant(@Body() dto: RegisterParticipantDto) {
-    return this.authService.registerParticipant(
-      dto.proyectoId,
-      dto.email,
-      dto.nombre,
-      dto.codigoInvitacion,
-    );
-  }
-
   @Throttle({ default: { limit: 120, ttl: 60_000 } })
   @Post('participants/consent')
   registerParticipantConsent(@Body() dto: RegisterParticipantConsentDto) {
@@ -164,7 +148,6 @@ export class AuthController {
       dto.proyectoId,
       dto.aceptado,
       dto.version,
-      dto.codigoInvitacion,
       dto.resumeToken,
     );
   }
@@ -175,7 +158,6 @@ export class AuthController {
     return this.authService.issueParticipantToken(
       dto.participanteId,
       dto.proyectoId,
-      dto.codigoInvitacion,
       false,
       dto.resumeToken,
     );

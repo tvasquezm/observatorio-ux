@@ -47,11 +47,6 @@ export class ParticipantTokenDto {
 
   @IsOptional()
   @IsString()
-  @MinLength(16)
-  codigoInvitacion?: string;
-
-  @IsOptional()
-  @IsString()
   @MinLength(32)
   resumeToken?: string;
 }
@@ -59,22 +54,6 @@ export class ParticipantTokenDto {
 export class ParticipantAccessDto {
   @IsUUID()
   proyectoId!: string;
-}
-
-export class RegisterParticipantDto {
-  @IsUUID()
-  proyectoId!: string;
-
-  @IsEmail()
-  email!: string;
-
-  @IsOptional()
-  @IsString()
-  nombre?: string;
-
-  @IsString()
-  @MinLength(16)
-  codigoInvitacion!: string;
 }
 
 export class RegisterParticipantConsentDto {
@@ -91,17 +70,8 @@ export class RegisterParticipantConsentDto {
   @MinLength(1)
   version!: string;
 
-  // Opcional desde Fase 1: solo aplica al flujo previo con whitelist. Un
-  // participante de acceso abierto (accessParticipant) no tiene código
-  // que enviar.
-  @IsOptional()
-  @IsString()
-  @MinLength(16)
-  codigoInvitacion?: string;
-
-  // Requerido para el flujo de acceso abierto (sin whitelist): credencial
-  // que ya se le entregó al participante en accessParticipant, igual que en
-  // ParticipantTokenDto. Sin whitelist ni resumeToken, la request se rechaza.
+  // Credencial que ya se le entregó al participante en accessParticipant,
+  // igual que en ParticipantTokenDto. Sin resumeToken, la request se rechaza.
   @IsOptional()
   @IsString()
   @MinLength(32)

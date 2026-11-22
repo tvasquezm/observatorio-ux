@@ -99,7 +99,7 @@ PostgreSQL con Prisma; el esquema y las migraciones están en `apps/backend/pris
 | Dominio | Modelos |
 | --- | --- |
 | Núcleo | `Proyecto`, `ProyectoMiembro`, `Usuario` (roles `ESTUDIANTE`, `DOCENTE`, `ADMIN`) |
-| Participación | `Participante`, `ParticipanteWhitelist`, `Consentimiento` |
+| Participación | `Participante`, `Consentimiento` |
 | Organización | `Sala`, `SalaEstudiante`, `Equipo`, `EquipoMiembro` |
 | Sesiones | `ResearchSession` (Card Sorting y evaluaciones heurísticas anteriores), `EvidenciaHeuristica` |
 | Card Sorting | `Card`, `Category`, `CardGrouping`, `CardSortingQuestion`, `CardSortingAnswer` (tipos `ABIERTO`, `CERRADO`, `HIBRIDO`) |

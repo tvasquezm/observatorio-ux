@@ -24,11 +24,8 @@ export function ProjectDetailLayout() {
   const { data: proyecto } = useProject(proyectoId ?? null);
   const { user, perspectiveRole } = useAuthStore();
   const activeRole = user ? resolvePerspective(user.rol, perspectiveRole) : null;
-  const canManageParticipants =
-    !!user && (activeRole === 'ADMIN' || user.id === proyecto?.creadoPorId);
   const visibleItems = SECCIONES_PROYECTO.filter((item) => {
     if (item.requires === 'analitica') return !!activeRole && canViewAnalytics(activeRole);
-    if (item.requires === 'participantes') return canManageParticipants;
     return true;
   });
   const currentItem = visibleItems.find((item) => item.to === (pathname.split('/')[3] ?? ''));
