@@ -35,6 +35,7 @@ services:
       CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN es obligatorio}
       # Saltos de proxy de confianza: 1 = el Nginx de este compose.
       TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-1}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
     expose:
       - "3000"
     depends_on:

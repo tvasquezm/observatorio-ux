@@ -12,6 +12,11 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **admin:** ordena el alta de docentes, incorpora búsqueda y filtro de cuentas y permite
+  preautorizar accesos con Google; la integración permanece desactivada sin `GOOGLE_CLIENT_ID`.
+* **pdf:** aplica tipografía Latin Modern, composición académica y tablas sobrias a los informes,
+  con fuentes locales incluidas en el frontend y en el backend compilado.
+
 * **salas:** el permiso de creación de proyectos se guarda al cambiarlo y el estudiante recibe una explicación si está desactivado.
 
 * **proyectos:** el formulario explica la relación entre sala y técnicas. Los proyectos sin sala muestran su estado.

@@ -19,6 +19,13 @@ export class LoginDto {
   password!: string;
 }
 
+export class GoogleLoginDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(8192)
+  credential!: string;
+}
+
 export class ChangePasswordDto {
   @IsString()
   @MinLength(8)

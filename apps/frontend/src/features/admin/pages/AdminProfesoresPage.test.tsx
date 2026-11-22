@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
 import { AdminProfesoresPage, CrearDocenteForm } from './AdminProfesoresPage';
 
 const create = vi.hoisted(() => vi.fn());
@@ -29,6 +30,18 @@ function fill() {
 }
 
 describe('crear docente', () => {
+  it('autoriza Google sin enviar ni inventar una contraseña', () => {
+    create.mockImplementation((data, options) => options.onSuccess({ email: data.email }));
+    render(<CrearDocenteForm />);
+    fireEvent.click(screen.getByRole('radio', { name: 'Cuenta de Google' }));
+    fireEvent.change(screen.getByLabelText('Nombre completo'), { target: { value: 'Ana Pérez' } });
+    fireEvent.change(screen.getByLabelText('Correo institucional'), { target: { value: 'ana@utem.cl' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Crear docente' }));
+    expect(create.mock.calls[0][0]).toEqual({ nombre: 'Ana Pérez', email: 'ana@utem.cl', acceso: 'GOOGLE' });
+    expect(screen.getByRole('heading', { name: 'Cuenta autorizada para Google' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Contraseña creada')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Copiar correo' })).toBeEnabled();
+  });
   it('siempre ofrece mostrar/ocultar y conserva las credenciales solo después del éxito', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
@@ -63,12 +76,30 @@ describe('crear docente', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Copiar correo y contraseña' }));
     expect(await screen.findByRole('status')).toHaveTextContent('No se pudieron copiar');
   });
+
+  it('genera una contraseña segura sin crear la cuenta ni borrar los datos', () => {
+    render(<CrearDocenteForm />);
+    fill();
+    fireEvent.click(screen.getByRole('button', { name: 'Generar contraseña segura' }));
+    expect((screen.getByLabelText('Contraseña temporal') as HTMLInputElement).value).toMatch(/^[a-f0-9]{32}$/);
+    expect(screen.getByLabelText('Nombre completo')).toHaveValue('Ana Pérez');
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('muestra el error junto al formulario y conserva los datos para reintentar', () => {
+    create.mockImplementation((_data, options) => options.onError(new Error('Este correo ya tiene una cuenta.')));
+    render(<CrearDocenteForm />);
+    fill();
+    fireEvent.click(screen.getByRole('button', { name: 'Crear docente' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Este correo ya tiene una cuenta.');
+    expect(screen.getByLabelText('Correo institucional')).toHaveValue('ana@utem.cl');
+  });
 });
 
 describe('eliminar docente', () => {
   it('exige escribir el nombre y no elimina si se cancela', async () => {
     estado.confirm.mockResolvedValue(false);
-    render(<AdminProfesoresPage />);
+    render(<MemoryRouter><AdminProfesoresPage /></MemoryRouter>);
     await userEvent.click(screen.getByRole('button', { name: 'Eliminar' }));
     expect(estado.confirm).toHaveBeenCalledWith('¿Eliminar al docente "Ana Pérez"?', { requireText: 'Ana Pérez' });
     expect(estado.remove).not.toHaveBeenCalled();
@@ -76,7 +107,7 @@ describe('eliminar docente', () => {
 
   it('elimina cuando la persona confirma', async () => {
     estado.confirm.mockResolvedValue(true);
-    render(<AdminProfesoresPage />);
+    render(<MemoryRouter><AdminProfesoresPage /></MemoryRouter>);
     await userEvent.click(screen.getByRole('button', { name: 'Eliminar' }));
     expect(estado.remove).toHaveBeenCalledWith('d1');
   });

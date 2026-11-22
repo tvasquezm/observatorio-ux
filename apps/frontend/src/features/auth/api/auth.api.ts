@@ -23,6 +23,27 @@ export function changePassword(currentPassword: string, newPassword: string): Pr
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
 
+export type GoogleLoginConfig = { enabled: false } | { enabled: true; clientId: string; nonce: string };
+
+export async function getGoogleLoginConfig(): Promise<GoogleLoginConfig> {
+  const response = await fetch(`${API_BASE}/auth/google/config`, { credentials: 'include', cache: 'no-store' });
+  if (!response.ok) throw new Error('No se pudo consultar el acceso con Google.');
+  return response.json();
+}
+
+export async function loginWithGoogle(credential: string): Promise<LoginResponse> {
+  const response = await fetch(`${API_BASE}/auth/google`, {
+    method: 'POST', credentials: 'include',
+    headers: { 'Content-Type': 'application/json', ...csrfHeaders('POST') },
+    body: JSON.stringify({ credential }),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new AuthApiError(response.status, typeof data?.message === 'string' ? data.message : 'No se pudo ingresar con Google.');
+  }
+  return response.json();
+}
+
 export class AuthApiError extends Error {
   constructor(public readonly status: number, message: string) {
     super(message);

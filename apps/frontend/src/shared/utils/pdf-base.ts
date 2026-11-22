@@ -1,8 +1,19 @@
-import type { Content, ContentCanvas, ContentTable, TableCell } from 'pdfmake/interfaces';
+import type { Content, ContentCanvas, ContentTable, TableCell, TDocumentDefinitions } from 'pdfmake/interfaces';
 
 export const INK = '#1f2d4a';
 export const TEAL = '#3049b2';
-export const MUTED = '#526a73';
+export const MUTED = '#5c6b7f';
+
+export const PDF_PAGE_MARGINS: [number, number, number, number] = [54, 72, 54, 54];
+export const PDF_DEFAULT_STYLE = { font: 'LatinModern', fontSize: 11, lineHeight: 1.18, color: '#222222' };
+export const PDF_STYLES: TDocumentDefinitions['styles'] = {
+  coverTitle: { fontSize: 25, bold: true, lineHeight: 1.12, color: INK, alignment: 'center', margin: [0, 0, 0, 20] },
+  sectionTitle: { fontSize: 19, bold: true, lineHeight: 1.15, color: INK, margin: [0, 0, 0, 10] },
+  subheading: { fontSize: 14, bold: true, lineHeight: 1.15, color: INK },
+  eyebrow: { fontSize: 9, bold: true, color: MUTED, characterSpacing: .3 },
+};
+export const keepHeadingsWithContent: TDocumentDefinitions['pageBreakBefore'] = (node, container) =>
+  Boolean(node.headlineLevel && !container.getFollowingNodesOnPage().length);
 
 export const textValue = (value: unknown): string => Array.isArray(value) ? value.join('\n') || 'No registrado' : value == null || value === '' ? 'No registrado' : String(value);
 export const titleAccent = (): ContentCanvas => ({
@@ -19,6 +30,7 @@ export function table(headers: string[], rows: unknown[][], widths?: Array<strin
   return {
     table: {
       headerRows: 1,
+      keepWithHeaderRows: 1,
       widths: widths ?? headers.map(() => '*'),
       body: [
         headers.map((text) => ({ text, bold: true, color: '#ffffff', fillColor: INK, fontSize: compact ? 7 : 9 })),

@@ -8,6 +8,24 @@ que se usa cada uno. No reemplaza `BACKEND.md`, `comandos-backend.md` ni
 
 ## Docker (flujo principal)
 
+Ejecuta los comandos desde la raíz del repositorio con Docker Desktop o Docker Engine iniciado. En una copia nueva, crea el archivo de configuración **solo si falta**: `Copy-Item env.example .env` en PowerShell o `cp env.example .env` en Bash. Conserva un `.env` existente.
+
+```sh
+docker compose config --quiet
+docker compose up -d --build db shared-types backend
+```
+
+Cuando `http://localhost:3000/api/health` devuelva `"status":"ok"`, completa el arranque:
+
+```sh
+docker compose up -d --wait
+docker compose ps
+```
+
+Abre `http://localhost:5173` para ver la pantalla de acceso y `http://localhost:5173/api/health` para comprobar que el proxy llega a la API. Debe devolver `status` con valor `ok`. Para diagnosticar un fallo, compara con `http://localhost:3000/api/health` y consulta `docker compose logs --tail=80 backend frontend shared-types db`.
+
+En una base nueva destinada a demostración, ejecuta una vez `docker compose exec backend pnpm --filter backend seed` y utiliza las cuentas indicadas más abajo. El seed modifica datos de ejemplo. Para terminar, usa `docker compose down`: conserva el volumen de PostgreSQL.
+
 | Comando | Cuándo usarlo |
 |---|---|
 | `cp env.example .env` | Primera vez que clonás el repo. Crea tu `.env` local a partir de los defaults de desarrollo. |
@@ -18,10 +36,10 @@ que se usa cada uno. No reemplaza `BACKEND.md`, `comandos-backend.md` ni
 | `docker compose logs -f` | Ver logs de todos los servicios en tiempo real (útil si levantaste con `-d`). |
 | `docker compose logs -f backend` | Ver logs solo del backend (o `frontend`, `db`), cuando ya sabés dónde está el problema. |
 | `docker compose ps` | Chequear qué contenedores están arriba y su estado (`healthy`, `running`). |
-| `docker compose restart backend` | Reiniciar solo el backend — dispara de nuevo `entrypoint.sh` (migraciones + seed). Úsalo después de editar `apps/backend/prisma/seed.ts`. |
+| `docker compose restart backend` | Reinicia la API, aplica migraciones y regenera el cliente Prisma. El seed solo se ejecuta en desarrollo si se configuró `SEED_ON_START=true`. |
 | `docker compose up -d --force-recreate frontend` | Cuando cambiaste una variable en `.env` (ej. `VITE_API_URL`). `docker compose restart` **no** relee `env_file` — hace falta recrear el contenedor. |
 | `docker compose down` | Terminar la sesión de trabajo. Detiene y borra contenedores, conserva los datos de Postgres (volumen). |
-| `docker compose down -v` | Cuando querés un estado 100% limpio (ej. la BD quedó en un estado raro). Borra también el volumen de Postgres — se pierde todo, el próximo `up` vuelve a correr el seed desde cero. |
+| `docker compose down -v` | Solo para descartar deliberadamente la base local: elimina el volumen de PostgreSQL y sus datos. El siguiente arranque aplica las migraciones. |
 
 ---
 
@@ -32,11 +50,23 @@ que trabajes en el Flujo B (Node/pnpm local, ver `comandos-backend.md`).
 
 | Comando | Cuándo usarlo |
 |---|---|
-| `pnpm --filter backend exec tsx prisma/seed.ts` | Re-poblar la BD manualmente sin reiniciar el contenedor, típicamente después de editar `seed.ts` (alternativa a `docker compose restart backend`). |
+| `pnpm --filter backend seed` | Cargar datos demo explícitamente en una base local. Puede restablecer las cuentas y proyectos de ejemplo. |
 | `pnpm --filter backend exec prisma migrate dev` | Crear y aplicar una migración nueva cuando cambiaste `schema.prisma` (entorno de desarrollo). |
 | `pnpm --filter backend exec prisma migrate deploy` | Aplicar migraciones pendientes sin generar una nueva (lo que corre automático el `entrypoint.sh` al levantar el backend). |
 | `pnpm --filter backend exec prisma generate` | Regenerar el Prisma Client cuando TypeScript se queja de un campo que "no existe" pese a estar en `schema.prisma` y la migración ya aplicada — típico tras un checkout fresco o cambio de rama. |
-| `pnpm --filter backend exec prisma studio` | Abrir un visor de la base de datos en `http://localhost:5555`, para inspeccionar filas a mano. |
+| `pnpm --filter backend exec prisma studio` | Abrir Prisma Studio para inspeccionar filas. Si se ejecuta dentro de Docker necesitarás publicar el puerto que indique Studio. |
+
+### Primer arranque lento
+
+En una copia limpia, los servicios instalan sus dependencias antes de escuchar en sus puertos. Si Compose detiene el arranque del frontend porque el backend figura como `unhealthy`, consulta `docker compose logs --tail=80 backend`. Mientras el registro muestre progreso en la instalación, conserva los contenedores y volúmenes para aprovechar lo descargado.
+
+1. Desde la raíz, ejecuta `docker compose up -d --build db shared-types backend`. Así la base y la API pueden terminar su preparación antes de iniciar la web.
+2. Abre `http://localhost:3000/api/health`. Si todavía no responde, sigue el registro con `docker compose logs -f backend`. Cuando la API responda con `"status":"ok"`, pulsa Ctrl+C para salir del registro.
+3. Ejecuta `docker compose up -d --wait`. Cuando Vite esté listo, abre `http://localhost:5173` y comprueba también `http://localhost:5173/api/health`.
+
+Si el registro termina con un error de migración, conexión o instalación, resuelve ese error antes de repetir el paso. Borrar el volumen de datos no es necesario para completar un arranque lento.
+
+**Comprobación del 2 de noviembre de 2026.** En una copia limpia en Windows, con Docker Desktop y una base nueva, el arranque por etapas permitió abrir el frontend y obtener `status: ok` tanto en la API directa como a través de Vite. Después de cargar el seed, el inicio de sesión y `/api/auth/me` devolvieron el rol esperado para las tres cuentas de demostración.
 
 ---
 
@@ -70,12 +100,6 @@ pnpm --filter backend test:watch
 ```bash
 pnpm --filter backend test:cov
 ```
-
-Al momento de la entrega, la suite de pruebas presenta los siguientes resultados:
-
-- **Test Suites:** 6 passed, 6 total
-- **Tests:** 64 passed, 64 total
-- **Snapshots:** 0 total
 
 El comando `test:cov` genera además un reporte de cobertura en la carpeta `coverage/` del backend, permitiendo analizar el porcentaje de código cubierto por las pruebas automatizadas.
 
@@ -133,10 +157,7 @@ y tira `ERR_PNPM_UNEXPECTED_STORE`.
 
 ## Usuarios de seed (solo desarrollo local)
 
-Creados automáticamente por `apps/backend/prisma/seed.ts` en cada arranque
-del backend (salvo `NODE_ENV=production`, donde el seed se omite). **Nunca
-deben existir en un entorno productivo real** — las contraseñas son valores
-públicos, visibles en este mismo repositorio.
+Estas cuentas están disponibles después de cargar explícitamente el seed en desarrollo. Sus contraseñas predeterminadas son públicas y solo sirven para una instalación local de demostración.
 
 | Usuario | Email | Password | Rol / uso |
 |---|---|---|---|

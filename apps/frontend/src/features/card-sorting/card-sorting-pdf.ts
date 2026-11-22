@@ -1,8 +1,8 @@
 // PDF de las vistas de resultados: reutiliza la marca y los helpers del informe general.
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces';
 import type { CardSortingAnalytics } from './api/card-sorting.api';
-import { brandChrome, cargarPdfMake, date, INK, MUTED, TEAL, type ReportBrand } from '../../shared/utils/pdf';
-import { titleAccent } from '../../shared/utils/pdf-base';
+import { brandChrome, cargarPdfMake, date, MUTED, type ReportBrand } from '../../shared/utils/pdf';
+import { PDF_DEFAULT_STYLE, PDF_PAGE_MARGINS, PDF_STYLES, keepHeadingsWithContent } from '../../shared/utils/pdf-base';
 import { cuerpoVista } from './card-sorting-pdf-content';
 import {
   nombreArchivo, resumenEstudio, tablaDeVista, tablaSinConsenso, type TablaVista, type VistaExportable,
@@ -32,8 +32,7 @@ function sinColor(value: unknown, key = ''): unknown {
 function seccion(tabla: TablaVista, saltar: boolean): Content[] {
   return [
     { text: 'VISTA', style: 'eyebrow', ...(saltar ? { pageBreak: 'before' as const } : {}), pageOrientation: tabla.ancha ? ('landscape' as const) : ('portrait' as const), margin: [0, saltar ? 10 : 18, 0, 8] },
-    { text: tabla.titulo, fontSize: 22, bold: true, margin: [0, 0, 0, 6] },
-    titleAccent(),
+    { text: tabla.titulo, style: 'sectionTitle', headlineLevel: 1 },
     { text: tabla.descripcion, color: MUTED, margin: [0, 0, 0, 12] },
     ...cuerpoVista(tabla),
   ];
@@ -57,14 +56,14 @@ export function buildEstudioPdfDefinition(
   }
   const definition: TDocumentDefinitions = {
     info: { title: `Card sorting · ${data.estudio.nombre}`, subject: tablas.map((t) => t.titulo).join(', '), creator: 'UXLab Observatorio' },
-    pageSize: 'A4', pageOrientation: !resumen && tablas[0]?.ancha ? 'landscape' : 'portrait', pageMargins: [44, 66, 44, 54],
-    defaultStyle: { font: 'Roboto', fontSize: 9.5, lineHeight: 1.2, color: INK },
+    pageSize: 'A4', pageOrientation: !resumen && tablas[0]?.ancha ? 'landscape' : 'portrait', pageMargins: PDF_PAGE_MARGINS,
+    defaultStyle: PDF_DEFAULT_STYLE,
     images: marca ? { brandLogo: marca.logo, brandLogoWhite: marca.logoWhite } : {},
     ...chrome,
     content: [
       ...(resumen ? [
-      { text: 'RESULTADOS DE CARD SORTING', style: 'eyebrow', margin: [0, 116, 0, 12] },
-      { text: data.estudio.nombre, fontSize: 28, bold: true, lineHeight: 1.08, margin: [0, 0, 0, 14] },
+      { text: 'RESULTADOS DE CARD SORTING', style: 'eyebrow', alignment: 'center', margin: [0, 36, 0, 18] },
+      { text: data.estudio.nombre, style: 'coverTitle' },
       { text: `${data.estudio.cerrado ? 'Card sorting cerrado' : 'Card sorting abierto'} · Exportado el ${date(generatedAt)}`, color: MUTED, margin: [0, 0, 0, 14] },
       { columns: resumenEstudio(data).map(([label, value]) => ({ stack: [{ text: label.toUpperCase(), style: 'eyebrow', fontSize: 7 }, { text: value, bold: true, margin: [0, 4, 0, 0] }] })), margin: [0, 0, 0, 6] },
       ] as Content[] : []),
@@ -75,7 +74,8 @@ export function buildEstudioPdfDefinition(
         return seccion(tabla, (resumen || i > 0) && (separar || orientacionDistinta));
       }),
     ],
-    styles: { subheading: { fontSize: 14, bold: true, color: INK }, eyebrow: { fontSize: 9, bold: true, color: TEAL, characterSpacing: 1 } },
+    styles: PDF_STYLES,
+    pageBreakBefore: keepHeadingsWithContent,
   };
   return opciones.color === false ? sinColor(definition) as TDocumentDefinitions : definition;
 }

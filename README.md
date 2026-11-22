@@ -176,30 +176,44 @@ Los valores por defecto ya funcionan para desarrollo local con Docker (incluye `
 
 ### 3. Levantar todo con Docker Compose
 
-```bash
-docker compose up --build
+En una instalación nueva, inicia primero la base, los tipos compartidos y la API:
+
+```sh
+docker compose up -d --build db shared-types backend
 ```
 
-Esto, en orden: construye las imágenes de `shared-types`, `backend` y `frontend`; levanta `db` (Postgres) y espera su healthcheck; compila `shared-types` en modo watch; aplica migraciones de Prisma; y levanta el frontend con Vite. El seed no se ejecuta al reiniciar para conservar cuentas y proyectos existentes. Para crear los datos demo, ejecuta `docker compose exec backend pnpm --filter backend seed` o activa explícitamente `SEED_ON_START=true` en desarrollo. En producción nunca se ejecuta el seed automático.
+Espera a que `http://localhost:3000/api/health` devuelva `"status":"ok"`. En la primera ejecución se instalan dependencias, se aplican migraciones y se compila el backend. Luego incorpora el frontend:
+
+```sh
+docker compose up -d --wait
+docker compose ps
+```
+
+Si la API demora en responder o Compose indica `unhealthy`, consulta el [diagnóstico de primer arranque](docs/COMANDOS.md#primer-arranque-lento).
 
 Después de un `git pull` que cambie dependencias (`pnpm-lock.yaml`), basta `docker compose up`: cada servicio detecta el cambio al arrancar y reinstala solo lo suyo. Si un `node_modules` sigue inconsistente, ejecuta `docker compose down` y luego `docker compose up --build -V` para recrear los volúmenes de dependencias.
 
 - Backend: `http://localhost:3000/api` (Swagger en `/api/docs`)
 - Frontend: `http://localhost:5173`
 
-Para bajar todo (incluyendo volúmenes de datos, útil para partir de cero):
+Comprueba que el navegador abre `http://localhost:5173` y que `http://localhost:5173/api/health` devuelve `"status":"ok"`. Esta segunda dirección prueba también la conexión de Vite con la API. Si el arranque falla, revisa `docker compose logs --tail=80 backend frontend shared-types db`.
+
+Para entrar **por primera vez en una base local de demostración**, ejecuta `docker compose exec backend pnpm --filter backend seed` y utiliza una de las [cuentas de ejemplo](docs/COMANDOS.md#usuarios-de-seed-solo-desarrollo-local). El seed puede restablecer datos y cuentas demo. En los arranques siguientes basta con `docker compose up -d --wait`.
+
+Para detener los servicios y conservar tus proyectos:
 
 ```bash
-docker compose down -v
+docker compose down
 ```
 
 <details>
 <summary>Alternativa sin Docker (Node.js 24+, pnpm 10.34.5, PostgreSQL 15+ local)</summary>
 
 ```bash
-pnpm install
+pnpm install --frozen-lockfile
+pnpm build:shared
 
-# Configura apps/backend/.env con tu propia DATABASE_URL local
+# Solo en una instalación nueva: ajusta DATABASE_URL a tu PostgreSQL local
 cp apps/backend/.env.example apps/backend/.env
 
 # Genera el cliente de Prisma en apps/backend/src/generated/prisma (no se versiona;
@@ -211,8 +225,6 @@ pnpm --filter backend exec prisma migrate deploy
 
 # Datos demo (ver docs/BACKEND.md); solo en desarrollo
 pnpm --filter backend run seed
-pnpm --filter backend run seed:usuario      # usuario DOCENTE demo
-pnpm --filter backend run bootstrap:admin   # primer administrador (también en producción)
 
 # Backend (http://localhost:3000/api)
 pnpm --filter backend start:dev
@@ -292,6 +304,9 @@ Si falla, el log de cada paso está ahí mismo.
 - [`docs/CAMBIOS.md`](docs/CAMBIOS.md) — changelog granular, archivo por archivo modificado
 
 **Guías de referencia:**
+
+- [Arquitectura vigente](docs/ARCHITECTURE.md) y decisiones sobre [autenticación](docs/adr/001-autenticacion.md), [bloqueo de edición](docs/adr/002-bloqueo-pesimista.md) y [versionado de artefactos](docs/adr/003-versionado-append-only.md).
+- [Manual de usuario](docs/manual-de-usuario.md) — recorridos de estudiante, docente y administrador.
 
 - [`docs/integracion-card-sorting-momentos-criticos.md`](docs/integracion-card-sorting-momentos-criticos.md) — comparación de los PR #27/#28, unificación de Card Sorting, mejoras de Momentos Críticos y verificaciones
 - [`docs/superpowers/specs/2026-10-09-flujo-heuristica.md`](docs/superpowers/specs/2026-10-09-flujo-heuristica.md) — diseño del flujo completo de Evaluación Heurística
