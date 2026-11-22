@@ -13,6 +13,6 @@ export function RecorridoSencillo({ pasos, acciones }: { pasos: { titulo: string
       if (nuevo !== null) { e.preventDefault(); ir(nuevo); }
     }}>{p.titulo}</button>)}</div>
     {pasos.map((p, i) => <div key={p.titulo} id={`${id}-panel-${i}`} role="tabpanel" aria-labelledby={`${id}-tab-${i}`} hidden={i !== indice} className="hf-contenido"><p className="hf-ayuda">{p.ayuda}</p>{p.contenido}</div>)}
-    <div className="hf-actions hf-paso-acciones">{indice > 0 && <button type="button" className="secondary" onClick={() => ir(indice - 1)}>Anterior</button>}{indice < pasos.length - 1 ? <button type="button" className="primary" onClick={() => ir(indice + 1)}>Continuar</button> : acciones}</div>
+    <div className="hf-barra-pasos">{indice > 0 && <button type="button" className="secondary" onClick={() => ir(indice - 1)}>Anterior</button>}{indice < pasos.length - 1 ? <button type="button" className="primary" onClick={() => ir(indice + 1)}>Continuar</button> : acciones}</div>
   </section>;
 }

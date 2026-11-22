@@ -2,6 +2,12 @@
    Extraído de UX-Observatory-Presentacion.html (mockup de referencia).
    Importar UNA vez en el entrypoint (main.tsx): import './styles/theme.css'; */
 :root {
+  /* F32: escala de espacios (4/8/12/16/24 px). */
+  --espacio-1: 4px;
+  --espacio-2: 8px;
+  --espacio-3: 12px;
+  --espacio-4: 16px;
+  --espacio-5: 24px;
   --icon-size-info: 1.5rem;
   --icon-size-technique: 1.5rem;
   --icon-size-technique-card: 2rem;
@@ -431,7 +437,7 @@ button { cursor: pointer; }
   from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.content { padding: 30px 30px 48px; max-width: 1440px; margin: auto; }
+.content { padding: 20px 20px 40px; max-width: 1680px; margin: auto; }
 .page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; margin-bottom: 21px; }
 .page-head h1 { font-size: 1.6875rem; line-height: 1.05; letter-spacing: -.06em; color: var(--heading); margin: 6px 0; font-family: Georgia, serif; }
 .page-head p { font-size: 0.75rem; color: var(--muted); margin: 0; line-height: 1.5; }
@@ -2078,7 +2084,8 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .crumb { color: var(--muted); font-size: 0.75rem; }
 .crumb strong { color: var(--ink); }
 .theme-toggle { min-height: 38px; padding: 8px 11px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); color: var(--ink); font-size: 0.75rem; }
-.content { width: 100%; max-width: 1320px; padding: 36px 36px 56px; }
+/* F32 (R9): menos espacio a los costados y más ancho útil; los textos largos limitan su ancho en caracteres. */
+.content { width: 100%; max-width: 1680px; padding: 20px 20px 40px; }
 .content:has(.cs-results) { max-width: none; }
 .page-head { align-items: flex-end; gap: 28px; margin-bottom: 28px; }
 .page-head > div:first-child { max-width: 760px; }
@@ -2318,7 +2325,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 :root[data-theme='dark'] .sala-card, :root[data-theme='dark'] .salas-page { color: var(--ink); }
 @media (max-width: 1080px) {
   .app { grid-template-columns: 210px minmax(0, 1fr); }
-  .content { padding: 30px 24px 48px; }
+  .content { padding: 20px 16px 40px; }
   .admin-layout { grid-template-columns: 1fr; }
   .admin-create-panel { position: static; }
   .sala-project-linker { grid-template-columns: 1fr; }
@@ -2954,7 +2961,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .hf textarea { min-height: 76px; resize: vertical; }
 .hf fieldset { border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin: 10px 0; min-width: 0; }
 .hf legend { padding: 0 6px; font-weight: 600; }
-.hf .hf-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
+.hf .hf-actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--espacio-2); margin: var(--espacio-3) 0; }
 .hf .hf-check { display: inline-flex; gap: 8px; align-items: center; margin: 6px 12px 6px 0; }
 .hf .hf-error { color: var(--danger-text); white-space: pre-line; }
 .hf table { width: 100%; border-collapse: collapse; }
@@ -2989,7 +2996,11 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .hf .hf-paso-numero { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid var(--line); border-radius: 50%; flex-shrink: 0; }
 .hf .hf-paso-contenido { padding: 0 16px 16px; }
 .hf .hf-paso-contenido > .panel { padding: 0; border: 0; box-shadow: none; background: transparent; }
-.hf .hf-paso-acciones { justify-content: flex-end; border-top: 1px solid var(--line); padding-top: 12px; }
+/* F32 (R5): Anterior y Continuar en una línea, sin caja ni borde propio. */
+.hf .hf-barra-pasos { display: flex; align-items: center; flex-wrap: wrap; gap: var(--espacio-2); margin-top: var(--espacio-4); }
+.hf .hf-barra-pasos > :not(:first-child):last-child { margin-left: auto; }
+/* Fieldsets anidados más de dos niveles agrupan sin marco extra. */
+.hf fieldset fieldset fieldset { border: 0; padding: 0; margin-inline: 0; }
 .hf .hf-preguntas .hf-actions { justify-content: space-between; }
 .hf summary:focus-visible { outline: 2px solid var(--primary); outline-offset: -3px; }
 
@@ -3020,7 +3031,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 .hf .hf-resumen-compacto { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 10px 12px; background: var(--surface-alt); color: var(--muted); font-size: 0.8125rem; border-radius: 6px; margin: 8px 0; }
 
 /* Revisión compacta dentro del módulo existente. */
-.hf { max-width:1120px; }
+.hf { max-width:1320px; }
 .hf .hf-config-distribucion { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1fr); gap:28px; }
 .hf .hf-config-distribucion > div { min-width:0; }
 .hf .hf-config-distribucion h3 { margin:0 0 6px; font-size:1.25rem; }
@@ -3107,7 +3118,6 @@ div:has(> .project-section > .hf) > .project-heading p { margin:4px 0 0; font-si
 @media(max-width:650px) { .hf .hf-revision-distribucion > .hf-preguntas { position:static; max-height:none; overflow:visible; } .hf .hf-revision-distribucion > .hf-contenido { padding:12px 0; } }
 
 /* Acordar: barra de acciones fija, originales y decisiones en dos columnas. */
-.hf .hf-diapositivas > .hf-paso-acciones { position:sticky; bottom:0; z-index:5; margin:0; padding:10px 0; background:var(--surface); box-shadow:0 -8px 12px -10px rgba(0,0,0,.3); }
 .hf .hf-diapositivas .hf-contenido { font-size:1rem; }
 .hf .hf-aviso { margin:0 0 8px; font-weight:600; }
 .hf .hf-aviso:empty { margin:0; }
