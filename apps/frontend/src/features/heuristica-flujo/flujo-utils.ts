@@ -71,6 +71,10 @@ export function precargarDecisiones(trabajos: TrabajoFlujo[], hallazgos: Decisio
   return trabajos.flatMap(t => t.hallazgos).filter(h => !cubiertos.has(h.id)).map(h => ({ ...hallazgoVacio(h.criterioIds[0]), titulo: h.titulo, pantalla: h.pantalla, descripcion: h.descripcion, recomendacion: h.recomendacion, severidad: h.severidad, prioridad: h.prioridad, notas: h.notas, criterioIds: [...h.criterioIds], evidenciaIds: [...h.evidenciaIds], origenIds: [h.id], decision: 'PENDIENTE' as const, justificacion: '' }));
 }
 
+/** Preguntas de una sección que siguen sin responder, en el orden de la metodología. */
+export function faltantesDeGrupo(config: ConfiguracionFlujo, grupo: { criterios: CriterioFlujo[] }, respuestas: RespuestaCriterio[]): CriterioFlujo[] {
+  return grupo.criterios.filter(c => !criterioRespondido(config, c, respuestas.find(r => r.criterioId === c.id)));
+}
 /** Respondido = un valor válido, o «No aplica» sin valoración; el motivo es opcional. */
 export function criterioRespondido(config: ConfiguracionFlujo, criterio: CriterioFlujo, respuesta: RespuestaCriterio | undefined): boolean {
   if (!respuesta) return false;

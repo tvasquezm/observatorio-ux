@@ -13,8 +13,8 @@ test('guía una evaluación desde su creación hasta el informe', async ({ page 
   const barra = page.getByRole('navigation', { name: 'Preguntas de la revisión' });
   await expect(barra.getByRole('status')).toContainText('preguntas respondidas');
   const total = Number(/de (\d+) preguntas/.exec(await barra.getByRole('status').innerText())![1]);
-  await page.getByRole('button', { name: 'Entregar mi evaluación', exact: true }).click();
-  await expect(page.getByRole('alert')).toContainText('Pregunta 1: elige una respuesta');
+  // F30: la entrega solo se ofrece en la última sección.
+  await expect(page.getByRole('button', { name: 'Entregar mi evaluación', exact: true })).toHaveCount(0);
   let i = 0;
   for (;;) {
     const filas = page.getByRole('row').filter({ has: page.getByRole('radio') });

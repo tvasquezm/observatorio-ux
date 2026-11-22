@@ -54,6 +54,20 @@ beforeEach(() => { vi.resetAllMocks(); sessionStorage.clear(); confirm.mockResol
 const abrirComentario = () => userEvent.click(screen.getByRole('button', { name: /^Comentario de / }));
 
 describe('flujo individual', () => {
+  it('F30: Entregar solo aparece en la última sección y con pendientes lleva a la primera pregunta sin responder', async () => {
+    const e = evaluation(); e.configuracion.metodologia = copiarMetodologia(METODOLOGIAS_HEURISTICAS.find(m => m.id === 'nielsen10')!);
+    const criterios = e.configuracion.metodologia.criterios;
+    const secciones = [...new Set(criterios.map(c => c.categoria))];
+    renderFlow(<Harness initial={e} />);
+    expect(screen.queryByRole('button', { name: 'Entregar mi evaluación' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: new RegExp(`^Sección ${secciones.length}: `) }));
+    await userEvent.click(screen.getByRole('button', { name: 'Entregar mi evaluación' }));
+    expect(await screen.findByText(`Te llevé a: ${criterios[0].nombre}`)).toBeInTheDocument();
+    const fila = screen.getByRole('rowheader', { name: (t: string) => t.startsWith(criterios[0].nombre) }).closest('tr')!;
+    expect(fila).toHaveAttribute('data-pendiente');
+    expect(within(fila).getAllByRole('radio')[0]).toHaveFocus();
+    expect(screen.queryByRole('button', { name: 'Entregar mi evaluación' })).toBeNull();
+  });
   it('permite entregar todas las preguntas no aplicables sin motivo ni valoración', async () => {
     const e = evaluation(); e.configuracion.metodologia = copiarMetodologia(METODOLOGIAS_HEURISTICAS[0]);
     api.mockImplementation(async (_p, path, _method, body) => path.endsWith('/trabajo') ? { ...e, revision: 2, trabajos: [{ ...e.trabajos[0], respuestas: body.respuestas }] } : { ...e, revision: 3, trabajos: [{ ...e.trabajos[0], entregadoEn: e.updatedAt }] });

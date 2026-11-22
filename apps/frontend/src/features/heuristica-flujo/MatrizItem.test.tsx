@@ -10,9 +10,9 @@ import { hallazgoVacio } from './flujo-utils';
 
 const metodo = (id: string) => copiarMetodologia(METODOLOGIAS_HEURISTICAS.find(m => m.id === id)!);
 const configDe = (m: MetodologiaFlujo): ConfiguracionFlujo => ({ nombre: 'R', producto: { clave: 'p', nombre: 'P', version: '1', url: '', dispositivo: 'web' }, objetivo: '', tareas: '', pantallas: '', exclusiones: '', metodologia: m, evaluadorIds: [], lectorIds: [] });
-function Harness({ m, guardado, inicial = [], editable = true }: { m: MetodologiaFlujo; guardado?: EstadoGuardado; inicial?: RespuestaCriterio[]; editable?: boolean }) {
+function Harness({ m, guardado, inicial = [], editable = true, enfocar }: { m: MetodologiaFlujo; guardado?: EstadoGuardado; inicial?: RespuestaCriterio[]; editable?: boolean; enfocar?: { criterioId: string; marca: number } }) {
   const [rs, setRs] = useState<RespuestaCriterio[]>(inicial);
-  return <MatrizItem criterios={m.criterios} config={configDe(m)} respuestas={rs} modo="individual" editable={editable} guardado={guardado} onAddHallazgo={vi.fn()} onChange={r => setRs(p => [...p.filter(x => x.criterioId !== r.criterioId), r])} />;
+  return <MatrizItem criterios={m.criterios} config={configDe(m)} respuestas={rs} modo="individual" editable={editable} guardado={guardado} enfocar={enfocar} onAddHallazgo={vi.fn()} onChange={r => setRs(p => [...p.filter(x => x.criterioId !== r.criterioId), r])} />;
 }
 
 function ConGuardado({ m }: { m: MetodologiaFlujo }) {
@@ -27,8 +27,9 @@ async function recorrerSecciones() {
     tablas += screen.getAllByRole('table').length;
     filas += screen.getAllByRole('rowheader').length;
     titulos += screen.getAllByRole('heading', { level: 3 }).length;
-    const sig = screen.getByRole('button', { name: 'Sección siguiente' });
-    if ((sig as HTMLButtonElement).disabled) break;
+    // En la última sección «Sección siguiente» ya no aparece (F30).
+    const sig = screen.queryByRole('button', { name: 'Sección siguiente' });
+    if (!sig) break;
     await userEvent.click(sig);
   }
   return { secciones, tablas, filas, titulos };
@@ -58,7 +59,7 @@ describe('MatrizItem', () => {
     expect(screen.getAllByRole('rowheader')).toHaveLength(4);
     expect(screen.getByRole('button', { name: 'Sección anterior' })).toBeDisabled();
     expect(await recorrerSecciones()).toEqual({ secciones: 10, tablas: 10, filas: 40, titulos: 10 });
-    expect(screen.getByRole('button', { name: 'Sección siguiente' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Sección siguiente' })).toBeNull();
   });
   it('enunciado y título siempre visibles; Sección siguiente y anterior cambian de ítem', async () => {
     const m = metodo('nielsen10');
@@ -260,5 +261,59 @@ describe('MatrizItem con el formulario de problemas dentro de la fila', () => {
     render(<MatrizItem criterios={m.criterios} config={configDe(m)} respuestas={[]} modo="equipo" onChange={vi.fn()} renderProblemas={cid => <p>Formulario de {cid}</p>} />);
     expect(screen.queryByRole('button', { name: /^Agregar problema/ })).toBeNull();
     expect(screen.queryByText(/^Formulario de /)).toBeNull();
+  });
+});
+
+describe('MatrizItem: llevar a la pregunta pendiente y avisar al avanzar (F30)', () => {
+  const exacto = (nombre: string) => (texto: string) => texto === nombre || texto.startsWith(nombre);
+  const filaDe = (nombre: string) => screen.getByRole('rowheader', { name: exacto(nombre) }).closest('tr')!;
+
+  it('enfocar una pregunta de otra sección la muestra, enfoca su primera respuesta y la resalta', () => {
+    const m = metodo('nielsen10');
+    const objetivo = m.criterios.find(c => c.categoria !== m.criterios[0].categoria)!;
+    const { rerender } = render(<Harness m={m} />);
+    expect(screen.queryByRole('rowheader', { name: exacto(objetivo.nombre) })).toBeNull();
+    rerender(<Harness m={m} enfocar={{ criterioId: objetivo.id, marca: 1 }} />);
+    const fila = filaDe(objetivo.nombre);
+    expect(fila).toHaveAttribute('data-pendiente');
+    expect(within(fila).getAllByRole('radio')[0]).toHaveFocus();
+  });
+
+  it('enfocar una pregunta de la sección visible también la enfoca y repetir el pedido vuelve a resaltarla', () => {
+    const m = metodo('nielsen10');
+    const objetivo = m.criterios[2];
+    const { rerender } = render(<Harness m={m} />);
+    rerender(<Harness m={m} enfocar={{ criterioId: objetivo.id, marca: 1 }} />);
+    expect(within(filaDe(objetivo.nombre)).getAllByRole('radio')[0]).toHaveFocus();
+    (document.activeElement as HTMLElement).blur();
+    rerender(<Harness m={m} enfocar={{ criterioId: objetivo.id, marca: 2 }} />);
+    expect(within(filaDe(objetivo.nombre)).getAllByRole('radio')[0]).toHaveFocus();
+    expect(filaDe(objetivo.nombre)).toHaveAttribute('data-pendiente');
+  });
+
+  it('avanzar con preguntas sin responder avisa cuántas quedaron y «Volver a responderlas» lleva a la primera', async () => {
+    const m = metodo('nielsen10');
+    const primera = m.criterios.filter(c => c.categoria === m.criterios[0].categoria);
+    render(<Harness m={m} />);
+    await userEvent.click(within(filaDe(primera[0].nombre)).getAllByRole('radio')[0]);
+    await userEvent.click(within(filaDe(primera[1].nombre)).getAllByRole('radio')[0]);
+    await userEvent.click(screen.getByRole('button', { name: /^Sección siguiente/ }));
+    const faltan = primera.length - 2;
+    expect(screen.getByText(`Dejaste ${faltan} preguntas sin responder en ${m.criterios[0].categoria}.`)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Volver a responderlas' }));
+    const fila = filaDe(primera[2].nombre);
+    expect(fila).toHaveAttribute('data-pendiente');
+    expect(within(fila).getAllByRole('radio')[0]).toHaveFocus();
+  });
+
+  it('el aviso desaparece cuando se completan las preguntas que faltaban', async () => {
+    const m = metodo('nielsen10');
+    const primera = m.criterios.filter(c => c.categoria === m.criterios[0].categoria);
+    render(<Harness m={m} inicial={primera.slice(1).map(c => ({ criterioId: c.id, valor: null, noAplica: true, motivo: '', notas: '' }))} />);
+    await userEvent.click(screen.getByRole('button', { name: /^Sección siguiente/ }));
+    expect(screen.getByText(/^Dejaste 1 pregunta sin responder/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Volver a responderlas' }));
+    await userEvent.click(within(filaDe(primera[0].nombre)).getAllByRole('radio')[0]);
+    expect(screen.queryByText(/^Dejaste/)).toBeNull();
   });
 });

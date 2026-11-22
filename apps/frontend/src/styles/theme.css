@@ -3137,6 +3137,14 @@ div:has(> .project-section > .hf) > .project-heading p { margin:4px 0 0; font-si
 .hf .hf-segmentos [data-done] { color:var(--positive-text); border-color:var(--positive-text); }
 .hf .hf-segmentos [aria-current] { outline:2px solid var(--primary); outline-offset:1px; color:var(--primary); font-weight:700; }
 .hf .hf-segmentos button > span { position:absolute; top:0; right:3px; font-size:0.75rem; }
+/* F30: sección visitada con preguntas sin responder, pregunta a la que se llevó a la persona y aviso al avanzar. */
+.hf .hf-segmentos button > .hf-segmento-alerta { top:4px; right:4px; width:8px; height:8px; border-radius:50%; background:var(--danger-text); }
+.hf .hf-segmentos [data-alerta] { border-color:var(--danger-text); }
+.hf .hf-matriz tr[data-pendiente] > * { background:var(--primary-soft, var(--surface-alt)); }
+.hf .hf-matriz tr[data-pendiente] > th { box-shadow:inset 4px 0 0 var(--focus-ring); }
+.hf .hf-aviso-faltantes { display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; margin:0 0 12px; padding:8px 12px; border-left:4px solid var(--danger-text); background:var(--surface-alt); }
+.hf .hf-aviso-faltantes p { margin:0; }
+.hf .hf-llevado:empty { display:none; }
 .hf .hf-preguntas-barra > p[role=status] { order:2; margin:0; font-size:0.8125rem; white-space:nowrap; }
 .hf .hf-revision-distribucion > .hf-preguntas-barra > .hf-resumen-compacto { order:3; flex-direction:row; flex-wrap:wrap; align-items:center; gap:2px 12px; padding:0; background:transparent; }
 .hf .hf-revision-distribucion:has(> .hf-preguntas-barra) > .hf-contenido { padding:12px 0; }
