@@ -786,3 +786,55 @@ describe('Acuerdo: entrega con pendientes por sección', () => {
     expect(e.consenso.aprobadoPor).toEqual([]);
   });
 });
+
+describe('F31: problemas agregados por el equipo en el acuerdo', () => {
+  it('cualquiera del equipo agrega un problema con autor y fecha sin pisar el borrador de quien redacta', async () => {
+    const { service } = preparar();
+    let e = await entregarTodos(service, 2);
+    e = await service.agregarAporte('p', e.id, { hallazgo: hallazgo('aporte-1') }, usuario('e2'));
+    expect(e.consenso.aportes).toEqual([expect.objectContaining({ id: 'aporte-1', autorId: 'e2', creadoEn: expect.any(String) })]);
+    const b = decisiones(e);
+    e = await service.guardarConsenso('p', e.id, b, coordinador);
+    expect(e.consenso.aportes?.map(a => a.id)).toEqual(['aporte-1']);
+  });
+
+  it('el aporte sin decidir impide entregar el acuerdo hasta que quien redacta lo decide', async () => {
+    const { service } = preparar();
+    let e = await entregarTodos(service, 1);
+    e = await service.agregarAporte('p', e.id, { hallazgo: hallazgo('aporte-2') }, usuario('e1'));
+    e = await service.guardarConsenso('p', e.id, decisiones(e), coordinador);
+    const cuerpo = await cuerpoIncompleto(service.entregarAcuerdo('p', e.id, { revision: e.revision }, coordinador));
+    expect(cuerpo.pendientes.some(p => p.id === 'aporte-2')).toBe(true);
+    const b = decisiones(e);
+    e = await service.guardarConsenso('p', e.id, { ...b, hallazgos: [...b.hallazgos, { ...hallazgo('decision-aporte-2'), origenIds: ['aporte-2'], decision: 'ACEPTADO' as const, justificacion: 'Lo vimos todos', autorId: 'e1' }] }, coordinador);
+    e = await service.entregarAcuerdo('p', e.id, { revision: e.revision }, coordinador);
+    expect(e.consenso.hallazgos.find(h => h.origenIds.includes('aporte-2'))?.autorId).toBe('e1');
+  });
+
+  it('rechaza aportes de quien no es del equipo, problemas incompletos e identificadores repetidos', async () => {
+    const { service } = preparar();
+    const e = await entregarTodos(service, 1, true);
+    await expect(service.agregarAporte('p', e.id, { hallazgo: hallazgo('x') }, lector)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.agregarAporte('p', e.id, { hallazgo: { ...hallazgo('y'), titulo: ' ' } }, usuario('e1'))).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.agregarAporte('p', e.id, { hallazgo: hallazgo(e.trabajos[0].hallazgos[0].id) }, usuario('e1'))).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('solo quien agregó el problema lo quita, y no si ya fue incluido en el acuerdo', async () => {
+    const { service } = preparar();
+    let e = await entregarTodos(service, 2);
+    e = await service.agregarAporte('p', e.id, { hallazgo: hallazgo('aporte-3') }, usuario('e1'));
+    await expect(service.quitarAporte('p', e.id, 'aporte-3', usuario('e2'))).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.quitarAporte('p', e.id, 'no-existe', usuario('e1'))).rejects.toBeInstanceOf(NotFoundException);
+    const b = decisiones(e);
+    e = await service.guardarConsenso('p', e.id, { ...b, hallazgos: [...b.hallazgos, { ...hallazgo('d3'), origenIds: ['aporte-3'], decision: 'PENDIENTE' as const, justificacion: '' }] }, coordinador);
+    await expect(service.quitarAporte('p', e.id, 'aporte-3', usuario('e1'))).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('quien solo lee no ve los aportes', async () => {
+    const { service } = preparar();
+    let e = await entregarTodos(service, 1);
+    e = await service.agregarAporte('p', e.id, { hallazgo: hallazgo('aporte-4') }, usuario('e1'));
+    expect(filtrarEvaluacion({ ...e, fase: 'CONSOLIDADA' }, lector).consenso.aportes).toEqual([]);
+  });
+});
+

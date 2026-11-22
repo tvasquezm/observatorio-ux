@@ -6,6 +6,7 @@ import { Field } from './ConfiguracionEditor';
 import { EvidenciaEditor } from './EvidenciaEditor';
 import { MatrizItem } from './MatrizItem';
 import { RedactorPanel } from './RedactorPanel';
+import { AporteEquipo } from './AporteEquipo';
 import { HallazgoEditor, SaveStatus } from './TrabajoEditor';
 import { notify } from '../../shared/api/toast';
 import { flujoRequest } from './flujo.api';
@@ -33,7 +34,9 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
   // Si todos coinciden en una pregunta, la respuesta común queda precargada (el borrador queda sin guardar y se autoguarda).
   useEffect(() => { if (soloLectura) return; if (precargarConsenso(evaluacion.configuracion, evaluacion.trabajos, state.draft.criterios) !== state.draft.criterios) state.setDraft(prev => ({ ...prev, criterios: precargarConsenso(evaluacion.configuracion, evaluacion.trabajos, prev.criterios) })); }, [evaluacion.configuracion, evaluacion.trabajos, state.draft.criterios, soloLectura]);
   // Los problemas individuales llegan al acuerdo como decisiones pendientes (el borrador queda sin guardar y se autoguarda).
-  useEffect(() => { if (soloLectura || !precargarDecisiones(evaluacion.trabajos, state.draft.hallazgos).length) return; state.setDraft(prev => ({ ...prev, hallazgos: [...prev.hallazgos, ...precargarDecisiones(evaluacion.trabajos, prev.hallazgos)] })); }, [evaluacion.trabajos, state.draft.hallazgos, soloLectura]);
+  // Los problemas agregados por el equipo (F31) llegan igual, con su autor.
+  const aportes = evaluacion.consenso.aportes;
+  useEffect(() => { if (soloLectura || !precargarDecisiones(evaluacion.trabajos, state.draft.hallazgos, aportes).length) return; state.setDraft(prev => ({ ...prev, hallazgos: [...prev.hallazgos, ...precargarDecisiones(evaluacion.trabajos, prev.hallazgos, aportes)] })); }, [evaluacion.trabajos, aportes, state.draft.hallazgos, soloLectura]);
   const criterios = evaluacion.configuracion.metodologia.criterios;
   const acordadas = criterios.filter(c => { const r = state.draft.criterios.find(x => x.criterioId === c.id); return !!r && (r.noAplica || r.valor !== null); }).length;
   const confirmaron = evaluacion.trabajos.filter(t => evaluacion.consenso.aprobadoPor.includes(t.evaluadorId) && !state.dirty);
@@ -44,12 +47,21 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
   const pendientes = pendientesAcuerdo({ ...evaluacion, consenso: { ...evaluacion.consenso, ...state.draft } });
   const completo = pendientes.length === 0;
   const nuevos = state.draft.hallazgos.filter(h => origenHallazgo(h) === 'equipo').length;
+  /** Quién agregó cada problema (D8): el dueño del trabajo individual, quien lo aportó o quien redacta. */
+  const autoriaDe = (h: DecisionHallazgo) => {
+    const aporte = aportes?.find(a => h.origenIds.includes(a.id));
+    if (aporte) return `Agregado por ${nombreDe(aporte.autorId)} · ${fechaChile(aporte.creadoEn)}`;
+    const t = evaluacion.trabajos.find(x => x.hallazgos.some(o => h.origenIds.includes(o.id)));
+    if (t) return `Problema individual de ${t.nombre}`;
+    if (h.autorId) return `Agregado por ${nombreDe(h.autorId)}${h.creadoEn ? ` · ${fechaChile(h.creadoEn)}` : ''}`;
+    return 'Agregado por el equipo';
+  };
   const update = (h: DecisionHallazgo) => state.setDraft({ ...state.draft, hallazgos: state.draft.hallazgos.map(x => x.id === h.id ? h : x) });
   function renderDecision(h: DecisionHallazgo, i: number) {
     const esEquipo = origenHallazgo(h) === 'equipo';
     return <fieldset key={h.id} disabled={bloqueo} tabIndex={-1} ref={el => { decisiones.current[h.id] = el; }}>
       <legend>Decisión {i + 1}: {h.titulo}</legend>
-      {esEquipo ? <p><strong>Nuevo del equipo</strong>, sin hallazgo individual de origen</p> : <p>Orígenes preservados: {h.origenIds.join(', ')} · {h.origenIds.length > 1 ? 'Fusión' : 'Hallazgo individual'}</p>}
+      <p className="hf-autoria">{autoriaDe(h)}</p>
       <Field label="Decisión del consenso"><select value={h.decision} onChange={e => update({ ...h, decision: e.target.value as DecisionHallazgo['decision'] })}><option value="PENDIENTE">Pendiente</option><option value="ACEPTADO">Aceptar problema único</option><option value="DESCARTADO">Descartar conservando original</option></select></Field>
       <HallazgoEditor value={h} config={evaluacion.configuracion} onChange={x => update({ ...h, ...x })} />
       <Field label="Justificación de aceptación, fusión o descarte"><textarea value={h.justificacion} onChange={e => update({ ...h, justificacion: e.target.value })} /></Field>
@@ -57,7 +69,7 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
       {esEquipo && <button type="button" className="danger" onClick={() => {
         setAvisoEquipo('');
         state.setDraft({ ...state.draft, hallazgos: state.draft.hallazgos.filter(x => x.id !== h.id) });
-      }}>{`Quitar hallazgo nuevo del equipo ${i + 1}`}</button>}
+      }}>{`Quitar problema ${i + 1}`}</button>}
     </fieldset>;
   }
   async function action(action: 'aprobar' | 'consolidar' | 'entregar-acuerdo') {
@@ -102,15 +114,16 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
       <div className="panel-head"><h2 id="hf-problemas-equipo">Problemas que detectó el equipo</h2></div>
       <fieldset disabled={bloqueo}>
         <p role="status" className="hf-aviso">{avisoEquipo}</p>
-        <p className="hf-ayuda">Úsalo para un problema que ninguna persona anotó por separado. {nuevos} de {MAX_HALLAZGOS_NUEVOS_EQUIPO} hallazgos nuevos.</p>
+        <p className="hf-ayuda">Cualquier persona del equipo puede agregar problemas; queda registrado quién lo agregó. Quien redacta decide si cada uno entra al informe. {nuevos} de {MAX_HALLAZGOS_NUEVOS_EQUIPO} agregados por quien redacta.</p>
         {!soloLectura && <button type="button" className="secondary" disabled={busy || nuevos >= MAX_HALLAZGOS_NUEVOS_EQUIPO} onClick={() => {
-          const nueva: DecisionHallazgo = { ...hallazgoVacio(criterios[0].id), criterioIds: [], origenIds: [], decision: 'PENDIENTE', justificacion: '' };
+          const nueva: DecisionHallazgo = { ...hallazgoVacio(criterios[0].id), criterioIds: [], origenIds: [], decision: 'PENDIENTE', justificacion: '', autorId: usuarioId, creadoEn: new Date().toISOString() };
           state.setDraft({ ...state.draft, hallazgos: [...state.draft.hallazgos, nueva] });
-          setAvisoEquipo(`Hallazgo nuevo del equipo creado como decisión ${state.draft.hallazgos.length + 1}. Complétalo en esta sección.`);
+          setAvisoEquipo(`Problema creado como decisión ${state.draft.hallazgos.length + 1}. Complétalo en esta sección.`);
           setNuevaId(nueva.id);
-        }}>Agregar hallazgo nuevo del equipo</button>}
+        }}>Agregar problema</button>}
         {state.draft.hallazgos.map((h, i) => renderDecision(h, i))}
       </fieldset>
+      {soloLectura && (esExperto || usuarioId === evaluacion.coordinadorId) && <AporteEquipo evaluacion={evaluacion} usuarioId={usuarioId} nombreDe={nombreDe} onSaved={onSaved} />}
     </section>
     <details className="panel"><summary>Agregar lo que funciona bien (opcional)</summary>
       <fieldset disabled={bloqueo}><legend>Lo que funciona bien en el producto</legend>{state.draft.positivos.map((p, i) => positivosPlegados.has(p.id) ? <fieldset key={p.id}><legend>Aspecto positivo {i + 1}: {p.titulo}</legend><p role="status">Aspecto positivo guardado con éxito</p><button type="button" className="secondary" onClick={() => setPositivosPlegados(prev => { const n = new Set(prev); n.delete(p.id); return n; })}>Editar aspecto positivo {i + 1}</button><button type="button" className="danger" onClick={() => state.setDraft({ ...state.draft, positivos: state.draft.positivos.filter(x => x.id !== p.id) })}>Quitar aspecto positivo {i + 1}</button></fieldset> : <fieldset key={p.id}><legend>Aspecto positivo {i + 1}: {p.titulo || 'Sin título'}</legend>
