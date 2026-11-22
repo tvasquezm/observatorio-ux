@@ -2485,6 +2485,10 @@ input::placeholder, textarea::placeholder { color: var(--muted); }
 }
 .confirm-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .route-loading { min-height: 180px; display: grid; place-items: center; color: var(--muted); }
+.route-loading p { margin: 0; text-align: center; }
+.route-loading--pantalla { min-height: 100dvh; padding: 24px 16px; box-sizing: border-box; }
+.route-loading--error { align-content: center; gap: 12px; color: var(--ink); }
+.route-loading-acciones { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 16px; }
 .route-state { width: min(640px, calc(100% - 32px)); margin: 12vh auto; padding: 32px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
 .route-state h1 { font: 700 clamp(1.625rem, 5vw, 2.25rem)/1.15 Georgia, serif; }
 .route-state p { color: var(--muted); margin-bottom: 24px; }

@@ -87,9 +87,10 @@ export async function login(email: string, password: string): Promise<LoginRespo
  * localStorage es solo una caché optimista para no mostrar la UI vacía
  * mientras esta llamada resuelve, nunca un reemplazo de esta validación.
  */
-export async function me(): Promise<LoginResponse> {
+export async function me(signal?: AbortSignal): Promise<LoginResponse> {
   const res = await fetch(`${API_BASE}/auth/me`, {
     credentials: 'include',
+    signal,
   });
   if (!res.ok) {
     throw new AuthApiError(res.status, 'Sesión no válida.');
