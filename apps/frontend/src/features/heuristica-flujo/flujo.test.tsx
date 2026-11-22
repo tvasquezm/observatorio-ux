@@ -269,7 +269,10 @@ describe('configuración y consenso', () => {
     await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
     expect(screen.getByRole('button', { name: 'Anterior' })).toHaveClass('secondary');
     await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
-    expect(screen.getByRole('button', { name: 'Entregar acuerdo' })).toHaveClass('secondary');
+    // F33 (D7): antes de entregar, la acción principal es Entregar acuerdo; Preparar informe queda secundaria.
+    expect(screen.getByRole('button', { name: 'Entregar acuerdo' })).toHaveClass('primary');
+    expect(screen.getByRole('button', { name: 'Preparar informe' })).toHaveClass('secondary');
+    expect(screen.getAllByRole('button').filter(b => b.classList.contains('primary') && !b.closest('[hidden]'))).toHaveLength(1);
   });
   it('recarga decisiones remotas antes de aprobar desde editor limpio', async () => {
     const e = evaluation({ fase: 'PENDIENTE_CONSENSO' });

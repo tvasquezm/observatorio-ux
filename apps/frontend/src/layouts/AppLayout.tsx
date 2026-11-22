@@ -189,7 +189,7 @@ export function AppLayout() {
           <nav className="crumb" aria-label="Ubicación general"><Link to="/">Inicio</Link>{location.pathname !== '/' && <><span aria-hidden="true">›</span><strong>{crumb}</strong></>}</nav>
           <div className="top-actions">
             <FontSizeQuickAccess {...fontSizeControls} />
-            <button type="button" className="secondary" aria-haspopup="dialog" onClick={() => preferencesRef.current?.showModal()}>
+            <button type="button" className="ghost" aria-haspopup="dialog" onClick={() => preferencesRef.current?.showModal()}>
               Configuración
             </button>
             <dialog ref={preferencesRef} className="report-dialog preferences-dialog" aria-labelledby="settings-title">
@@ -230,7 +230,7 @@ export function AppLayout() {
             </dialog>
             <button
               type="button"
-              className="secondary"
+              className="ghost"
               onClick={() => setExportOpen(true)}
             >
               Exportar PDF

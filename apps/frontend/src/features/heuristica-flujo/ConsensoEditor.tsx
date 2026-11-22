@@ -46,6 +46,9 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
   const esExperto = evaluacion.configuracion.evaluadorIds.includes(usuarioId);
   const pendientes = pendientesAcuerdo({ ...evaluacion, consenso: { ...evaluacion.consenso, ...state.draft } });
   const completo = pendientes.length === 0;
+  /** F33 (D7): un solo botón principal por estado del acuerdo. */
+  const todosConfirmaron = evaluacion.configuracion.evaluadorIds.every(id => evaluacion.consenso.aprobadoPor.includes(id));
+  const yaEntregado = evaluacion.consenso.aprobadoPor.includes(redactorId) && !state.dirty;
   const nuevos = state.draft.hallazgos.filter(h => origenHallazgo(h) === 'equipo').length;
   /** Quién agregó cada problema (D8): el dueño del trabajo individual, quien lo aportó o quien redacta. */
   const autoriaDe = (h: DecisionHallazgo) => {
@@ -164,10 +167,10 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
       <ul>{evaluacion.trabajos.map(t => <li key={t.evaluadorId}>{t.nombre}: {evaluacion.consenso.aprobadoPor.includes(t.evaluadorId) && !state.dirty ? 'Confirmado' : 'Confirmación pendiente'}</li>)}</ul>
       {!!evaluacion.consenso.pedidosCambios?.length && <><h3>Cambios pedidos</h3><ul>{evaluacion.consenso.pedidosCambios.map(p => <li key={p.evaluadorId}>{nombreDe(p.evaluadorId)} pidió cambios: {p.comentario}</li>)}</ul></>}
       {!soloLectura && <p className="hf-ayuda">Al entregar el acuerdo quedas confirmado automáticamente. Los demás expertos podrán confirmarlo o pedir cambios.</p>}
-      <div className="hf-actions">{!soloLectura && <button type="button" className="secondary" disabled={busy || state.saving || !completo} onClick={() => void action('entregar-acuerdo')}>Entregar acuerdo</button>}
-      {soloLectura && esExperto && <><button type="button" className="secondary" disabled={busy || state.saving || !completo || yaConfirmo} onClick={() => void action('aprobar')}>Estoy de acuerdo</button>
+      <div className="hf-actions">{!soloLectura && <button type="button" className={!yaEntregado && !todosConfirmaron ? 'primary' : 'secondary'} disabled={busy || state.saving || !completo} onClick={() => void action('entregar-acuerdo')}>Entregar acuerdo</button>}
+      {soloLectura && esExperto && <><button type="button" className={yaConfirmo || todosConfirmaron ? 'secondary' : 'primary'} disabled={busy || state.saving || !completo || yaConfirmo} onClick={() => void action('aprobar')}>Estoy de acuerdo</button>
         <button type="button" className="secondary" disabled={busy || pidiendo} onClick={() => setPidiendo(true)}>Pido cambios</button></>}
-      {evaluacion.coordinadorId === usuarioId && <button type="button" className="primary" disabled={busy || state.saving || state.dirty || !evaluacion.configuracion.evaluadorIds.every(id => evaluacion.consenso.aprobadoPor.includes(id))} onClick={() => void action('consolidar')}>Preparar informe</button>}</div>
+      {evaluacion.coordinadorId === usuarioId && <button type="button" className={todosConfirmaron ? 'primary' : 'secondary'} disabled={busy || state.saving || state.dirty || !todosConfirmaron} onClick={() => void action('consolidar')}>Preparar informe</button>}</div>
       {soloLectura && esExperto && pidiendo && <div className="hf-pedir-cambios"><label className="field">Qué cambios pides<textarea maxLength={2000} disabled={busy} value={comentario} onChange={e => setComentario(e.target.value)} /></label>
         <div className="hf-actions"><button type="button" className="primary" disabled={busy || !comentario.trim()} onClick={() => void pedirCambios()}>Enviar pedido de cambios</button>
         <button type="button" className="ghost" disabled={busy} onClick={() => { setPidiendo(false); setComentario(''); }}>Cancelar</button></div></div>}
