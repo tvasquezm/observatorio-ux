@@ -38,7 +38,7 @@ it('exporta las partes marcadas y omite la técnica si se desmarcan todas sus pa
   await userEvent.click(dialog.getByRole('button', { name: 'Descargar PDF' }));
   await waitFor(() => expect(mocks.exportPdf).toHaveBeenCalledWith(report));
   expect(mocks.load).toHaveBeenCalledWith('p1', ['personas', 'journey', 'cards', 'heuristica'], {
-    personas: ['necesidades', 'validacion'], momentos: [],
+    personas: ['visual', 'necesidades', 'validacion'], momentos: [],
   });
 });
 
@@ -54,7 +54,7 @@ it('F39: solo una técnica abierta a la vez; Listo la pliega, deja el resumen y 
   await userEvent.click(dialog.getByRole('button', { name: 'Listo: apartados de Journey Map' }));
   expect(dialog.queryByRole('group', { name: 'Qué incluir de Journey Map' })).toBeNull();
   expect(dialog.getByRole('button', { name: 'Elegir apartados de Journey Map' })).toHaveFocus();
-  expect(dialog.getByText('2 de 3 apartados')).toBeInTheDocument();
+  expect(dialog.getByText('3 de 4 apartados')).toBeInTheDocument();
   expect(dialog.getAllByText('Todo · 3 de 3 apartados').length).toBeGreaterThan(0);
   await userEvent.click(dialog.getByRole('button', { name: 'Elegir apartados de Personas' }));
   expect(within(dialog.getByRole('group', { name: 'Qué incluir de Personas' })).getByRole('checkbox', { name: 'Perfil y descripción' })).not.toBeChecked();

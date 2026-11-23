@@ -78,7 +78,7 @@ describe('informes por técnicas', () => {
     expect(recortado).not.toContain('Entrevista del 15 de septiembre');
     expect(recortado).not.toContain('Hobbies');
 
-    const todas = await loadProjectReport('p1', ['personas'], { personas: ['perfil', 'necesidades', 'validacion'] });
+    const todas = await loadProjectReport('p1', ['personas'], { personas: ['visual', 'perfil', 'necesidades', 'validacion'] });
     expect(JSON.stringify(buildReportDefinition({ ...todas, generatedAt: report.generatedAt })))
       .toBe(JSON.stringify(buildReportDefinition(report)));
   });
