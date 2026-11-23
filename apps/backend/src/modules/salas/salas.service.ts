@@ -371,16 +371,18 @@ export class SalasService {
 
   /**
    * Borrado físico definitivo, exclusivo ADMIN (ver Roles en el
-   * controller). Requiere confirmación exacta `"DELETE"`. Borra en
-   * cascada, en orden de dependencia real (la FK real es RESTRICT en
-   * casi toda la cadena, así que no hay cascada automática de Postgres).
+   * controller). El cliente debe repetir el nombre exacto de la sala en
+   * `confirm`; primero se comprueba el permiso (403/404 sin filtrar el
+   * nombre) y solo después se compara. Borra en cascada, en orden de
+   * dependencia real (la FK real es RESTRICT en casi toda la cadena, así
+   * que no hay cascada automática de Postgres).
    */
   async hardDelete(salaId: string, dto: ConfirmHardDeleteDto, user: AuthenticatedUser) {
-    if (dto.confirm !== 'DELETE') {
-      throw new BadRequestException('Debes escribir "DELETE" para confirmar el borrado definitivo.');
-    }
-
     const sala = await this.assertOwnerOrAdmin(salaId, user, { allowDeleted: true });
+
+    if (dto.confirm.normalize('NFC').trim() !== sala.nombre.normalize('NFC').trim()) {
+      throw new BadRequestException('El nombre no coincide.');
+    }
 
     const proyectos = await this.prisma.proyecto.findMany({
       where: { salaId },
@@ -408,9 +410,6 @@ export class SalasService {
         where: { proyectoId: { in: proyectoIds } },
       }),
       this.prisma.uxArtifact.deleteMany({
-        where: { proyectoId: { in: proyectoIds } },
-      }),
-      this.prisma.participanteWhitelist.deleteMany({
         where: { proyectoId: { in: proyectoIds } },
       }),
       this.prisma.proyectoMiembro.deleteMany({

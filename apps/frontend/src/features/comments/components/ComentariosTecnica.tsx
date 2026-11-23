@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { TECNICAS_COMENTARIO } from '@observatorio-ux/shared-types';
 import { ComentariosPanel } from './ComentariosPanel';
+import { Icon } from '../../../shared/components/ui/Icon';
 
 interface ComentariosTecnicaProps {
   proyectoId: string;
@@ -15,7 +16,7 @@ export function ComentariosTecnica({ proyectoId, tecnica }: ComentariosTecnicaPr
 
   return (
     <details className="comments-technique" onToggle={(event) => { if (event.currentTarget.open) setIniciado(true); }}>
-      <summary>Comentarios de {etiqueta}</summary>
+      <summary className="secondary" title={`Comentarios de ${etiqueta}`}><Icon name="comentarios" /> Comentarios</summary>
       {iniciado && (
         <>
           <ComentariosPanel proyectoId={proyectoId} filtro={tecnica} publicarEn={tecnica} />

@@ -103,6 +103,23 @@ beforeEach(() => {
 });
 
 describe('Momentos críticos', () => {
+  it('recupera una edición con su versión original y vuelve a adquirir su permiso', async () => {
+    state.list.mockReturnValue([momento]);
+    const first = renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+    await waitFor(() => expect(state.acquire).toHaveBeenCalledWith('a1'));
+    fireEvent.change(screen.getByLabelText('Nombre del perfil de usuario'), { target: { value: 'Ana en borrador' } });
+    fireEvent(window, new Event('observatorio-ux-flush-drafts'));
+    first.unmount();
+    state.list.mockReturnValue([{ ...momento, id: 'a2', version: 4 }]);
+    renderPage();
+    expect(screen.getByLabelText('Nombre del perfil de usuario')).toHaveValue('Ana en borrador');
+    expect(state.acquire).toHaveBeenLastCalledWith('a1');
+    siguiente(4);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Actualizar momento crítico' })).not.toBeDisabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Actualizar momento crítico' }));
+    expect(state.update).toHaveBeenCalledWith(expect.objectContaining({ artefactoId: 'a1', expectedVersion: 3 }), expect.any(Object));
+  });
   it('valida todos los campos con el mismo contrato que la API y conserva el borrador', () => {
     abrirNuevo();
     llenarPerfil();

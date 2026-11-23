@@ -13,6 +13,12 @@ function Editor() {
   return <ConfiguracionEditor value={value} onChange={setValue} biblioteca={METODOLOGIAS_HEURISTICAS} equipo={[{ id: 'yo', nombre: 'Ana', rol: 'ESTUDIANTE' }]} />;
 }
 describe('configuración breve para estudiantes', () => {
+  it('marca el identificador generado como opcional y requiere el nombre del producto', () => {
+    render(<Editor />);
+    expect(screen.getByLabelText('Identificador del producto (opcional)')).toBeInTheDocument();
+    expect(screen.getByLabelText('Producto o sitio')).toBeRequired();
+    expect(screen.queryByLabelText('Producto o sitio (opcional)')).toBeNull();
+  });
   it('ofrece seleccionar una metodología, sin creación por pasos ni personalización', () => {
     render(<Editor />);
     expect(screen.getByLabelText('Producto o sitio')).toBeInTheDocument();

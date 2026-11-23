@@ -14,7 +14,7 @@ interface Props {
 export function CardSortingTypePicker({ value, onChange }: Props) {
   return (
     <fieldset className="cs-type-picker">
-      <legend>Tipo de estudio</legend>
+      <legend>Tipo de card sorting</legend>
       <div className="cs-type-options">
         {OPTIONS.map((option) => (
           <label key={option.value} className={`cs-type-option${value === option.value ? ' selected' : ''}`}>

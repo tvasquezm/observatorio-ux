@@ -103,6 +103,12 @@ jobs:
       - name: Tests del backend
         run: pnpm --filter backend test
 
+      - name: Build del backend
+        run: pnpm --filter backend build
+
+      - name: Verificar renovación y revocación de sesión
+        run: node apps/backend/scripts/check-session-refresh.mjs
+
       - name: Tests del frontend
         run: pnpm --filter frontend test
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAccounts, useUpdateUserRole } from '../hooks/useUsersQueries';
+import { useAccounts, useSetCuentaActiva, useUpdateUserRole } from '../hooks/useUsersQueries';
 import type { EvaluatorRole } from '../../auth/api/auth.api';
 import { useAuthStore } from '../../auth/store/useAuthStore';
 import { useConfirm } from '../../../shared/api/confirm';
@@ -15,6 +15,11 @@ export function UserAccountsPanel() {
   const confirm = useConfirm();
   const { data: accounts, isLoading, isError, error, refetch } = useAccounts();
   const updateRole = useUpdateUserRole();
+  const cuentaActiva = useSetCuentaActiva();
+  async function handleActiva(id: string, nombre: string, activa: boolean) {
+    const ok = await confirm(activa ? `¿Reactivar la cuenta de "${nombre}"?` : `¿Desactivar la cuenta de "${nombre}"? No podrá ingresar; sus datos se conservan.`);
+    if (ok) cuentaActiva.mutate({ id, activa });
+  }
   const [search, setSearch] = useState('');
   const [role, setRole] = useState('');
   const query = search.trim().toLocaleLowerCase('es');
@@ -64,7 +69,7 @@ export function UserAccountsPanel() {
           <table className="data-table admin-table">
             <caption className="sr-only">Cuentas registradas y sus roles</caption>
             <thead>
-              <tr><th>Persona</th><th>Correo</th><th>Rol</th><th>Registro</th></tr>
+              <tr><th>Persona</th><th>Correo</th><th>Rol</th><th>Registro</th><th>Estado</th></tr>
             </thead>
             <tbody>
               {filtered.map((account) => {
@@ -97,6 +102,12 @@ export function UserAccountsPanel() {
                       </select>
                     </td>
                     <td>{new Date(account.createdAt).toLocaleDateString('es-CL')}</td>
+                    <td>
+                      <span className="badge">{account.desactivadoEn ? 'Desactivada' : account.enlazadaGoogle ? 'Activa · Google' : 'Activa'}</span>{' '}
+                      {!isCurrentAccount && (account.desactivadoEn
+                        ? <button type="button" className="link-btn link-btn--edit" disabled={cuentaActiva.isPending} onClick={() => void handleActiva(account.id, account.nombre, true)}>Reactivar{' '}<span className="sr-only">a {account.nombre}</span></button>
+                        : <button type="button" className="link-btn link-btn--delete" disabled={cuentaActiva.isPending} onClick={() => void handleActiva(account.id, account.nombre, false)}>Desactivar{' '}<span className="sr-only">a {account.nombre}</span></button>)}
+                    </td>
                   </tr>
                 );
               })}

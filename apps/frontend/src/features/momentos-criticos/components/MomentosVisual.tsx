@@ -1,3 +1,5 @@
+import { TECNICAS_INFO } from '../../../shared/content/tecnicas-info';
+import { InfoTip } from '../../../shared/components/ui/InfoTip';
 import type { IncidenteCritico } from '../api/momentos-criticos.api';
 import {
   calorCelda,
@@ -88,6 +90,7 @@ export function MatrizLeyenda() {
 export function MomentosMatrix({ incidentes }: { incidentes: IncidenteConPerfil[] }) {
   return (
     <div className="matrix-wrap">
+      <InfoTip label="Ayuda: momentos-criticos" visibleLabel="¿Cómo leer esto?" align="start">{TECNICAS_INFO['momentos-criticos'].ayudaGraficos.matriz}</InfoTip>
       <MatrizLeyenda />
       <table className="mc-matrix tv-matrix">
         <caption>Impacto y frecuencia de los incidentes filtrados</caption>

@@ -38,7 +38,7 @@ beforeEach(() => {
 
 describe('ComentariosPanel', () => {
   function plegarComentarios(abierto: boolean) {
-    const details = screen.getByText('Comentarios de Personas').closest('details') as HTMLDetailsElement;
+    const details = screen.getByText('Comentarios').closest('details') as HTMLDetailsElement;
     details.open = abierto;
     fireEvent(details, new Event('toggle'));
   }

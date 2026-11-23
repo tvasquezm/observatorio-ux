@@ -1,4 +1,4 @@
-import { useAuthStore } from '../../features/auth/store/useAuthStore';
+import { handleSessionExpired } from '../auth/session-expired';
 import { csrfHeaders } from './csrf';
 import { notify } from './toast';
 
@@ -57,7 +57,7 @@ export async function evaluatorRequest<T>(
   }
 
   if (response.status === 401) {
-    useAuthStore.getState().logout();
+    handleSessionExpired();
     notify.error('Tu sesión expiró. Vuelve a iniciar sesión.');
     throw createError(401, 'Sesión expirada.');
   }
@@ -88,7 +88,7 @@ export async function evaluatorBlob(
     throw createError(0, 'No se pudo conectar con el servidor.');
   }
   if (response.status === 401) {
-    useAuthStore.getState().logout();
+    handleSessionExpired();
     notify.error('Tu sesión expiró. Vuelve a iniciar sesión.');
     throw createError(401, 'Sesión expirada.');
   }

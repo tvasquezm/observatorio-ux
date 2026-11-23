@@ -42,9 +42,37 @@ export class UsersService {
 
   async listAccounts() {
     return this.prisma.usuario.findMany({
-      select: { id: true, nombre: true, email: true, rol: true, createdAt: true },
+      select: { id: true, nombre: true, email: true, rol: true, createdAt: true, desactivadoEn: true, googleSubject: true },
       orderBy: [{ rol: 'asc' }, { nombre: 'asc' }],
-    });
+    }).then(cuentas => cuentas.map(({ googleSubject, ...c }) => ({ ...c, enlazadaGoogle: !!googleSubject })));
+  }
+
+  /** F35: desactivar no borra datos; cierra las sesiones abiertas y bloquea nuevos ingresos. */
+  async desactivar(id: string, actor: AuthenticatedUser) {
+    if (id === actor.id) throw new BadRequestException('No puedes desactivar tu propia cuenta.');
+    const usuario = await this.prisma.usuario.findUnique({ where: { id } });
+    if (!usuario) throw new NotFoundException('Usuario no encontrado.');
+    if (usuario.desactivadoEn) return this.cuenta(id);
+    if (usuario.rol === 'ADMIN') {
+      const otros = await this.prisma.usuario.count({ where: { rol: 'ADMIN', desactivadoEn: null, id: { not: id } } });
+      if (!otros) throw new ConflictException('Debe quedar al menos una cuenta de administración activa.');
+    }
+    await this.prisma.usuario.update({ where: { id }, data: { desactivadoEn: new Date(), sesionVersion: { increment: 1 } } });
+    this.auth.invalidateUser(id);
+    return this.cuenta(id);
+  }
+
+  async reactivar(id: string) {
+    const usuario = await this.prisma.usuario.findUnique({ where: { id } });
+    if (!usuario) throw new NotFoundException('Usuario no encontrado.');
+    await this.prisma.usuario.update({ where: { id }, data: { desactivadoEn: null } });
+    this.auth.invalidateUser(id);
+    return this.cuenta(id);
+  }
+
+  private async cuenta(id: string) {
+    const { googleSubject, ...c } = await this.prisma.usuario.findUniqueOrThrow({ where: { id }, select: { id: true, nombre: true, email: true, rol: true, createdAt: true, desactivadoEn: true, googleSubject: true } });
+    return { ...c, enlazadaGoogle: !!googleSubject };
   }
 
   async updateRole(id: string, dto: UpdateUserRoleDto, actor: AuthenticatedUser) {

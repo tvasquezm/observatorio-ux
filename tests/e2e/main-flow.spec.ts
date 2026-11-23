@@ -13,7 +13,7 @@ test('clasifica y consulta resultados sin confundir evaluador y participante', a
   await page.goto(`/proyectos/${STUDENT_PROJECT_ID}/card-sorting`);
   await page.getByRole('button', { name: '+ Nuevo Card Sorting', exact: true }).click();
   const nombre = `Card Sorting E2E ${testInfo.project.name}`;
-  await page.getByLabel('Nombre del estudio', { exact: true }).fill(nombre);
+  await page.getByLabel('Nombre del card sorting', { exact: true }).fill(nombre);
   await page.getByRole('button', { name: 'Siguiente', exact: true }).click();
   await page.getByLabel('Pegar lista de tarjetas', { exact: true }).fill('Biblioteca\nCalendario\nAsignaturas');
   await page.getByRole('button', { name: 'Agregar 3 tarjetas', exact: true }).click();

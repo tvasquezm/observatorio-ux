@@ -5,7 +5,6 @@
 // otro token ('participanteToken') y otro endpoint de reanudación.
 
 import { csrfHeaders } from '../../../shared/api/csrf';
-import { evaluatorRequest } from '../../../shared/api/evaluator-client';
 import type {
   EvaluatorRole,
   EvaluatorUser,
@@ -14,16 +13,11 @@ import type {
 
 export type { EvaluatorRole, EvaluatorUser, LoginResponse };
 
-export function changePassword(currentPassword: string, newPassword: string): Promise<{ ok: true }> {
-  return evaluatorRequest('/auth/password', {
-    method: 'POST',
-    body: JSON.stringify({ currentPassword, newPassword }),
-  });
-}
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
 
-export type GoogleLoginConfig = { enabled: false } | { enabled: true; clientId: string; nonce: string };
+/** F35: passwordLogin indica si el servidor acepta todavía el ingreso con contraseña (apagado en producción). */
+export type GoogleLoginConfig = ({ enabled: false } | { enabled: true; clientId: string; nonce: string }) & { passwordLogin?: boolean };
 
 export async function getGoogleLoginConfig(): Promise<GoogleLoginConfig> {
   const response = await fetch(`${API_BASE}/auth/google/config`, { credentials: 'include', cache: 'no-store' });
@@ -87,9 +81,10 @@ export async function login(email: string, password: string): Promise<LoginRespo
  * localStorage es solo una caché optimista para no mostrar la UI vacía
  * mientras esta llamada resuelve, nunca un reemplazo de esta validación.
  */
-export async function me(): Promise<LoginResponse> {
+export async function me(signal?: AbortSignal): Promise<LoginResponse> {
   const res = await fetch(`${API_BASE}/auth/me`, {
     credentials: 'include',
+    signal,
   });
   if (!res.ok) {
     throw new AuthApiError(res.status, 'Sesión no válida.');

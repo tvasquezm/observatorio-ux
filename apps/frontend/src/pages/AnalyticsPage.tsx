@@ -2,10 +2,9 @@
 //
 // Analítica agregada del proyecto. A diferencia del mockup de referencia,
 // NO incluye SUS score ni NPS: esas métricas no existen en el modelo de
-// datos (no hay ninguna sesión de encuesta que las produzca). Lo que se
-// muestra acá sale de las evaluaciones heurísticas del flujo nuevo
-// (GET /projects/:id/evaluacion-heuristica/evaluaciones): solo cuentan los
-// problemas acordados de la versión más reciente de cada evaluación.
+// datos. Reúne lo importante de las cinco técnicas (personas, journey maps,
+// momentos críticos, card sorting y evaluación heurística); de la heurística
+// solo cuentan los problemas acordados de la versión más reciente.
 
 import { useOutletContext } from 'react-router-dom';
 import type { ProjectOutletContext } from '../layouts/ProjectDetailLayout';
@@ -14,6 +13,7 @@ import { usePersonas } from '../features/persona/hooks/usePersonaQueries';
 import { useJourneys } from '../features/journey-map/hooks/useJourneyMapQueries';
 import { useCriticalMoments } from '../features/momentos-criticos/hooks/useMomentosCriticosQueries';
 import { useCardSortingEstudiosByProyecto } from '../features/card-sorting/hooks/useCardSortingQueries';
+import { PanelCalidadHeuristica, PanelPendientes, PanelPrioridad, PanelTecnicas, useEvaluacionesProyecto } from '../features/analitica-proyecto/AnaliticaDecision';
 
 const SEVERIDAD_LABEL: Record<number, string> = {
   0: 'No es un problema',
@@ -37,6 +37,8 @@ export function AnalyticsPage() {
   const journeysQuery = useJourneys(proyectoId);
   const momentsQuery = useCriticalMoments(proyectoId);
   const cardSortingQuery = useCardSortingEstudiosByProyecto(proyectoId);
+  const evaluacionesQuery = useEvaluacionesProyecto(proyectoId);
+  const evaluaciones = evaluacionesQuery.data ?? [];
   const isLoadingAll = isLoading || personasQuery.isLoading || journeysQuery.isLoading || momentsQuery.isLoading || cardSortingQuery.isLoading;
   const aggregateError = error ?? personasQuery.error ?? journeysQuery.error ?? momentsQuery.error ?? cardSortingQuery.error;
 
@@ -60,7 +62,7 @@ export function AnalyticsPage() {
         <div>
           <span className="kicker">LECTURA TRANSVERSAL</span>
           <h2>Analítica general</h2>
-          <p>Lectura conjunta de artefactos, estudios, participantes y hallazgos registrados en este proyecto.</p>
+          <p>Lectura conjunta de artefactos, card sorting, participantes y hallazgos registrados en este proyecto.</p>
         </div>
       </div>
 
@@ -83,7 +85,7 @@ export function AnalyticsPage() {
             <article className="analytics-kpi">
               <span>RESPUESTAS CARD SORTING</span>
               <strong>{participantResponses}</strong>
-              <small>{cardSortingQuery.data?.length ?? 0} estudios creados</small>
+              <small>{cardSortingQuery.data?.length ?? 0} card sorting creados</small>
             </article>
             <article className="analytics-kpi">
               <span>HALLAZGOS HEURÍSTICOS</span>
@@ -91,6 +93,18 @@ export function AnalyticsPage() {
               <small>{(data.porSeveridad[3]?.count ?? 0) + (data.porSeveridad[4]?.count ?? 0)} de prioridad alta</small>
             </article>
           </section>
+          <PanelTecnicas proyectoId={proyectoId} datos={{
+            personas: personasQuery.data ?? [], journeys: journeysQuery.data ?? [], momentos: momentsQuery.data ?? [],
+            estudios: cardSortingQuery.data ?? [], evaluaciones,
+          }} />
+          <PanelPendientes proyectoId={proyectoId} datos={{
+            personas: personasQuery.data?.length ?? 0, journeys: journeysQuery.data?.length ?? 0, momentos: momentsQuery.data?.length ?? 0,
+            estudios: cardSortingQuery.data ?? [], evaluaciones,
+          }} />
+          <div className="analitica-decision">
+            <PanelPrioridad evaluaciones={evaluaciones} />
+            <PanelCalidadHeuristica evaluaciones={evaluaciones} />
+          </div>
 
           <article className="panel analytics-coverage">
             <div className="panel-head">

@@ -47,13 +47,13 @@ export function ConfiguracionEditor({ value, onChange, biblioteca, equipo, accio
       <details><summary>Personas que solo verán el informe (opcional)</summary>{equipo.map(u => <label key={u.id} className="hf-check"><input type="checkbox" aria-label={`Lector: ${u.nombre}`} checked={value.lectorIds.includes(u.id)} onChange={e => set({ lectorIds: e.target.checked ? [...value.lectorIds, u.id] : value.lectorIds.filter(id => id !== u.id) })} />{u.nombre}</label>)}</details>
     </details>
     <details><summary>Agregar contexto (opcional)</summary><div className="hf-grid">
-      <Field label="Nombre de la revisión (opcional)"><input maxLength={160} value={value.nombre} onChange={e => set({ nombre: e.target.value })} /></Field>
-      <Field label="URL (opcional)"><CampoUrl maxLength={1000} value={p.url} onChange={url => set({ producto: { ...p, url } })} /></Field>
-      <Field label="Objetivo (opcional)"><textarea maxLength={6000} value={value.objetivo} onChange={e => set({ objetivo: e.target.value })} /></Field>
-      <Field label="Pantallas incluidas (opcional)"><textarea maxLength={6000} value={value.pantallas} onChange={e => set({ pantallas: e.target.value })} /></Field>
+      <Field label="Nombre de la revisión" optional><input maxLength={160} value={value.nombre} onChange={e => set({ nombre: e.target.value })} /></Field>
+      <Field label="URL" optional><CampoUrl maxLength={1000} value={p.url} onChange={url => set({ producto: { ...p, url } })} /></Field>
+      <Field label="Objetivo" optional><textarea maxLength={6000} value={value.objetivo} onChange={e => set({ objetivo: e.target.value })} /></Field>
+      <Field label="Pantallas incluidas" optional><textarea maxLength={6000} value={value.pantallas} onChange={e => set({ pantallas: e.target.value })} /></Field>
     </div><details><summary>Otros datos del producto (opcional)</summary><div className="hf-grid">
-      {(['version', 'dispositivo', 'clave'] as const).map((k, i) => <Field key={k} label={['Versión (opcional)', 'Dispositivo (opcional)', 'Identificador del producto'][i]}><input maxLength={160} value={p[k]} onChange={e => set({ producto: { ...p, [k]: e.target.value } })} /></Field>)}
-      {(['tareas', 'exclusiones'] as const).map((k, i) => <Field key={k} label={['Tareas (opcional)', 'Exclusiones (opcional)'][i]}><textarea maxLength={6000} value={value[k]} onChange={e => set({ [k]: e.target.value })} /></Field>)}
+      {(['version', 'dispositivo', 'clave'] as const).map((k, i) => <Field key={k} label={['Versión', 'Dispositivo', 'Identificador del producto'][i]} optional><input maxLength={160} value={p[k]} onChange={e => set({ producto: { ...p, [k]: e.target.value } })} /></Field>)}
+      {(['tareas', 'exclusiones'] as const).map((k, i) => <Field key={k} label={['Tareas', 'Exclusiones'][i]} optional><textarea maxLength={6000} value={value[k]} onChange={e => set({ [k]: e.target.value })} /></Field>)}
     </div></details></details>
     </div><aside className="hf-config-vista" aria-label="Vista previa de la revisión"><p className="hf-ayuda">Así se responde</p><h3>Una tabla por ítem</h3><p>Elige una respuesta en cada fila. Si la pregunta no corresponde, marca «No aplica».</p>{value.metodologia.criterios[0] && <div><strong>{value.metodologia.criterios[0].nombre}</strong><div className="hf-niveles-previos">{escalaDe(value.metodologia, value.metodologia.criterios[0]).niveles.map(n => <span key={n.id}>{n.etiqueta}</span>)}<span>No aplica</span></div></div>}<p className="hf-ayuda">{value.metodologia.criterios.length} preguntas listas para revisar</p></aside></div>
     {acciones && <div className="hf-barra">{acciones}</div>}

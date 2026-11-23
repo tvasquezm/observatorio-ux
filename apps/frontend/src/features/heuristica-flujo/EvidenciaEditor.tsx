@@ -9,7 +9,8 @@ import { Icon } from '../../shared/components/ui/Icon';
 import { comprimirImagen } from '../../shared/utils/comprimir-imagen';
 import { cargarEvidencia, guardarAnotaciones, subirEvidenciaFlujo } from './evidencia.api';
 import { normalizarTipoEvidencia, validarImagenEvidencia } from './evidencia-validar';
-import { FLECHAS, Marca, Tiradores, ajustarConTeclado, avanzarGesto, iniciarGesto, puntoEnSvg, terminarGesto } from './anotaciones-interaccion';
+import { FLECHAS, Marca, NumerosMarcas, Tiradores, ajustarConTeclado, avanzarGesto, iniciarGesto, puntoEnSvg, terminarGesto } from './anotaciones-interaccion';
+import { autoriaCaptura } from './flujo-utils';
 import type { Gesto } from './anotaciones-interaccion';
 
 interface Props {
@@ -65,11 +66,12 @@ function VisorAmpliado({ url, anotaciones, conMarcas, onClose, edicion }: { url:
         <div className="evidencia-visor-imagen">
           <img src={url} alt="Captura de evidencia ampliada" />
           {conMarcas && (edicion
-            ? <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-label="Anotaciones de la captura ampliada" {...edicion.gestos} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', touchAction: 'none', cursor: 'crosshair' }}>
+            ? <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-label="Anotaciones de la captura ampliada" {...edicion.gestos} className="evidencia-capa evidencia-capa-edicion">
               {anotaciones.map(a => <Marca key={a.id} anotacion={a} />)}{edicion.preview && <Marca anotacion={edicion.preview} />}
               {edicion.seleccionada && <Tiradores anotacion={edicion.seleccionada} />}
             </svg>
-            : <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>{anotaciones.map(a => <Marca key={a.id} anotacion={a} />)}</svg>)}
+            : <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true" className="evidencia-capa">{anotaciones.map(a => <Marca key={a.id} anotacion={a} />)}</svg>)}
+          {conMarcas && <NumerosMarcas anotaciones={anotaciones} interactivo={!edicion} />}
         </div>
       </div>
     </div>,
@@ -86,7 +88,7 @@ function Lienzo({ proyectoId, evaluacionId, meta, blob, editable, onPendingChang
   const [revision, setRevision] = useState(meta.revision);
   const [historial, setHistorial] = useState<AnotacionEvidencia[][]>([]);
   const [forma, setForma] = useState<Forma>('rectangulo');
-  const [color, setColor] = useState('#d83232');
+  const [color, setColor] = useState(() => getComputedStyle(document.documentElement).getPropertyValue('--annotation').trim());
   const [resaltada, setResaltada] = useState<string | null>(null);
   const [original, setOriginal] = useState(false);
   const [guardando, setGuardando] = useState(false);
@@ -151,11 +153,29 @@ function Lienzo({ proyectoId, evaluacionId, meta, blob, editable, onPendingChang
   /** Cerrar el visor no descarta nada: si quedan cambios sin guardar, el editor lo avisa. */
   function cerrarVisor() { setAmpliada(false); if (dirty) setEstado('Cerraste la captura ampliada con anotaciones pendientes de guardar.'); }
   function deshacer() { setAnotaciones(historial[historial.length - 1]); setHistorial(h => h.slice(0, -1)); setEstado(''); }
-  async function guardar() {
+  async function guardar(): Promise<boolean> {
     setGuardando(true); setError('');
-    try { const nuevaMeta = await guardarAnotaciones(proyectoId, evaluacionId, meta.id, anotaciones, revision); qc.setQueryData(['flujo-evidencia', proyectoId, evaluacionId, meta.id, userId], { meta: nuevaMeta, blob }); setGuardadas(JSON.stringify(anotaciones)); setRevision(nuevaMeta.revision); setEstado('Anotaciones guardadas.'); }
-    catch (e) { setError(mensaje(e)); } finally { setGuardando(false); }
+    const enviadas = anotaciones;
+    try { const nuevaMeta = await guardarAnotaciones(proyectoId, evaluacionId, meta.id, enviadas, revision); qc.setQueryData(['flujo-evidencia', proyectoId, evaluacionId, meta.id, userId], { meta: nuevaMeta, blob }); setGuardadas(JSON.stringify(enviadas)); setRevision(nuevaMeta.revision); ultimo.current = { ...ultimo.current, revision: nuevaMeta.revision }; setEstado('Anotaciones guardadas.'); return true; }
+    catch (e) { setError(mensaje(e)); return false; } finally { setGuardando(false); }
   }
+  // Guardado automático: las marcas se guardan solas al dejar de dibujar, como el resto del formulario.
+  // Si el editor se cierra (por ejemplo, al plegar el problema) con marcas pendientes, se guardan igual.
+  const fallido = useRef<string | null>(null);
+  const ultimo = useRef({ anotaciones, revision, dirty, editable });
+  ultimo.current = { anotaciones, revision, dirty, editable };
+  useEffect(() => {
+    if (!editable || !dirty || guardando || fallido.current === JSON.stringify(anotaciones)) return;
+    const t = setTimeout(() => { void guardar().then(ok => { fallido.current = ok ? null : JSON.stringify(ultimo.current.anotaciones); }); }, 1000);
+    return () => clearTimeout(t);
+  }, [anotaciones, dirty, guardando, editable]);
+  useEffect(() => () => {
+    const u = ultimo.current;
+    if (!u.editable || !u.dirty) return;
+    void guardarAnotaciones(proyectoId, evaluacionId, meta.id, u.anotaciones, u.revision)
+      .then(nuevaMeta => qc.setQueryData(['flujo-evidencia', proyectoId, evaluacionId, meta.id, userId], { meta: nuevaMeta, blob }))
+      .catch(() => {});
+  }, []);
   async function recuperar() {
     if (!window.confirm('Se reemplazarán tus anotaciones pendientes por las guardadas. ¿Continuar?')) return;
     setGuardando(true);
@@ -172,17 +192,19 @@ function Lienzo({ proyectoId, evaluacionId, meta, blob, editable, onPendingChang
       </div>
     </>}
     <div className="evidencia-original"><label><input type="checkbox" checked={original} onChange={e => setOriginal(e.target.checked)} aria-describedby="evidencia-original-ayuda" /> Mostrar imagen original</label><span id="evidencia-original-ayuda" className="text-muted-xs">Oculta las marcas para ver la captura sin anotar</span></div>
-    <div style={{ position: 'relative', width: '100%', maxWidth: 720, marginBlock: 12 }}>
-      <img src={url} alt="Captura de evidencia" style={{ display: 'block', width: '100%', height: 'auto', cursor: 'zoom-in' }} onClick={() => setAmpliada(true)} />
+    <div className="evidencia-captura">
+      <img src={url} alt="Captura de evidencia" onClick={() => setAmpliada(true)} />
       <button type="button" className="evidencia-accion evidencia-ampliar" aria-label="Ampliar captura" title="Ver en grande" onClick={() => setAmpliada(true)}><Icon name="zoom-in" size={20} /></button>
-      {!original && <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-label="Vista de las anotaciones" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', touchAction: editable ? 'none' : 'auto', cursor: editable ? 'crosshair' : 'zoom-in' }}
+      {!original && <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-label="Vista de las anotaciones" className={editable ? 'evidencia-capa evidencia-capa-edicion' : 'evidencia-capa evidencia-capa-vista'}
         onClick={() => { if (!editable) setAmpliada(true); }}
         {...gestos(() => setAmpliada(true))}>
         {visibles.map(a => <Marca key={a.id} anotacion={a} resaltada={a.id === resaltada} />)}{preview && <Marca anotacion={preview} />}
         {seleccionada && <Tiradores anotacion={seleccionada} />}
       </svg>}
+      {!original && <NumerosMarcas anotaciones={visibles} interactivo={!editable} resaltada={resaltada} onResaltar={setResaltada} />}
     </div>
-    <ol className="evidencia-lista" aria-label="Anotaciones de la captura">{anotaciones.map((a, i) => <li key={a.id} className="evidencia-tarjeta" tabIndex={0} aria-label={`Anotación ${i + 1}`}
+    <p className="evidencia-autoria">{autoriaCaptura(meta)}</p>
+    {anotaciones.length > 0 && <ol className={`evidencia-lista${editable ? ' evidencia-lista--edicion' : ''}`} aria-label="Anotaciones de la captura">{anotaciones.map((a, i) => <li key={a.id} className={`evidencia-tarjeta${resaltada === a.id ? ' activa' : ''}`} tabIndex={0} aria-label={`Anotación ${i + 1}`}
       onMouseEnter={() => setResaltada(a.id)} onMouseLeave={() => setResaltada(null)} onFocus={() => { setResaltada(a.id); if (editable && a.tipo !== 'texto') setSeleccion(a.id); }}
       onKeyDown={e => {
         const d = FLECHAS[e.key];
@@ -192,14 +214,15 @@ function Lienzo({ proyectoId, evaluacionId, meta, blob, editable, onPendingChang
         if (JSON.stringify(nueva) !== JSON.stringify(a)) cambiar(anotaciones.map(n => n.id === a.id ? nueva : n));
       }}
       onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setResaltada(null); }}>
-      <span className="evidencia-muestra" style={{ background: a.color }} aria-hidden="true" />
-      {(!editable || a.tipo === 'texto' || a.texto) && <span className="evidencia-nombre">{TIPOS[a.tipo]}{a.texto && `: ${a.texto}`}</span>}
+      <span className="evidencia-indice" style={{ ['--marca' as string]: a.color }} aria-hidden="true">{i + 1}</span>
+      {(!editable || a.tipo === 'texto') && <span className="evidencia-nombre">{a.texto.trim() || TIPOS[a.tipo]}</span>}
       {editable && a.tipo !== 'texto' && <>
         <select className="input-sm" aria-label={`Forma de la anotación ${i + 1}`} value={a.tipo} disabled={guardando} onChange={e => modificar(a.id, { tipo: e.target.value as Forma })}>{FORMAS.map(f => <option key={f} value={f}>{TIPOS[f]}</option>)}</select>
         <input type="color" className="evidencia-color" aria-label={`Color de la anotación ${i + 1}`} value={a.color} disabled={guardando} onChange={e => modificar(a.id, { color: e.target.value })} />
+        <input className="input-sm evidencia-nota-input" aria-label={`Nota de la anotación ${i + 1}`} placeholder="Nota: qué muestra esta marca (opcional)" maxLength={300} value={a.texto} disabled={guardando} onChange={e => modificar(a.id, { texto: e.target.value })} />
       </>}
       {editable && <button type="button" className="evidencia-accion evidencia-accion--danger" disabled={guardando} aria-label={`Eliminar anotación ${i + 1}`} title="Eliminar anotación" onClick={() => cambiar(anotaciones.filter(n => n.id !== a.id))}><Icon name="trash" size={20} /></button>}
-    </li>)}</ol>
+    </li>)}</ol>}
     {error && <p role="alert">{error}{editable && <button type="button" className="text-button" disabled={guardando} onClick={() => void recuperar()}>Recuperar anotaciones guardadas</button>}</p>}<p role="status">{estado || (dirty ? 'Anotaciones pendientes de guardar.' : '')}</p>
     {ampliada && url && <VisorAmpliado url={url} anotaciones={visibles} conMarcas={!original} onClose={cerrarVisor}
       edicion={editable ? {

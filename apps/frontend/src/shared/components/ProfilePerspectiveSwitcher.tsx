@@ -25,6 +25,7 @@ export function ProfilePerspectiveSwitcher({
   activeRole,
   onChange,
 }: ProfilePerspectiveSwitcherProps) {
+  const bloqueadas = PERSPECTIVE_ROLES.filter((role) => !canUsePerspective(accountRole, role)).map((role) => PERSPECTIVE_LABELS[role]);
   return (
     <div className="perspective-switcher">
       <span className="perspective-status" aria-live="polite">
@@ -56,6 +57,11 @@ export function ProfilePerspectiveSwitcher({
           );
         })}
       </div>
+      {bloqueadas.length > 0 && (
+        <p className="perspective-note">
+          {bloqueadas.length === 1 ? `La vista ${bloqueadas[0]} solo` : `Las vistas ${bloqueadas.join(' y ')} solo`} está{bloqueadas.length === 1 ? '' : 'n'} disponible{bloqueadas.length === 1 ? '' : 's'} para cuentas con ese rol.
+        </p>
+      )}
     </div>
   );
 }

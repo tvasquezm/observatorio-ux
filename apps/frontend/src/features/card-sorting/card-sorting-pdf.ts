@@ -8,6 +8,27 @@ import {
   nombreArchivo, resumenEstudio, tablaDeVista, tablaSinConsenso, type TablaVista, type VistaExportable,
 } from './card-sorting-export';
 
+export interface OpcionesEstudioPdf {
+  resumen?: boolean;
+  color?: boolean;
+  separarSecciones?: boolean;
+}
+
+function sinColor(value: unknown, key = ''): unknown {
+  if (typeof value === 'function') return (...args: unknown[]) => sinColor(value(...args), key);
+  if (Array.isArray(value)) return value.map(item => sinColor(item));
+  if (value && typeof value === 'object') return Object.fromEntries(
+    Object.entries(value).map(([property, child]) => [property, sinColor(child, property)]),
+  );
+  if (['color', 'fillColor', 'lineColor', 'background', 'hLineColor', 'vLineColor'].includes(key)
+    && typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value)) {
+    const [r, g, b] = value.slice(1).match(/../g)!.map(c => parseInt(c, 16));
+    const gray = Math.round(r * .299 + g * .587 + b * .114).toString(16).padStart(2, '0');
+    return `#${gray.repeat(3)}`;
+  }
+  return value;
+}
+
 function seccion(tabla: TablaVista, saltar: boolean): Content[] {
   return [
     { text: 'VISTA', style: 'eyebrow', ...(saltar ? { pageBreak: 'before' as const } : {}), pageOrientation: tabla.ancha ? ('landscape' as const) : ('portrait' as const), margin: [0, saltar ? 10 : 18, 0, 8] },
@@ -23,35 +44,52 @@ export function buildEstudioPdfDefinition(
   alcance: string,
   generatedAt: Date,
   brand?: ReportBrand,
+  opciones: OpcionesEstudioPdf = {},
 ): TDocumentDefinitions {
-  return {
+  const resumen = opciones.resumen !== false;
+  const marca = opciones.color === false ? undefined : brand;
+  const chrome = brandChrome(marca, alcance, generatedAt);
+  if (!resumen) {
+    chrome.background = undefined;
+    const header = chrome.header;
+    if (typeof header === 'function') chrome.header = (page, count, size) => header(page + 1, count, size);
+  }
+  const definition: TDocumentDefinitions = {
     info: { title: `Card sorting · ${data.estudio.nombre}`, subject: tablas.map((t) => t.titulo).join(', '), creator: 'UXLab Observatorio' },
-    pageSize: 'A4', pageMargins: PDF_PAGE_MARGINS,
+    pageSize: 'A4', pageOrientation: !resumen && tablas[0]?.ancha ? 'landscape' : 'portrait', pageMargins: PDF_PAGE_MARGINS,
     defaultStyle: PDF_DEFAULT_STYLE,
-    images: brand ? { brandLogo: brand.logo, brandLogoWhite: brand.logoWhite } : {},
-    ...brandChrome(brand, alcance, generatedAt),
+    images: marca ? { brandLogo: marca.logo, brandLogoWhite: marca.logoWhite } : {},
+    ...chrome,
     content: [
+      ...(resumen ? [
       { text: 'RESULTADOS DE CARD SORTING', style: 'eyebrow', alignment: 'center', margin: [0, 36, 0, 18] },
       { text: data.estudio.nombre, style: 'coverTitle' },
-      { text: `${data.estudio.cerrado ? 'Estudio cerrado' : 'Estudio abierto'} · Exportado el ${date(generatedAt)}`, color: MUTED, margin: [0, 0, 0, 14] },
+      { text: `${data.estudio.cerrado ? 'Card sorting cerrado' : 'Card sorting abierto'} · Exportado el ${date(generatedAt)}`, color: MUTED, margin: [0, 0, 0, 14] },
       { columns: resumenEstudio(data).map(([label, value]) => ({ stack: [{ text: label.toUpperCase(), style: 'eyebrow', fontSize: 7 }, { text: value, bold: true, margin: [0, 4, 0, 0] }] })), margin: [0, 0, 0, 6] },
-      ...tablas.flatMap((tabla, i) => seccion(tabla, tablas.length > 1 || Boolean(tabla.ancha) ? true : i > 0)),
+      ] as Content[] : []),
+      ...tablas.flatMap((tabla, i) => {
+        const separar = opciones.separarSecciones ?? (tablas.length > 1 || Boolean(tabla.ancha) || i > 0);
+        // Cambiar de orientación requiere una página nueva aunque no se separen las secciones.
+        const orientacionDistinta = Boolean(tabla.ancha) !== (i > 0 && Boolean(tablas[i - 1].ancha));
+        return seccion(tabla, (resumen || i > 0) && (separar || orientacionDistinta));
+      }),
     ],
     styles: PDF_STYLES,
     pageBreakBefore: keepHeadingsWithContent,
   };
+  return opciones.color === false ? sinColor(definition) as TDocumentDefinitions : definition;
 }
 
 export { precargarPdf as precargarEstudioPdf } from '../../shared/utils/pdf';
 
-export async function exportarEstudioPdf(data: CardSortingAnalytics, vistas: VistaExportable[], alcance: 'vista' | 'todas'): Promise<void> {
+export async function exportarEstudioPdf(data: CardSortingAnalytics, vistas: VistaExportable[], alcance: 'vista' | 'todas' | 'seleccion', opciones: OpcionesEstudioPdf = {}): Promise<void> {
   const { pdfMake, brand } = await cargarPdfMake();
   const tablas = vistas.flatMap((vista) => {
     const tabla = tablaDeVista(vista, data);
     const sinConsenso = vista === 'cards' ? tablaSinConsenso(data) : null;
     return sinConsenso ? [tabla, sinConsenso] : [tabla];
   });
-  const etiqueta = alcance === 'todas' ? 'todas-las-vistas' : vistas[0];
+  const etiqueta = alcance === 'seleccion' ? 'seleccion-de-resultados' : alcance === 'todas' ? 'todas-las-vistas' : vistas[0] ?? 'resumen';
   const ahora = new Date();
-  await pdfMake.createPdf(buildEstudioPdfDefinition(data, tablas, alcance === 'todas' ? 'TODAS LAS VISTAS' : tablas[0].titulo.toUpperCase(), ahora, brand)).download(nombreArchivo(data.estudio.nombre, etiqueta, 'pdf'));
+  await pdfMake.createPdf(buildEstudioPdfDefinition(data, tablas, alcance === 'seleccion' ? 'RESULTADOS SELECCIONADOS' : alcance === 'todas' ? 'TODAS LAS VISTAS' : (tablas[0]?.titulo ?? 'Resumen').toUpperCase(), ahora, brand, opciones)).download(nombreArchivo(data.estudio.nombre, etiqueta, 'pdf'));
 }

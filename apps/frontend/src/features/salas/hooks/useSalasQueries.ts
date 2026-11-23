@@ -55,6 +55,7 @@ export function useUpdateSala(salaId: string) {
     mutationFn: (data: UpdateSalaDto) => updateSala(salaId, data),
     onSuccess: (sala) => {
       qc.setQueryData(salasKeys.detail(salaId), sala);
+      qc.invalidateQueries({ queryKey: salasKeys.all });
       notify.success('Sala actualizada.');
     },
     onError: (err) => {
@@ -97,7 +98,7 @@ export function useRestoreSala() {
 export function useHardDeleteSala() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (salaId: string) => hardDeleteSala(salaId),
+    mutationFn: ({ salaId, nombre }: { salaId: string; nombre: string }) => hardDeleteSala(salaId, nombre),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: salasKeys.eliminadas });
       notify.success('Sala eliminada definitivamente.');

@@ -10,7 +10,7 @@ export interface SeccionProyecto {
   group: string;
   icon: IconName;
   end?: boolean;
-  requires?: 'analitica' | 'participantes';
+  requires?: 'analitica';
 }
 
 export const SECCIONES_PROYECTO: SeccionProyecto[] = [
@@ -23,7 +23,6 @@ export const SECCIONES_PROYECTO: SeccionProyecto[] = [
   { to: 'comentarios', label: 'Comentarios', group: 'Proyecto', icon: 'comentarios' },
   { to: 'analitica', label: 'Analítica', group: 'Proyecto', icon: 'analitica', requires: 'analitica' },
   { to: 'miembros', label: 'Miembros', group: 'Proyecto', icon: 'miembros' },
-  { to: 'participantes', label: 'Participantes', group: 'Proyecto', icon: 'participantes', requires: 'participantes' },
 ];
 
 export function agruparSecciones<T extends { group: string }>(items: T[]) {

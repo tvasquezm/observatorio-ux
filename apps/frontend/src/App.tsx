@@ -22,7 +22,6 @@ const EvaluacionHeuristicaPage = lazy(() => import('./pages/EvaluacionHeuristica
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage').then((m) => ({ default: m.AnalyticsPage })));
 const ProjectMembersPage = lazy(() => import('./pages/ProjectMembersPage').then((m) => ({ default: m.ProjectMembersPage })));
 const ProjectCommentsPage = lazy(() => import('./pages/ProjectCommentsPage').then((m) => ({ default: m.ProjectCommentsPage })));
-const ProjectParticipantsPage = lazy(() => import('./pages/ProjectParticipantsPage').then((m) => ({ default: m.ProjectParticipantsPage })));
 const ProfesorSalasPage = lazy(() => import('./features/salas/pages/ProfesorSalasPage').then((m) => ({ default: m.ProfesorSalasPage })));
 const SalaDetallePage = lazy(() => import('./features/salas/pages/SalaDetallePage').then((m) => ({ default: m.SalaDetallePage })));
 const SalasEliminadasPage = lazy(() => import('./features/salas/pages/SalasEliminadasPage').then((m) => ({ default: m.SalasEliminadasPage })));
@@ -73,7 +72,6 @@ export default function App() {
               <Route path="analitica" element={<AnalyticsPage />} />
             </Route>
             <Route path="miembros" element={<ProjectMembersPage />} />
-            <Route path="participantes" element={<ProjectParticipantsPage />} />
           </Route>
         </Route>
       </Route>

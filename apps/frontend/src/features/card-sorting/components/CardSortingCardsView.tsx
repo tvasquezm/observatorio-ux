@@ -88,7 +88,7 @@ export function CardSortingCardsView({ data, foco, onCategoria }: Props) {
           onChange={(event) => setTexto(event.target.value)}
         />
         <select aria-label="Ordenar tarjetas" value={orden} onChange={(event) => setOrden(event.target.value as OrdenTarjetas)}>
-          <option value="estudio">Orden del estudio</option>
+          <option value="estudio">Orden del card sorting</option>
           <option value="menor">Menor consenso primero</option>
           <option value="mayor">Mayor consenso primero</option>
           <option value="nombre">Nombre (A–Z)</option>

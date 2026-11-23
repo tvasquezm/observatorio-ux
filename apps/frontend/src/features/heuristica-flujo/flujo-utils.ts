@@ -1,5 +1,5 @@
 import { acuerdoDifiere, escalaDe, normalizarUrlProducto, redactorDe } from '@observatorio-ux/shared-types';
-import type { ConfiguracionFlujo, CriterioFlujo, CumplimientoGrupo, DecisionCriterio, EscalaFlujo, HallazgoFlujo, InformeFlujo, RespuestaCriterio, TrabajoFlujo } from '@observatorio-ux/shared-types';
+import type { AporteEquipo, ConfiguracionFlujo, EvidenciaFlujo, CriterioFlujo, CumplimientoGrupo, DecisionCriterio, DecisionHallazgo, EscalaFlujo, HallazgoFlujo, InformeFlujo, RespuestaCriterio, TrabajoFlujo } from '@observatorio-ux/shared-types';
 
 export function pendientesTrabajo(config: ConfiguracionFlujo, respuestas: RespuestaCriterio[], hallazgos: HallazgoFlujo[]) {
   const pendientes = config.metodologia.criterios.flatMap((c, i) => {
@@ -65,6 +65,17 @@ export function guardarSesion(clave: string, valor: string | null): void { try {
 export const respuestaVacia = (criterioId: string): RespuestaCriterio => ({ criterioId, valor: null, noAplica: false, motivo: '', notas: '' });
 export const hallazgoVacio = (criterioId: string): HallazgoFlujo => ({ id: crypto.randomUUID(), criterioIds: [criterioId], titulo: '', pantalla: '', descripcion: '', recomendacion: '', severidad: 2, prioridad: 'MEDIA', notas: '', evidenciaIds: [] });
 
+/** Cada problema individual o agregado por el equipo (F31) sin decisión pasa al acuerdo como una decisión pendiente; no toca las existentes. Los agregados conservan su autor y fecha. */
+export function precargarDecisiones(trabajos: TrabajoFlujo[], hallazgos: DecisionHallazgo[], aportes: AporteEquipo[] = []): DecisionHallazgo[] {
+  const cubiertos = new Set(hallazgos.flatMap(h => h.origenIds));
+  const origenes: Array<HallazgoFlujo & { autorId?: string; creadoEn?: string }> = [...trabajos.flatMap(t => t.hallazgos), ...aportes];
+  return origenes.filter(h => !cubiertos.has(h.id)).map(h => ({ ...hallazgoVacio(h.criterioIds[0]), titulo: h.titulo, pantalla: h.pantalla, descripcion: h.descripcion, recomendacion: h.recomendacion, severidad: h.severidad, prioridad: h.prioridad, notas: h.notas, criterioIds: [...h.criterioIds], evidenciaIds: [...h.evidenciaIds], origenIds: [h.id], decision: 'PENDIENTE' as const, justificacion: '', ...(h.autorId ? { autorId: h.autorId, creadoEn: h.creadoEn } : {}) }));
+}
+
+/** Preguntas de una sección que siguen sin responder, en el orden de la metodología. */
+export function faltantesDeGrupo(config: ConfiguracionFlujo, grupo: { criterios: CriterioFlujo[] }, respuestas: RespuestaCriterio[]): CriterioFlujo[] {
+  return grupo.criterios.filter(c => !criterioRespondido(config, c, respuestas.find(r => r.criterioId === c.id)));
+}
 /** Respondido = un valor válido, o «No aplica» sin valoración; el motivo es opcional. */
 export function criterioRespondido(config: ConfiguracionFlujo, criterio: CriterioFlujo, respuesta: RespuestaCriterio | undefined): boolean {
   if (!respuesta) return false;
@@ -107,4 +118,17 @@ export function precargarConsenso(config: ConfiguracionFlujo, trabajos: TrabajoF
   if (!nuevos.length) return criterios;
   const ids = new Set(nuevos.map(n => n.criterioId));
   return [...criterios.filter(x => !ids.has(x.criterioId)), ...nuevos];
+}
+
+/** Pie de una captura: quién la subió (solo su autor puede anotarla) y cuándo guardó sus marcas. */
+export function autoriaCaptura(meta: Pick<EvidenciaFlujo, 'autorNombre' | 'anotaciones' | 'anotadoEn' | 'createdAt'>): string {
+  const autor = meta.autorNombre?.trim() || 'autor no registrado';
+  if (meta.anotaciones.length && meta.anotadoEn) return `Captura y marcas de ${autor} · anotada el ${fechaChile(meta.anotadoEn)}`;
+  if (meta.anotaciones.length) return `Captura y marcas de ${autor} · subida el ${fechaChile(meta.createdAt)}`;
+  return `Captura de ${autor} · subida el ${fechaChile(meta.createdAt)}`;
+}
+
+/** Notas de las marcas numeradas, para el pie de la captura en el PDF ("1. … · 3. …"). */
+export function notasCaptura(anotaciones: EvidenciaFlujo['anotaciones']): string {
+  return anotaciones.map((a, i) => a.tipo !== 'texto' && a.texto.trim() ? `${i + 1}. ${a.texto.trim()}` : '').filter(Boolean).join(' · ');
 }

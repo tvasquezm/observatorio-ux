@@ -114,7 +114,7 @@ function DocentesList() {
   const { mutate: eliminar, isPending: eliminando } = useRemoveDocente();
 
   async function handleEliminar(id: string, nombre: string) {
-    if (await confirm(`¿Eliminar al docente "${nombre}"?`)) eliminar(id);
+    if (await confirm(`¿Eliminar al docente "${nombre}"?`, { requireText: nombre })) eliminar(id);
   }
 
   if (isLoading) return <div className="loading-block" aria-label="Cargando docentes" />;

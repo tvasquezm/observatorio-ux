@@ -13,8 +13,8 @@ test('guía una evaluación desde su creación hasta el informe', async ({ page 
   const barra = page.getByRole('navigation', { name: 'Preguntas de la revisión' });
   await expect(barra.getByRole('status')).toContainText('preguntas respondidas');
   const total = Number(/de (\d+) preguntas/.exec(await barra.getByRole('status').innerText())![1]);
-  await page.getByRole('button', { name: 'Entregar mi evaluación', exact: true }).click();
-  await expect(page.getByRole('alert')).toContainText('Pregunta 1: elige una respuesta');
+  // F30: la entrega solo se ofrece en la última sección.
+  await expect(page.getByRole('button', { name: 'Entregar mi evaluación', exact: true })).toHaveCount(0);
   let i = 0;
   for (;;) {
     const filas = page.getByRole('row').filter({ has: page.getByRole('radio') });
@@ -25,11 +25,8 @@ test('guía una evaluación desde su creación hasta el informe', async ({ page 
         await fila.getByRole('radio', { name: 'No aplica', exact: true }).check();
         await expect(page.getByRole('textbox', { name: 'Motivo de no aplica', exact: true })).toHaveCount(0);
       } else await fila.getByRole('radio').first().check();
-      if (i === 1) {
-        await fila.getByRole('button', { name: /^Agregar problema/ }).click();
-        await page.getByRole('textbox', { name: 'Título del problema', exact: true }).fill('El menú es confuso');
-        await page.getByRole('textbox', { name: 'Descripción del problema', exact: true }).fill('Las opciones no explican a qué sección llevan.');
-      }
+      // F31: la evaluación individual ya no registra problemas.
+      if (i === 1) await expect(fila.getByRole('button', { name: /^Agregar problema/ })).toHaveCount(0);
     }
     const siguiente = page.getByRole('button', { name: 'Sección siguiente', exact: true });
     if (await siguiente.count() === 0 || await siguiente.isDisabled()) break;
@@ -46,9 +43,13 @@ test('guía una evaluación desde su creación hasta el informe', async ({ page 
   await expect(page.getByText('Las respuestas individuales coinciden en todas las preguntas.', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Ver todo', exact: true }).click();
   await expect(page.getByRole('row').filter({ has: page.getByRole('radio') })).toHaveCount(total);
-  await page.getByRole('tab', { name: 'Revisar los problemas', exact: true }).click();
-  await page.getByRole('checkbox', { name: /El menú es confuso/ }).check();
-  await page.getByRole('button', { name: 'Crear decisión de los originales seleccionados', exact: true }).click();
+  await page.getByRole('tab', { name: 'Preparar el informe', exact: true }).click();
+  // F31: los problemas se agregan en el acuerdo, con su autor.
+  const problemas = page.getByRole('region', { name: 'Problemas que detectó el equipo' });
+  await problemas.getByRole('button', { name: 'Agregar problema', exact: true }).click();
+  await expect(problemas.getByText(/^Agregado por /)).toBeVisible();
+  await problemas.getByRole('textbox', { name: 'Título del problema', exact: true }).fill('El menú es confuso');
+  await problemas.getByRole('textbox', { name: 'Descripción del problema', exact: true }).fill('Las opciones no explican a qué sección llevan.');
   await page.getByLabel('Decisión del consenso').selectOption('ACEPTADO');
   await page.getByLabel('Justificación de aceptación, fusión o descarte', { exact: true }).fill('El equipo lo comprobó al navegar.');
   await page.getByRole('tab', { name: 'Preparar el informe', exact: true }).click();

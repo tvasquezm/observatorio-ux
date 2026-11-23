@@ -111,3 +111,64 @@
 ## Siguiente paso sugerido
 - Correr los comandos de arriba y confirmar 0 errores + tests en verde.
 - Definir si se avanza a Fase 6 (Dashboard sala del estudiante) o Fase 7 (Módulo Admin).
+
+## 2026-11-12 — Plan de usabilidad: F1
+- Hecho: anillo en rem y Preferencias sin recorte de controles; base y pruebas verdes.
+- Archivos: AnilloAvance(.test).tsx, theme.css, CHANGELOG.md, docs/fases/FASE_F1_CIERRE.md y evidencia.
+- Decisiones: base Hallazgos-prueba-de-usabilidad; modo express excluido por el usuario; SVG mantiene unidades de viewBox.
+- Pendiente: solapamiento de pestañas en resultados 375/huge, revisión con API real. Ver cierre F1.
+
+## 2026-11-12 — Plan de usabilidad: F9
+- Hecho: contraste, iconos, áreas clicables y estados con texto; 723 pruebas verdes y build.
+- Archivos: theme.css, InfoTip(.test).tsx, CardSortingChips(.test).tsx, cierre/evidencias F9.
+- Decisiones: se modifican variables efectivas sin limpiar duplicados; se conserva el área ampliada por pseudo-elemento de Faltan N fases.
+- Pendiente: pestañas de resultados 375/Huge; validación humana con datos reales.
+
+## 2026-11-12 — Plan de usabilidad: F2
+- Hecho: creación vinculada desde sala, selector obligatorio, jerarquía, menú y terminología; 730 pruebas frontend y 25 del servicio de proyectos, ambos builds verdes.
+- Archivos: componentes/projects, ProjectsPage, SalaDetallePage, layout, DashboardPage, textos y tests; cierre/evidencias F2.
+- Decisiones: backend compatible; formulario de creación se conserva al cambiar de pestaña; onboarding del evaluador en inicio.
+- Pendiente: comprobación humana de permisos con API real antes de producción.
+
+## 2026-11-12 — Plan de usabilidad: F3a/F3b
+- Hecho: insignias, Miembros, Comentarios, etiquetas opcionales e ingreso masivo; 734 pruebas y build verdes.
+- Archivos: componentes de salas/comentarios, layout, OptionalTag, formularios, CardSortingEntry y pruebas; cierre/evidencias F3.
+- Decisiones: no relajar campos requeridos; conservar patrones opcionales ya válidos; separar F3a y F3b por tamaño.
+- Pendiente: comprobación humana con personas no técnicas y API real.
+
+## 2026-11-12 — Plan de usabilidad: F4
+- Hecho: fuente única de ayuda, cinco PDF de explicación, ayudas en gráficos y exportación configurable; 755 pruebas y build verdes.
+- Archivos: shared/content, TechniqueHelp, técnica-pdf, vistas de gráficos, diálogo/generador de resultados y pruebas; cierre/evidencias F4.
+- Decisiones: modal nativo porque resultados no tenía uno; PDF fijo; copia de listas para evitar mutación por pdfmake; otros exportadores conservados.
+- Pendiente: revisión humana de textos. Ocho PDF de muestra descargados y 14 páginas renderizadas; Normal y Huge idénticos al renderizar.
+
+## 2026-11-12 — Plan de usabilidad: F5
+- Hecho: estado guardado/error, caché de salas, protección de formularios y diagnóstico; 765 pruebas frontend y 26 del servicio de salas, ambos builds verdes.
+- Archivos: páginas/hooks/API de salas, SalaProjectCreate, CardSortingPage/Entry, DTO/tests de salas y documentos de cierre/evidencia.
+- Decisiones: un bloqueo de router por sala; se conserva control de permisos del servidor; null retira el límite ya nullable.
+- Pendiente: validar diagnóstico con registros reales; renovación y vencimiento se mantienen para F8/F10.
+
+## 2026-11-12 — Plan de usabilidad: F6
+- Informe con clasificación compartida en pantalla y PDF; acceso Abrir informe. Sin modo express por instrucción del usuario.
+- Validación sin cambios: respuestas negativas sin notas válidas; consenso discordante mantiene justificación. 67 pruebas de servicio, 114 de informe/flujo y ambos builds verdes.
+
+## 2026-11-12 — Plan de usabilidad: F8
+- Renovación con sesión máxima 12h, ventana 10m y TTL original 1h; cookie httpOnly, CSRF y throttling conservados. Sin cambio a participantes ni DB.
+- Verificado: 56 tests auth/config; build backend; check-session-refresh.mjs real sobre Nest/Passport/Throttler con identidad en memoria.
+- Decisión: prueba HTTP fuera de Jest por incompatibilidad CJS/ESM de throttler con Nest 12 en Jest. Pendiente revisión humana antes de producción.
+
+## 2026-11-12 — Plan de usabilidad: F10 y revisión final
+- Actividad, renovación, diálogo, returnTo y borradores; se conservan id/versión y locks de ediciones.
+- Ruling: backend informa refreshAt fuera de ventana — TTL 3m ajusta ventana a 1m; un intento temprano no debe consumir la renovación — coste: campo aditivo opcional en respuesta refresh.
+- Ruling: diálogo permite Volver a mi trabajo/Escape y deja aviso — es necesario poder Guardar al llegar al límite absoluto.
+- Revisión fresca única de toda la rama: dos hallazgos anteriores corregidos con pruebas. Sin hallazgos adicionales confirmados.
+- Verificación final: 781 pruebas frontend/83 archivos, 389 backend/26 suites, ambos builds y script HTTP real verdes. Chromium simulado: aviso, retorno y borrador; sin confirmaciones duplicadas. F6 claro/oscuro y F10 móvil Huge capturados.
+
+## 2026-11-12 — Plan de usabilidad: F7
+- Tabla presentada y aprobada expresamente por el usuario antes del recorte. Aplicadas propuestas, conservadas etiquetas acordadas y reglas del consentimiento/consenso.
+- Auditoría y protocolo en docs; ejecución con personas reales pendiente. El modo express continúa excluido por instrucción del usuario.
+
+## 2026-11-12 — Cierre de CI del PR #80
+- La auditoría remota detectó una alerta alta heredada en Joi 18.2.9 (GHSA-4528-x5fx-h6hg). Actualizada solo Joi a 18.3.1 y su integridad en el lock; descartadas resoluciones incidentales de otras dependencias.
+- pnpm install --offline --frozen-lockfile y pnpm audit --audit-level high pasan; permanecen 5 alertas moderadas y 2 bajas preexistentes. Backend completo 389 pruebas, build y script HTTP verdes después de actualizar.
+- Selector de E2E actualizado a Nombre del card sorting, etiqueta aprobada de F2; sin cambio de flujo ni API.

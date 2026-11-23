@@ -6,7 +6,7 @@ import { CardSortingTypePicker } from './CardSortingTypePicker';
 describe('CardSortingTypePicker', () => {
   it('ofrece los 3 tipos como grupo de radios y marca el activo', () => {
     render(<CardSortingTypePicker value="CERRADO" onChange={() => {}} />);
-    expect(screen.getByRole('group', { name: 'Tipo de estudio' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Tipo de card sorting' })).toBeInTheDocument();
     expect(screen.getAllByRole('radio')).toHaveLength(3);
     expect(screen.getByRole('radio', { name: /Cerrado/ })).toBeChecked();
   });

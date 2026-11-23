@@ -1,3 +1,4 @@
+import { useUnsavedChanges } from '../shared/hooks/useUnsavedChanges';
 import { useState } from 'react';
 import { CreateCardSortingSessionPayloadSchema } from '@observatorio-ux/shared-types';
 import { useNavigate, useOutletContext } from 'react-router-dom';
@@ -6,7 +7,7 @@ import {
   useCreateCardSortingSession,
 } from '../features/card-sorting/hooks/useCardSortingQueries';
 import type { TipoCardSorting } from '../features/card-sorting/api/card-sorting.api';
-import { CardSortingGuide } from '../features/card-sorting/components/CardSortingGuide';
+import type { InstructionList } from '../shared/components/TechniqueInstructions';
 import {
   AVISO_ETIQUETA,
   MAX_CATEGORIA,
@@ -34,6 +35,35 @@ import { TechniqueListHead, TechniqueEmpty } from '../shared/components/Techniqu
 import { Icon } from '../shared/components/ui/Icon';
 import { PasosTecnica, type PasoTecnica } from '../shared/components/PasosTecnica';
 import { TechniqueProcess, type ProcessStep } from '../shared/components/TechniqueProcess';
+
+// Instrucciones aprobadas por el usuario (F2): 6 pasos, con la línea "En la
+// herramienta:" y la indicación de la tarjeta que podría ir en varios lugares.
+const INSTRUCCIONES_CARD_SORTING: InstructionList = [
+  {
+    texto: 'Arma una lista con las secciones principales y subsecciones que componen tu proyecto.',
+    enLaHerramienta: 'es el trabajo previo a crear el card sorting.',
+  },
+  {
+    texto: 'Usa un usuario real. Puede participar de forma individual o en grupo de 3 personas.',
+    enLaHerramienta: 'comparte el enlace del card sorting. Para un grupo de 3, invita a las 3 personas por separado: cada una hace su propia clasificación y cuenta como un participante. No hay sesión conjunta.',
+  },
+  {
+    texto: 'Una tarjeta por módulo o concepto, en el lenguaje de tus usuarios.',
+    enLaHerramienta: 'campo "Tarjetas", una por línea.',
+  },
+  {
+    texto: 'Cada usuario recibe las tarjetas y las agrupa, jerarquiza y nombra como le parezca más apropiado. Si una tarjeta podría ir en varios lugares, elige la mejor opción y colócala ahí.',
+    enLaHerramienta: 'prueba el workspace antes de compartir. En card sorting abiertos o híbridos el participante puede jerarquizar en 2 niveles (una categoría dentro de otra); en cerrados solo usa las categorías dadas.',
+  },
+  {
+    texto: 'Registra cuántas veces una tarjeta aparece relacionada con una categoría y, cuando el participante envía, la ubicación final de cada tarjeta. Pregunta al participante para entender sus decisiones.',
+    enLaHerramienta: 'resultados → "Matriz de resultados", "Ubicaciones populares", "Respuestas", "Tarjetas" y "Categorías" (con el detalle de subcategorías). Las analíticas cuentan la categoría de nivel 1.',
+  },
+  {
+    texto: 'Una regla es considerar las tarjetas que aparecieron en una misma categoría más del 50% de las veces. Es el umbral por defecto: puedes escribir otro porcentaje en "Umbral de consenso" al revisar los resultados.',
+    enLaHerramienta: 'resultados → "Agrupaciones dominantes" y "Sin consenso".',
+  },
+];
 
 const TYPE_HINTS: Record<TipoCardSorting, string> = {
   ABIERTO: 'Los participantes crean y nombran sus propias categorías. Úsalo para descubrir cómo piensan tus usuarios.',
@@ -132,6 +162,11 @@ export function CardSortingPage() {
   const [cardsText, setCardsText] = useState('');
   const [categoriesText, setCategoriesText] = useState('');
   const [questionsText, setQuestionsText] = useState('');
+  const [cardsPending, setCardsPending] = useState(false);
+  const [categoriesPending, setCategoriesPending] = useState(false);
+  const [questionsPending, setQuestionsPending] = useState(false);
+  const { confirmDiscard } = useUnsavedChanges(true, { name, type, cardsText, categoriesText, questionsText, cardsPending, categoriesPending, questionsPending }, createStudy.isPending);
+
   const [mostrarForm, setMostrarForm] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
@@ -207,11 +242,11 @@ export function CardSortingPage() {
     {
       id: 'nombre',
       titulo: 'Nombre y tipo',
-      ayuda: 'Dale un nombre al estudio y elige cómo clasificarán los participantes.',
+      ayuda: 'Dale un nombre al card sorting y elige cómo clasificarán los participantes.',
       contenido: (
         <div className="tv-pasos-campos tv-pasos-campos--una">
             <label className="field">
-              Nombre del estudio
+              Nombre del card sorting
               <input
                 value={name}
                 onChange={(event) => setName(event.target.value)}
@@ -239,6 +274,7 @@ export function CardSortingPage() {
               title="Tarjetas"
               singular="tarjeta"
               plural="tarjetas"
+              onPendingChange={setCardsPending}
               value={cardsText}
               onChange={setCardsText}
               max={MAX_ETIQUETA}
@@ -275,6 +311,7 @@ export function CardSortingPage() {
                 title="Categorías predefinidas"
                 singular="categoría"
                 plural="categorías"
+                onPendingChange={setCategoriesPending}
                 value={categoriesText}
                 onChange={setCategoriesText}
                 max={MAX_CATEGORIA}
@@ -300,9 +337,11 @@ export function CardSortingPage() {
       contenido: (
             <CardSortingEntry
               error={validationErrors.preguntas}
-              title="Preguntas para el participante (opcional)"
+              title="Preguntas para el participante"
+              optional
               singular="pregunta"
               plural="preguntas"
+              onPendingChange={setQuestionsPending}
               value={questionsText}
               onChange={setQuestionsText}
               max={MAX_PREGUNTA}
@@ -338,28 +377,26 @@ export function CardSortingPage() {
         <TechniquePageHeader
           label="TÉCNICA DE INVESTIGACIÓN"
           title="Card Sorting"
-          description="Crea estudios abiertos, cerrados o híbridos, compártelos con participantes y analiza cada clasificación como evidencia independiente."
-          instructions={(
-            <>
-              <p>Prepara las tarjetas, invita a los participantes y revisa los resultados. Abre cada paso para ver sus instrucciones.</p>
-              <CardSortingGuide />
-            </>
-          )}
+          description="Crea card sorting abiertos, cerrados o híbridos, compártelos con participantes y analiza cada clasificación como evidencia independiente."
+          instructions={INSTRUCCIONES_CARD_SORTING}
           action={(
             <TechniqueNewButton
               etiqueta="+ Nuevo Card Sorting"
               abierto={mostrarForm}
               puedeEditar
               disabled={createStudy.isPending}
-              onClick={() => setMostrarForm((visible) => !visible)}
+              onClick={async () => {
+                if (mostrarForm && (cardsPending || categoriesPending || questionsPending) && !(await confirmDiscard())) return;
+                setMostrarForm(visible => !visible);
+              }}
             />
           )}
         />
       }
       proceso={mostrarForm && (
         <TechniqueProcess
-          title="Proceso del estudio"
-          textoListo="Estudio completo: ya puedes crearlo"
+          title="Proceso del card sorting"
+          textoListo="Card sorting completo: ya puedes crearlo"
           steps={steps}
         />
       )}
@@ -369,7 +406,7 @@ export function CardSortingPage() {
 
           <PasosTecnica pasos={pasos} accionesDesde={pasos.length - 2} acciones={(
             <button type="submit" className="primary" disabled={createStudy.isPending}>
-              {createStudy.isPending ? 'Creando estudio…' : 'Crear y abrir el workspace →'}
+              {createStudy.isPending ? 'Creando card sorting…' : 'Crear y abrir el workspace →'}
             </button>
           )} />
 
@@ -387,12 +424,12 @@ export function CardSortingPage() {
           )}
 
           {loadingStudies ? (
-            <p className="text-muted-sm">Cargando estudios…</p>
+            <p className="text-muted-sm">Cargando card sorting…</p>
           ) : studies.length === 0 ? (
             <TechniqueEmpty
               icono={<Icon name="card-sorting" size={28} />}
-              titulo="Todavía no hay estudios de Card Sorting"
-              texto="Usa + Nuevo Card Sorting para crear el primer estudio del proyecto."
+              titulo="Todavía no hay card sorting"
+              texto="Usa + Nuevo Card Sorting para crear el primer card sorting del proyecto."
             />
           ) : (
             <div className="cs-study-list">

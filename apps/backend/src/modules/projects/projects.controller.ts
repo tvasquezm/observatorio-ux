@@ -17,7 +17,6 @@ import { RolesGuard } from '../../core/guards/roles.guard.js';
 import { AuthenticatedUser } from '../auth/types/authenticated-user.interface.js';
 import {
   AddMemberDto,
-  AddToWhitelistDto,
   CreateProjectDto,
   UpdateProjectDto,
 } from './projects.dto.js';
@@ -71,23 +70,6 @@ export class ProjectsController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.projects.remove(id, user);
-  }
-
-  @Post(':id/participantes')
-  addToWhitelist(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: AddToWhitelistDto,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
-    return this.projects.addToWhitelist(id, dto, user);
-  }
-
-  @Get(':id/participantes')
-  listWhitelist(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
-    return this.projects.listWhitelist(id, user);
   }
 
   @Get(':id/miembros')

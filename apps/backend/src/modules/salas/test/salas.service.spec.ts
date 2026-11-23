@@ -1,3 +1,5 @@
+import { validateSync } from 'class-validator';
+import { UpdateSalaDto } from '../dto/sala.dto.js';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '../../../core/database/prisma.service.js';
@@ -29,7 +31,6 @@ describe('SalasService', () => {
     };
     equipoMiembro: { findMany: jest.Mock };
     proyectoMiembro: { deleteMany: jest.Mock; createMany: jest.Mock };
-    participanteWhitelist: { deleteMany: jest.Mock };
     uxArtifact: { deleteMany: jest.Mock };
     researchSession: { deleteMany: jest.Mock };
     category: { deleteMany: jest.Mock };
@@ -75,7 +76,6 @@ describe('SalasService', () => {
         deleteMany: jest.fn(),
         createMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
-      participanteWhitelist: { deleteMany: jest.fn() },
       uxArtifact: { deleteMany: jest.fn() },
       researchSession: { deleteMany: jest.fn() },
       category: { deleteMany: jest.fn() },
@@ -310,38 +310,52 @@ describe('SalasService', () => {
   });
 
   describe('hardDelete', () => {
-    it('rechaza si el texto de confirmación no es exactamente "DELETE"', async () => {
+    it('rechaza si el texto de confirmación no es el nombre de la sala', async () => {
+      prisma.sala.findUnique.mockResolvedValue({ id: 'sala-1', nombre: 'Sala Demo 2026', profesorId: admin.id, deletedAt: null });
+
       await expect(
-        service.hardDelete('sala-1', { confirm: 'delete' }, admin),
+        service.hardDelete('sala-1', { confirm: 'DELETE' }, admin),
       ).rejects.toBeInstanceOf(BadRequestException);
-      expect(prisma.sala.findUnique).not.toHaveBeenCalled();
+      expect(prisma.proyecto.findMany).not.toHaveBeenCalled();
+      expect(prisma.sala.delete).not.toHaveBeenCalled();
     });
 
-    it('rechaza el hard delete si el usuario no es ADMIN', async () => {
+    it('compara el nombre después de normalizar y recortar espacios', async () => {
+      prisma.sala.findUnique.mockResolvedValue({ id: 'sala-1', nombre: 'Sala Demo 2026', profesorId: admin.id, deletedAt: null });
+      prisma.proyecto.findMany.mockResolvedValue([]);
+      prisma.sala.delete.mockResolvedValue({});
+
+      const result = await service.hardDelete('sala-1', { confirm: '  Sala Demo 2026  ' }, admin);
+
+      expect(prisma.sala.delete).toHaveBeenCalledWith({ where: { id: 'sala-1' } });
+      expect(result).toEqual({ eliminadoDefinitivamente: true, proyectosEliminados: 0 });
+    });
+
+    it('rechaza el hard delete si el usuario no es ADMIN ni el dueño, antes de comparar el nombre', async () => {
       // El controller ya restringe @Roles('ADMIN'), pero el service también
       // exige dueño/ADMIN vía assertOwnerOrAdmin como segunda barrera.
-      prisma.sala.findUnique.mockResolvedValue({ id: 'sala-1', profesorId: 'otro-docente', deletedAt: null });
+      prisma.sala.findUnique.mockResolvedValue({ id: 'sala-1', nombre: 'Sala Demo 2026', profesorId: 'otro-docente', deletedAt: null });
 
       await expect(
-        service.hardDelete('sala-1', { confirm: 'DELETE' }, docente),
+        service.hardDelete('sala-1', { confirm: 'nombre equivocado' }, docente),
       ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prisma.sala.delete).not.toHaveBeenCalled();
     });
 
     it('borra en cascada real: cards, sesiones, artefactos, whitelist, miembros, proyectos y la sala', async () => {
-      prisma.sala.findUnique.mockResolvedValue({ id: 'sala-1', profesorId: admin.id, deletedAt: null });
+      prisma.sala.findUnique.mockResolvedValue({ id: 'sala-1', nombre: 'Sala Demo 2026', profesorId: admin.id, deletedAt: null });
       prisma.proyecto.findMany.mockResolvedValue([{ id: 'proyecto-1' }, { id: 'proyecto-2' }]);
       prisma.cardGrouping.deleteMany.mockResolvedValue({ count: 0 });
       prisma.card.deleteMany.mockResolvedValue({ count: 0 });
       prisma.category.deleteMany.mockResolvedValue({ count: 0 });
       prisma.researchSession.deleteMany.mockResolvedValue({ count: 0 });
       prisma.uxArtifact.deleteMany.mockResolvedValue({ count: 0 });
-      prisma.participanteWhitelist.deleteMany.mockResolvedValue({ count: 0 });
       prisma.proyectoMiembro.deleteMany.mockResolvedValue({ count: 0 });
       prisma.proyecto.deleteMany.mockResolvedValue({ count: 2 });
       prisma.salaEstudiante.deleteMany.mockResolvedValue({ count: 0 });
       prisma.sala.delete.mockResolvedValue({});
 
-      const result = await service.hardDelete('sala-1', { confirm: 'DELETE' }, admin);
+      const result = await service.hardDelete('sala-1', { confirm: 'Sala Demo 2026' }, admin);
 
       expect(prisma.cardSortingAnswer.deleteMany).toHaveBeenCalledWith({
         where: { participanteSesion: { proyectoId: { in: ['proyecto-1', 'proyecto-2'] } } },
@@ -436,4 +450,33 @@ describe('SalasService', () => {
       expect(prisma.proyectoMiembro.createMany).not.toHaveBeenCalled();
     });
   });
+  it.each([
+    { user: docente, allowed: true },
+    { user: admin, allowed: true },
+    { user: { ...docente, id: 'otro-docente' }, allowed: false },
+    { user: estudiante, allowed: false },
+  ])('persistencia del permiso de proyectos para $user.rol ($allowed)', async ({ user, allowed }) => {
+    prisma.sala.findUnique.mockResolvedValue({ id: 'sala-1', profesorId: docente.id, deletedAt: null });
+    prisma.sala.update.mockResolvedValue({ id: 'sala-1', permiteCreacionProyectos: false });
+    const result = service.update('sala-1', { permiteCreacionProyectos: false }, user);
+    if (allowed) {
+      await expect(result).resolves.toMatchObject({ permiteCreacionProyectos: false });
+      expect(prisma.sala.update).toHaveBeenCalledWith({ where: { id: 'sala-1' }, data: { permiteCreacionProyectos: false } });
+    } else {
+      await expect(result).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prisma.sala.update).not.toHaveBeenCalled();
+    }
+  });
+
+  it('acepta null para quitar el límite sin relajar la validación de números', async () => {
+    expect(validateSync(Object.assign(new UpdateSalaDto(), { limiteIntegrantesEquipo: null }))).toHaveLength(0);
+    for (const value of [0, -1, 1.5, NaN]) {
+      expect(validateSync(Object.assign(new UpdateSalaDto(), { limiteIntegrantesEquipo: value }))).not.toHaveLength(0);
+    }
+    prisma.sala.findUnique.mockResolvedValue({ id: 'sala-1', profesorId: docente.id, deletedAt: null });
+    prisma.sala.update.mockResolvedValue({ limiteIntegrantesEquipo: null });
+    await service.update('sala-1', { limiteIntegrantesEquipo: null }, docente);
+    expect(prisma.sala.update).toHaveBeenCalledWith({ where: { id: 'sala-1' }, data: { limiteIntegrantesEquipo: null } });
+  });
+
 });

@@ -1,3 +1,6 @@
+import { CardSortingPdfDialog } from '../components/CardSortingPdfDialog';
+import type { OpcionesEstudioPdf } from '../card-sorting-pdf';
+import { TECNICAS_INFO } from '../../../shared/content/tecnicas-info';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import type {
@@ -32,11 +35,11 @@ const ANSWERS_TAB: { id: ResultsTab; label: string } = { id: 'answers', label: '
 
 // Título corto y ayuda de cada vista. Dendrograma, participantes y respuestas llevan el suyo.
 const VIEW_HELP: Partial<Record<ResultsTab, { title: string; help: string }>> = {
-  cards: { title: 'Distribución de cada tarjeta', help: 'Cada barra muestra en qué categorías ubicaron la tarjeta los participantes. Hay consenso cuando más del umbral elegido la puso en la misma categoría (ver "Agrupaciones dominantes"). Toca una categoría para verla en detalle.' },
-  categories: { title: 'Tarjetas por categoría', help: 'Para cada categoría, las tarjetas que contiene y el porcentaje de participantes que la ubicó ahí. Las más atenuadas tienen bajo acuerdo. Toca una tarjeta para ver toda su distribución.' },
-  results: { title: 'Cantidad de ubicaciones', help: 'Cuántas veces cada tarjeta se ubicó en cada categoría.' },
-  popular: { title: 'Porcentaje de participantes', help: 'Qué porcentaje de los participantes ubicó cada tarjeta en cada categoría. Más oscuro, más acuerdo.' },
-  similarity: { title: 'Similitud entre tarjetas', help: 'Qué tan seguido los participantes agruparon cada par de tarjetas en la misma categoría (100% = siempre juntas).' },
+  cards: { title: 'Distribución de cada tarjeta', help: TECNICAS_INFO['card-sorting'].ayudaGraficos.cards },
+  categories: { title: 'Tarjetas por categoría', help: TECNICAS_INFO['card-sorting'].ayudaGraficos.categories },
+  results: { title: 'Cantidad de ubicaciones', help: TECNICAS_INFO['card-sorting'].ayudaGraficos.results },
+  popular: { title: 'Porcentaje de participantes', help: TECNICAS_INFO['card-sorting'].ayudaGraficos.popular },
+  similarity: { title: 'Similitud entre tarjetas', help: TECNICAS_INFO['card-sorting'].ayudaGraficos.similarity },
 };
 
 const UMBRAL_MIN = 0;
@@ -114,17 +117,20 @@ export function CardSortingResultsPage() {
     window.addEventListener('resize', updateEdges);
     return () => window.removeEventListener('resize', updateEdges);
   }, []);
+  const [pdfOpen, setPdfOpen] = useState(false);
   const [exportando, setExportando] = useState(false);
   const [errorPdf, setErrorPdf] = useState<string | null>(null);
-  const exportarPdf = async (vistas: ResultsTab[], alcance: 'vista' | 'todas') => {
+  const exportarPdf = async (vistas: ResultsTab[], opciones: OpcionesEstudioPdf) => {
     if (!data) return;
     setExportando(true);
     setErrorPdf(null);
     try {
       const { exportarEstudioPdf } = await import('../card-sorting-pdf');
-      await exportarEstudioPdf(data, vistas, alcance);
+      await exportarEstudioPdf(data, vistas, 'seleccion', opciones);
+      return true;
     } catch (error) {
-      setErrorPdf(error instanceof Error ? error.message : 'No pudimos generar el PDF. Inténtalo nuevamente.');
+      setErrorPdf('No pudimos generar el PDF. Vuelve a intentarlo.');
+      return false;
     } finally {
       setExportando(false);
     }
@@ -149,7 +155,7 @@ export function CardSortingResultsPage() {
         <p role="alert" className="error-text">
           {analyticsQuery.error instanceof Error
             ? analyticsQuery.error.message
-            : 'El estudio no existe o no tienes acceso.'}
+            : 'El card sorting no existe o no tienes acceso.'}
         </p>
       </section>
     );
@@ -159,6 +165,8 @@ export function CardSortingResultsPage() {
 
   return (
     <div className="fade cs-results">
+      {pdfOpen && <CardSortingPdfDialog tabs={tabs} busy={exportando} error={errorPdf} onClose={() => setPdfOpen(false)}
+        onGenerate={async (vistas, opciones) => { if (await exportarPdf(vistas, opciones)) setPdfOpen(false); }} />}
       <header className="page-head">
         <div>
           <h2>{data.estudio.nombre}</h2>
@@ -168,11 +176,11 @@ export function CardSortingResultsPage() {
           className="secondary button-like"
           to={`/proyectos/${data.estudio.proyectoId}/card-sorting/${data.estudio.id}`}
         >
-          ← Volver al estudio
+          ← Volver al card sorting
         </Link>
       </header>
 
-      <section className="analytics-kpis" aria-label="Resumen del estudio">
+      <section className="analytics-kpis" aria-label="Resumen del card sorting">
         <article className="analytics-kpi"><span>Participantes</span><strong>{data.participantesCount}</strong></article>
         <article className="analytics-kpi"><span>Tarjetas</span><strong>{data.cardsCount}</strong></article>
         <article className="analytics-kpi">
@@ -238,7 +246,7 @@ export function CardSortingResultsPage() {
         <>
           <article className="panel">
             <div className="panel-head">
-              <h2>Vistas del estudio</h2>
+              <h2>Vistas del card sorting</h2>
               <div className="cs-panel-actions">
                 <button
                   type="button"
@@ -249,30 +257,10 @@ export function CardSortingResultsPage() {
                 >
                   <Icon name="download" size={16} /><span className="cs-icon-btn-text">CSV</span>
                 </button>
-                <button
-                  type="button"
-                  className="ghost cs-icon-btn"
-                  aria-label="Descargar PDF de esta vista"
-                  title="PDF de esta vista"
-                  disabled={exportando}
-                  onMouseEnter={precargarPdf}
-                  onFocus={precargarPdf}
-                  onClick={() => exportarPdf([activeTab], 'vista')}
-                >
-                  <Icon name="download" size={16} /><span className="cs-icon-btn-text">{exportando ? 'Preparando…' : 'PDF'}</span>
+                <button type="button" className="secondary" onMouseEnter={precargarPdf} onFocus={precargarPdf} onClick={() => { setErrorPdf(null); setPdfOpen(true); }}>
+                  Exportar resultados (PDF)
                 </button>
-                <button
-                  type="button"
-                  className="ghost cs-icon-btn"
-                  aria-label="Descargar PDF de todas las vistas"
-                  title="PDF con todas las vistas"
-                  disabled={exportando}
-                  onMouseEnter={precargarPdf}
-                  onFocus={precargarPdf}
-                  onClick={() => exportarPdf(tabs.map((tab) => tab.id), 'todas')}
-                >
-                  <Icon name="download" size={16} /><span className="cs-icon-btn-text">PDF completo</span>
-                </button>
+                <InfoTip label="Ayuda: exportar resultados PDF" align="start">Incluye la portada y las vistas que elijas, en color o en blanco y negro.</InfoTip>
                 <button
                   type="button"
                   className="ghost cs-icon-btn"
@@ -285,7 +273,7 @@ export function CardSortingResultsPage() {
               </div>
             </div>
 
-            {errorPdf && <p role="alert" className="error-text">{errorPdf}</p>}
+            {!pdfOpen && errorPdf && <p role="alert" className="error-text">{errorPdf}</p>}
 
             <div className={`cs-tabs-wrap${edges.start ? ' has-start' : ''}${edges.end ? ' has-end' : ''}`}>
             <div className="cs-analysis-tabs" role="tablist" aria-label="Vistas de resultados" ref={tabsRef} onScroll={updateEdges}>
@@ -325,7 +313,7 @@ export function CardSortingResultsPage() {
               {VIEW_HELP[activeTab] && (
                 <div className="cs-view-head">
                   <h3>{VIEW_HELP[activeTab]!.title}</h3>
-                  <InfoTip label={`Ayuda: ${VIEW_HELP[activeTab]!.title}`} align="start">{VIEW_HELP[activeTab]!.help}</InfoTip>
+                  <InfoTip label={`Ayuda: ${VIEW_HELP[activeTab]!.title}`} align="start" visibleLabel="¿Cómo leer esto?">{VIEW_HELP[activeTab]!.help}</InfoTip>
                 </div>
               )}
               {activeTab === 'cards' && <CardSortingCardsView data={data} foco={foco} onCategoria={(nombre) => setActiveTab('categories', nombre)} />}
@@ -333,7 +321,7 @@ export function CardSortingResultsPage() {
               {activeTab === 'participants' && (
                 <div className="cs-view-head">
                   <h3>Clasificación de cada participante</h3>
-                  <InfoTip label="Ayuda: clasificación de cada participante" align="start">Las clasificaciones son anónimas: cada fila es un participante y sus grupos.</InfoTip>
+                  <InfoTip label="Ayuda: clasificación de cada participante" align="start" visibleLabel="¿Cómo leer esto?">{TECNICAS_INFO['card-sorting'].ayudaGraficos.participants}</InfoTip>
                 </div>
               )}
               {activeTab === 'participants' && <ParticipantsList data={data.participantes ?? []} />}

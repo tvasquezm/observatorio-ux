@@ -1,3 +1,5 @@
+import { SalaBadge } from '../components/SalaBadge';
+import { SalaFormDialog } from '../components/SalaFormDialog';
 // apps/frontend/src/features/salas/pages/SalaDetallePage.tsx
 //
 // Detalle de una sala. DOCENTE dueño/ADMIN: tabs "Proyectos" (crear uno
@@ -7,7 +9,8 @@
 // "Equipos" (ve los equipos de la sala; si el toggle está activo puede
 // crear uno propio y salir del suyo).
 
-import React, { useState } from 'react';
+import { SalaProjectCreate } from '../../projects/components/SalaProjectCreate';
+import React, { useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useProjects } from '../../projects/hooks/useProjectsQueries';
 import {
@@ -32,14 +35,27 @@ import {
 import type { Equipo } from '../../equipos/api/equipos.api';
 import { SalasApiError, type Sala } from '../api/salas.api';
 import { useConfirm } from '../../../shared/api/confirm';
+import { useUnsavedChanges } from '../../../shared/hooks/useUnsavedChanges';
 import { useDiscardChanges } from '../../../shared/hooks/useDiscardChanges';
 import { useAuthStore } from '../../auth/store/useAuthStore';
 import { resolvePerspective } from '../../../shared/auth/perspectivas';
+
+type DirtyNotice = (dirty: boolean) => void;
+function useDirtyNotice(dirty: boolean, onDirtyChange: DirtyNotice) {
+  useEffect(() => { onDirtyChange(dirty); return () => onDirtyChange(false); }, [dirty, onDirtyChange]);
+}
 
 type Tab = 'proyectos' | 'estudiantes' | 'equipos';
 type TabEstudiante = 'proyectos' | 'equipos';
 
 export function SalaDetallePage() {
+  const [creationDirty, setCreationDirty] = useState(false);
+  const [studentsDirty, setStudentsDirty] = useState(false);
+  const [teamsDirty, setTeamsDirty] = useState(false);
+  const [editandoSala, setEditandoSala] = useState(false);
+  const [edicionDirty, setEdicionDirty] = useState(false);
+  // El router admite un solo bloqueo: reúne aquí los borradores de los paneles de la sala.
+  useUnsavedChanges(true, creationDirty || studentsDirty || teamsDirty || edicionDirty);
   const { salaId } = useParams<{ salaId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get('tab');
@@ -56,6 +72,10 @@ export function SalaDetallePage() {
   const activeRole = user ? resolvePerspective(user.rol, perspectiveRole) : null;
   const esEstudiante = activeRole === 'ESTUDIANTE';
   const { data: sala, isLoading, isError, error, refetch } = useSala(salaId ?? null);
+  const { mutateAsync: guardarSala } = useUpdateSala(salaId ?? '');
+  const actualizacionPermiso = useUpdateSala(salaId ?? '');
+  const { reset: reiniciarPermiso } = actualizacionPermiso;
+  useEffect(() => reiniciarPermiso(), [salaId, reiniciarPermiso]);
 
   if (!salaId) return null;
 
@@ -79,8 +99,13 @@ export function SalaDetallePage() {
           <header className="sala-detail-hero">
             <div>
               <span className="kicker">{esEstudiante ? 'MI SALA' : 'GESTIÓN DE SALA'}</span>
-              <h1>{sala.nombre}</h1>
+              <h1><SalaBadge id={sala.id} nombre={sala.nombre} /> {sala.nombre}</h1>
               <p>{sala.instrucciones || 'Esta sala todavía no tiene instrucciones.'}</p>
+              {!esEstudiante && (activeRole === 'ADMIN' || sala.profesor?.id === user?.id) && (
+                <button type="button" className="secondary sala-hero-action" onClick={() => setEditandoSala(true)}>
+                  Editar sala
+                </button>
+              )}
             </div>
             <span className="sala-periodo">{sala.periodo}</span>
             <dl className="sala-detail-meta">
@@ -89,6 +114,8 @@ export function SalaDetallePage() {
               <div><dt>Término</dt><dd>{formatearFechaDetalle(sala.fechaFin)}</dd></div>
             </dl>
           </header>
+
+          {(esEstudiante ? sala.permiteCreacionProyectos : activeRole === 'ADMIN' || sala.profesor?.id === user?.id) && <div hidden={(esEstudiante ? tabEstudiante : tab) !== 'proyectos'}><SalaProjectCreate key={salaId} sala={sala} onDirtyChange={setCreationDirty} /></div>}
 
           {esEstudiante ? (
             <section className="sala-management-panel" aria-labelledby="gestion-sala-title">
@@ -113,8 +140,11 @@ export function SalaDetallePage() {
               </div>
 
               {tabEstudiante === 'proyectos'
-                ? <ProyectosDeSalaLectura salaId={salaId} />
-                : <EquiposDeSalaEstudiante salaId={salaId} sala={sala} />}
+                ? <>
+                    {!sala.permiteCreacionProyectos && <p role="note" className="text-muted">Esta sala no permite que los estudiantes creen proyectos. Pídele a tu docente que lo habilite.</p>}
+                    <ProyectosDeSalaLectura salaId={salaId} />
+                  </>
+                : <EquiposDeSalaEstudiante key={salaId} salaId={salaId} sala={sala} onDirtyChange={setTeamsDirty} />}
             </section>
           ) : (
             <section className="sala-management-panel" aria-labelledby="gestion-sala-title">
@@ -146,12 +176,22 @@ export function SalaDetallePage() {
                 </button>
               </div>
 
-              {tab === 'proyectos' && <ProyectosDeSala salaId={salaId} sala={sala} />}
-              {tab === 'estudiantes' && <EstudiantesDeSala salaId={salaId} />}
-              {tab === 'equipos' && <EquiposDeSalaDocente salaId={salaId} sala={sala} />}
+              {tab === 'proyectos' && <ProyectosDeSala key={salaId} salaId={salaId} sala={sala} actualizacionPermiso={actualizacionPermiso} />}
+              {tab === 'estudiantes' && <EstudiantesDeSala key={salaId} salaId={salaId} onDirtyChange={setStudentsDirty} />}
+              {tab === 'equipos' && <EquiposDeSalaDocente key={salaId} salaId={salaId} sala={sala} onDirtyChange={setTeamsDirty} />}
             </section>
           )}
         </>
+      )}
+
+      {sala && !isError && (
+        <SalaFormDialog
+          sala={sala}
+          abierto={editandoSala}
+          onClose={() => setEditandoSala(false)}
+          guardar={payload => guardarSala(payload)}
+          onDirtyChange={setEdicionDirty}
+        />
       )}
     </div>
   );
@@ -215,23 +255,16 @@ function ProyectosDeSalaLectura({ salaId }: { salaId: string }) {
 // Tab Proyectos
 // ---------------------------------------------------------------
 
-function ProyectosDeSala({ salaId, sala }: { salaId: string; sala: Sala }) {
+function ProyectosDeSala({ salaId, sala, actualizacionPermiso }: { salaId: string; sala: Sala; actualizacionPermiso: ReturnType<typeof useUpdateSala> }) {
   const confirm = useConfirm();
   const { data: proyectosSala, isLoading, isError, error, refetch } = useProyectosDeSala(salaId);
   const { data: todosLosProyectos } = useProjects();
   const { mutate: vincular, isPending: vinculando } = useVincularProyecto(salaId);
   const { mutate: desvincular } = useDesvincularProyecto(salaId);
-  const { mutate: actualizarSala, isPending: guardandoToggle } = useUpdateSala(salaId);
+  const { mutate: actualizarSala, isPending: guardandoToggle, isSuccess: guardado, error: saveError, variables } = actualizacionPermiso;
 
   const [proyectoAVincular, setProyectoAVincular] = useState('');
-  const [permiteCreacionProyectos, setPermiteCreacionProyectos] = useState(
-    sala.permiteCreacionProyectos,
-  );
-
-  function handleGuardarToggleProyectos(e: React.FormEvent) {
-    e.preventDefault();
-    actualizarSala({ permiteCreacionProyectos });
-  }
+  const permiteCreacionProyectos = (guardandoToggle ? variables?.permiteCreacionProyectos : undefined) ?? sala.permiteCreacionProyectos;
 
   // Solo se pueden vincular proyectos que todavía no están en ninguna sala.
   const disponiblesParaVincular = (todosLosProyectos ?? []).filter(
@@ -252,24 +285,24 @@ function ProyectosDeSala({ salaId, sala }: { salaId: string; sala: Sala }) {
 
   return (
     <div>
-      <form onSubmit={handleGuardarToggleProyectos} className="form-row-inline" style={{ marginBottom: 16 }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div className="form-row-inline sala-configuracion">
+        <label>
           <input
             type="checkbox"
             checked={permiteCreacionProyectos}
-            onChange={(e) => setPermiteCreacionProyectos(e.target.checked)}
+            disabled={guardandoToggle}
+            onChange={(e) => actualizarSala({ permiteCreacionProyectos: e.target.checked })}
           />
           Permitir que los estudiantes creen proyectos en esta sala
         </label>
-        <button type="submit" className="primary" disabled={guardandoToggle}>
-          {guardandoToggle ? 'Guardando…' : 'Guardar configuración'}
-        </button>
-      </form>
+      </div>
+      <p role="status">{guardandoToggle ? 'Guardando…' : guardado ? 'Guardado' : ''}</p>
+      {saveError && <p role="alert" className="error-text">{saveError.message} La configuración no se guardó. Vuelve a intentarlo.</p>}
 
       <div className="sala-project-linker">
         <div>
           <h3>Agregar un proyecto a la sala</h3>
-          <p>Los proyectos se crean una sola vez desde Proyectos y luego se vinculan aquí.</p>
+          <p>Crea un proyecto en esta sala o vincula uno existente sin sala.</p>
         </div>
         <form onSubmit={handleVincular} className="form-row-inline sala-project-link-form">
           <label className="field">
@@ -309,7 +342,7 @@ function ProyectosDeSala({ salaId, sala }: { salaId: string; sala: Sala }) {
               <b>{p.nombre}</b>
               {p.descripcion && <div className="text-muted-sm">{p.descripcion}</div>}
             </div>
-            <div className="form-row-inline" style={{ margin: 0 }}>
+            <div className="form-row-inline sala-proyecto-acciones">
               <Link to={`/proyectos/${p.id}`} className="secondary">Ver proyecto →</Link>
               <button
                 type="button"
@@ -333,7 +366,7 @@ function ProyectosDeSala({ salaId, sala }: { salaId: string; sala: Sala }) {
 // Tab Estudiantes
 // ---------------------------------------------------------------
 
-function EstudiantesDeSala({ salaId }: { salaId: string }) {
+function EstudiantesDeSala({ salaId, onDirtyChange }: { salaId: string; onDirtyChange: DirtyNotice }) {
   const confirm = useConfirm();
   const { data: estudiantes, isLoading, isError, error, refetch } = useEstudiantes(salaId);
   const { mutate: agregar, isPending: agregando } = useAddEstudiante(salaId);
@@ -344,6 +377,7 @@ function EstudiantesDeSala({ salaId }: { salaId: string }) {
   const [email, setEmail] = useState('');
   const [nombre, setNombre] = useState('');
   const [bulkTexto, setBulkTexto] = useState('');
+  useDirtyNotice(Boolean(email || nombre || bulkTexto), onDirtyChange);
 
   function handleAgregarIndividual(e: React.FormEvent) {
     e.preventDefault();
@@ -378,7 +412,7 @@ function EstudiantesDeSala({ salaId }: { salaId: string }) {
 
   return (
     <div>
-      <div className="form-row-inline" style={{ marginBottom: 12 }}>
+      <div className="form-row-inline">
         <button
           type="button"
           className={modo === 'individual' ? 'primary' : 'secondary'}
@@ -421,7 +455,7 @@ function EstudiantesDeSala({ salaId }: { salaId: string }) {
       )}
 
       {modo === 'bulk' && (
-        <form onSubmit={handleAgregarBulk} className="form-grid" style={{ maxWidth: 480 }}>
+        <form onSubmit={handleAgregarBulk} className="form-grid form-importar-lista">
           <label className="field">
             Un estudiante por línea — <code>email</code> o <code>email, nombre</code>
             <textarea
@@ -474,10 +508,10 @@ function EstudiantesDeSala({ salaId }: { salaId: string }) {
 // Tab Equipos — DOCENTE dueño / ADMIN
 // ---------------------------------------------------------------
 
-function EquiposDeSalaDocente({ salaId, sala }: { salaId: string; sala: Sala }) {
+function EquiposDeSalaDocente({ salaId, sala, onDirtyChange }: { salaId: string; sala: Sala; onDirtyChange: DirtyNotice }) {
   const confirm = useConfirm();
   const { data: equipos, isLoading, isError, error, refetch } = useEquipos(salaId);
-  const { mutate: actualizarSala, isPending: guardandoToggle } = useUpdateSala(salaId);
+  const { mutate: actualizarSala, isPending: guardandoToggle, isSuccess: guardado, error: saveError } = useUpdateSala(salaId);
   const { mutate: crearEquipo, isPending: creando } = useCreateEquipo(salaId);
   const { mutate: renombrarEquipo, isPending: renombrando } = useUpdateEquipo(salaId);
   const { mutate: eliminarEquipo } = useRemoveEquipo(salaId);
@@ -493,14 +527,25 @@ function EquiposDeSalaDocente({ salaId, sala }: { salaId: string; sala: Sala }) 
   const [nombreRenombrado, setNombreRenombrado] = useState('');
   const { confirmDiscard } = useDiscardChanges(equipoRenombrando !== null, nombreRenombrado, renombrando, equipoRenombrando ?? undefined);
   const [emailPorEquipo, setEmailPorEquipo] = useState<Record<string, string>>({});
+  useEffect(() => {
+    setPermiteCreacion(sala.permiteCreacionEquipos);
+    setLimite(sala.limiteIntegrantesEquipo != null ? String(sala.limiteIntegrantesEquipo) : '');
+  }, [sala.permiteCreacionEquipos, sala.limiteIntegrantesEquipo]);
+  const configChanged = permiteCreacion !== sala.permiteCreacionEquipos || limite !== (sala.limiteIntegrantesEquipo != null ? String(sala.limiteIntegrantesEquipo) : '');
+  const renameChanged = equipoRenombrando !== null && nombreRenombrado !== equipos?.find(e => e.id === equipoRenombrando)?.nombre;
+  useDirtyNotice(configChanged || Boolean(nombreEquipo) || renameChanged || Object.values(emailPorEquipo).some(Boolean), onDirtyChange);
+
 
   function handleGuardarToggle(e: React.FormEvent) {
     e.preventDefault();
-    const limiteNum = limite.trim() ? Number(limite) : undefined;
+    const limiteNum = limite.trim() ? Number(limite) : null;
     actualizarSala({
       permiteCreacionEquipos: permiteCreacion,
-      ...(limiteNum !== undefined ? { limiteIntegrantesEquipo: limiteNum } : {}),
-    });
+      limiteIntegrantesEquipo: limiteNum,
+    }, { onError: () => {
+      setPermiteCreacion(sala.permiteCreacionEquipos);
+      setLimite(sala.limiteIntegrantesEquipo != null ? String(sala.limiteIntegrantesEquipo) : '');
+    } });
   }
 
   function handleCrearEquipo(e: React.FormEvent) {
@@ -526,7 +571,7 @@ function EquiposDeSalaDocente({ salaId, sala }: { salaId: string; sala: Sala }) 
   }
 
   async function handleEliminarEquipo(equipoId: string, nombre: string) {
-    if (await confirm(`¿Eliminar el equipo "${nombre}"? Esto no se puede deshacer.`)) {
+    if (await confirm(`¿Eliminar el equipo "${nombre}"? Esto no se puede deshacer.`, { requireText: nombre })) {
       eliminarEquipo(equipoId);
     }
   }
@@ -549,11 +594,12 @@ function EquiposDeSalaDocente({ salaId, sala }: { salaId: string; sala: Sala }) 
 
   return (
     <div>
-      <form onSubmit={handleGuardarToggle} className="form-row-inline" style={{ marginBottom: 16 }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <form onSubmit={handleGuardarToggle} className="form-row-inline sala-configuracion">
+        <label>
           <input
             type="checkbox"
             checked={permiteCreacion}
+            disabled={guardandoToggle}
             onChange={(e) => setPermiteCreacion(e.target.checked)}
           />
           Permitir que los estudiantes creen sus propios equipos
@@ -562,17 +608,19 @@ function EquiposDeSalaDocente({ salaId, sala }: { salaId: string; sala: Sala }) 
           Límite de integrantes (vacío = sin límite)
           <input
             type="number"
+            disabled={guardandoToggle}
             min={1}
             value={limite}
             onChange={(e) => setLimite(e.target.value)}
-            className="input-flex"
-            style={{ maxWidth: 120 }}
+            className="input-flex sala-limite-integrantes"
           />
         </label>
         <button type="submit" className="primary" disabled={guardandoToggle}>
           {guardandoToggle ? 'Guardando…' : 'Guardar configuración'}
         </button>
       </form>
+      <p role="status">{guardandoToggle ? 'Guardando…' : configChanged ? 'Cambios sin guardar' : guardado ? 'Guardado' : ''}</p>
+      {saveError && <p role="alert" className="error-text">{saveError.message} La configuración no se guardó.</p>}
 
       <form onSubmit={handleCrearEquipo} className="form-row-inline">
         <input
@@ -600,7 +648,7 @@ function EquiposDeSalaDocente({ salaId, sala }: { salaId: string; sala: Sala }) 
       <div className="list-stack mt-16">
         {equipos?.map((equipo) => (
           <div key={equipo.id} className="entity-card">
-            <div style={{ width: '100%' }}>
+            <div className="sala-equipo-detalle">
               {equipoRenombrando === equipo.id ? (
                 <div className="form-row-inline">
                   <input
@@ -683,7 +731,7 @@ function EquiposDeSalaDocente({ salaId, sala }: { salaId: string; sala: Sala }) 
 // Tab Equipos — ESTUDIANTE
 // ---------------------------------------------------------------
 
-function EquiposDeSalaEstudiante({ salaId, sala }: { salaId: string; sala: Sala }) {
+function EquiposDeSalaEstudiante({ salaId, sala, onDirtyChange }: { salaId: string; sala: Sala; onDirtyChange: DirtyNotice }) {
   const confirm = useConfirm();
   const currentUser = useAuthStore((s) => s.user);
   const { data: equipos, isLoading, isError, error, refetch } = useEquipos(salaId);
@@ -691,6 +739,7 @@ function EquiposDeSalaEstudiante({ salaId, sala }: { salaId: string; sala: Sala 
   const { mutate: quitarMiembro } = useRemoveMiembroEquipo(salaId);
 
   const [nombreEquipo, setNombreEquipo] = useState('');
+  useDirtyNotice(Boolean(nombreEquipo), onDirtyChange);
 
   const miEquipo = equipos?.find((eq) =>
     eq.miembros.some((m) => m.usuarioId === currentUser?.id),
@@ -753,7 +802,7 @@ function EquiposDeSalaEstudiante({ salaId, sala }: { salaId: string; sala: Sala 
           const esMiEquipo = equipo.id === miEquipo?.id;
           return (
             <article key={equipo.id} className="entity-card">
-              <div style={{ width: '100%' }}>
+              <div className="sala-equipo-detalle">
                 <div className="row-between">
                   <b>{equipo.nombre}</b>
                   {esMiEquipo && (

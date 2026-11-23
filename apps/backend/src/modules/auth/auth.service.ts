@@ -16,13 +16,17 @@ import { PrismaService } from '../../core/database/prisma.service.js';
 import { AuthenticatedUser } from './types/authenticated-user.interface.js';
 import { ParticipanteJwtService } from './participante-jwt.service.js';
 import { TtlCache } from '../../core/cache/ttl-cache.js';
+import { durationSeconds } from '../../core/config/session-duration.js';
 
 // Identidad ya verificada contra la base: evita un findUnique por request.
 // Un cambio de rol o un borrado invalida la entrada (`invalidateUser`); si
 // ocurre fuera de este proceso, el plazo máximo de retraso es este TTL.
 const IDENTIDAD_TTL_MS = 30_000;
 
-type IdentidadEvaluador = Pick<AuthenticatedUser, 'id' | 'email' | 'rol'>;
+type IdentidadEvaluador = Pick<AuthenticatedUser, 'id' | 'email' | 'rol'> & { sesionVersion: number };
+
+/** Mensaje único para cuentas sin acceso (no revela si existe o está desactivada). */
+export const CUENTA_SIN_ACCESO = 'Tu cuenta no tiene acceso al sitio. Contacta a tu profesor del ramo para que te agregue.';
 
 @Injectable()
 export class AuthService {
@@ -50,82 +54,6 @@ export class AuthService {
     this.identityCacheEpoch++;
     this.evaluadores.delete(id);
     this.participantes.delete(id);
-  }
-
-  private assertInvitationCode(codigo: string, esperado?: string | null) {
-    const recibido = createHash('sha256').update(codigo).digest();
-    const esperadoBuffer = esperado ? Buffer.from(esperado, 'hex') : Buffer.alloc(recibido.length);
-    if (!esperado || esperadoBuffer.length !== recibido.length || !timingSafeEqual(recibido, esperadoBuffer)) {
-      throw new ForbiddenException('El código de invitación no es válido.');
-    }
-  }
-  /**
-   * Autorregistro de un participante. Solo funciona si su email está en
-   * la whitelist cargada por el docente/evaluador para ese proyecto.
-   * Es idempotente: si la persona ya se había registrado, devuelve el
-   * mismo participanteId en vez de fallar.
-   */
-  async registerParticipant(
-    proyectoId: string,
-    emailCrudo: string,
-    nombre?: string,
-    codigoInvitacion?: string,
-  ) {
-    const email = emailCrudo.trim().toLowerCase();
-
-    return this.prisma.$transaction(async (tx) => {
-      const entry = await tx.participanteWhitelist.findUnique({
-        where: { proyectoId_email: { proyectoId, email } },
-      });
-
-      if (!entry) {
-        throw new ForbiddenException(
-          'Este email no está autorizado para participar en este proyecto. ' +
-            'Pídele al docente que lo agregue a la lista.',
-        );
-      }
-
-      this.assertInvitationCode(codigoInvitacion ?? '', entry.codigoInvitacionHash);
-
-      if (entry.participanteId) {
-        return { participanteId: entry.participanteId, yaRegistrado: true };
-      }
-
-      const participante = await tx.participante.create({
-        data: {
-          metadata: nombre?.trim() ? { nombre: nombre.trim() } : undefined,
-        },
-      });
-
-      // La condición evita que dos solicitudes concurrentes reclamen la misma
-      // invitación. La segunda solicitud elimina su participante provisional y
-      // devuelve el participante ganador.
-      const claimed = await tx.participanteWhitelist.updateMany({
-        where: { id: entry.id, participanteId: null },
-        data: { usado: true, participanteId: participante.id },
-      });
-
-      if (claimed.count === 1) {
-        return { participanteId: participante.id, yaRegistrado: false };
-      }
-
-      const currentEntry = await tx.participanteWhitelist.findUnique({
-        where: { id: entry.id },
-      });
-
-      await tx.participante.delete({ where: { id: participante.id } });
-
-      if (currentEntry?.participanteId) {
-        return {
-          participanteId: currentEntry.participanteId,
-          yaRegistrado: true,
-        };
-      }
-
-      throw new ConflictException(
-        'No se pudo completar el registro. Inténtalo nuevamente.',
-      );
-    });
   }
 
   /**
@@ -195,7 +123,6 @@ export class AuthService {
     proyectoId: string,
     aceptado: boolean,
     version: string,
-    codigoInvitacion?: string,
     resumeToken?: string,
   ) {
     const participante = await this.prisma.participante.findUnique({
@@ -211,18 +138,9 @@ export class AuthService {
       throw new NotFoundException('El proyecto no existe.');
     }
 
-    // Fase 1 (PLAN_AJUSTES.md): si el participante entró por el acceso
-    // público abierto (accessParticipant), nunca existe una entrada de
-    // whitelist a su nombre — no hay código que validar. Si sí existe
-    // (flujo previo con invitación por email), se sigue exigiendo el
-    // código, igual que antes.
-    const whitelistEntry = await this.prisma.participanteWhitelist.findFirst({
-      where: { proyectoId, participanteId, usado: true },
-    });
-
-    if (whitelistEntry) {
-      this.assertInvitationCode(codigoInvitacion ?? '', whitelistEntry.codigoInvitacionHash);
-    } else {
+    // F36: todos los participantes son anónimos (acceso abierto); la única
+    // credencial es el resumeToken entregado en accessParticipant.
+    {
       if (participante.proyectoId !== proyectoId) {
         throw new ForbiddenException(
           'El participante no pertenece a este proyecto.',
@@ -269,6 +187,7 @@ export class AuthService {
     });
   }
   async changePassword(id: string, currentPassword: string, newPassword: string) {
+    this.assertPasswordLogin();
     if (Buffer.byteLength(newPassword, 'utf8') > 72) {
       throw new BadRequestException('La nueva contraseña no puede superar 72 bytes (los caracteres acentuados ocupan más de uno).');
     }
@@ -277,18 +196,22 @@ export class AuthService {
       throw new ForbiddenException('La contraseña actual es incorrecta.');
     }
     const passwordHash = await bcrypt.hash(newPassword, 10);
+    const sesionVersion = (user.sesionVersion ?? 0) + 1;
     const result = await this.prisma.usuario.updateMany({
       where: { id, passwordHash: user.passwordHash },
-      data: { passwordHash },
+      data: { passwordHash, sesionVersion },
     });
     if (result.count !== 1) {
       throw new ConflictException('La contraseña cambió durante la solicitud. Vuelve a intentarlo con la contraseña actual.');
     }
-    // shortcut: los JWT emitidos siguen vigentes hasta expirar; añadir revocación si se requiere cerrar otros dispositivos.
-    return { ok: true };
+    // Sube la versión de sesión: las cookies copiadas dejan de servir, también
+    // para renovar. La sesión que hace el cambio recibe una cookie nueva.
+    this.invalidateUser(id);
+    return { ok: true, sesionVersion };
   }
 
   async login(email: string, password: string) {
+    this.assertPasswordLogin();
     const user = await this.prisma.usuario.findUnique({
       where: { email: email.trim().toLowerCase() },
     });
@@ -308,20 +231,25 @@ export class AuthService {
     return this.createEvaluatorSession(user);
   }
 
-  async createEvaluatorSession(user: { id: string; nombre: string; email: string; rol: AuthenticatedUser['rol'] }) {
+  async createEvaluatorSession(user: { id: string; nombre: string; email: string; rol: AuthenticatedUser['rol']; sesionVersion?: number; desactivadoEn?: Date | null }) {
+    if (user.desactivadoEn) throw new ForbiddenException(CUENTA_SIN_ACCESO);
     if (user.rol === 'ESTUDIANTE') {
       await this.assertEstudianteTieneSalaActiva(user.email);
     }
 
+    const sessionStart = Math.floor(Date.now() / 1000);
+    const exp = sessionStart + Math.min(this.sessionDuration('expiresIn', '1h'), this.sessionDuration('maxSession', '12h'));
     const accessToken = await this.signEvaluatorToken({
       id: user.id,
       email: user.email,
       rol: user.rol,
       actor: 'EVALUADOR',
-    });
+      sesionVersion: user.sesionVersion ?? 0,
+    }, sessionStart, exp);
 
     return {
       access_token: accessToken,
+      session: { expiresAt: exp * 1000 },
       user: {
         id: user.id,
         nombre: user.nombre,
@@ -334,7 +262,6 @@ export class AuthService {
   async issueParticipantToken(
     participanteId: string,
     proyectoId: string,
-    codigoInvitacion?: string,
     allowUnlisted = false,
     resumeToken?: string,
   ) {
@@ -347,13 +274,7 @@ export class AuthService {
     }
 
     if (!allowUnlisted) {
-      const whitelistEntry = await this.prisma.participanteWhitelist.findFirst({
-        where: { proyectoId, participanteId, usado: true },
-      });
-
-      if (whitelistEntry) {
-        this.assertInvitationCode(codigoInvitacion ?? '', whitelistEntry.codigoInvitacionHash);
-      } else {
+      {
         if (participante.proyectoId !== proyectoId) {
           throw new ForbiddenException(
             'El participante no pertenece a este proyecto.',
@@ -429,6 +350,7 @@ export class AuthService {
         email: user.email,
         rol: user.rol,
         actor: 'EVALUADOR',
+        sesionVersion: user.sesionVersion ?? 0,
       }),
       user: { id: user.id, email: user.email, rol: user.rol },
     };
@@ -454,7 +376,6 @@ export class AuthService {
     return this.issueParticipantToken(
       consent.participanteId,
       consent.proyectoId,
-      undefined,
       true,
     );
   }
@@ -465,6 +386,7 @@ export class AuthService {
     rol?: string;
     actor?: string;
     proyectoId?: string;
+    sv?: number;
   }): Promise<AuthenticatedUser> {
     const cacheEpoch = this.identityCacheEpoch;
     if (payload.actor === 'PARTICIPANTE') {
@@ -498,10 +420,16 @@ export class AuthService {
       if (!user) {
         throw new UnauthorizedException('El usuario del token no existe.');
       }
-      identidad = { id: user.id, email: user.email, rol: user.rol };
+      identidad = { id: user.id, email: user.email, rol: user.rol, sesionVersion: user.sesionVersion ?? 0 };
       if (cacheEpoch === this.identityCacheEpoch) {
         this.evaluadores.set(payload.sub, identidad);
       }
+    }
+
+    // Tokens emitidos antes de la versión de sesión no llevan `sv` y cuentan
+    // como 0; caducan solos en el plazo máximo de sesión.
+    if ((payload.sv ?? 0) !== identidad.sesionVersion) {
+      throw new UnauthorizedException('Tu sesión ya no es válida. Vuelve a iniciar sesión.');
     }
 
     return { ...identidad, actor: 'EVALUADOR' };
@@ -531,6 +459,25 @@ export class AuthService {
    * una Sala activa (no eliminada y, si tiene fechaFin, no vencida). Se
    * revalida en cada login, no solo una vez.
    */
+  /** F35: el correo está en la lista de alguna sala activa (lo que cargan los profesores). */
+  async estudianteEnSalaActiva(email: string): Promise<boolean> {
+    const ahora = new Date();
+    return !!(await this.prisma.salaEstudiante.findFirst({
+      where: { email: email.trim().toLowerCase(), sala: { deletedAt: null, OR: [{ fechaFin: null }, { fechaFin: { gte: ahora } }] } },
+    }));
+  }
+
+  /** F35 (D3): el ingreso con contraseña queda apagado en producción salvo PASSWORD_LOGIN_ENABLED=true (respaldo de emergencia). */
+  get passwordLoginEnabled(): boolean {
+    const valor = String(this.config.get<string>('PASSWORD_LOGIN_ENABLED') ?? '').trim().toLowerCase();
+    if (valor) return valor === 'true';
+    return this.config.get<string>('app.nodeEnv', 'development') !== 'production';
+  }
+
+  private assertPasswordLogin() {
+    if (!this.passwordLoginEnabled) throw new ForbiddenException('El ingreso con contraseña está desactivado. Usa «Continuar con Google».');
+  }
+
   private async assertEstudianteTieneSalaActiva(email: string) {
     const emailNormalizado = email.trim().toLowerCase();
     const ahora = new Date();
@@ -552,12 +499,62 @@ export class AuthService {
     }
   }
 
-  private signEvaluatorToken(user: AuthenticatedUser) {
+  private sessionDuration(key: string, fallback: string) {
+    return durationSeconds(this.config.get<string>(`jwt.${key}`, fallback));
+  }
+
+  async refresh(user: AuthenticatedUser & { exp: number; sessionStart: number }) {
+    const now = Math.floor(Date.now() / 1000);
+    if (!Number.isSafeInteger(user.exp) || !Number.isSafeInteger(user.sessionStart) || user.sessionStart > now || user.exp <= now) throw new UnauthorizedException('Sesión expirada.');
+    const end = user.sessionStart + this.sessionDuration('maxSession', '12h');
+    if (now >= end) throw new UnauthorizedException({ message: 'Se alcanzó el límite de la sesión.', errorCode: 'SESSION_MAX_REACHED' });
+    const ttl = this.sessionDuration('expiresIn', '1h');
+    const configuredWindow = this.sessionDuration('refreshWindow', '10m');
+    const window = configuredWindow < ttl ? configuredWindow : ttl / 3;
+    if (user.exp - now > window) return { renewed: false, session: { expiresAt: user.exp * 1000, refreshAt: (user.exp - window) * 1000 } };
+    const exp = Math.min(now + ttl, end);
+    const access_token = await this.signEvaluatorToken(user, user.sessionStart, exp);
+    return { renewed: true, session: { expiresAt: exp * 1000 }, access_token };
+  }
+
+  /**
+   * Cierra la sesión del evaluador en el servidor: si la cookie trae un token
+   * válido, sube su versión de sesión (las copias de esa cookie dejan de
+   * servir, también para renovar) e invalida la identidad cacheada. Sin token
+   * o con un token inválido solo se limpian las cookies en el controlador.
+   */
+  async logout(token?: string) {
+    if (!token) return { ok: true };
+    try {
+      const payload = await this.jwt.verifyAsync<{ sub?: string; actor?: string }>(token);
+      if (payload?.actor === 'EVALUADOR' && payload.sub) {
+        await this.prisma.usuario.updateMany({
+          where: { id: payload.sub },
+          data: { sesionVersion: { increment: 1 } },
+        });
+        this.invalidateUser(payload.sub);
+      }
+    } catch {
+      // Token vencido o inválido: no hay sesión que revocar.
+    }
+    return { ok: true };
+  }
+
+  /** Reemite la cookie del evaluador con la versión de sesión vigente, conservando el inicio de sesión. */
+  async reissueEvaluatorToken(user: AuthenticatedUser & { exp: number; sessionStart: number }, sesionVersion: number) {
+    return this.signEvaluatorToken({ ...user, sesionVersion }, user.sessionStart, user.exp);
+  }
+
+  private signEvaluatorToken(user: AuthenticatedUser & { sesionVersion?: number }, sessionStart = Math.floor(Date.now() / 1000), exp = sessionStart + Math.min(this.sessionDuration('expiresIn', '1h'), this.sessionDuration('maxSession', '12h'))) {
+    const iat = Math.floor(Date.now() / 1000);
     return this.jwt.signAsync({
       sub: user.id,
       email: user.email,
       rol: user.rol,
       actor: 'EVALUADOR',
-    });
+      sv: user.sesionVersion ?? 0,
+      sessionStart,
+      iat,
+    }, { expiresIn: exp - iat });
   }
 }

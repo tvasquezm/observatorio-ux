@@ -72,7 +72,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       // ValidationPipe (vía exceptionFactory de main.ts) ya deja `message`
       // como { campo, mensaje }[] directamente — este branch lo pasa tal cual.
       const message = typeof res === 'string' ? res : (res as any).message ?? exception.message;
-      return { statusCode: status, message, errorCode: this.codeFor(status) };
+      return { statusCode: status, message, errorCode: typeof res === 'object' && res !== null && (res as any).errorCode === 'SESSION_MAX_REACHED' ? 'SESSION_MAX_REACHED' : this.codeFor(status) };
     }
 
     // Prisma no lanza HttpException — lo mapeamos a algo entendible.

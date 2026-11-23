@@ -7,6 +7,14 @@ function arco(container: HTMLElement) {
 }
 
 describe('AnilloAvance', () => {
+  it('escala el texto central con la preferencia de tamaño de la aplicación', () => {
+    const { container, rerender } = render(<AnilloAvance hecho={1} total={4} tamano={56} />);
+    const texto = () => (container.querySelector('.tv-anillo-texto') as HTMLElement).style.fontSize;
+    expect(texto()).toMatch(/rem$/);
+    expect(parseFloat(texto())).toBeCloseTo(0.945);
+    rerender(<AnilloAvance hecho={1} total={4} tamano={80} />);
+    expect(parseFloat(texto())).toBeCloseTo(1.35);
+  });
   it('describe el avance con texto accesible', () => {
     render(<AnilloAvance hecho={3} total={10} />);
     expect(screen.getByRole('img', { name: '3 de 10' })).toBeInTheDocument();

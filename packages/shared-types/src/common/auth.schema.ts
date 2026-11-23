@@ -18,6 +18,7 @@ export const LoginPayloadSchema = z.object({
 
 export const LoginResponseSchema = z.object({
   user: EvaluatorUserSchema,
+  session: z.object({ expiresAt: z.number().positive().finite() }).optional(),
 });
 
 // Fase 1 (PLAN_AJUSTES.md): acceso público de participante sin nombre/

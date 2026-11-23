@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
 import { randomBytes } from 'crypto';
@@ -13,7 +13,6 @@ import {
   ChangePasswordDto,
   ParticipantAccessDto,
   ParticipantTokenDto,
-  RegisterParticipantDto,
   RegisterParticipantConsentDto,
 } from './auth.dto.js';
 import type { AuthenticatedUser } from './types/authenticated-user.interface.js';
@@ -46,11 +45,12 @@ export class AuthController {
   @Get('google/config')
   googleConfig(@Res({ passthrough: true }) res: Response) {
     res.setHeader('Cache-Control', 'no-store');
-    if (!this.google.clientId) return { enabled: false as const };
+    const passwordLogin = this.authService.passwordLoginEnabled;
+    if (!this.google.clientId) return { enabled: false as const, passwordLogin };
     const nonce = randomBytes(32).toString('hex');
     const nodeEnv = this.config.get<string>('app.nodeEnv', 'development');
     res.cookie('googleLoginNonce', nonce, { ...cookieOptions(nodeEnv, true), maxAge: 5 * 60_000 });
-    return { enabled: true as const, clientId: this.google.clientId, nonce };
+    return { enabled: true as const, clientId: this.google.clientId, nonce, passwordLogin };
   }
 
   @Post('google')
@@ -74,7 +74,7 @@ export class AuthController {
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const { access_token, user } = await this.authService.login(
+    const { access_token, user, session } = await this.authService.login(
       dto.email,
       dto.password,
     );
@@ -84,19 +84,39 @@ export class AuthController {
     res.cookie('evaluadorToken', access_token, cookieOptions(nodeEnv, true));
     res.cookie('csrfToken', csrfToken, cookieOptions(nodeEnv, false));
 
-    return { user };
+    return { user, session };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('refresh')
+  @HttpCode(200)
+  async refresh(@CurrentUser() user: AuthenticatedUser & { exp: number; sessionStart: number }, @Res({ passthrough: true }) res: Response) {
+    const { access_token, ...result } = await this.authService.refresh(user);
+    if (access_token) res.cookie('evaluadorToken', access_token, cookieOptions(this.config.get<string>('app.nodeEnv', 'development'), true));
+    return result;
   }
 
   @UseGuards(JwtAuthGuard)
   @Throttle({ default: { limit: LOGIN_RATE_LIMIT, ttl: 60_000 } })
   @Post('password')
-  changePassword(@CurrentUser() user: AuthenticatedUser, @Body() dto: ChangePasswordDto) {
-    return this.authService.changePassword(user.id, dto.currentPassword, dto.newPassword);
+  async changePassword(
+    @CurrentUser() user: AuthenticatedUser & { exp: number; sessionStart: number },
+    @Body() dto: ChangePasswordDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { sesionVersion } = await this.authService.changePassword(user.id, dto.currentPassword, dto.newPassword);
+    // La sesión que cambia la contraseña sigue viva: cookie nueva con la
+    // versión recién subida, conservando el inicio de sesión.
+    const access_token = await this.authService.reissueEvaluatorToken(user, sesionVersion);
+    res.cookie('evaluadorToken', access_token, cookieOptions(this.config.get<string>('app.nodeEnv', 'development'), true));
+    return { ok: true };
   }
 
   @Post('logout')
-  logout(@Res({ passthrough: true }) res: Response) {
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const nodeEnv = this.config.get<string>('app.nodeEnv', 'development');
+    await this.authService.logout((req as Request & { cookies?: Record<string, string> }).cookies?.evaluadorToken);
     res.clearCookie('evaluadorToken', cookieOptions(nodeEnv, true));
     res.clearCookie('csrfToken', cookieOptions(nodeEnv, false));
     return { ok: true };
@@ -104,9 +124,10 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
-  me(@CurrentUser() user: AuthenticatedUser) {
+  me(@CurrentUser() user: AuthenticatedUser & { exp: number }) {
     return this.authService.getEvaluatorProfile(user.id).then((perfil) => ({
       user: perfil,
+      session: { expiresAt: user.exp * 1000 },
     }));
   }
 
@@ -120,21 +141,6 @@ export class AuthController {
     return this.authService.accessParticipant(dto.proyectoId);
   }
 
-  // Flujo previo con whitelist/email + código de invitación. Se mantiene
-  // para el caso en que el docente sí quiera controlar quién participa
-  // (ej. invitaciones de Evaluación Heurística vía projects.addToWhitelist);
-  // ya no es el flujo por defecto de Card Sorting/onboarding público.
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  @Post('participants/register')
-  registerParticipant(@Body() dto: RegisterParticipantDto) {
-    return this.authService.registerParticipant(
-      dto.proyectoId,
-      dto.email,
-      dto.nombre,
-      dto.codigoInvitacion,
-    );
-  }
-
   @Throttle({ default: { limit: 120, ttl: 60_000 } })
   @Post('participants/consent')
   registerParticipantConsent(@Body() dto: RegisterParticipantConsentDto) {
@@ -143,7 +149,6 @@ export class AuthController {
       dto.proyectoId,
       dto.aceptado,
       dto.version,
-      dto.codigoInvitacion,
       dto.resumeToken,
     );
   }
@@ -154,7 +159,6 @@ export class AuthController {
     return this.authService.issueParticipantToken(
       dto.participanteId,
       dto.proyectoId,
-      dto.codigoInvitacion,
       false,
       dto.resumeToken,
     );

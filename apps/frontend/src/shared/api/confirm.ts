@@ -7,12 +7,17 @@
 // devuelve la respuesta disparando otro evento con el mismo id.
 //
 // Uso: const confirm = useConfirm(); if (await confirm('¿Seguro?')) { ... }
+//
+// `requireText` convierte el diálogo en confirmación escrita: la persona debe
+// escribir exactamente ese texto (el nombre de lo que borra) para habilitar
+// el botón de confirmar.
 
 export interface ConfirmRequestDetail {
   id: number;
   message: string;
   confirmLabel?: string;
   cancelLabel?: string;
+  requireText?: string;
 }
 
 export interface ConfirmResponseDetail {
@@ -25,8 +30,9 @@ let contador = 0;
 /**
  * Pide confirmación al usuario vía el modal global. Se resuelve `true` si
  * confirma, `false` si cancela (incluye cerrar con Escape o click afuera).
+ * Con `requireText`, solo confirma cuando el texto escrito coincide.
  */
-export function askConfirm(message: string, labels: { confirmLabel?: string; cancelLabel?: string } = {}): Promise<boolean> {
+export function askConfirm(message: string, labels: { confirmLabel?: string; cancelLabel?: string; requireText?: string } = {}): Promise<boolean> {
   if (typeof window === 'undefined') {
     // SSR / entorno de test sin window: no bloquear, asumir cancelado.
     console.warn('[confirm] sin window disponible, se asume cancelado:', message);

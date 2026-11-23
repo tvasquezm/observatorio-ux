@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { getGoogleLoginConfig, loginWithGoogle } from '../api/auth.api';
+import { useMutation } from '@tanstack/react-query';
+import { loginWithGoogle } from '../api/auth.api';
+import { useAccesoConfig } from '../hooks/useAccesoConfig';
 import { useAuthStore } from '../store/useAuthStore';
 
 type GoogleIdentity = {
@@ -27,7 +28,7 @@ export function GoogleSignIn() {
   const button = useRef<HTMLDivElement>(null);
   const [loadError, setLoadError] = useState('');
   const setSession = useAuthStore(state => state.setSession);
-  const config = useQuery({ queryKey: ['auth', 'google-config'], queryFn: getGoogleLoginConfig, staleTime: 0, refetchOnWindowFocus: false, retry: false });
+  const config = useAccesoConfig();
   const { mutate, isPending, error } = useMutation({ mutationFn: loginWithGoogle, onSuccess: data => setSession(data.user) });
 
   useEffect(() => {
@@ -50,6 +51,6 @@ export function GoogleSignIn() {
     {isPending && <p role="status">Verificando tu acceso…</p>}
     {(loadError || error) && <p role="alert">{loadError || (error instanceof Error ? error.message : 'No se pudo ingresar.')}</p>}
     {(loadError || error) && <button type="button" className="secondary" onClick={() => config.refetch()}>Reintentar Google</button>}
-    <p>Solo cuentas autorizadas por la administración.</p>
+    <p>Ingresa con tu cuenta institucional. Si tu correo está en la lista de tu sala, tu cuenta se crea al primer ingreso.</p>
   </section>;
 }

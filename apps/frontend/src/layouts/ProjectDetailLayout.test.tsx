@@ -22,16 +22,26 @@ function mount(section = 'card-sorting/study/resultados') {
 beforeEach(() => { vi.unstubAllGlobals(); state.role = 'ADMIN'; state.owner = 'reviewer'; });
 
 describe('Menú de secciones del proyecto', () => {
-  it.each([true, false])('en el resumen evita duplicar las tarjetas de técnicas (compacto=%s)', async (compact) => {
+  it('muestra el estado de un proyecto sin ofrecer un vínculo a una sala', () => {
+    mount();
+    expect(screen.getByText('Sin sala', { exact: true })).toBeVisible();
+    expect(screen.queryByRole('link', { name: 'Vincular a una sala' })).toBeNull();
+  });
+  it('ofrece Miembros en la cabecera sin abrir el menú', () => {
+    mount();
+    const header = screen.getByRole('heading', { name: 'Proyecto UX' }).closest('.page-head') as HTMLElement;
+    expect(within(header).getByRole('link', { name: 'Miembros' })).toBeVisible();
+  });
+  it.each([true, false])('mantiene las técnicas accesibles también en el resumen (compacto=%s)', async (compact) => {
     vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: compact, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
     mount('');
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Proyecto UX' })).toHaveFocus());
     await userEvent.click(compact
       ? screen.getByText('Secciones del proyecto').closest('summary')!
       : screen.getByRole('button', { name: /^Proyecto/ }));
-    expect(screen.getByRole('link', { name: 'Miembros' })).toBeVisible();
-    expect(screen.queryByRole('button', { name: /^Técnicas/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Card Sorting' })).not.toBeInTheDocument();
+    expect(within(screen.getByRole('navigation', { name: 'Secciones del proyecto' })).getByRole('link', { name: 'Miembros' })).toBeVisible();
+    if (!compact) await userEvent.click(screen.getByRole('button', { name: /^Técnicas/ }));
+    expect(screen.getByRole('link', { name: 'Card Sorting' })).toBeVisible();
   });
   it('permite abrir con teclado y cerrar con Escape devolviendo el foco', async () => {
     mount();
@@ -53,9 +63,11 @@ describe('Menú de secciones del proyecto', () => {
     await userEvent.click(summary);
     const nav = screen.getByRole('navigation', { name: 'Secciones del proyecto' });
     for (const name of ['Resumen', 'Personas', 'Journey Map', 'Momentos críticos',
-      'Card Sorting', 'Evaluación heurística', 'Comentarios', 'Analítica', 'Miembros', 'Participantes']) {
+      'Card Sorting', 'Evaluación heurística', 'Comentarios', 'Analítica', 'Miembros']) {
       expect(within(nav).getByRole('link', { name })).toBeVisible();
     }
+    // F36: los participantes son anónimos; ya no hay sección para invitarlos.
+    expect(within(nav).queryByRole('link', { name: 'Participantes' })).toBeNull();
   });
 
   it('agrupa los enlaces por bloque con título propio', async () => {
@@ -86,7 +98,7 @@ describe('Menú de secciones del proyecto', () => {
     expect(within(crumbs).getByText('Journey Map')).toHaveAttribute('aria-current', 'page');
   });
 
-  it('mantiene las restricciones de analítica y participantes para un estudiante que no es dueño', async () => {
+  it('mantiene la restricción de analítica para un estudiante que no es dueño', async () => {
     state.role = 'ESTUDIANTE'; state.owner = 'another-user';
     mount('card-sorting');
     await userEvent.click(screen.getByText('Secciones del proyecto').closest('summary')!);

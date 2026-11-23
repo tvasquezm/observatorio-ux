@@ -2,13 +2,13 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { METODOLOGIAS_HEURISTICAS, ETIQUETA_SECCION_ACUERDO, ganadorVotoRedactor, pendientesAcuerdo, redactorDe, comprobarCompatibilidad, escalaDe, EVIDENCIA_MAX_BYTES, EVIDENCIA_MAX_MB } from '@observatorio-ux/shared-types';
-import type { ConfiguracionFlujo, ConsensoFlujo, EvaluacionFlujo, EvidenciaFlujo, HallazgoFlujo, InformeFlujo, PendienteAcuerdo, RespuestaCriterio, SeccionAcuerdo, TrabajoFlujo } from '@observatorio-ux/shared-types';
+import type { AporteEquipo, ConfiguracionFlujo, ConsensoFlujo, EvaluacionFlujo, EvidenciaFlujo, HallazgoFlujo, InformeFlujo, PendienteAcuerdo, RespuestaCriterio, SeccionAcuerdo, TrabajoFlujo } from '@observatorio-ux/shared-types';
 import { Prisma, type EvaluacionHeuristicaCompleta, type EvidenciaHeuristicaCompleta } from '../../../generated/prisma/client.js';
 import { PrismaService } from '../../../core/database/prisma.service.js';
 import { ProjectAccessService } from '../../../core/access/project-access.service.js';
 import type { AuthenticatedUser } from '../../auth/types/authenticated-user.interface.js';
 import { detectarMimeImagen, type ArchivoSubido } from './evidencia.util.js';
-import { anotacionesSchema, comparacionSchema, configuracionBodySchema, configuracionSchema, consensoSchema, metodologiaSchema, revisionSchema, trabajoSchema, validar, votoRedactorSchema, decidirRedactorSchema, pedirCambiosSchema } from './heuristica-flujo.schemas.js';
+import { anotacionesSchema, comparacionSchema, configuracionBodySchema, configuracionSchema, consensoSchema, metodologiaSchema, revisionSchema, trabajoSchema, validar, votoRedactorSchema, decidirRedactorSchema, pedirCambiosSchema, aporteSchema } from './heuristica-flujo.schemas.js';
 
 const json = (v: unknown) => JSON.parse(JSON.stringify(v)) as Prisma.InputJsonValue;
 const consensoVacio = (): ConsensoFlujo => ({ criterios: [], hallazgos: [], aprobadoPor: [] });
@@ -36,7 +36,7 @@ export function filtrarEvaluacion(e: EvaluacionFlujo, user: AuthenticatedUser): 
   if (!participante) {
     delete copia.avanceEquipo;
     copia.trabajos = [];
-    copia.consenso = { ...copia.consenso, hallazgos: copia.consenso.hallazgos.filter(h => h.decision === 'ACEPTADO') };
+    copia.consenso = { ...copia.consenso, hallazgos: copia.consenso.hallazgos.filter(h => h.decision === 'ACEPTADO'), aportes: [] };
     if (copia.informe) copia.informe.consenso.hallazgos = copia.informe.consenso.hallazgos.filter(h => h.decision === 'ACEPTADO');
   } else if (['BORRADOR', 'EN_EVALUACION'].includes(e.fase)) {
     copia.trabajos = copia.trabajos.filter(t => t.evaluadorId === user.id);
@@ -49,6 +49,9 @@ function acuerdoIncompleto(pendientes: PendienteAcuerdo[]) {
   const n = pendientes.length;
   return new BadRequestException({ message: `${n === 1 ? 'Falta 1 elemento' : `Faltan ${n} elementos`} para entregar el acuerdo: ${secciones.map(([s, k]) => `${ETIQUETA_SECCION_ACUERDO[s]} (${k})`).join(', ')}.`, codigo: 'ACUERDO_INCOMPLETO', pendientes });
 }
+
+/** Tope de problemas agregados por el equipo fuera del borrador de quien redacta. */
+export const MAX_APORTES_EQUIPO = 100;
 
 @Injectable()
 export class HeuristicaFlujoService {
@@ -220,12 +223,12 @@ export class HeuristicaFlujoService {
     }
   }
 
-  private async validarHallazgos(e: EvaluacionFlujo, hallazgos: HallazgoFlujo[], tx: Prisma.TransactionClient, autorId: string | null, completos: boolean) {
+  private async validarHallazgos(e: EvaluacionFlujo, hallazgos: HallazgoFlujo[], tx: Prisma.TransactionClient, autorId: string | null, completos: boolean, exigirCriterio = true) {
     const criterios = e.configuracion.metodologia.criterios;
     if (hallazgos.some(h => h.criterioIds.some(id => !criterios.some(c => c.id === id)))) throw new BadRequestException('Hallazgo con criterio desconocido.');
     if (completos) for (const h of hallazgos) {
       if (!h.titulo.trim()) throw new BadRequestException('Escribe el título de cada hallazgo.');
-      if (!h.criterioIds.length) throw new BadRequestException(`Selecciona un criterio para el hallazgo «${h.titulo}».`);
+      if (exigirCriterio && !h.criterioIds.length) throw new BadRequestException(`Selecciona un criterio para el hallazgo «${h.titulo}».`);
       if (!h.descripcion.trim()) throw new BadRequestException(`Describe el hallazgo «${h.titulo}».`);
     }
     const ids = [...new Set(hallazgos.flatMap(h => h.evidenciaIds))];
@@ -271,11 +274,11 @@ export class HeuristicaFlujoService {
   private async validarConsenso(e: EvaluacionFlujo, tx: Prisma.TransactionClient, completo: boolean) {
     if (!e.trabajos.length || e.trabajos.some(t => !t.entregadoEn)) throw new ConflictException('Faltan entregas independientes.');
     this.validarRespuestas(e, e.consenso.criterios, false);
-    const originales = e.trabajos.flatMap(t => t.hallazgos);
+    const originales = [...e.trabajos.flatMap(t => t.hallazgos), ...(e.consenso.aportes ?? [])];
     const referencias = e.consenso.hallazgos.flatMap(h => h.origenIds);
     if (new Set(referencias).size !== referencias.length || referencias.some(id => !originales.some(h => h.id === id))) throw new BadRequestException('Cada hallazgo original debe aparecer una sola vez.');
-    const capturas = [...new Set((e.consenso.mejoras ?? []).flatMap(m => [...m.antesIds, ...m.despuesIds]))];
-    if (capturas.length && (await tx.evidenciaHeuristicaCompleta.findMany({ where: { id: { in: capturas }, evaluacionId: e.id }, select: { id: true } })).length !== capturas.length) throw new BadRequestException('Las capturas de las mejoras deben pertenecer a esta evaluación.');
+    const capturas = [...new Set([...(e.consenso.mejoras ?? []).flatMap(m => [...m.antesIds, ...m.despuesIds]), ...(e.consenso.positivos ?? []).flatMap(p => p.evidenciaIds ?? [])])];
+    if (capturas.length && (await tx.evidenciaHeuristicaCompleta.findMany({ where: { id: { in: capturas }, evaluacionId: e.id }, select: { id: true } })).length !== capturas.length) throw new BadRequestException('Las capturas de los aspectos positivos y las mejoras deben pertenecer a esta evaluación.');
     await this.validarHallazgos(e, e.consenso.hallazgos, tx, null, false);
     if (!completo) return;
     const pendientes = pendientesAcuerdo(e);
@@ -289,9 +292,39 @@ export class HeuristicaFlujoService {
       if (redactorDe(e.consenso, e.coordinadorId) !== user.id) throw new ForbiddenException('Solo quien redacta el acuerdo puede guardarlo.');
       const cambioDecision = firmaDecisiones(e.consenso) !== firmaDecisiones(b);
       e.consenso = { criterios: b.criterios, hallazgos: b.hallazgos, aprobadoPor: cambioDecision ? [] : e.consenso.aprobadoPor, positivos: b.positivos ?? [], conclusion: b.conclusion ?? '', mejoras: b.mejoras ?? [],
-        ...(e.consenso.redactorId ? { redactorId: e.consenso.redactorId } : {}), ...(e.consenso.votosRedactor ? { votosRedactor: e.consenso.votosRedactor } : {}), ...(e.consenso.pedidosCambios ? { pedidosCambios: e.consenso.pedidosCambios } : {}),
+        ...(e.consenso.aportes?.length ? { aportes: e.consenso.aportes } : {}), ...(e.consenso.redactorId ? { redactorId: e.consenso.redactorId } : {}), ...(e.consenso.votosRedactor ? { votosRedactor: e.consenso.votosRedactor } : {}), ...(e.consenso.pedidosCambios ? { pedidosCambios: e.consenso.pedidosCambios } : {}),
         guardadoPor: user.id, guardadoEn: new Date().toISOString() };
       await this.validarConsenso(e, tx, false);
+      return this.persistir(e, tx, user);
+    });
+  }
+
+  /** F31: cualquiera del equipo (expertos y coordinador) agrega un problema al acuerdo; queda con autor y fecha y quien redacta lo decide. */
+  async agregarAporte(proyectoId: string, id: string, body: unknown, user: AuthenticatedUser) {
+    const b = validar(aporteSchema, body);
+    return this.bloqueada(proyectoId, id, user, undefined, async (e, tx) => {
+      this.fase(e, 'PENDIENTE_CONSENSO');
+      if (e.coordinadorId !== user.id && !e.configuracion.evaluadorIds.includes(user.id)) throw new ForbiddenException('Solo el equipo de la evaluación puede agregar problemas.');
+      const aportes = e.consenso.aportes ?? [];
+      if (aportes.length >= MAX_APORTES_EQUIPO) throw new BadRequestException(`Máximo ${MAX_APORTES_EQUIPO} problemas agregados por el equipo.`);
+      const usados = new Set([...e.trabajos.flatMap(t => t.hallazgos.map(h => h.id)), ...aportes.map(h => h.id), ...e.consenso.hallazgos.map(h => h.id)]);
+      if (usados.has(b.hallazgo.id)) throw new BadRequestException('El identificador del problema ya existe.');
+      await this.validarHallazgos(e, [b.hallazgo], tx, user.id, true, false);
+      const aporte: AporteEquipo = { ...b.hallazgo, autorId: user.id, creadoEn: new Date().toISOString() };
+      e.consenso = { ...e.consenso, aportes: [...aportes, aporte], aprobadoPor: [] };
+      return this.persistir(e, tx, user);
+    });
+  }
+
+  /** Quien agregó un problema puede retirarlo mientras nadie lo haya decidido. */
+  async quitarAporte(proyectoId: string, id: string, aporteId: string, user: AuthenticatedUser) {
+    return this.bloqueada(proyectoId, id, user, undefined, async (e, tx) => {
+      this.fase(e, 'PENDIENTE_CONSENSO');
+      const aporte = (e.consenso.aportes ?? []).find(a => a.id === aporteId);
+      if (!aporte) throw new NotFoundException('El problema no existe en este acuerdo.');
+      if (aporte.autorId !== user.id) throw new ForbiddenException('Solo quien agregó el problema puede quitarlo.');
+      if (e.consenso.hallazgos.some(h => h.origenIds.includes(aporteId))) throw new ConflictException('Quien redacta ya incluyó este problema en el acuerdo; pídele que lo descarte.');
+      e.consenso = { ...e.consenso, aportes: (e.consenso.aportes ?? []).filter(a => a.id !== aporteId) };
       return this.persistir(e, tx, user);
     });
   }
@@ -391,8 +424,10 @@ export class HeuristicaFlujoService {
     });
   }
 
-  private meta(ev: EvidenciaHeuristicaCompleta): EvidenciaFlujo {
-    return { id: ev.id, revision: ev.revision, evaluacionId: ev.evaluacionId, autorId: ev.autorId, mimeType: ev.mimeType, tamano: ev.tamano, anotaciones: ev.anotaciones as unknown as EvidenciaFlujo['anotaciones'], createdAt: ev.createdAt.toISOString() };
+  /** Datos de la captura con el nombre de su autor (quien la subió es el único que puede anotarla). */
+  private async meta(ev: EvidenciaHeuristicaCompleta, tx: Prisma.TransactionClient = this.prisma): Promise<EvidenciaFlujo> {
+    const autor = (await tx.usuario.findMany({ where: { id: { in: [ev.autorId] } }, select: { id: true, nombre: true } })).find(u => u.id === ev.autorId);
+    return { id: ev.id, revision: ev.revision, evaluacionId: ev.evaluacionId, autorId: ev.autorId, autorNombre: autor?.nombre, mimeType: ev.mimeType, tamano: ev.tamano, anotaciones: ev.anotaciones as unknown as EvidenciaFlujo['anotaciones'], createdAt: ev.createdAt.toISOString(), anotadoEn: ev.anotadoEn?.toISOString() ?? null };
   }
   async subirEvidencia(proyectoId: string, id: string, archivo: ArchivoSubido | undefined, user: AuthenticatedUser) {
     if (!archivo?.buffer?.length || archivo.buffer.length > EVIDENCIA_MAX_BYTES) throw new BadRequestException(`Adjunta PNG/JPEG/WebP de hasta ${EVIDENCIA_MAX_MB} MB.`);
@@ -403,7 +438,7 @@ export class HeuristicaFlujoService {
       else this.editable(e, user);
       const cantidad = await tx.evidenciaHeuristicaCompleta.count({ where: { evaluacionId: id, autorId: user.id } });
       if (cantidad >= 50) throw new ConflictException('Máximo 50 capturas por experto.');
-      return this.meta(await tx.evidenciaHeuristicaCompleta.create({ data: { evaluacionId: id, autorId: user.id, mimeType, tamano: archivo.buffer.length, datos: Uint8Array.from(archivo.buffer), anotaciones: [] } }));
+      return this.meta(await tx.evidenciaHeuristicaCompleta.create({ data: { evaluacionId: id, autorId: user.id, mimeType, tamano: archivo.buffer.length, datos: Uint8Array.from(archivo.buffer), anotaciones: [] } }), tx);
     });
   }
 
@@ -412,23 +447,26 @@ export class HeuristicaFlujoService {
     if (!ev) throw new NotFoundException('La evidencia no existe en esta evaluación.');
     const compartida = ['PENDIENTE_CONSENSO', 'CONSOLIDADA', 'FINALIZADA'].includes(e.fase);
     const investigador = e.coordinadorId === user.id || e.configuracion.evaluadorIds.includes(user.id);
-    const incluida = e.informe?.consenso.hallazgos.some(h => h.decision === 'ACEPTADO' && h.evidenciaIds.includes(ev.id)) || e.informe?.consenso.mejoras?.some(m => m.antesIds.includes(ev.id) || m.despuesIds.includes(ev.id));
+    const incluida = e.informe?.consenso.hallazgos.some(h => h.decision === 'ACEPTADO' && h.evidenciaIds.includes(ev.id)) || e.informe?.consenso.mejoras?.some(m => m.antesIds.includes(ev.id) || m.despuesIds.includes(ev.id))
+      || e.informe?.consenso.positivos?.some(p => p.evidenciaIds?.includes(ev.id));
     if (!(ev.autorId === user.id && e.configuracion.evaluadorIds.includes(user.id)) && !(compartida && investigador) && !(e.configuracion.lectorIds.includes(user.id) && incluida)) throw new ForbiddenException('Esta captura no está disponible para tu rol en la fase actual.');
     return ev;
   }
   async obtenerEvidencia(proyectoId: string, id: string, evidenciaId: string, user: AuthenticatedUser, metadata = false) {
     await this.projectAccess.assertAccess(proyectoId, user);
     const ev = await this.captura(await this.cargar(proyectoId, id, user), evidenciaId, user);
-    return metadata ? this.meta(ev) : { mimeType: ev.mimeType, datos: Buffer.from(ev.datos) };
+    return metadata ? await this.meta(ev) : { mimeType: ev.mimeType, datos: Buffer.from(ev.datos) };
   }
   async anotarEvidencia(proyectoId: string, id: string, evidenciaId: string, body: unknown, user: AuthenticatedUser) {
     const b = validar(anotacionesSchema, body);
     return this.bloqueada(proyectoId, id, user, undefined, async (e, tx) => {
-      this.editable(e, user);
+      // Misma regla que al subir: en el acuerdo también se anotan las capturas (de problemas y aspectos positivos).
+      if (e.fase === 'PENDIENTE_CONSENSO') { if (e.coordinadorId !== user.id && !e.configuracion.evaluadorIds.includes(user.id)) throw new ForbiddenException('Solo el coordinador o un experto pueden anotar capturas durante el consenso.'); }
+      else this.editable(e, user);
       const ev = await this.captura(e, evidenciaId, user, tx);
       if (ev.autorId !== user.id) throw new ForbiddenException('Solo el autor puede anotar su captura.');
       if (ev.revision !== b.revision) throw new ConflictException('La captura cambió. Conserva tus anotaciones y vuelve a cargar antes de guardar.');
-      return this.meta(await tx.evidenciaHeuristicaCompleta.update({ where: { id: evidenciaId }, data: { revision: { increment: 1 }, anotaciones: json(b.anotaciones) } }));
+      return this.meta(await tx.evidenciaHeuristicaCompleta.update({ where: { id: evidenciaId }, data: { revision: { increment: 1 }, anotaciones: json(b.anotaciones), anotadoEn: new Date() } }), tx);
     });
   }
 

@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react';
+import { TechniqueInstructions } from './TechniqueInstructions';
+import type { InstructionList } from './TechniqueInstructions';
 
 interface TechniquePageHeaderProps {
   label: string;
@@ -6,8 +8,8 @@ interface TechniquePageHeaderProps {
   description: string;
   labelVariant?: 'eyebrow' | 'kicker';
   action?: ReactNode;
-  /** Lista de pasos, o un nodo propio (p. ej. la guía de Card Sorting). Siempre arranca colapsado. */
-  instructions?: string[] | ReactNode;
+  /** Lista de pasos (texto o texto con "En la herramienta:"), o un nodo propio. Siempre arranca colapsado. */
+  instructions?: InstructionList | ReactNode;
   /** Nota fija: no detecta cambios, solo recuerda actualizar la página para ver datos nuevos de otras personas. */
   avisoActualizar?: boolean;
 }
@@ -33,8 +35,8 @@ export function TechniquePageHeader({
     </div>
     {instructions && <details className="panel technique-instructions">
       <summary>Cómo trabajar con {title}</summary>
-      {Array.isArray(instructions) && instructions.every(step => typeof step === 'string')
-        ? <ol>{(instructions as string[]).map(step => <li key={step}>{step}</li>)}</ol>
+      {Array.isArray(instructions)
+        ? <TechniqueInstructions steps={instructions as InstructionList} />
         : instructions}
     </details>}</>
   );

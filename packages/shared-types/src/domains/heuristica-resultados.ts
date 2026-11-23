@@ -1,5 +1,5 @@
 import { escalaDe } from './heuristica-flujo';
-import type { ConfiguracionFlujo, ConsensoFlujo, DecisionHallazgo, EscalaFlujo, EvaluacionFlujo, PendienteAcuerdo, RespuestaCriterio, SeccionAcuerdo, TrabajoFlujo } from './heuristica-flujo';
+import type { ConfiguracionFlujo, ConsensoFlujo, DecisionHallazgo, MejoraAntesDespues, EscalaFlujo, EvaluacionFlujo, PendienteAcuerdo, RespuestaCriterio, SeccionAcuerdo, TrabajoFlujo } from './heuristica-flujo';
 
 /** Distribución de los criterios que usan una escala propia (distinta de la de la metodología). */
 export interface DistribucionEscalaPropia {
@@ -118,6 +118,10 @@ export function origenHallazgo(h: Pick<DecisionHallazgo, 'origenIds'>): 'equipo'
 
 export const ETIQUETA_SECCION_ACUERDO: Record<SeccionAcuerdo, string> = { criterios: 'Criterios', hallazgos: 'Hallazgos', positivos: 'Aspectos positivos', mejoras: 'Mejoras' };
 /** Todo lo que impide entregar o confirmar el acuerdo, por sección. Vacío = completo. Los errores estructurales (ids repetidos, capturas ajenas) siguen siendo 400 aparte. */
+/** Mejora antes/después sin ningún dato (quedó de borradores del editor de mejoras que ya no se muestra). */
+export function mejoraVacia(m: MejoraAntesDespues): boolean {
+  return !m.titulo.trim() && !m.descripcion.trim() && !m.antesIds.length && !m.despuesIds.length;
+}
 export function pendientesAcuerdo(e: EvaluacionFlujo): PendienteAcuerdo[] {
   const lista = new Map<string, PendienteAcuerdo>();
   const falta = (seccion: SeccionAcuerdo, id: string, nombre: string, texto: string) => {
@@ -133,16 +137,17 @@ export function pendientesAcuerdo(e: EvaluacionFlujo): PendienteAcuerdo[] {
   }
   const resueltos = new Set(c.hallazgos.flatMap(h => h.origenIds));
   for (const t of e.trabajos) for (const h of t.hallazgos) if (!resueltos.has(h.id)) falta('hallazgos', h.id, h.titulo.trim() || 'Hallazgo sin título', `Sin resolver: hallazgo de ${t.nombre} que falta fusionar, aceptar o descartar.`);
+  for (const h of c.aportes ?? []) if (!resueltos.has(h.id)) falta('hallazgos', h.id, h.titulo.trim() || 'Problema sin título', 'Sin resolver: problema agregado por el equipo que falta aceptar o descartar.');
   for (const h of c.hallazgos) {
     const nombre = h.titulo.trim() || 'Hallazgo sin título';
     if (h.decision === 'PENDIENTE') falta('hallazgos', h.id, nombre, 'Falta decidir: aceptarlo o descartarlo.');
     if (!h.justificacion.trim()) falta('hallazgos', h.id, nombre, 'Falta la justificación.');
     if ((origenHallazgo(h) === 'equipo' || h.decision === 'ACEPTADO') && !h.titulo.trim()) falta('hallazgos', h.id, nombre, 'Falta el título.');
     if ((origenHallazgo(h) === 'equipo' || h.decision === 'ACEPTADO') && !h.descripcion.trim()) falta('hallazgos', h.id, nombre, 'Falta la descripción.');
-    if (h.decision === 'ACEPTADO' && !h.criterioIds.length) falta('hallazgos', h.id, nombre, 'Falta elegir al menos un criterio.');
   }
   for (const p of c.positivos ?? []) if (!p.titulo.trim()) falta('positivos', p.id, 'Aspecto positivo sin título', 'Falta el título.');
-  for (const m of c.mejoras ?? []) if (!m.titulo.trim()) falta('mejoras', m.id, 'Mejora sin título', 'Falta el título.');
+  // Una mejora totalmente vacía (borrador del antiguo editor de mejoras) no bloquea: no hay dónde completarla.
+  for (const m of c.mejoras ?? []) if (!m.titulo.trim() && !mejoraVacia(m)) falta('mejoras', m.id, 'Mejora sin título', 'Falta el título.');
   return [...lista.values()];
 }
 export type ClaseCriterio = 'favorable' | 'desfavorable' | 'neutro' | 'sin_evaluar' | 'no_aplica';

@@ -31,3 +31,12 @@ Sin credenciales configuradas, no se carga la biblioteca externa ni aparece un b
 ## Verificación pendiente de configuración
 
 Se pueden probar la autorización, los rechazos y el intercambio de credenciales con dobles de prueba. El ingreso real con Google y los orígenes OAuth deben verificarse después de configurar el Client ID y aplicar la migración. No se ha modificado ninguna configuración de Google Cloud.
+
+## F35: solo Google en producción (2026-11-22)
+
+- **Única forma de entrar en producción:** «Continuar con Google». El ingreso y el cambio de contraseña quedan apagados cuando `NODE_ENV=production`, salvo `PASSWORD_LOGIN_ENABLED=true` (respaldo de emergencia). En desarrollo y en los E2E siguen activos.
+- **Alta por sala:** si el correo verificado está en la lista de una sala activa (`SalaEstudiante`), el primer ingreso crea la cuenta ESTUDIANTE enlazada a Google. Un correo desconocido recibe «Tu cuenta no tiene acceso al sitio. Contacta a tu profesor del ramo…» y no se guarda nada.
+- **Dominio:** `GOOGLE_ALLOWED_DOMAINS=utem.cl` exige `hd` y correo de ese dominio (la pantalla de consentimiento ya es Interna).
+- **Docentes y administradores:** el admin los autoriza por correo en el panel (opción Cuenta de Google).
+- **Desactivar:** el panel de cuentas permite desactivar y reactivar; desactivar cierra sus sesiones y bloquea el ingreso sin borrar datos. No se puede desactivar la propia cuenta ni la última administración activa.
+- **Antes de desplegar en Render:** configurar `GOOGLE_CLIENT_ID` y `GOOGLE_ALLOWED_DOMAINS` en el panel y comprobar que las cuentas ADMIN usan un correo @utem.cl; si no, nadie de administración podrá entrar.

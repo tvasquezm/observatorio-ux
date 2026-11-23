@@ -38,9 +38,10 @@ export function SalasEliminadasPage() {
     if (
       await confirm(
         `Esto borra "${nombre}" de forma DEFINITIVA (sala, proyectos, sesiones y evidencia asociada). No se puede deshacer. ¿Continuar?`,
+        { requireText: nombre },
       )
     ) {
-      eliminarDefinitivo(id);
+      eliminarDefinitivo({ salaId: id, nombre });
     }
   }
 

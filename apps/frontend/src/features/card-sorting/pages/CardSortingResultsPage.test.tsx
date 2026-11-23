@@ -111,8 +111,7 @@ describe('CardSortingResultsPage (minimalista)', () => {
   it('descargas y actualizar son botones de ícono con nombre accesible', () => {
     setup();
     expect(screen.getByRole('button', { name: 'Descargar CSV de esta vista' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Descargar PDF de esta vista' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Descargar PDF de todas las vistas' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Exportar resultados (PDF)' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Actualizar resultados' })).toBeTruthy();
   });
 
@@ -199,26 +198,35 @@ describe('CardSortingResultsPage · respuestas del participante', () => {
     expect(texto).toContain('Biblioteca;Consenso;A;67;2;B 33%');
   });
 
-  it('PDF de esta vista y PDF completo piden las vistas correctas', async () => {
+  it('genera solamente las vistas seleccionadas y conserva el acceso a todas', async () => {
     exportarEstudioPdf.mockClear();
     setup('/r/e1?vista=participants');
-    fireEvent.click(screen.getByRole('button', { name: 'Descargar PDF de esta vista' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Exportar resultados (PDF)' }));
+    const dialog = screen.getByRole('dialog');
+    for (const name of ['Tarjetas', 'Categorías', 'Matriz', 'Populares', 'Similitud', 'Dendrograma']) {
+      fireEvent.click(within(dialog).getByRole('checkbox', { name }));
+    }
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Generar PDF' }));
     await waitFor(() => expect(exportarEstudioPdf).toHaveBeenCalledTimes(1));
-    expect(exportarEstudioPdf).toHaveBeenLastCalledWith(data, ['participants'], 'vista');
-    fireEvent.click(screen.getByRole('button', { name: 'Descargar PDF de todas las vistas' }));
+    expect(exportarEstudioPdf).toHaveBeenLastCalledWith(data, ['participants'], 'seleccion', { resumen: true, color: true, separarSecciones: true });
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'Exportar resultados (PDF)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Generar PDF' }));
     await waitFor(() => expect(exportarEstudioPdf).toHaveBeenCalledTimes(2));
-    expect(exportarEstudioPdf).toHaveBeenLastCalledWith(
-      data,
+    expect(exportarEstudioPdf).toHaveBeenLastCalledWith(data,
       ['cards', 'categories', 'results', 'popular', 'similarity', 'dendrogram', 'participants'],
-      'todas',
-    );
+      'seleccion', { resumen: true, color: true, separarSecciones: true });
   });
 
-  it('si el PDF falla, avisa con un mensaje', async () => {
-    exportarEstudioPdf.mockRejectedValueOnce(new Error('No pudimos cargar la identidad del informe.'));
+  it('si el PDF falla, conserva la selección y permite reintentar', async () => {
+    exportarEstudioPdf.mockClear();
+    exportarEstudioPdf.mockRejectedValueOnce(new Error('Fallo de red'));
     setup();
-    fireEvent.click(screen.getByRole('button', { name: 'Descargar PDF de esta vista' }));
-    expect((await screen.findByRole('alert')).textContent).toContain('No pudimos cargar la identidad');
+    fireEvent.click(screen.getByRole('button', { name: 'Exportar resultados (PDF)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Generar PDF' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('No pudimos generar el PDF. Vuelve a intentarlo.');
+    fireEvent.click(screen.getByRole('button', { name: 'Generar PDF' }));
+    await waitFor(() => expect(exportarEstudioPdf).toHaveBeenCalledTimes(2));
   });
 
   it('pestaña Dendrograma: dibuja el árbol y lista las uniones en texto', () => {

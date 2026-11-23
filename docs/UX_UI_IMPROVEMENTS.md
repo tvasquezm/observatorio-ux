@@ -39,3 +39,12 @@ pnpm --filter frontend build
 
 La revisión no equivale a una certificación WCAG ni reemplaza pruebas con
 lectores de pantalla y personas usuarias. No se agregaron dependencias.
+
+## Jerarquía de botones (F33, D7)
+
+- **primary** (relleno): la acción principal de la vista. Una sola visible por vista o por estado (formularios con un único envío cuentan como su propia vista).
+- **secondary** (borde): acciones alternativas o de navegación (Sección anterior/siguiente, Descargar PDF, Pido cambios).
+- **ghost** (solo texto): acciones frecuentes y menores (Guardar cambios, Comentario, Configuración, Exportar PDF de la barra superior).
+- **danger** (texto/borde rojo): solo para quitar o borrar; nunca relleno, salvo en el diálogo de confirmación.
+- Estados (Entregada, En revisión) se muestran como `badge`, no como botón. El texto de apoyo (`hf-ayuda`) va atenuado.
+- Acuerdo del equipo: antes de entregar, la principal es "Entregar acuerdo" (quien redacta) o "Estoy de acuerdo" (el resto); cuando todos confirmaron, "Preparar informe".

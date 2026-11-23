@@ -3,12 +3,20 @@ import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 
+// Tipografía de marca: Figtree (alternativa libre a Bilo del manual), servida desde el bundle.
+import '@fontsource-variable/figtree/wght.css';
+import '@fontsource-variable/figtree/wght-italic.css';
 import './styles/theme.css';
 import App from './App';
 import { ToastContainer } from './shared/components/ToastContainer';
 import { ConfirmDialog } from './shared/components/ui/ConfirmDialog';
 import { AppErrorBoundary } from './shared/components/AppErrorBoundary';
 import { usersKeys } from './features/admin/hooks/useUsersQueries';
+
+const savedFontSize = window.localStorage.getItem('observatorio-ux-font-size');
+if (savedFontSize && ['large', 'xlarge', 'xxlarge', 'huge'].includes(savedFontSize)) {
+  document.documentElement.dataset.fontSize = savedFontSize;
+}
 
 // Instancia única de TanStack Query para toda la app. Si en algún punto
 // necesitas configurar retry/staleTime globales, es acá.

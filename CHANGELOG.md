@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file. See [commit
 
 ## Unreleased
 
+* **estilos:** se consolidan los tokens de tema y los estilos estáticos de los formularios y anotaciones.
+
+* **dependencias:** parches mediante overrides de qs, fast-xml-parser, minimatch y glob.
+
+* **CI:** Joi 18.3.1 elimina la alerta alta GHSA-4528-x5fx-h6hg; selector E2E alineado con Nombre del card sorting.
+
 ### Features
 
 * **admin:** ordena el alta de docentes, incorpora búsqueda y filtro de cuentas y permite
@@ -11,6 +17,43 @@ All notable changes to this project will be documented in this file. See [commit
 * **pdf:** aplica tipografía Latin Modern, composición académica y tablas sobrias a los informes,
   con fuentes locales incluidas en el frontend y en el backend compilado.
 
+* **salas:** el permiso de creación de proyectos se guarda al cambiarlo y el estudiante recibe una explicación si está desactivado.
+
+* **proyectos:** el formulario explica la relación entre sala y técnicas. Los proyectos sin sala muestran su estado.
+
+* **formularios:** marca de campo opcional compartida en Card Sorting y en la configuración heurística.
+
+* **informes PDF:** se pueden elegir apartados en heurística y en el informe del proyecto.
+
+* **PDF de resultados:** separadores de filas, títulos con acento y selector de contenido compartido.
+
+* **accesibilidad:** acceso al tamaño del texto desde la barra superior, con los mismos ajustes de Preferencias.
+
+* **interfaz:** íconos en las tarjetas de técnicas y en las ayudas, con bordes decorativos más suaves en modo claro.
+
+* **resultados de Card Sorting:** la matriz mejora el contraste de las celdas y las vistas aprovechan el ancho disponible.
+
+* **inicio (plan UX):** Inicio se simplifica en dos pasos (1 · Proyecto y 2 · Técnica); se quitan métricas, proyectos recientes, mensajes repetidos y el panel de jerarquía.
+
+* **textos (F7):** recortes aprobados de acceso, ayuda y reportes; auditoría y protocolo de prueba con personas.
+
+* **sesión frontend (F10):** renovación por actividad, aviso que permite volver a guardar, retorno a la ruta y recuperación de borradores por usuario.
+
+* **sesión backend (F8):** renovación acotada del evaluador, expiración informada por servidor, mismo CSRF/cookie y límite de 10 solicitudes por minuto.
+
+* **heurística (F6):** problemas y aciertos por criterio, no aplica separado y acceso explícito al informe; sin modo express.
+
+* **salas y formularios (F5):** configuración resincronizada con el servidor, guardado/error visibles, avisos de cambios pendientes y eliminación del límite de integrantes al dejarlo vacío.
+
+* **ayuda y resultados (F4):** ayudas junto a gráficos y exportación configurable de card sorting con tamaño de texto propio.
+
+* **usabilidad (F3):** salas con color e inicial, Miembros y Comentarios más visibles, campos opcionales identificados e ingreso de tarjetas con etiquetas explícitas.
+
+* **proyectos (F2):** creación desde salas con formulario compartido y sala obligatoria en la interfaz; jerarquía y terminología más claras, sin cambiar el contrato del backend.
+
+* **accesibilidad (F9):** ayudas e iconos mayores, grises y bordes legibles, áreas de 44 px y mensajes visibles para los estados de tarjetas.
+
+* **accesibilidad (F1):** el texto del anillo de avance respeta la escala de fuente; Preferencias mantiene accesibles sus controles a 150 % en móvil.
 
 * **personas, momentos-criticos:** si otro miembro del equipo está editando, quien intenta editar ve "Editando: nombre"
   (el 409 del bloqueo ahora incluye el nombre; solo lo ve quien tiene acceso al proyecto). Sin edición simultánea.

@@ -1,18 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { SalaBadge } from '../components/SalaBadge';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getSalas, createSala, updateSala, softDeleteSala, type Sala } from '../api/salas.api';
+import { getSalas, softDeleteSala, type Sala } from '../api/salas.api';
 import { useAuthStore } from '../../auth/store/useAuthStore';
 import { resolvePerspective } from '../../../shared/auth/perspectivas';
 import { useConfirm } from '../../../shared/api/confirm';
-import { useDiscardChanges } from '../../../shared/hooks/useDiscardChanges';
-
-function fechaParaInput(fechaRaw?: string | null) {
-  if (!fechaRaw) return '';
-  const fecha = new Date(fechaRaw);
-  if (Number.isNaN(fecha.getTime())) return '';
-  const pad = (valor: number) => String(valor).padStart(2, '0');
-  return `${fecha.getFullYear()}-${pad(fecha.getMonth() + 1)}-${pad(fecha.getDate())}T${pad(fecha.getHours())}:${pad(fecha.getMinutes())}`;
-}
+import { useUnsavedChanges } from '../../../shared/hooks/useUnsavedChanges';
+import { SalaFormDialog } from '../components/SalaFormDialog';
 
 export const ProfesorSalasPage: React.FC = () => {
   const { user, perspectiveRole } = useAuthStore();
@@ -22,32 +16,16 @@ export const ProfesorSalasPage: React.FC = () => {
   const [busqueda, setBusqueda] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [salaEditando, setSalaEditando] = useState<Sala | null>(null);
+  const [formDirty, setFormDirty] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [saveNotice, setSaveNotice] = useState('');
-  const modalRef = useRef<HTMLDialogElement>(null);
   const confirm = useConfirm();
-
-  // Estados del formulario
-  const [nombre, setNombre] = useState('');
-  const [periodo, setPeriodo] = useState('2026-2');
-  const [fechaInicio, setFechaInicio] = useState('');
-  const [fechaFin, setFechaFin] = useState('');
-  const [instrucciones, setInstrucciones] = useState('');
-  const [error, setError] = useState('');
-  const { confirmDiscard } = useDiscardChanges(isModalOpen, { nombre, periodo, fechaInicio, fechaFin, instrucciones }, saving, salaEditando?.id ?? 'new');
+  useUnsavedChanges(isModalOpen, formDirty, false, salaEditando?.id ?? 'new');
 
   useEffect(() => {
     cargarSalas();
   }, []);
-
-  useEffect(() => {
-    const dialog = modalRef.current;
-    if (!dialog || !isModalOpen) return;
-    dialog.showModal();
-    return () => dialog.close();
-  }, [isModalOpen]);
 
   const cargarSalas = async () => {
     try {
@@ -62,75 +40,25 @@ export const ProfesorSalasPage: React.FC = () => {
     }
   };
 
-  const limpiarFormulario = () => {
-    setNombre('');
-    setPeriodo('2026-2');
-    setFechaInicio('');
-    setFechaFin('');
-    setInstrucciones('');
-    setError('');
-    setSalaEditando(null);
-  };
-
   const abrirCrearSala = () => {
     setSaveNotice('');
-    limpiarFormulario();
+    setSalaEditando(null);
     setIsModalOpen(true);
   };
 
   const abrirEditarSala = (sala: Sala) => {
     setSaveNotice('');
     setSalaEditando(sala);
-    setNombre(sala.nombre);
-    setPeriodo(sala.periodo);
-    setFechaInicio(fechaParaInput(sala.fechaInicio));
-    setFechaFin(fechaParaInput(sala.fechaFin));
-    setInstrucciones(sala.instrucciones ?? '');
-    setError('');
     setIsModalOpen(true);
   };
 
   const cerrarModal = () => {
     setIsModalOpen(false);
-    limpiarFormulario();
-  };
-  const cancelarModal = async () => { if (await confirmDiscard()) cerrarModal(); };
-
-  const handleGuardarSala = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    if (new Date(fechaFin) <= new Date(fechaInicio)) {
-      setError('La fecha de término debe ser posterior a la fecha de inicio.');
-      return;
-    }
-    try {
-      setSaving(true);
-      const payload = {
-        nombre: nombre.trim(),
-        periodo: periodo.trim(),
-        instrucciones: salaEditando ? instrucciones.trim() : (instrucciones.trim() || undefined),
-        fechaInicio: new Date(fechaInicio).toISOString(),
-        fechaFin: new Date(fechaFin).toISOString(),
-      };
-
-      if (salaEditando) {
-        await updateSala(salaEditando.id, payload);
-      } else {
-        await createSala(payload);
-      }
-
-      setSaveNotice(`Sala «${payload.nombre}» ${salaEditando ? 'actualizada' : 'creada'}.`);
-      cerrarModal();
-      await cargarSalas();
-    } catch (err: any) {
-      setError(err.message || 'Error al conectar con el servidor para guardar la sala');
-    } finally {
-      setSaving(false);
-    }
+    setSalaEditando(null);
   };
 
   const handleEliminarSala = async (sala: Sala) => {
-    if (!(await confirm(`¿Eliminar la sala "${sala.nombre}"? Se puede recuperar dentro de 20 días.`))) return;
+    if (!(await confirm(`¿Eliminar la sala "${sala.nombre}"? Se puede recuperar dentro de 20 días.`, { requireText: sala.nombre }))) return;
     try {
       await softDeleteSala(sala.id);
       await cargarSalas();
@@ -238,12 +166,7 @@ export const ProfesorSalasPage: React.FC = () => {
                 key={sala.id}
                 className="sala-card"
               >
-                <div className="sala-card-icon" aria-hidden="true">
-                  <div>
-                    {sala.nombre.match(/\d+/)?.[0] ?? sala.nombre.charAt(0)}
-                  </div>
-                  <span>SALA</span>
-                </div>
+                <SalaBadge id={sala.id} nombre={sala.nombre} />
 
                 <div className="sala-card-content">
                   <div className="sala-card-heading">
@@ -326,110 +249,17 @@ export const ProfesorSalasPage: React.FC = () => {
         </div>
       )}
 
-      {/* Modal de creación y edición */}
-      {isModalOpen && (
-        <dialog
-          ref={modalRef}
-          className="sala-modal"
-          aria-labelledby="sala-modal-title"
-          onCancel={event => { event.preventDefault(); void cancelarModal(); }}
-        >
-          <h3 id="sala-modal-title">
-            {salaEditando ? 'Editar sala' : 'Crear nueva sala'}
-          </h3>
-
-          {error && (
-            <div role="alert" className="sala-form-error">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleGuardarSala} className="sala-form" aria-busy={saving}>
-            <div className="sala-field">
-              <label htmlFor="sala-nombre">Nombre de la sala</label>
-              <input
-                id="sala-nombre"
-                disabled={saving}
-                name="nombre"
-                autoFocus
-                type="text"
-                required
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
-                placeholder="Ej: Taller de Usabilidad"
-              />
-            </div>
-
-            <div className="sala-field">
-              <label htmlFor="sala-periodo">Período académico</label>
-              <input
-                id="sala-periodo"
-                disabled={saving}
-                name="periodo"
-                type="text"
-                required
-                value={periodo}
-                onChange={(e) => setPeriodo(e.target.value)}
-                placeholder="Ej: 2026-2"
-              />
-            </div>
-
-            <div className="sala-date-grid">
-              <div className="sala-field">
-                <label htmlFor="sala-inicio">Inicio</label>
-                <input
-                  id="sala-inicio"
-                  disabled={saving}
-                  name="fechaInicio"
-                  type="datetime-local"
-                  required
-                  value={fechaInicio}
-                  onChange={(e) => setFechaInicio(e.target.value)}
-                />
-              </div>
-              <div className="sala-field">
-                <label htmlFor="sala-fin">Término</label>
-                <input
-                  id="sala-fin"
-                  disabled={saving}
-                  name="fechaFin"
-                  type="datetime-local"
-                  required
-                  value={fechaFin}
-                  onChange={(e) => setFechaFin(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="sala-field">
-              <label htmlFor="sala-instrucciones">Instrucciones o descripción</label>
-              <textarea
-                id="sala-instrucciones"
-                disabled={saving}
-                name="instrucciones"
-                value={instrucciones}
-                onChange={(e) => setInstrucciones(e.target.value)}
-                rows={3}
-                placeholder="Detalles para los estudiantes..."
-              />
-            </div>
-
-            <div className="sala-form-actions">
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => void cancelarModal()}
-                disabled={saving}
-              >
-                Cancelar
-              </button>
-              <button type="submit" className="primary" disabled={saving}>
-                {saving ? 'Guardando…' : salaEditando ? 'Guardar cambios' : 'Guardar Sala'}
-              </button>
-            </div>
-          </form>
-        </dialog>
-      )}
+      <SalaFormDialog
+        sala={salaEditando}
+        abierto={isModalOpen}
+        onClose={cerrarModal}
+        onSaved={async (guardada) => {
+          const nombreGuardado = guardada.nombre || salaEditando?.nombre || '';
+          setSaveNotice(`Sala «${nombreGuardado}» ${salaEditando ? 'actualizada' : 'creada'}.`);
+          await cargarSalas();
+        }}
+        onDirtyChange={setFormDirty}
+      />
     </div>
   );
 };

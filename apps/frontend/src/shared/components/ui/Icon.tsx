@@ -23,6 +23,7 @@ export type IconName =
   | 'heuristica'
   | 'search'
   | 'info'
+  | 'texto'
   | 'download'
   | 'refresh'
   | 'check'
@@ -35,6 +36,12 @@ export type IconName =
   | 'shape-highlight';
 
 const PATHS: Record<IconName, ReactElement> = {
+  texto: (
+    <>
+      <path d="M3 19 8.5 5l5.5 14M5.2 14h6.6" />
+      <path d="M15.5 19l2.8-7 2.7 7M16.6 16.5h3.4" />
+    </>
+  ),
   dashboard: (
     <>
       <rect x="4" y="4" width="7" height="7" rx="1.5" />

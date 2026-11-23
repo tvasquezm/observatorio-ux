@@ -1,4 +1,9 @@
 import Joi from 'joi';
+import { durationSeconds } from './session-duration.js';
+
+const duration = () => Joi.string().custom((value, helpers) => {
+  try { durationSeconds(value); return value; } catch { return helpers.error('any.invalid'); }
+});
 
 export const envValidationSchema = Joi.object({
   // Antes tenía `.default('development')`. Eso significa que si en
@@ -13,12 +18,17 @@ export const envValidationSchema = Joi.object({
   PORT: Joi.number().port().default(3000),
   DATABASE_URL: Joi.string().required(),
   GOOGLE_CLIENT_ID: Joi.string().pattern(/^\d+-[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/).allow('').optional(),
+  // F35: dominios de Google Workspace aceptados (coma) y respaldo de emergencia para el ingreso con contraseña.
+  GOOGLE_ALLOWED_DOMAINS: Joi.string().allow('').optional(),
+  PASSWORD_LOGIN_ENABLED: Joi.string().valid('true', 'false', '').optional(),
   JWT_SECRET: Joi.string().when('NODE_ENV', {
     is: 'production',
     then: Joi.string().min(32),
     otherwise: Joi.string().min(16),
   }).required(),
-  JWT_EXPIRES_IN: Joi.string().default('1h'),
+  JWT_EXPIRES_IN: duration().default('1h'),
+  JWT_MAX_SESSION: duration().default('12h'),
+  JWT_REFRESH_WINDOW: duration().default('10m'),
   // Distinto de JWT_SECRET a propósito: evaluadorToken y participanteToken
   // deben poder validarse por separado (Regla de negocio: Segregación de Auth).
   JWT_PARTICIPANTE_SECRET: Joi.string()
@@ -30,7 +40,7 @@ export const envValidationSchema = Joi.object({
     .invalid(Joi.ref('JWT_SECRET'))
     .required()
     .messages({ 'any.invalid': 'JWT_PARTICIPANTE_SECRET debe ser distinto de JWT_SECRET' }),
-  JWT_PARTICIPANTE_EXPIRES_IN: Joi.string().default('4h'),
+  JWT_PARTICIPANTE_EXPIRES_IN: duration().default('4h'),
   CORS_ORIGIN: Joi.string().default('http://localhost:5173'),
   // Saltos de proxy de confianza (req.ip para throttling). 1 = un solo proxy.
   TRUST_PROXY_HOPS: Joi.number().integer().min(1).max(5).default(1),

@@ -2,8 +2,11 @@ import { useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 /** Keep editors mounted so changing views preserves drafts and pending uploads. */
-export function RecorridoSencillo({ pasos, acciones }: { pasos: { titulo: string; ayuda: string; contenido: ReactNode }[]; acciones?: ReactNode }) {
-  const [indice, setIndice] = useState(0);
+/** `paso`/`onPaso` opcionales: permiten llevar a la persona a otro paso desde fuera (por ejemplo, a lo que falta). */
+export function RecorridoSencillo({ pasos, acciones, paso, onPaso }: { pasos: { titulo: string; ayuda: string; contenido: ReactNode }[]; acciones?: ReactNode; paso?: number; onPaso?: (i: number) => void }) {
+  const [propio, setPropio] = useState(0);
+  const indice = paso ?? propio;
+  const setIndice = (i: number) => { setPropio(i); onPaso?.(i); };
   const id = useId();
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
   function ir(i: number) { setIndice(i); tabs.current[i]?.focus(); }
@@ -13,6 +16,6 @@ export function RecorridoSencillo({ pasos, acciones }: { pasos: { titulo: string
       if (nuevo !== null) { e.preventDefault(); ir(nuevo); }
     }}>{p.titulo}</button>)}</div>
     {pasos.map((p, i) => <div key={p.titulo} id={`${id}-panel-${i}`} role="tabpanel" aria-labelledby={`${id}-tab-${i}`} hidden={i !== indice} className="hf-contenido"><p className="hf-ayuda">{p.ayuda}</p>{p.contenido}</div>)}
-    <div className="hf-actions hf-paso-acciones">{indice > 0 && <button type="button" className="secondary" onClick={() => ir(indice - 1)}>Anterior</button>}{indice < pasos.length - 1 ? <button type="button" className="primary" onClick={() => ir(indice + 1)}>Continuar</button> : acciones}</div>
+    <div className="hf-barra-pasos">{indice > 0 && <button type="button" className="secondary" onClick={() => ir(indice - 1)}>Anterior</button>}{indice < pasos.length - 1 ? <button type="button" className="primary" onClick={() => ir(indice + 1)}>Continuar</button> : acciones}</div>
   </section>;
 }

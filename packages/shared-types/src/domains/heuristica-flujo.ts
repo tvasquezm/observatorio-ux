@@ -40,11 +40,18 @@ export interface TrabajoFlujo {
   entregadoEn: string | null; guardadoEn: string | null;
 }
 export interface DecisionCriterio extends RespuestaCriterio { justificacion: string }
-export interface DecisionHallazgo extends HallazgoFlujo { origenIds: string[]; decision: 'PENDIENTE' | 'ACEPTADO' | 'DESCARTADO'; justificacion: string }
-export interface AspectoPositivo { id: string; titulo: string; descripcion: string }
+/** Quién agregó un problema del equipo y cuándo (ISO). Los problemas que vienen de un trabajo individual no lo guardan: su autor es el dueño del trabajo. */
+export interface AutoriaProblema { autorId?: string; creadoEn?: string }
+export interface DecisionHallazgo extends HallazgoFlujo, AutoriaProblema { origenIds: string[]; decision: 'PENDIENTE' | 'ACEPTADO' | 'DESCARTADO'; justificacion: string }
+/** Problema que agrega al acuerdo una persona del equipo que no redacta (F31). Quien redacta lo decide como cualquier problema de origen. */
+export interface AporteEquipo extends HallazgoFlujo { autorId: string; creadoEn: string }
+/** Las capturas son opcionales: los aspectos guardados antes no las tienen. */
+export interface AspectoPositivo { id: string; titulo: string; descripcion: string; evidenciaIds?: string[] }
 export interface MejoraAntesDespues { id: string; titulo: string; descripcion: string; antesIds: string[]; despuesIds: string[] }
 export interface ConsensoFlujo {
   criterios: DecisionCriterio[]; hallazgos: DecisionHallazgo[]; aprobadoPor: string[]; positivos?: AspectoPositivo[]; conclusion?: string; mejoras?: MejoraAntesDespues[];
+  /** Problemas agregados por el equipo fuera del borrador de quien redacta (F31). Se guardan aparte para no pisar ese borrador. */
+  aportes?: AporteEquipo[];
   /** Redactor único del acuerdo. Si falta, redacta el coordinador (ver `redactorDe`). */
   redactorId?: string;
   /** Voto de cada experto por el redactor: evaluadorId -> candidatoId. */
@@ -90,4 +97,5 @@ export interface AnotacionEvidencia {
   id: string; tipo: 'rectangulo' | 'circulo' | 'flecha' | 'destacado' | 'texto';
   x: number; y: number; x2: number; y2: number; color: string; texto: string;
 }
-export interface EvidenciaFlujo { id: string; revision: number; evaluacionId: string; autorId: string; mimeType: string; tamano: number; anotaciones: AnotacionEvidencia[]; createdAt: string }
+/** `autorNombre` y `anotadoEn`: quién subió la captura (solo su autor puede anotarla) y cuándo guardó sus marcas por última vez. */
+export interface EvidenciaFlujo { id: string; revision: number; evaluacionId: string; autorId: string; autorNombre?: string; mimeType: string; tamano: number; anotaciones: AnotacionEvidencia[]; createdAt: string; anotadoEn?: string | null }

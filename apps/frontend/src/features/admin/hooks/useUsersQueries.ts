@@ -8,6 +8,7 @@ import {
   removeDocente,
   getEstudiantes,
   updateUserRole,
+  setCuentaActiva,
   UsersApiError,
   type CreateDocenteDto,
 } from '../api/users.api';
@@ -44,6 +45,18 @@ export function useUpdateUserRole() {
       notify.success('Rol actualizado.');
     },
     onError: (err) => notify.error(mensajeError(err, 'No se pudo cambiar el rol.')),
+  });
+}
+
+export function useSetCuentaActiva() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, activa }: { id: string; activa: boolean }) => setCuentaActiva(id, activa),
+    onSuccess: async (_r, { activa }) => {
+      await qc.invalidateQueries({ queryKey: usersKeys.accounts });
+      notify.success(activa ? 'Cuenta reactivada.' : 'Cuenta desactivada. Sus datos se conservan.');
+    },
+    onError: (err) => notify.error(mensajeError(err, 'No se pudo cambiar el estado de la cuenta.')),
   });
 }
 

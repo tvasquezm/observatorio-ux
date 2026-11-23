@@ -172,6 +172,20 @@ describe('Flujo heurístico: privacidad, transiciones y consenso', () => {
     await expect(service.entregar('p', e.id, { revision: e.revision }, experto)).rejects.toThrow(`Evalúa el criterio «${primero.nombre}».`);
   });
 
+  it('acepta respuestas desfavorables sin notas ni justificación cuando el consenso coincide', async () => {
+    const { service } = preparar();
+    const c = configuracion();
+    c.metodologia = structuredClone(METODOLOGIAS_HEURISTICAS.find(m => m.id === 'hassan-checklist-2003')!);
+    let e = await service.comenzar('p', c, coordinador);
+    const respuestas = c.metodologia.criterios.map(c => ({ criterioId: c.id, valor: e.configuracion.metodologia.escala.niveles.find(n => n.favorable === false)!.id, noAplica: false, motivo: '', notas: '' }));
+    e = await service.guardarTrabajo('p', e.id, { revision: e.revision, respuestas, hallazgos: [] }, experto);
+    e = await service.entregar('p', e.id, { revision: e.revision }, experto);
+    e = await service.guardarConsenso('p', e.id, { revision: e.revision, criterios: respuestas.map(r => ({ ...r, justificacion: '' })), hallazgos: [] }, coordinador);
+    e = await service.aprobar('p', e.id, { revision: e.revision }, experto);
+    e = await service.consolidar('p', e.id, { revision: e.revision }, coordinador);
+    expect(resumirCumplimiento(c, e.informe!.consenso)!.total.desfavorables).toBe(respuestas.length);
+  });
+
   it.each([1, 5])('finaliza %i evaluadores con todos los criterios No aplica sin motivo ni justificación adicional', async cantidad => {
     const { service } = preparar();
     const c = configuracion(cantidad);
@@ -515,6 +529,21 @@ describe('Consenso: mejoras antes/después con capturas', () => {
     await expect(service.obtenerEvidencia('p', e.id, suelta.id, lector)).rejects.toBeInstanceOf(ForbiddenException);
     await expect(subir(service, e.id, coordinador)).rejects.toBeInstanceOf(ConflictException);
   });
+  it('en el acuerdo, el autor anota su captura; otro miembro no puede y tras consolidar ya no se edita', async () => {
+    const { service } = preparar();
+    let e = await entregarTodos(service, 1);
+    const captura = await subir(service, e.id, coordinador);
+    expect(captura).toMatchObject({ autorNombre: 'coordinador', anotadoEn: null });
+    const anotaciones = [{ id: 'a', tipo: 'rectangulo', x: 0.1, y: 0.1, x2: 0.5, y2: 0.5, color: '#ff0000', texto: '' }];
+    // Queda quién anotó (el autor de la captura) y cuándo.
+    await expect(service.anotarEvidencia('p', e.id, captura.id, { revision: captura.revision, anotaciones }, coordinador)).resolves.toMatchObject({ anotaciones, revision: 1, autorNombre: 'coordinador', anotadoEn: expect.any(String) });
+    await expect(service.anotarEvidencia('p', e.id, captura.id, { revision: 1, anotaciones: [] }, experto)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.anotarEvidencia('p', e.id, captura.id, { revision: 1, anotaciones: [] }, lector)).rejects.toBeInstanceOf(ForbiddenException);
+    e = await service.guardarConsenso('p', e.id, decisiones(e), coordinador);
+    for (const id of e.configuracion.evaluadorIds) e = await service.aprobar('p', e.id, { revision: e.revision }, usuario(id));
+    e = await service.consolidar('p', e.id, { revision: e.revision }, coordinador);
+    await expect(service.anotarEvidencia('p', e.id, captura.id, { revision: 1, anotaciones: [] }, coordinador)).rejects.toBeInstanceOf(ConflictException);
+  });
   it('no deja adjuntar en consenso a un lector ni a un ajeno', async () => {
     const { service } = preparar();
     const e = await entregarTodos(service, 1);
@@ -529,6 +558,26 @@ describe('Consenso: mejoras antes/después con capturas', () => {
     const propia = await subir(service, e.id, experto);
     e = await service.guardarConsenso('p', e.id, { ...decisiones(e), mejoras: [mejora([propia.id], [], '  ')] }, coordinador);
     expect(await pendientesDe(service.aprobar('p', e.id, { revision: e.revision }, experto))).toEqual([{ seccion: 'mejoras', id: 'm1', nombre: 'Mejora sin título', faltas: ['Falta el título.'] }]);
+  });
+});
+
+describe('Consenso: capturas de los aspectos positivos', () => {
+  const PNG = Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0,0,0,0]);
+  const subir = (service: HeuristicaFlujoService, id: string, user: AuthenticatedUser) => service.subirEvidencia('p', id, { buffer: PNG, size: PNG.length }, user);
+  const positivo = (evidenciaIds: string[]) => ({ id: 'pos1', titulo: 'Menú claro', descripcion: 'Etiquetas comprensibles.', evidenciaIds });
+  it('guarda la captura, el lector la ve en el informe y se rechazan capturas ajenas', async () => {
+    const { service } = preparar();
+    let e = await entregarTodos(service, 1);
+    const otra = await entregarTodos(service, 1);
+    const ajena = await subir(service, otra.id, experto);
+    await expect(service.guardarConsenso('p', e.id, { ...decisiones(e), positivos: [positivo([ajena.id])] }, coordinador)).rejects.toBeInstanceOf(BadRequestException);
+    const captura = await subir(service, e.id, experto);
+    e = await service.guardarConsenso('p', e.id, { ...decisiones(e), positivos: [positivo([captura.id])] }, coordinador);
+    await expect(service.obtenerEvidencia('p', e.id, captura.id, lector)).rejects.toBeInstanceOf(ForbiddenException);
+    for (const id of e.configuracion.evaluadorIds) e = await service.aprobar('p', e.id, { revision: e.revision }, usuario(id));
+    e = await service.consolidar('p', e.id, { revision: e.revision }, coordinador);
+    expect(e.informe!.consenso.positivos).toEqual([positivo([captura.id])]);
+    await expect(service.obtenerEvidencia('p', e.id, captura.id, lector)).resolves.toMatchObject({ mimeType: 'image/png' });
   });
 });
 
@@ -772,3 +821,55 @@ describe('Acuerdo: entrega con pendientes por sección', () => {
     expect(e.consenso.aprobadoPor).toEqual([]);
   });
 });
+
+describe('F31: problemas agregados por el equipo en el acuerdo', () => {
+  it('cualquiera del equipo agrega un problema con autor y fecha sin pisar el borrador de quien redacta', async () => {
+    const { service } = preparar();
+    let e = await entregarTodos(service, 2);
+    e = await service.agregarAporte('p', e.id, { hallazgo: hallazgo('aporte-1') }, usuario('e2'));
+    expect(e.consenso.aportes).toEqual([expect.objectContaining({ id: 'aporte-1', autorId: 'e2', creadoEn: expect.any(String) })]);
+    const b = decisiones(e);
+    e = await service.guardarConsenso('p', e.id, b, coordinador);
+    expect(e.consenso.aportes?.map(a => a.id)).toEqual(['aporte-1']);
+  });
+
+  it('el aporte sin decidir impide entregar el acuerdo hasta que quien redacta lo decide', async () => {
+    const { service } = preparar();
+    let e = await entregarTodos(service, 1);
+    e = await service.agregarAporte('p', e.id, { hallazgo: hallazgo('aporte-2') }, usuario('e1'));
+    e = await service.guardarConsenso('p', e.id, decisiones(e), coordinador);
+    const cuerpo = await cuerpoIncompleto(service.entregarAcuerdo('p', e.id, { revision: e.revision }, coordinador));
+    expect(cuerpo.pendientes.some(p => p.id === 'aporte-2')).toBe(true);
+    const b = decisiones(e);
+    e = await service.guardarConsenso('p', e.id, { ...b, hallazgos: [...b.hallazgos, { ...hallazgo('decision-aporte-2'), origenIds: ['aporte-2'], decision: 'ACEPTADO' as const, justificacion: 'Lo vimos todos', autorId: 'e1' }] }, coordinador);
+    e = await service.entregarAcuerdo('p', e.id, { revision: e.revision }, coordinador);
+    expect(e.consenso.hallazgos.find(h => h.origenIds.includes('aporte-2'))?.autorId).toBe('e1');
+  });
+
+  it('rechaza aportes de quien no es del equipo, problemas incompletos e identificadores repetidos', async () => {
+    const { service } = preparar();
+    const e = await entregarTodos(service, 1, true);
+    await expect(service.agregarAporte('p', e.id, { hallazgo: hallazgo('x') }, lector)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.agregarAporte('p', e.id, { hallazgo: { ...hallazgo('y'), titulo: ' ' } }, usuario('e1'))).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.agregarAporte('p', e.id, { hallazgo: hallazgo(e.trabajos[0].hallazgos[0].id) }, usuario('e1'))).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('solo quien agregó el problema lo quita, y no si ya fue incluido en el acuerdo', async () => {
+    const { service } = preparar();
+    let e = await entregarTodos(service, 2);
+    e = await service.agregarAporte('p', e.id, { hallazgo: hallazgo('aporte-3') }, usuario('e1'));
+    await expect(service.quitarAporte('p', e.id, 'aporte-3', usuario('e2'))).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.quitarAporte('p', e.id, 'no-existe', usuario('e1'))).rejects.toBeInstanceOf(NotFoundException);
+    const b = decisiones(e);
+    e = await service.guardarConsenso('p', e.id, { ...b, hallazgos: [...b.hallazgos, { ...hallazgo('d3'), origenIds: ['aporte-3'], decision: 'PENDIENTE' as const, justificacion: '' }] }, coordinador);
+    await expect(service.quitarAporte('p', e.id, 'aporte-3', usuario('e1'))).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('quien solo lee no ve los aportes', async () => {
+    const { service } = preparar();
+    let e = await entregarTodos(service, 1);
+    e = await service.agregarAporte('p', e.id, { hallazgo: hallazgo('aporte-4') }, usuario('e1'));
+    expect(filtrarEvaluacion({ ...e, fase: 'CONSOLIDADA' }, lector).consenso.aportes).toEqual([]);
+  });
+});
+

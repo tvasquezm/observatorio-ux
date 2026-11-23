@@ -1,9 +1,27 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CrearDocenteForm } from './AdminProfesoresPage';
+import { MemoryRouter } from 'react-router-dom';
+import { AdminProfesoresPage, CrearDocenteForm } from './AdminProfesoresPage';
 
 const create = vi.hoisted(() => vi.fn());
-vi.mock('../hooks/useUsersQueries', () => ({ useCreateDocente: () => ({ mutate: create, isPending: false }) }));
+const estado = vi.hoisted(() => ({ remove: vi.fn(), confirm: vi.fn() }));
+vi.mock('../hooks/useUsersQueries', () => ({
+  useCreateDocente: () => ({ mutate: create, isPending: false }),
+  useDocentes: () => ({ data: [{ id: 'd1', nombre: 'Ana Pérez', email: 'ana@utem.cl', createdAt: '2026-01-05T12:00:00.000Z' }], isLoading: false, isError: false, refetch: vi.fn() }),
+  useEstudiantesAdmin: () => ({ data: [], isLoading: false, isError: false, refetch: vi.fn() }),
+  useRemoveDocente: () => ({ mutate: estado.remove, isPending: false }),
+  useAccounts: () => ({ data: [], isLoading: false, isError: false, refetch: vi.fn() }),
+  useUpdateUserRole: () => ({ mutate: vi.fn() }),
+  useSetCuentaActiva: () => ({ mutate: vi.fn(), isPending: false }),
+}));
+vi.mock('../../projects/hooks/useProjectsQueries', () => ({
+  useAdminProjectOverview: () => ({ data: [], isLoading: false, isError: false, refetch: vi.fn() }),
+  useCreateProject: () => ({ mutate: vi.fn(), isPending: false }),
+  useUpdateProject: () => ({ mutate: vi.fn(), isPending: false }),
+  useDeleteProject: () => ({ mutate: vi.fn(), isPending: false }),
+}));
+vi.mock('../../../shared/api/confirm', () => ({ useConfirm: () => estado.confirm }));
 beforeEach(() => vi.resetAllMocks());
 
 function fill() {
@@ -76,5 +94,22 @@ describe('crear docente', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Crear docente' }));
     expect(screen.getByRole('alert')).toHaveTextContent('Este correo ya tiene una cuenta.');
     expect(screen.getByLabelText('Correo institucional')).toHaveValue('ana@utem.cl');
+  });
+});
+
+describe('eliminar docente', () => {
+  it('exige escribir el nombre y no elimina si se cancela', async () => {
+    estado.confirm.mockResolvedValue(false);
+    render(<MemoryRouter><AdminProfesoresPage /></MemoryRouter>);
+    await userEvent.click(screen.getByRole('button', { name: 'Eliminar' }));
+    expect(estado.confirm).toHaveBeenCalledWith('¿Eliminar al docente "Ana Pérez"?', { requireText: 'Ana Pérez' });
+    expect(estado.remove).not.toHaveBeenCalled();
+  });
+
+  it('elimina cuando la persona confirma', async () => {
+    estado.confirm.mockResolvedValue(true);
+    render(<MemoryRouter><AdminProfesoresPage /></MemoryRouter>);
+    await userEvent.click(screen.getByRole('button', { name: 'Eliminar' }));
+    expect(estado.remove).toHaveBeenCalledWith('d1');
   });
 });

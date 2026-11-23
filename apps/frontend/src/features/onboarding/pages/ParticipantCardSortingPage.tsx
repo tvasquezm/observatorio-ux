@@ -125,7 +125,7 @@ export function ParticipantCardSortingPage() {
             }
           }
         } else {
-          setError(e instanceof Error ? e.message : 'No se pudo cargar el estudio.');
+          setError(e instanceof Error ? e.message : 'No se pudo cargar el card sorting.');
         }
       } finally {
         setCargando(false);
@@ -172,7 +172,7 @@ export function ParticipantCardSortingPage() {
       <main className="onboarding participant-entry">
         <section className="participant-card participant-state">
           <div className="participant-loader" aria-hidden="true" />
-          <h1>Preparando el estudio</h1>
+          <h1>Preparando el card sorting</h1>
           <p>Cargando tarjetas y categorías…</p>
         </section>
       </main>
@@ -200,7 +200,7 @@ export function ParticipantCardSortingPage() {
       <main className="onboarding participant-entry">
         <section className="participant-card participant-state">
           <span className="participant-state-mark" aria-hidden="true">!</span>
-          <h1>No pudimos abrir el estudio</h1>
+          <h1>No pudimos abrir el card sorting</h1>
           <p role="alert" className="onboarding-error">{error}</p>
         </section>
       </main>
@@ -232,9 +232,9 @@ export function ParticipantCardSortingPage() {
       <main className="onboarding participant-entry">
         <section className="participant-card participant-state">
           <span className="participant-state-mark" aria-hidden="true">—</span>
-          <h1>Estudio cerrado</h1>
+          <h1>Card sorting cerrado</h1>
           <p role="alert" className="onboarding-error">
-          Este estudio ya no acepta envíos — el evaluador lo cerró. Tu clasificación no se pudo
+          Este card sorting ya no acepta envíos — el evaluador lo cerró. Tu clasificación no se pudo
           enviar.
           </p>
         </section>

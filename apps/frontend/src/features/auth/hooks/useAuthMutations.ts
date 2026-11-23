@@ -12,7 +12,7 @@ export function useLogin() {
     mutationFn: ({ email, password }: { email: string; password: string }) =>
       login(email, password),
     onSuccess: (data) => {
-      setSession(data.user);
+      setSession(data.user, data.session?.expiresAt);
       notify.success(`Bienvenido, ${data.user.nombre}`);
     },
     onError: (err) => {

@@ -55,6 +55,11 @@ describe('Consenso: aspectos positivos y conclusión', () => {
     expect(v.positivos).toHaveLength(1);
     expect(v.conclusion).toBe('Corregir el formulario.');
   });
+  it('acepta hasta 10 capturas por aspecto positivo, sin repetir', () => {
+    expect(validar(consensoSchema, { ...base, positivos: [{ ...positivo('a'), evidenciaIds: ['c1', 'c2'] }] }).positivos![0].evidenciaIds).toEqual(['c1', 'c2']);
+    const once = Array.from({ length: 11 }, (_, i) => `c${i}`);
+    for (const evidenciaIds of [once, ['c1', 'c1']]) expect(() => validar(consensoSchema, { ...base, positivos: [{ ...positivo('a'), evidenciaIds }] })).toThrow();
+  });
   it('rechaza más de 200 positivos, ids repetidos, campos desconocidos y conclusión excesiva', () => {
     const muchos = Array.from({ length: 201 }, (_, i) => positivo(`p${i}`));
     for (const cambios of [{ positivos: muchos }, { positivos: [positivo('a'), positivo('a')] }, { positivos: [{ ...positivo('a'), captura: 'x' }] }, { conclusion: 'x'.repeat(10001) }]) expect(() => validar(consensoSchema, { ...base, ...cambios })).toThrow();
