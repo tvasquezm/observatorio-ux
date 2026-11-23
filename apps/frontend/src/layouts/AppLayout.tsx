@@ -7,6 +7,7 @@ import { canSwitchPerspective, canViewAnalytics, canViewSalas, resolvePerspectiv
 import { ProfilePerspectiveSwitcher } from '../shared/components/ProfilePerspectiveSwitcher';
 import { PerspectivePreviewNotice } from '../shared/components/PerspectivePreviewNotice';
 import { ChangePasswordForm } from '../features/auth/components/ChangePasswordForm';
+import { useAccesoConfig } from '../features/auth/hooks/useAccesoConfig';
 import { SessionExpiryDialog } from '../features/auth/components/SessionExpiryDialog';
 import { FontSizeQuickAccess } from './FontSizeQuickAccess';
 const ExportReportDialog = lazy(() => import('../features/reports/ExportReportDialog').then((module) => ({ default: module.ExportReportDialog })));
@@ -40,6 +41,7 @@ const CRUMB_LABELS: Record<string, string> = {
 export function AppLayout() {
   useEffect(() => { sessionStorage.removeItem('observatorio-ux-returnTo'); }, []);
   const { user, perspectiveRole, setPerspective, logout } = useAuthStore();
+  const { conContrasena } = useAccesoConfig();
   const location = useLocation();
   const navigate = useNavigate();
   const [darkMode, setDarkMode] = useState(() => {
@@ -225,7 +227,7 @@ export function AppLayout() {
               Alto contraste
             </button>
             </div>
-            {user && <details className="password-collapse"><summary>Cambiar contraseña</summary><ChangePasswordForm /></details>}
+            {user && conContrasena && <details className="password-collapse"><summary>Cambiar contraseña</summary><ChangePasswordForm /></details>}
               </div>
             </dialog>
             <button

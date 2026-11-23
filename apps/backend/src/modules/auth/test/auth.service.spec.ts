@@ -514,3 +514,17 @@ describe('AuthService — gating de tokens de prueba (H2)', () => {
     await expect(service.issueDevelopmentParticipantToken()).resolves.toBeDefined();
   });
 });
+
+describe('F35: ingreso con contraseña según el entorno', () => {
+  const crear = (valores: Record<string, string>) => new AuthService({} as never, {} as never, {} as never, { get: (k: string, d?: string) => valores[k] ?? d } as never);
+  it('queda apagado en producción salvo PASSWORD_LOGIN_ENABLED=true', async () => {
+    expect(crear({ 'app.nodeEnv': 'production' }).passwordLoginEnabled).toBe(false);
+    expect(crear({ 'app.nodeEnv': 'production', PASSWORD_LOGIN_ENABLED: 'true' }).passwordLoginEnabled).toBe(true);
+    expect(crear({ 'app.nodeEnv': 'development' }).passwordLoginEnabled).toBe(true);
+    expect(crear({ 'app.nodeEnv': 'development', PASSWORD_LOGIN_ENABLED: 'false' }).passwordLoginEnabled).toBe(false);
+    await expect(crear({ 'app.nodeEnv': 'production' }).login('ana@utem.cl', 'x')).rejects.toThrow('Continuar con Google');
+  });
+  it('rechaza crear sesión para una cuenta desactivada', async () => {
+    await expect(crear({}).createEvaluatorSession({ id: 'u', nombre: 'A', email: 'a@utem.cl', rol: 'DOCENTE', desactivadoEn: new Date() })).rejects.toThrow('no tiene acceso');
+  });
+});

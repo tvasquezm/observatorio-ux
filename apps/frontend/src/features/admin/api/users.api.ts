@@ -11,7 +11,7 @@ export interface Docente {
   createdAt: string;
 }
 
-export type UsuarioCuenta = Docente;
+export interface UsuarioCuenta extends Docente { desactivadoEn?: string | null; enlazadaGoogle?: boolean }
 
 export interface CreateDocenteDto {
   nombre: string;
@@ -46,6 +46,11 @@ export function getDocentes(): Promise<Docente[]> {
 
 export function getAccounts(): Promise<UsuarioCuenta[]> {
   return request<UsuarioCuenta[]>('/users/accounts');
+}
+
+/** F35: desactivar conserva los datos y cierra sus sesiones; reactivar devuelve el acceso. */
+export function setCuentaActiva(id: string, activa: boolean): Promise<UsuarioCuenta> {
+  return request<UsuarioCuenta>(`/users/${id}/${activa ? 'reactivar' : 'desactivar'}`, { method: 'POST' });
 }
 
 export function updateUserRole(id: string, rol: EvaluatorRole): Promise<UsuarioCuenta> {

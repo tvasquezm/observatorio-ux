@@ -8,7 +8,7 @@ describe('GoogleAuthService', () => {
   const user = { id: 'u1', nombre: 'Ana', email: 'ana@utem.cl', rol: 'DOCENTE', googleSubject: null };
   const payload = { sub: 'google-id', email: user.email, email_verified: true, hd: 'utem.cl', nonce };
   const prisma = { usuario: { findUnique: jest.fn(), updateMany: jest.fn(), create: jest.fn() } };
-  const auth = { createEvaluatorSession: jest.fn() };
+  const auth = { createEvaluatorSession: jest.fn(), estudianteEnSalaActiva: jest.fn() };
   let service: GoogleAuthService;
   let verify: jest.SpyInstance;
 
@@ -88,5 +88,34 @@ describe('GoogleAuthService', () => {
     prisma.usuario.updateMany.mockResolvedValue({ count: 0 });
     prisma.usuario.findUnique.mockReset().mockResolvedValueOnce(null).mockResolvedValueOnce(user).mockResolvedValueOnce(null);
     await expect(service.login('token', nonce)).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  describe('F35: alta por sala y dominio institucional', () => {
+    it('crea la cuenta de estudiante si su correo está en una sala activa', async () => {
+      prisma.usuario.findUnique.mockReset().mockResolvedValue(null);
+      auth.estudianteEnSalaActiva.mockResolvedValue(true);
+      const creado = { id: 'nuevo', nombre: 'Bea', email: 'bea@utem.cl', rol: 'ESTUDIANTE', googleSubject: payload.sub };
+      prisma.usuario.create.mockResolvedValue(creado);
+      verify.mockResolvedValue({ getPayload: () => ({ ...payload, email: 'Bea@utem.cl', name: 'Bea' }) });
+      await service.login('token', nonce);
+      expect(prisma.usuario.create).toHaveBeenCalledWith({ data: { nombre: 'Bea', email: 'bea@utem.cl', rol: 'ESTUDIANTE', googleSubject: payload.sub } });
+      expect(auth.createEvaluatorSession).toHaveBeenCalledWith(creado);
+    });
+
+    it('un correo que no está en ninguna sala ni registrado no deja datos y recibe el mensaje de sin acceso', async () => {
+      prisma.usuario.findUnique.mockReset().mockResolvedValue(null);
+      auth.estudianteEnSalaActiva.mockResolvedValue(false);
+      await expect(service.login('token', nonce)).rejects.toThrow('Contacta a tu profesor del ramo');
+      expect(prisma.usuario.create).not.toHaveBeenCalled();
+    });
+
+    it('con GOOGLE_ALLOWED_DOMAINS rechaza cuentas de otro dominio antes de buscar al usuario', async () => {
+      service = new GoogleAuthService(new ConfigService({ GOOGLE_CLIENT_ID: '123-test.apps.googleusercontent.com', GOOGLE_ALLOWED_DOMAINS: 'utem.cl' }), prisma as never, auth as never);
+      verify.mockResolvedValue({ getPayload: () => ({ ...payload, hd: 'otra.cl', email: 'ana@otra.cl' }) });
+      await expect(service.login('token', nonce)).rejects.toThrow('@utem.cl');
+      expect(prisma.usuario.findUnique).not.toHaveBeenCalled();
+      verify.mockResolvedValue({ getPayload: () => payload });
+      await expect(service.login('token', nonce)).resolves.toBeDefined();
+    });
   });
 });

@@ -42,3 +42,6 @@ services:
       # login no muestra "Continuar con Google".
       - key: GOOGLE_CLIENT_ID
         value: 778871303236-ggfgmmes1q8ludcssi151hqriggs0jqq.apps.googleusercontent.com
+      # F35: solo cuentas institucionales.
+      - key: GOOGLE_ALLOWED_DOMAINS
+        value: utem.cl

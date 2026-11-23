@@ -13,6 +13,7 @@ vi.mock('../hooks/useUsersQueries', () => ({
   useRemoveDocente: () => ({ mutate: estado.remove, isPending: false }),
   useAccounts: () => ({ data: [], isLoading: false, isError: false, refetch: vi.fn() }),
   useUpdateUserRole: () => ({ mutate: vi.fn() }),
+  useSetCuentaActiva: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 vi.mock('../../projects/hooks/useProjectsQueries', () => ({
   useAdminProjectOverview: () => ({ data: [], isLoading: false, isError: false, refetch: vi.fn() }),

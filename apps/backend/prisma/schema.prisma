@@ -93,6 +93,8 @@ model Usuario {
   email        String   @unique
   passwordHash String?
   googleSubject String? @unique
+  /// F35: cuenta desactivada por la administración (no entra; sus datos se conservan).
+  desactivadoEn DateTime?
   rol          Rol
   // Versión de sesión: se sube al cerrar sesión y al cambiar la contraseña.
   // Los JWT del evaluador llevan `sv` y se comparan contra este valor.

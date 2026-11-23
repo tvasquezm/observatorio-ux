@@ -18,6 +18,9 @@ export const envValidationSchema = Joi.object({
   PORT: Joi.number().port().default(3000),
   DATABASE_URL: Joi.string().required(),
   GOOGLE_CLIENT_ID: Joi.string().pattern(/^\d+-[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/).allow('').optional(),
+  // F35: dominios de Google Workspace aceptados (coma) y respaldo de emergencia para el ingreso con contraseña.
+  GOOGLE_ALLOWED_DOMAINS: Joi.string().allow('').optional(),
+  PASSWORD_LOGIN_ENABLED: Joi.string().valid('true', 'false', '').optional(),
   JWT_SECRET: Joi.string().when('NODE_ENV', {
     is: 'production',
     then: Joi.string().min(32),

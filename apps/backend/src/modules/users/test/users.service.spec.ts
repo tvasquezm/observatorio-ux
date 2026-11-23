@@ -9,6 +9,8 @@ describe('UsersService', () => {
       findUnique: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
+      count: jest.fn(),
+      findUniqueOrThrow: jest.fn(),
     },
     sala: { count: jest.fn() },
   };
@@ -27,7 +29,7 @@ describe('UsersService', () => {
     await service.listAccounts();
 
     expect(prisma.usuario.findMany).toHaveBeenCalledWith({
-      select: { id: true, nombre: true, email: true, rol: true, createdAt: true },
+      select: { id: true, nombre: true, email: true, rol: true, createdAt: true, desactivadoEn: true, googleSubject: true },
       orderBy: [{ rol: 'asc' }, { nombre: 'asc' }],
     });
   });
@@ -96,5 +98,27 @@ describe('UsersService', () => {
     await expect(service.removeDocente('teacher-1')).rejects.toBeInstanceOf(ConflictException);
     expect(prisma.usuario.delete).not.toHaveBeenCalled();
     expect(auth.invalidateUser).not.toHaveBeenCalled();
+  });
+
+  describe('F35: desactivar y reactivar cuentas', () => {
+    beforeEach(() => { prisma.usuario.findUniqueOrThrow.mockResolvedValue({ id: 'user-1', googleSubject: null }); });
+
+    it('desactiva sin borrar, cierra sus sesiones y la puede reactivar', async () => {
+      prisma.usuario.findUnique.mockResolvedValue({ id: 'user-1', rol: 'ESTUDIANTE', desactivadoEn: null });
+      await service.desactivar('user-1', admin);
+      expect(prisma.usuario.update).toHaveBeenCalledWith({ where: { id: 'user-1' }, data: { desactivadoEn: expect.any(Date), sesionVersion: { increment: 1 } } });
+      expect(prisma.usuario.delete).not.toHaveBeenCalled();
+      expect(auth.invalidateUser).toHaveBeenCalledWith('user-1');
+      await service.reactivar('user-1');
+      expect(prisma.usuario.update).toHaveBeenLastCalledWith({ where: { id: 'user-1' }, data: { desactivadoEn: null } });
+    });
+
+    it('no permite desactivar la propia cuenta ni dejar el sistema sin administración activa', async () => {
+      await expect(service.desactivar(admin.id, admin)).rejects.toBeInstanceOf(BadRequestException);
+      prisma.usuario.findUnique.mockResolvedValue({ id: 'admin-2', rol: 'ADMIN', desactivadoEn: null });
+      prisma.usuario.count.mockResolvedValue(0);
+      await expect(service.desactivar('admin-2', admin)).rejects.toBeInstanceOf(ConflictException);
+      expect(prisma.usuario.update).not.toHaveBeenCalled();
+    });
   });
 });

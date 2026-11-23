@@ -25,6 +25,9 @@ const IDENTIDAD_TTL_MS = 30_000;
 
 type IdentidadEvaluador = Pick<AuthenticatedUser, 'id' | 'email' | 'rol'> & { sesionVersion: number };
 
+/** Mensaje único para cuentas sin acceso (no revela si existe o está desactivada). */
+export const CUENTA_SIN_ACCESO = 'Tu cuenta no tiene acceso al sitio. Contacta a tu profesor del ramo para que te agregue.';
+
 @Injectable()
 export class AuthService {
   // Hash fijo (no corresponde a ninguna contraseña real) usado solo para que
@@ -184,6 +187,7 @@ export class AuthService {
     });
   }
   async changePassword(id: string, currentPassword: string, newPassword: string) {
+    this.assertPasswordLogin();
     if (Buffer.byteLength(newPassword, 'utf8') > 72) {
       throw new BadRequestException('La nueva contraseña no puede superar 72 bytes (los caracteres acentuados ocupan más de uno).');
     }
@@ -207,6 +211,7 @@ export class AuthService {
   }
 
   async login(email: string, password: string) {
+    this.assertPasswordLogin();
     const user = await this.prisma.usuario.findUnique({
       where: { email: email.trim().toLowerCase() },
     });
@@ -226,7 +231,8 @@ export class AuthService {
     return this.createEvaluatorSession(user);
   }
 
-  async createEvaluatorSession(user: { id: string; nombre: string; email: string; rol: AuthenticatedUser['rol']; sesionVersion?: number }) {
+  async createEvaluatorSession(user: { id: string; nombre: string; email: string; rol: AuthenticatedUser['rol']; sesionVersion?: number; desactivadoEn?: Date | null }) {
+    if (user.desactivadoEn) throw new ForbiddenException(CUENTA_SIN_ACCESO);
     if (user.rol === 'ESTUDIANTE') {
       await this.assertEstudianteTieneSalaActiva(user.email);
     }
@@ -453,6 +459,25 @@ export class AuthService {
    * una Sala activa (no eliminada y, si tiene fechaFin, no vencida). Se
    * revalida en cada login, no solo una vez.
    */
+  /** F35: el correo está en la lista de alguna sala activa (lo que cargan los profesores). */
+  async estudianteEnSalaActiva(email: string): Promise<boolean> {
+    const ahora = new Date();
+    return !!(await this.prisma.salaEstudiante.findFirst({
+      where: { email: email.trim().toLowerCase(), sala: { deletedAt: null, OR: [{ fechaFin: null }, { fechaFin: { gte: ahora } }] } },
+    }));
+  }
+
+  /** F35 (D3): el ingreso con contraseña queda apagado en producción salvo PASSWORD_LOGIN_ENABLED=true (respaldo de emergencia). */
+  get passwordLoginEnabled(): boolean {
+    const valor = String(this.config.get<string>('PASSWORD_LOGIN_ENABLED') ?? '').trim().toLowerCase();
+    if (valor) return valor === 'true';
+    return this.config.get<string>('app.nodeEnv', 'development') !== 'production';
+  }
+
+  private assertPasswordLogin() {
+    if (!this.passwordLoginEnabled) throw new ForbiddenException('El ingreso con contraseña está desactivado. Usa «Continuar con Google».');
+  }
+
   private async assertEstudianteTieneSalaActiva(email: string) {
     const emailNormalizado = email.trim().toLowerCase();
     const ahora = new Date();

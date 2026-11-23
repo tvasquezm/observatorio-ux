@@ -23,7 +23,8 @@ export function changePassword(currentPassword: string, newPassword: string): Pr
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
 
-export type GoogleLoginConfig = { enabled: false } | { enabled: true; clientId: string; nonce: string };
+/** F35: passwordLogin indica si el servidor acepta todavía el ingreso con contraseña (apagado en producción). */
+export type GoogleLoginConfig = ({ enabled: false } | { enabled: true; clientId: string; nonce: string }) & { passwordLogin?: boolean };
 
 export async function getGoogleLoginConfig(): Promise<GoogleLoginConfig> {
   const response = await fetch(`${API_BASE}/auth/google/config`, { credentials: 'include', cache: 'no-store' });

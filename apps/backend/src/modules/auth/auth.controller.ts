@@ -45,11 +45,12 @@ export class AuthController {
   @Get('google/config')
   googleConfig(@Res({ passthrough: true }) res: Response) {
     res.setHeader('Cache-Control', 'no-store');
-    if (!this.google.clientId) return { enabled: false as const };
+    const passwordLogin = this.authService.passwordLoginEnabled;
+    if (!this.google.clientId) return { enabled: false as const, passwordLogin };
     const nonce = randomBytes(32).toString('hex');
     const nodeEnv = this.config.get<string>('app.nodeEnv', 'development');
     res.cookie('googleLoginNonce', nonce, { ...cookieOptions(nodeEnv, true), maxAge: 5 * 60_000 });
-    return { enabled: true as const, clientId: this.google.clientId, nonce };
+    return { enabled: true as const, clientId: this.google.clientId, nonce, passwordLogin };
   }
 
   @Post('google')

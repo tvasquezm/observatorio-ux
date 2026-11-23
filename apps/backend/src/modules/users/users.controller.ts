@@ -51,6 +51,18 @@ export class UsersController {
     return this.usersService.updateRole(id, dto, user);
   }
 
+  @Post(':id/desactivar')
+  @Roles('ADMIN')
+  async desactivar(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.usersService.desactivar(id, user);
+  }
+
+  @Post(':id/reactivar')
+  @Roles('ADMIN')
+  async reactivar(@Param('id', ParseUUIDPipe) id: string) {
+    return this.usersService.reactivar(id);
+  }
+
   @Delete(':id')
   @Roles('ADMIN')
   async removeDocente(@Param('id', ParseUUIDPipe) id: string) {

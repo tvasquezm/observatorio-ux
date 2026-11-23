@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, cleanup, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -23,12 +24,12 @@ beforeEach(() => {
 });
 describe('Preferencia de contraste', () => {
   it.each([['/salas/sala-1', 'Detalle de sala'], ['/salas/eliminadas', 'Salas eliminadas']])('identifica la ruta %s', (path, title) => {
-    render(<MemoryRouter initialEntries={[path]}><AppLayout /></MemoryRouter>);
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter initialEntries={[path]}><AppLayout /></MemoryRouter></QueryClientProvider>);
     expect(document.title).toBe(`${title} · Observatorio UX`);
     expect(screen.getByRole('navigation', { name: 'Ubicación general' })).toHaveTextContent(title);
   });
   it('activa alto contraste, lo conserva al volver y permite restaurar contraste normal', () => {
-    const mount = () => render(<MemoryRouter><AppLayout /></MemoryRouter>);
+    const mount = () => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><AppLayout /></MemoryRouter></QueryClientProvider>);
     mount();
     fireEvent.click(screen.getByRole('button', { name: 'Configuración' }));
     fireEvent.click(screen.getByRole('button', { name: 'Alto contraste' }));
@@ -46,7 +47,7 @@ describe('Preferencia de contraste', () => {
 
   it('conserva el contraste elegido al cambiar entre modo claro y oscuro', () => {
     localStorage.setItem('observatorio-ux-contrast', 'high');
-    render(<MemoryRouter><AppLayout /></MemoryRouter>);
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><AppLayout /></MemoryRouter></QueryClientProvider>);
     fireEvent.click(screen.getByRole('button', { name: 'Configuración' }));
     fireEvent.click(screen.getByRole('button', { name: 'Activar modo oscuro' }));
     expect(document.documentElement.dataset.theme).toBe('dark');
@@ -55,7 +56,7 @@ describe('Preferencia de contraste', () => {
 });
 
 describe('Preferencia de tamaño del texto', () => {
-  const mount = () => render(<MemoryRouter><AppLayout /></MemoryRouter>);
+  const mount = () => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><AppLayout /></MemoryRouter></QueryClientProvider>);
   const open = () => fireEvent.click(screen.getByRole('button', { name: 'Tamaño del texto' }));
   const up = () => fireEvent.click(screen.getByRole('button', { name: 'Aumentar tamaño del texto' }));
   const down = () => fireEvent.click(screen.getByRole('button', { name: 'Reducir tamaño del texto' }));
@@ -132,14 +133,14 @@ describe('Preferencia de tamaño del texto', () => {
 describe('Selector "Viendo como"', () => {
   it.each([['DOCENTE', true], ['ADMIN', true], ['ESTUDIANTE', false]])('rol %s: visible=%s', (role, visible) => {
     auth.role = role;
-    render(<MemoryRouter><AppLayout /></MemoryRouter>);
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><AppLayout /></MemoryRouter></QueryClientProvider>);
     fireEvent.click(screen.getByRole('button', { name: 'Configuración' }));
     const status = screen.queryByText(/Viendo como/);
     expect(!!status).toBe(visible);
     expect(!!screen.queryByRole('group', { name: 'Cambiar perspectiva' })).toBe(visible);
   });
   it('abre configuración en un diálogo y permite cerrarlo', () => {
-    render(<MemoryRouter><AppLayout /></MemoryRouter>);
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><AppLayout /></MemoryRouter></QueryClientProvider>);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Configuración' }));
     expect(screen.getByRole('dialog', { name: 'Configuración' })).toBeVisible();
@@ -151,7 +152,7 @@ describe('Selector "Viendo como"', () => {
 describe('Configuración: contraseña', () => {
   it('muestra Cambiar contraseña colapsado y se despliega a pedido', () => {
     auth.role = 'DOCENTE';
-    render(<MemoryRouter><AppLayout /></MemoryRouter>);
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><AppLayout /></MemoryRouter></QueryClientProvider>);
     fireEvent.click(screen.getByRole('button', { name: 'Configuración' }));
     const dialog = screen.getByRole('dialog', { name: 'Configuración' });
     const details = dialog.querySelector('details.password-collapse') as HTMLDetailsElement;
@@ -165,7 +166,7 @@ describe('Configuración: contraseña', () => {
 describe('Barra lateral', () => {
   it('permite minimizar y expandir con teclado, conservando los accesos', async () => {
     auth.role = 'ADMIN';
-    render(<MemoryRouter><AppLayout /></MemoryRouter>);
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><AppLayout /></MemoryRouter></QueryClientProvider>);
     await waitFor(() => expect(document.getElementById('main-content')).toHaveFocus());
     const toggle = screen.getByRole('button', { name: 'Minimizar barra lateral' });
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
@@ -182,7 +183,7 @@ describe('Barra lateral', () => {
 
   it('conserva las restricciones de acceso al minimizar', () => {
     auth.role = 'ESTUDIANTE';
-    render(<MemoryRouter><AppLayout /></MemoryRouter>);
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><AppLayout /></MemoryRouter></QueryClientProvider>);
     fireEvent.click(screen.getByRole('button', { name: 'Minimizar barra lateral' }));
     expect(screen.getByRole('button', { name: 'Expandir barra lateral' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Administración' })).not.toBeInTheDocument();
@@ -191,7 +192,7 @@ describe('Barra lateral', () => {
   });
 
   it('entra abierta y permanece abierta al navegar y usar el contenido', () => {
-    render(<MemoryRouter><AppLayout /></MemoryRouter>);
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><AppLayout /></MemoryRouter></QueryClientProvider>);
     const side = screen.getByRole('complementary', { name: 'Navegación principal' }).parentElement;
     expect(side).not.toHaveClass('side-collapsed');
     fireEvent.click(document.querySelector('#sidebar-navigation a[href="/"]')!);
@@ -204,7 +205,7 @@ describe('Barra lateral', () => {
   });
 
   it('conserva la elección manual al navegar y volver a cargar el layout', () => {
-    const mount = () => render(<MemoryRouter><AppLayout /></MemoryRouter>);
+    const mount = () => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><AppLayout /></MemoryRouter></QueryClientProvider>);
     mount();
     fireEvent.click(screen.getByRole('button', { name: 'Minimizar barra lateral' }));
     fireEvent.click(screen.getByRole('link', { name: 'Proyectos' }));
@@ -219,7 +220,7 @@ describe('Barra lateral', () => {
   });
 
   it('permite cerrarla explícitamente con Escape y devuelve el foco al control', () => {
-    render(<MemoryRouter><AppLayout /></MemoryRouter>);
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><AppLayout /></MemoryRouter></QueryClientProvider>);
     fireEvent.keyDown(screen.getByRole('button', { name: 'Minimizar barra lateral' }), { key: 'Escape' });
     const toggle = screen.getByRole('button', { name: 'Expandir barra lateral' });
     expect(toggle).toHaveAttribute('aria-expanded', 'false');

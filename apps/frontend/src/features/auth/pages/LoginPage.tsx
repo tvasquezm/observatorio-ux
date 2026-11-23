@@ -6,6 +6,7 @@ import { useLogin } from '../hooks/useAuthMutations';
 import { useAuthStore } from '../store/useAuthStore';
 import { getReturnTo } from '../../../shared/auth/session-expired';
 import { GoogleSignIn } from '../components/GoogleSignIn';
+import { useAccesoConfig } from '../hooks/useAccesoConfig';
 import './google-sign-in.css';
 
 export function LoginPage() {
@@ -13,6 +14,8 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const { mutate, isPending, error } = useLogin();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  // F35 (D3): en producción solo se entra con Google; la contraseña queda para desarrollo o como respaldo.
+  const { conContrasena } = useAccesoConfig();
 
   if (isAuthenticated) return <Navigate to={getReturnTo()} replace />;
 
@@ -36,7 +39,7 @@ export function LoginPage() {
         <p>Ingresa para trabajar en tus proyectos de investigación.</p>
 
 
-        <form onSubmit={handleSubmit}>
+        {conContrasena && <form onSubmit={handleSubmit}>
           <label className="field">
             Email
             <input
@@ -68,13 +71,13 @@ export function LoginPage() {
           <button type="submit" className="primary login-submit" disabled={isPending}>
             {isPending ? 'Ingresando…' : 'Ingresar'}
           </button>
-        </form>
+        </form>}
 
         <GoogleSignIn />
 
         <details className="login-help">
-          <summary>¿Olvidaste tu contraseña o no puedes ingresar?</summary>
-          <p>Solicita a tu docente o a la persona administradora de la plataforma que restablezca tu acceso.</p>
+          <summary>{conContrasena ? '¿Olvidaste tu contraseña o no puedes ingresar?' : '¿No puedes ingresar?'}</summary>
+          <p>{conContrasena ? 'Solicita a tu docente o a la persona administradora de la plataforma que restablezca tu acceso.' : 'Pide a tu profesor del ramo que agregue tu correo institucional a la sala.'}</p>
         </details>
 
         <small className="login-note">Plataforma de investigación UX · uso académico</small>

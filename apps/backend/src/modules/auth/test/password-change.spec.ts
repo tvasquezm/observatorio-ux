@@ -14,7 +14,7 @@ describe('cambio de contraseña', () => {
     passwordHash = await bcrypt.hash('actual-1234', 10);
     usuario.findUnique.mockResolvedValue({ passwordHash });
     usuario.updateMany.mockResolvedValue({ count: 1 });
-    service = new AuthService({ usuario } as any, {} as any, {} as any, {} as any);
+    service = new AuthService({ usuario } as any, {} as any, {} as any, { get: (_k: string, d?: unknown) => d } as any);
   });
 
   it('exige la contraseña actual sin modificar la cuenta si falla', async () => {
