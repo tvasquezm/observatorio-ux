@@ -102,6 +102,16 @@ describe('Informe PDF: aspectos positivos y conclusión', () => {
     const contenido = JSON.stringify(construirInformeFlujoPdf(ev, new Map(), new Date('2026-10-09T12:00:00Z')).content);
     for (const texto of ['Aspectos positivos', 'Menú claro', 'Etiquetas comprensibles.', 'Conclusión y recomendaciones finales', 'Corregir el formulario antes de publicar.']) expect(contenido).toContain(texto);
   });
+  it('incluye las capturas del aspecto positivo y las omite si no se eligió esa parte', () => {
+    const ev = evaluacion();
+    ev.informe!.consenso.positivos = [{ id: 'pos1', titulo: 'Menú claro', descripcion: '', evidenciaIds: ['capPos'] }];
+    const capturas = new Map([['capPos', 'data:image/png;base64,AAAA']]);
+    const pdf = construirInformeFlujoPdf(ev, capturas, new Date('2026-10-09T12:00:00Z'));
+    expect(pdf.images).toHaveProperty('evidencia-capPos');
+    expect(JSON.stringify(pdf.content)).toContain('"image":"evidencia-capPos"');
+    const sinPositivos = construirInformeFlujoPdf(ev, capturas, new Date('2026-10-09T12:00:00Z'), undefined, { partes: ['hallazgos'] });
+    expect(sinPositivos.images).not.toHaveProperty('evidencia-capPos');
+  });
 });
 
 describe('Informe PDF: mejoras antes/después', () => {

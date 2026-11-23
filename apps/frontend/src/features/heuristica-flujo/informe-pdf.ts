@@ -18,6 +18,7 @@ function idsEvidencia(consenso: EvaluacionFlujo['consenso'] | undefined, { parte
   return new Set([
     ...(!partes || partes.includes('hallazgos') ? consenso?.hallazgos.filter(h => h.decision === 'ACEPTADO').flatMap(h => h.evidenciaIds) ?? [] : []),
     ...(!partes || partes.includes('mejoras') ? consenso?.mejoras?.flatMap(m => [...m.antesIds, ...m.despuesIds]) ?? [] : []),
+    ...(!partes || partes.includes('positivos') ? consenso?.positivos?.flatMap(p => p.evidenciaIds ?? []) ?? [] : []),
   ]);
 }
 
@@ -105,7 +106,7 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
         titulo('Criterios y decisiones acordadas'),
         table(['Criterio / fuente', 'Valoración final', 'Justificación'], consenso.criterios.map(r => { const c = config.metodologia.criterios.find(x => x.id === r.criterioId); return [`${nombreCriterio(r.criterioId)}\n${c?.origen.autor ?? ''} · ${c?.origen.version ?? ''}\n${c?.origen.fuente ?? ''}`, valorCriterio(r), r.justificacion]; }), ['*', 100, '*']),
       ] : []),
-      ...(incluye('positivos') && positivos.length ? [titulo('Aspectos positivos'), ...positivos.flatMap((p): Content[] => [{ text: p.titulo, bold: true, margin: [0, 6, 0, 2] }, ...(p.descripcion ? [{ text: p.descripcion, margin: [0, 0, 0, 4] } as Content] : [])])] : []),
+      ...(incluye('positivos') && positivos.length ? [titulo('Aspectos positivos'), ...positivos.flatMap((p): Content[] => [{ text: p.titulo, bold: true, margin: [0, 6, 0, 2] }, ...(p.descripcion ? [{ text: p.descripcion, margin: [0, 0, 0, 4] } as Content] : []), ...(p.evidenciaIds ?? []).map(imagenEvidencia)])] : []),
       ...(incluye('hallazgos') ? [titulo('Problemas y recomendaciones'), ...(detalleHallazgos.length ? detalleHallazgos : [{ text: 'La revisión acordada no identificó problemas de usabilidad.' } as Content])] : []),
       ...(incluye('mejoras') && mejoras.length ? [titulo('Mejoras antes/después'), ...detalleMejoras] : []),
       ...(incluye('conclusion') && conclusion ? [titulo('Conclusión y recomendaciones finales'), { text: conclusion } as Content] : []),

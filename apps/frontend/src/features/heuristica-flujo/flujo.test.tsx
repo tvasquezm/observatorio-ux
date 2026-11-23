@@ -896,6 +896,16 @@ describe('consenso en equipo sobre la tabla', () => {
 });
 
 describe('aspectos positivos y conclusión', () => {
+  it('el aspecto positivo tiene su propia zona de capturas y las envía al guardar', async () => {
+    const e = evaluation({ fase: 'PENDIENTE_CONSENSO' });
+    api.mockResolvedValue({ ...e, revision: 2 });
+    renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Agregar aspecto positivo' }));
+    expect(screen.getByText('Evidencias · del aspecto positivo 1')).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText('Título del aspecto positivo 1'), 'Menú claro');
+    await waitFor(() => expect(api).toHaveBeenCalledWith('p1', '/evaluaciones/e1/consenso', 'PATCH', expect.objectContaining({ positivos: [expect.objectContaining({ titulo: 'Menú claro', evidenciaIds: [] })] })), { timeout: 3000 });
+  });
   it('agrega y quita un aspecto positivo en el consenso', async () => {
     renderFlow(<ConsensoEditor evaluacion={evaluation({ fase: 'PENDIENTE_CONSENSO' })} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
     expect(screen.queryByLabelText('Título del aspecto positivo 1')).toBeNull();
@@ -968,26 +978,15 @@ describe('aspectos positivos y conclusión', () => {
 });
 
 describe('mejoras antes/después', () => {
-  it('agrega, edita y quita una mejora en el consenso', async () => {
-    renderFlow(<ConsensoEditor evaluacion={evaluation({ fase: 'PENDIENTE_CONSENSO' })} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
-    expect(screen.queryByLabelText('Título de la mejora 1')).toBeNull();
-    await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Agregar mejora' }));
-    await userEvent.type(screen.getByLabelText('Título de la mejora 1'), 'Botón visible');
-    expect(screen.getByLabelText('Título de la mejora 1')).toHaveValue('Botón visible');
-    expect(screen.getByText('Evidencias · antes de la mejora 1')).toBeInTheDocument();
-    expect(screen.getByText('Evidencias · después de la mejora 1')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Quitar mejora 1' }));
-    expect(screen.queryByLabelText('Título de la mejora 1')).toBeNull();
-  });
-  it('envía las mejoras al guardar el consenso', async () => {
+  it('el acuerdo ya no ofrece el formulario, pero conserva las mejoras guardadas antes', async () => {
     const e = evaluation({ fase: 'PENDIENTE_CONSENSO' });
+    e.consenso.mejoras = [{ id: 'm1', titulo: 'Botón visible', descripcion: '', antesIds: [], despuesIds: [] }];
     api.mockResolvedValue({ ...e, revision: 2 });
     renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
     await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Agregar mejora' }));
-    await userEvent.type(screen.getByLabelText('Título de la mejora 1'), 'Botón visible');
-    await waitFor(() => expect(api).toHaveBeenCalledWith('p1', '/evaluaciones/e1/consenso', 'PATCH', expect.objectContaining({ mejoras: [expect.objectContaining({ titulo: 'Botón visible', antesIds: [], despuesIds: [] })] })), { timeout: 3000 });
+    expect(screen.queryByRole('button', { name: 'Agregar mejora' })).toBeNull();
+    await userEvent.type(screen.getByLabelText('Conclusión y recomendaciones finales'), 'Listo');
+    await waitFor(() => expect(api).toHaveBeenCalledWith('p1', '/evaluaciones/e1/consenso', 'PATCH', expect.objectContaining({ mejoras: [expect.objectContaining({ titulo: 'Botón visible' })] })), { timeout: 3000 });
   });
   it('F38: el informe sigue el orden de lectura, su índice omite secciones vacías y ordena problemas por severidad', () => {
     const e = final('orden');

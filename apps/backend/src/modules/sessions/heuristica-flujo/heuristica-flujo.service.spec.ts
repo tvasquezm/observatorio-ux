@@ -546,6 +546,26 @@ describe('Consenso: mejoras antes/después con capturas', () => {
   });
 });
 
+describe('Consenso: capturas de los aspectos positivos', () => {
+  const PNG = Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0,0,0,0]);
+  const subir = (service: HeuristicaFlujoService, id: string, user: AuthenticatedUser) => service.subirEvidencia('p', id, { buffer: PNG, size: PNG.length }, user);
+  const positivo = (evidenciaIds: string[]) => ({ id: 'pos1', titulo: 'Menú claro', descripcion: 'Etiquetas comprensibles.', evidenciaIds });
+  it('guarda la captura, el lector la ve en el informe y se rechazan capturas ajenas', async () => {
+    const { service } = preparar();
+    let e = await entregarTodos(service, 1);
+    const otra = await entregarTodos(service, 1);
+    const ajena = await subir(service, otra.id, experto);
+    await expect(service.guardarConsenso('p', e.id, { ...decisiones(e), positivos: [positivo([ajena.id])] }, coordinador)).rejects.toBeInstanceOf(BadRequestException);
+    const captura = await subir(service, e.id, experto);
+    e = await service.guardarConsenso('p', e.id, { ...decisiones(e), positivos: [positivo([captura.id])] }, coordinador);
+    await expect(service.obtenerEvidencia('p', e.id, captura.id, lector)).rejects.toBeInstanceOf(ForbiddenException);
+    for (const id of e.configuracion.evaluadorIds) e = await service.aprobar('p', e.id, { revision: e.revision }, usuario(id));
+    e = await service.consolidar('p', e.id, { revision: e.revision }, coordinador);
+    expect(e.informe!.consenso.positivos).toEqual([positivo([captura.id])]);
+    await expect(service.obtenerEvidencia('p', e.id, captura.id, lector)).resolves.toMatchObject({ mimeType: 'image/png' });
+  });
+});
+
 describe('Consenso: acuerdo sobre la tabla y hallazgos nuevos del equipo', () => {
   async function entregaUnica(hallazgos: HallazgoFlujo[] = []) {
     const { service } = preparar();

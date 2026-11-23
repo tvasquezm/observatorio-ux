@@ -277,8 +277,8 @@ export class HeuristicaFlujoService {
     const originales = [...e.trabajos.flatMap(t => t.hallazgos), ...(e.consenso.aportes ?? [])];
     const referencias = e.consenso.hallazgos.flatMap(h => h.origenIds);
     if (new Set(referencias).size !== referencias.length || referencias.some(id => !originales.some(h => h.id === id))) throw new BadRequestException('Cada hallazgo original debe aparecer una sola vez.');
-    const capturas = [...new Set((e.consenso.mejoras ?? []).flatMap(m => [...m.antesIds, ...m.despuesIds]))];
-    if (capturas.length && (await tx.evidenciaHeuristicaCompleta.findMany({ where: { id: { in: capturas }, evaluacionId: e.id }, select: { id: true } })).length !== capturas.length) throw new BadRequestException('Las capturas de las mejoras deben pertenecer a esta evaluación.');
+    const capturas = [...new Set([...(e.consenso.mejoras ?? []).flatMap(m => [...m.antesIds, ...m.despuesIds]), ...(e.consenso.positivos ?? []).flatMap(p => p.evidenciaIds ?? [])])];
+    if (capturas.length && (await tx.evidenciaHeuristicaCompleta.findMany({ where: { id: { in: capturas }, evaluacionId: e.id }, select: { id: true } })).length !== capturas.length) throw new BadRequestException('Las capturas de los aspectos positivos y las mejoras deben pertenecer a esta evaluación.');
     await this.validarHallazgos(e, e.consenso.hallazgos, tx, null, false);
     if (!completo) return;
     const pendientes = pendientesAcuerdo(e);
@@ -445,7 +445,8 @@ export class HeuristicaFlujoService {
     if (!ev) throw new NotFoundException('La evidencia no existe en esta evaluación.');
     const compartida = ['PENDIENTE_CONSENSO', 'CONSOLIDADA', 'FINALIZADA'].includes(e.fase);
     const investigador = e.coordinadorId === user.id || e.configuracion.evaluadorIds.includes(user.id);
-    const incluida = e.informe?.consenso.hallazgos.some(h => h.decision === 'ACEPTADO' && h.evidenciaIds.includes(ev.id)) || e.informe?.consenso.mejoras?.some(m => m.antesIds.includes(ev.id) || m.despuesIds.includes(ev.id));
+    const incluida = e.informe?.consenso.hallazgos.some(h => h.decision === 'ACEPTADO' && h.evidenciaIds.includes(ev.id)) || e.informe?.consenso.mejoras?.some(m => m.antesIds.includes(ev.id) || m.despuesIds.includes(ev.id))
+      || e.informe?.consenso.positivos?.some(p => p.evidenciaIds?.includes(ev.id));
     if (!(ev.autorId === user.id && e.configuracion.evaluadorIds.includes(user.id)) && !(compartida && investigador) && !(e.configuracion.lectorIds.includes(user.id) && incluida)) throw new ForbiddenException('Esta captura no está disponible para tu rol en la fase actual.');
     return ev;
   }

@@ -42,23 +42,26 @@ export function AporteEquipo({ evaluacion, usuarioId, nombreDe, onSaved }: { eva
     <p role="status" className="hf-aviso">{aviso}</p>
     {pendientes.length > 0 && <>
       <h3>Agregados por el equipo, sin decidir todavía</h3>
-      <ul className="hf-aportes">{pendientes.map(a => <li key={a.id}>
-        <strong>{a.titulo}</strong> <span className="hf-autoria">Agregado por {nombreDe(a.autorId)} · {fechaChile(a.creadoEn)}</span>
+      <ul className="hf-aportes">{pendientes.map(a => <li key={a.id} className="hf-form-resumen">
+        <div><h4>{a.titulo}</h4><p className="hf-form-meta">Agregado por {nombreDe(a.autorId)} · {fechaChile(a.creadoEn)}{a.evidenciaIds.length ? ` · ${a.evidenciaIds.length} captura${a.evidenciaIds.length === 1 ? '' : 's'}` : ''}</p></div>
         {a.autorId === usuarioId && <button type="button" className="link-btn link-btn--delete" disabled={busy} onClick={() => void quitar(a.id, a.titulo)}>Quitar <span className="sr-only">{a.titulo}</span></button>}
       </li>)}</ul>
     </>}
-    {borrador ? <fieldset disabled={busy}><legend>Nuevo problema</legend>
+    {borrador ? <fieldset disabled={busy} className="hf-form-card"><legend>Nuevo problema</legend>
       <HallazgoEditor value={borrador} config={evaluacion.configuracion} onChange={setBorrador} />
-      <EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={borrador.evidenciaIds} editable={!busy} onChange={ids => setBorrador(prev => prev && { ...prev, evidenciaIds: ids })} onPendingChange={setSubiendo} />
+      <div className="hf-form-evidencia">
+        <h4>Capturas <small>(opcional)</small></h4>
+        <EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={borrador.evidenciaIds} editable={!busy} onChange={ids => setBorrador(prev => prev && { ...prev, evidenciaIds: ids })} onPendingChange={setSubiendo} />
+      </div>
       {error && <p role="alert" className="hf-error">{error}</p>}
-      <div className="hf-actions">
-        <button type="button" className="primary" disabled={busy || subiendo} onClick={() => void guardar()}>Guardar problema</button>
+      <div className="hf-form-acciones">
         <button type="button" className="ghost" disabled={busy} onClick={() => { setBorrador(null); setError(''); }}>Cancelar</button>
+        <button type="button" className="primary" disabled={busy || subiendo} onClick={() => void guardar()}>Guardar problema</button>
       </div>
     </fieldset>
       : <>
         {error && <p role="alert" className="hf-error">{error}</p>}
-        <button type="button" className="secondary" disabled={busy} onClick={() => { setAviso(''); setBorrador(hallazgoVacio(evaluacion.configuracion.metodologia.criterios[0].id)); }}>Agregar problema</button>
+        <button type="button" className="secondary hf-form-agregar" disabled={busy} onClick={() => { setAviso(''); setBorrador(hallazgoVacio(evaluacion.configuracion.metodologia.criterios[0].id)); }}>Agregar problema</button>
       </>}
   </div>;
 }

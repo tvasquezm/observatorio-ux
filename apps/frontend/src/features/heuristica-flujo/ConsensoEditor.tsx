@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { RecorridoSencillo } from './RecorridoSencillo';
 import { ETIQUETA_SECCION_ACUERDO, MAX_HALLAZGOS_NUEVOS_EQUIPO, origenHallazgo, pendientesAcuerdo, redactorDe } from '@observatorio-ux/shared-types';
-import type { DecisionHallazgo, EvaluacionFlujo, MejoraAntesDespues, MiembroEquipoFlujo, SeccionAcuerdo } from '@observatorio-ux/shared-types';
+import type { DecisionHallazgo, EvaluacionFlujo, MiembroEquipoFlujo, SeccionAcuerdo } from '@observatorio-ux/shared-types';
 import { Field } from './ConfiguracionEditor';
 import { EvidenciaEditor } from './EvidenciaEditor';
+import { AspectosPositivos } from './AspectosPositivos';
 import { MatrizItem } from './MatrizItem';
 import { RedactorPanel } from './RedactorPanel';
 import { AporteEquipo } from './AporteEquipo';
@@ -26,8 +27,6 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
   const [comentario, setComentario] = useState('');
   const [avisoEquipo, setAvisoEquipo] = useState('');
   const [nuevaId, setNuevaId] = useState<string | null>(null);
-  const [positivosPlegados, setPositivosPlegados] = useState<ReadonlySet<string>>(new Set());
-  const [positivoSinTitulo, setPositivoSinTitulo] = useState<string | null>(null);
   const decisiones = useRef<Record<string, HTMLFieldSetElement | null>>({});
   const confirmacion = useRef<HTMLElement>(null);
   useEffect(() => { if (!nuevaId) return; decisiones.current[nuevaId]?.focus(); setNuevaId(null); }, [nuevaId]);
@@ -62,14 +61,19 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
   const update = (h: DecisionHallazgo) => state.setDraft({ ...state.draft, hallazgos: state.draft.hallazgos.map(x => x.id === h.id ? h : x) });
   function renderDecision(h: DecisionHallazgo, i: number) {
     const esEquipo = origenHallazgo(h) === 'equipo';
-    return <fieldset key={h.id} disabled={bloqueo} tabIndex={-1} ref={el => { decisiones.current[h.id] = el; }}>
+    return <fieldset key={h.id} disabled={bloqueo} tabIndex={-1} className={esEquipo ? "hf-form-card" : undefined} ref={el => { decisiones.current[h.id] = el; }}>
       <legend>Decisión {i + 1}: {h.titulo}</legend>
       <p className="hf-autoria">{autoriaDe(h)}</p>
       <Field label="Decisión del consenso"><select value={h.decision} onChange={e => update({ ...h, decision: e.target.value as DecisionHallazgo['decision'] })}><option value="PENDIENTE">Pendiente</option><option value="ACEPTADO">Aceptar problema único</option><option value="DESCARTADO">Descartar conservando original</option></select></Field>
       <HallazgoEditor value={h} config={evaluacion.configuracion} onChange={x => update({ ...h, ...x })} />
       <Field label="Justificación de aceptación, fusión o descarte"><textarea value={h.justificacion} onChange={e => update({ ...h, justificacion: e.target.value })} /></Field>
-      <EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={h.evidenciaIds} editable={false} />
-      {esEquipo && <button type="button" className="danger" onClick={() => {
+      {/* Los problemas nuevos del equipo suben y anotan sus capturas aquí; los de origen muestran las de su autor. */}
+      <div className="hf-form-evidencia">
+        <h4>Capturas{esEquipo ? <small> (opcional)</small> : null}</h4>
+        <EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={h.evidenciaIds} editable={esEquipo && !bloqueo}
+          onChange={esEquipo ? ids => state.setDraft(prev => ({ ...prev, hallazgos: prev.hallazgos.map(x => x.id === h.id ? { ...x, evidenciaIds: ids } : x) })) : undefined} onPendingChange={esEquipo ? v => setSubiendo(p => p[h.id] === v ? p : { ...p, [h.id]: v }) : undefined} />
+      </div>
+      {esEquipo && <button type="button" className="link-btn link-btn--delete" onClick={() => {
         setAvisoEquipo('');
         state.setDraft({ ...state.draft, hallazgos: state.draft.hallazgos.filter(x => x.id !== h.id) });
       }}>{`Quitar problema ${i + 1}`}</button>}
@@ -128,31 +132,11 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
       </fieldset>
       {soloLectura && (esExperto || usuarioId === evaluacion.coordinadorId) && <AporteEquipo evaluacion={evaluacion} usuarioId={usuarioId} nombreDe={nombreDe} onSaved={onSaved} />}
     </section>
-    <details className="panel"><summary>Agregar lo que funciona bien (opcional)</summary>
-      <fieldset disabled={bloqueo}><legend>Lo que funciona bien en el producto</legend>{state.draft.positivos.map((p, i) => positivosPlegados.has(p.id) ? <fieldset key={p.id}><legend>Aspecto positivo {i + 1}: {p.titulo}</legend><p role="status">Aspecto positivo guardado con éxito</p><button type="button" className="secondary" onClick={() => setPositivosPlegados(prev => { const n = new Set(prev); n.delete(p.id); return n; })}>Editar aspecto positivo {i + 1}</button><button type="button" className="danger" onClick={() => state.setDraft({ ...state.draft, positivos: state.draft.positivos.filter(x => x.id !== p.id) })}>Quitar aspecto positivo {i + 1}</button></fieldset> : <fieldset key={p.id}><legend>Aspecto positivo {i + 1}: {p.titulo || 'Sin título'}</legend>
-        <Field label={`Título del aspecto positivo ${i + 1}`}><input maxLength={300} value={p.titulo} onChange={e => state.setDraft({ ...state.draft, positivos: state.draft.positivos.map(x => x.id === p.id ? { ...x, titulo: e.target.value } : x) })} /></Field>
-        <Field label={`Descripción del aspecto positivo ${i + 1}`}><textarea maxLength={10000} value={p.descripcion} onChange={e => state.setDraft({ ...state.draft, positivos: state.draft.positivos.map(x => x.id === p.id ? { ...x, descripcion: e.target.value } : x) })} /></Field>
-        <button type="button" className="secondary" onClick={() => { if (!p.titulo.trim()) { setPositivoSinTitulo(p.id); return; } setPositivoSinTitulo(null); setPositivosPlegados(prev => new Set(prev).add(p.id)); }}>Guardar aspecto positivo {i + 1}</button>
-        {positivoSinTitulo === p.id && !p.titulo.trim() && <p role="alert" className="hf-error">Escribe un título para guardar el aspecto positivo.</p>}
-        <button type="button" className="danger" onClick={() => state.setDraft({ ...state.draft, positivos: state.draft.positivos.filter(x => x.id !== p.id) })}>Quitar aspecto positivo {i + 1}</button>
-      </fieldset>)}
-      <button type="button" className="secondary" disabled={state.draft.positivos.length >= 200} onClick={() => state.setDraft({ ...state.draft, positivos: [...state.draft.positivos, { id: crypto.randomUUID(), titulo: '', descripcion: '' }] })}>Agregar aspecto positivo</button></fieldset>
-    </details>
-    <details className="panel"><summary>Agregar imágenes de antes y después (opcional)</summary>
-      <p>Registra cambios propuestos o aplicados al prototipo, con capturas del estado anterior y del estado posterior.</p>
-      <fieldset disabled={bloqueo}><legend>Mejoras del informe</legend>{state.draft.mejoras.map((m, i) => {
-        const cambiar = (patch: Partial<MejoraAntesDespues>) => state.setDraft(prev => ({ ...prev, mejoras: prev.mejoras.map(x => x.id === m.id ? { ...x, ...patch } : x) }));
-        const lado = (clave: 'antesIds' | 'despuesIds', nombre: string) => <EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={m[clave]} editable={!bloqueo} sinAnotar max={10} etiqueta={`${nombre} de la mejora ${i + 1}`} onChange={ids => cambiar(clave === 'antesIds' ? { antesIds: ids } : { despuesIds: ids })} onPendingChange={v => setSubiendo(p => p[m.id + clave] === v ? p : { ...p, [m.id + clave]: v })} />;
-        return <fieldset key={m.id}><legend>Mejora {i + 1}: {m.titulo || 'Sin título'}</legend>
-          <Field label={`Título de la mejora ${i + 1}`}><input maxLength={300} value={m.titulo} onChange={e => cambiar({ titulo: e.target.value })} /></Field>
-          <Field label={`Descripción de la mejora ${i + 1}`}><textarea maxLength={10000} value={m.descripcion} onChange={e => cambiar({ descripcion: e.target.value })} /></Field>
-          <h3>Antes</h3>{lado('antesIds', 'antes')}
-          <h3>Después</h3>{lado('despuesIds', 'después')}
-          <button type="button" className="danger" disabled={subiendoCapturas} onClick={() => state.setDraft(prev => ({ ...prev, mejoras: prev.mejoras.filter(x => x.id !== m.id) }))}>Quitar mejora {i + 1}</button>
-        </fieldset>;
-      })}
-      <button type="button" className="secondary" disabled={state.draft.mejoras.length >= 100} onClick={() => state.setDraft(prev => ({ ...prev, mejoras: [...prev.mejoras, { id: crypto.randomUUID(), titulo: '', descripcion: '', antesIds: [], despuesIds: [] }] }))}>Agregar mejora</button></fieldset>
-    </details>
+    <section className="panel hf-form-seccion" aria-labelledby="hf-positivos-titulo"><div className="panel-head"><div><h2 id="hf-positivos-titulo">Lo que funciona bien</h2><p className="hf-ayuda">Opcional. Registra los aciertos del producto, con capturas si ayudan a mostrarlos.</p></div></div>
+      <AspectosPositivos evaluacion={evaluacion} positivos={state.draft.positivos} bloqueo={bloqueo}
+        onChange={positivos => state.setDraft(prev => ({ ...prev, positivos }))}
+        onPendingChange={(id, v) => setSubiendo(p => p[id] === v ? p : { ...p, [id]: v })} />
+    </section>
     <section className="panel"><div className="panel-head"><h2>Conclusión y recomendaciones finales</h2></div>
       <Field label="Conclusión y recomendaciones finales"><textarea maxLength={10000} disabled={bloqueo} value={state.draft.conclusion} onChange={e => state.setDraft({ ...state.draft, conclusion: e.target.value })} /></Field>
     </section>

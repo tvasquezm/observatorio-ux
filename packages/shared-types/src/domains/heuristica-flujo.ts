@@ -45,7 +45,8 @@ export interface AutoriaProblema { autorId?: string; creadoEn?: string }
 export interface DecisionHallazgo extends HallazgoFlujo, AutoriaProblema { origenIds: string[]; decision: 'PENDIENTE' | 'ACEPTADO' | 'DESCARTADO'; justificacion: string }
 /** Problema que agrega al acuerdo una persona del equipo que no redacta (F31). Quien redacta lo decide como cualquier problema de origen. */
 export interface AporteEquipo extends HallazgoFlujo { autorId: string; creadoEn: string }
-export interface AspectoPositivo { id: string; titulo: string; descripcion: string }
+/** Las capturas son opcionales: los aspectos guardados antes no las tienen. */
+export interface AspectoPositivo { id: string; titulo: string; descripcion: string; evidenciaIds?: string[] }
 export interface MejoraAntesDespues { id: string; titulo: string; descripcion: string; antesIds: string[]; despuesIds: string[] }
 export interface ConsensoFlujo {
   criterios: DecisionCriterio[]; hallazgos: DecisionHallazgo[]; aprobadoPor: string[]; positivos?: AspectoPositivo[]; conclusion?: string; mejoras?: MejoraAntesDespues[];
