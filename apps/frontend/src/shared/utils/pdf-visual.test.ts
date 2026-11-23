@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces';
-import { journeyVisual, personaVisual, svgCurva } from './pdf-visual';
+import { MAX_FASES_POR_TABLERO, journeyVisual, personaVisual, svgCurva } from './pdf-visual';
 
 const journey = {
   perfilUsuario: { nombre: 'Camila', rol: 'Estudiante' },
@@ -34,8 +34,25 @@ describe('PDF visual de técnicas (F40)', () => {
   it('el tablero tiene una columna por fase y los mismos carriles que la página', () => {
     const [, , tablero] = journeyVisual(journey) as [Content, Content, { table: { widths: unknown[]; body: unknown[][] } }];
     expect(tablero.table.widths).toHaveLength(4);
-    const etiquetas = tablero.table.body.map(f => (f[0] as { text: string }).text);
+    const etiquetas = tablero.table.body.map(f => { const c = f[0] as { text?: string; stack?: { text: string }[] }; return c.text ?? c.stack?.[0].text; });
     expect(etiquetas).toEqual(['Fase', 'Emoción', '', 'Actividades', 'Puntos de contacto', 'Pensamientos', 'Dificultades / puntos de dolor', 'Ganancias / aspectos positivos', 'Oportunidades de mejora']);
+  });
+
+  it('el tablero cabe en el ancho útil de A4 horizontal, contando padding y bordes', () => {
+    for (const n of [1, 2, 3, 4]) {
+      const fases = Array.from({ length: n }, (_, i) => ({ ...journey.fases[i % 3], nombre: `F${i}` }));
+      const [, , tablero] = journeyVisual({ ...journey, fases }) as [Content, Content, { table: { widths: number[] } }];
+      const total = tablero.table.widths.reduce((a, b) => a + b, 0) + (n + 1) * 10 + (n + 2);
+      expect(total, `${n} fases`).toBeLessThanOrEqual(842 - 108);
+    }
+  });
+
+  it(`con más de ${MAX_FASES_POR_TABLERO} fases el mapa continúa en otro tablero, en una página nueva`, () => {
+    const fases = Array.from({ length: 7 }, (_, i) => ({ ...journey.fases[i % 3], nombre: `F${i + 1}` }));
+    const contenido = journeyVisual({ ...journey, fases }) as Array<{ text?: string; table?: { widths: unknown[] }; pageBreak?: string }>;
+    const tableros = contenido.filter(c => c.table && c.table.widths.length > 2);
+    expect(tableros.map(t => t.table!.widths.length - 1)).toEqual([4, 3]);
+    expect(contenido.find(c => c.text === 'Fases 5 a 7 de 7')?.pageBreak).toBe('before');
   });
 
   it('sin foto incrustable usa las iniciales', () => {
@@ -46,6 +63,8 @@ describe('PDF visual de técnicas (F40)', () => {
 
   it('pdfmake genera el PDF con el tablero (SVG y columnas combinadas) y la tarjeta', async () => {
     expect(await renderiza(journeyVisual(journey), 'landscape')).toBe('%PDF-');
+    const siete = Array.from({ length: 7 }, (_, i) => ({ ...journey.fases[i % 3], nombre: `Fase ${i + 1}` }));
+    expect(await renderiza(journeyVisual({ ...journey, fases: siete }), 'landscape')).toBe('%PDF-');
     expect(await renderiza(personaVisual({ nombreCompleto: 'Ana Pérez', edad: 21, ocupacion: 'Estudiante', objetivos: ['Titularse'], frustraciones: ['Trámites'] }), 'portrait')).toBe('%PDF-');
   }, 30_000);
 });

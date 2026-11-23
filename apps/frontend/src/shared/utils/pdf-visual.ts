@@ -65,25 +65,66 @@ const CARRILES: { campo: keyof FasePdf; etiqueta: string; fondo: string }[] = [
   { campo: 'oportunidades', etiqueta: 'Oportunidades de mejora', fondo: '#fbf2dc' },
 ];
 
+/** Ancho útil de A4 horizontal con márgenes de 54 pt; se dejan 2 pt de holgura para que nada se corte. */
+const ANCHO_UTIL = 842 - 54 * 2 - 2;
+const PADDING = 5;
+/** Con más fases, las columnas quedan demasiado angostas para leer: el tablero continúa en otro bloque. */
+export const MAX_FASES_POR_TABLERO = 4;
+const Y_EMOCION: Record<Emocion, number> = { Positiva: 14, Neutral: 40, Negativa: 66 };
+
+/** Curva alineada con las columnas del tablero: un punto en el centro de cada fase. */
+export function svgCurvaColumnas(emociones: Emocion[], ancho: number): string {
+  const alto = 80;
+  const col = ancho / emociones.length;
+  const pts = emociones.map((e, i) => ({ x: col * (i + 0.5), y: Y_EMOCION[e] }));
+  let d = `M ${pts[0].x} ${pts[0].y}`;
+  for (let k = 1; k < pts.length; k++) {
+    const a = pts[k - 1], b = pts[k], m = (b.x - a.x) / 2;
+    d += ` C ${a.x + m} ${a.y}, ${b.x - m} ${b.y}, ${b.x} ${b.y}`;
+  }
+  const guias = Object.values(Y_EMOCION).map(y => `<line x1="0" y1="${y}" x2="${ancho}" y2="${y}" stroke="#d7dde7" stroke-width="1" stroke-dasharray="4 4"/>`).join('');
+  const puntos = pts.map((pt, i) => `<circle cx="${pt.x}" cy="${pt.y}" r="7" fill="${COLOR_EMOCION[emociones[i]]}" stroke="#ffffff" stroke-width="2"/>`).join('');
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${ancho}" height="${alto}" viewBox="0 0 ${ancho} ${alto}">${guias}<path d="${d}" fill="none" stroke="${TEAL}" stroke-width="3"/>${puntos}</svg>`;
+}
+
+function tablero(fases: FasePdf[], desde: number): Content {
+  const n = fases.length;
+  const etiqueta = 96;
+  // Ancho total = etiqueta + fases + padding de cada columna + bordes: debe caber en ANCHO_UTIL.
+  const anchoFase = Math.floor((ANCHO_UTIL - etiqueta - (n + 1) * PADDING * 2 - (n + 2)) / n);
+  const anchoCurva = n * anchoFase + (n - 1) * (PADDING * 2 + 1);
+  const rotulo = (texto: string, fondo: string, color = INK): TableCell => ({ text: texto, bold: true, fontSize: 8.5, color, fillColor: fondo });
+  const fila = (titulo: TableCell, celdas: TableCell[]): TableCell[] => [titulo, ...celdas];
+  return {
+    table: {
+      headerRows: 1, dontBreakRows: true, widths: [etiqueta, ...fases.map(() => anchoFase)], body: [
+        fila(rotulo('Fase', INK, '#ffffff'), fases.map((f, i) => ({ text: `${desde + i + 1}. ${f.nombre}`, bold: true, fontSize: 10, color: '#ffffff', fillColor: INK }))),
+        [{ stack: [{ text: 'Emoción', bold: true, fontSize: 8.5 }, { text: 'Arriba: positiva\nAbajo: negativa', fontSize: 7, color: MUTED, margin: [0, 2, 0, 0] }], fillColor: '#ffffff' },
+          { colSpan: n, svg: svgCurvaColumnas(fases.map(f => f.emocion), anchoCurva), width: anchoCurva } as TableCell, ...Array.from({ length: n - 1 }, () => ({}) as TableCell)],
+        fila(rotulo('', '#ffffff'), fases.map(f => ({ text: f.emocion, fontSize: 9.5, bold: true, alignment: 'center', color: COLOR_EMOCION[f.emocion], fillColor: FONDO_EMOCION[f.emocion] }))),
+        ...CARRILES.map(({ campo, etiqueta: titulo, fondo }) => fila(rotulo(titulo, fondo), fases.map(f => ({ text: lista(f[campo]), fontSize: 9, lineHeight: 1.15, fillColor: fondo })))),
+      ],
+    },
+    layout: { hLineWidth: () => 1, vLineWidth: () => 1, hLineColor: () => '#ffffff', vLineColor: () => '#ffffff', paddingLeft: () => PADDING, paddingRight: () => PADDING, paddingTop: () => 4, paddingBottom: () => 4 },
+    margin: [0, 0, 0, 12],
+  };
+}
+
 export function journeyVisual(j: JourneyPdf): Content[] {
   const n = j.fases.length;
   if (!n) return [{ text: 'Este recorrido no tiene fases.', color: MUTED }];
-  // Ancho útil de una página A4 horizontal con los márgenes del informe: ~730 pt.
-  const etiqueta = 92;
-  const anchoFase = Math.max(60, Math.floor((730 - etiqueta) / n));
   const meta = [
     j.eventoInicio ? caja('Evento de inicio', j.eventoInicio, '#e8f1fb') : null,
     j.objetivo ? caja('Objetivo del recorrido', j.objetivo, '#e6f4ec') : null,
   ].filter((c): c is TableCell => !!c);
-  const fila = (titulo: string, celdas: TableCell[], fondo: string): TableCell[] => [{ text: titulo, bold: true, fontSize: 7.5, fillColor: fondo }, ...celdas];
+  const tramos: FasePdf[][] = [];
+  for (let k = 0; k < n; k += MAX_FASES_POR_TABLERO) tramos.push(j.fases.slice(k, k + MAX_FASES_POR_TABLERO));
   return [
     { text: [{ text: j.perfilUsuario.nombre, bold: true, fontSize: 14, color: INK }, ...(j.perfilUsuario.rol ? [{ text: `  ${j.perfilUsuario.rol}`, color: MUTED }] : [])], margin: [0, 0, 0, 8] },
     ...(meta.length ? [{ table: { widths: meta.map(() => '*'), body: [meta] }, layout: 'noBorders', margin: [0, 0, 0, 8] } as Content] : []),
-    { table: { headerRows: 1, widths: [etiqueta, ...j.fases.map(() => anchoFase)], body: [
-      fila('Fase', j.fases.map((f, i) => ({ text: `${i + 1}. ${f.nombre}`, bold: true, fontSize: 8, color: '#ffffff', fillColor: INK })), INK).map((c, i) => i === 0 ? { ...(c as object), color: '#ffffff' } as TableCell : c),
-      [{ text: 'Emoción', bold: true, fontSize: 7.5, fillColor: '#ffffff' }, { colSpan: n, svg: svgCurva(j.fases.map(f => f.emocion)), width: anchoFase * n - 8 } as TableCell, ...Array.from({ length: n - 1 }, () => ({}) as TableCell)],
-      fila('', j.fases.map(f => ({ text: f.emocion, fontSize: 7.5, bold: true, alignment: 'center', color: COLOR_EMOCION[f.emocion], fillColor: FONDO_EMOCION[f.emocion] })), '#ffffff'),
-      ...CARRILES.map(({ campo, etiqueta: titulo, fondo }) => fila(titulo, j.fases.map(f => ({ text: lista(f[campo]), fontSize: 7.5, fillColor: fondo })), fondo)),
-    ] }, layout: { hLineWidth: () => 1, vLineWidth: () => 1, hLineColor: () => '#ffffff', vLineColor: () => '#ffffff', paddingLeft: () => 4, paddingRight: () => 4, paddingTop: () => 3, paddingBottom: () => 3 }, margin: [0, 0, 0, 12] },
+    ...tramos.flatMap((tramo, t): Content[] => [
+      ...(tramos.length > 1 ? [{ text: `Fases ${t * MAX_FASES_POR_TABLERO + 1} a ${t * MAX_FASES_POR_TABLERO + tramo.length} de ${n}`, style: 'eyebrow', margin: [0, 0, 0, 4], ...(t ? { pageBreak: 'before' as const } : {}) } as Content] : []),
+      tablero(tramo, t * MAX_FASES_POR_TABLERO),
+    ]),
   ];
 }
