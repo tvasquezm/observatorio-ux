@@ -66,3 +66,30 @@ Las de pago requieren el artículo (biblioteca UTEM) para verificarse.
 3. ¿Se continúa con la comparación de las familias de la sección 5?
 
 Al aplicar cambios hay que actualizar `catalogo.test.ts` (fija la cantidad de preguntas por familia).
+
+## Aplicado (segunda entrega, 2026-11-22)
+
+Decisión del usuario: **solo quedan las preguntas respaldadas por su fuente.** Se aplicó en `packages/shared-types/src/domains/heuristica-depuracion.ts`:
+
+| Familia | Antes | Ahora | Fuente leída |
+|---|---|---|---|
+| Nielsen | 40 | 34 | nngroup.com (revisión 2024) |
+| Shneiderman | 24 | 23 | cs.umd.edu (6.ª ed.) |
+| Tognazzini | 46 | 36 | asktog.com |
+| Hassan Montero y Martín | 33 | 27 | nosolousabilidad.com |
+| Hassan y Martín (checklist) | 71 | 51 | nosolousabilidad.com |
+| WCAG 2.2 | 46 | 35 | w3.org (REC 2024) |
+| COGA 2021 | 24 | 21 | w3.org (NOTE 2021) |
+| Amershi et al. | 36 | 22 | PDF del artículo (Microsoft Research) |
+| Criterios propios | 16 | 16 | sin fuente externa (propios de la plataforma) |
+| Rúbrica UTEM | 22 | 22 | rúbrica del curso |
+| Bastien y Scapin | 36 | fuera | inria.hal.science bloquea el acceso automático |
+| Gerhardt-Powals | 30 | fuera | artículo de pago |
+| Bertini et al. | 26 | fuera | artículo de pago |
+
+- Se quitaron las preguntas que no están en la fuente y las que, ajustadas a la fuente, repetían a otra.
+- Las preguntas *parciales* se reescribieron dentro de lo que dice la fuente.
+- Se corrigieron los ejemplos filtrados de la plataforma (Nielsen P8 y WCAG P41).
+- Los ids de las preguntas que quedan no cambian, y las evaluaciones guardadas conservan su copia.
+- Las tres familias que no se pudieron leer quedan fuera de la biblioteca hasta verificarlas con su texto original; basta quitarlas de `FAMILIAS_SIN_VERIFICAR`.
+- Nota: varias lecturas se hicieron sobre extractos de las páginas (no siempre texto literal); conviene una revisión humana de las reescrituras.

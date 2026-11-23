@@ -77,11 +77,11 @@ describe('flujo individual', () => {
       if (seccion < 9) await userEvent.click(screen.getByRole('button', { name: 'Sección siguiente' }));
     }
     expect(screen.queryByLabelText('Motivo de no aplica')).toBeNull();
-    expect(screen.getByText('40 de 40 preguntas respondidas')).toBeInTheDocument();
+    expect(screen.getByText('34 de 34 preguntas respondidas')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Entregar mi evaluación' }));
     await screen.findByText('Trabajo entregado. Tus respuestas están cerradas.');
     const guardado = api.mock.calls.find(c => c[1].endsWith('/trabajo'))![3];
-    expect(guardado.respuestas).toHaveLength(40);
+    expect(guardado.respuestas).toHaveLength(34);
     expect(guardado.respuestas.every((r: { noAplica: boolean; valor: string | null; motivo: string }) => r.noAplica && r.valor === null && r.motivo === '')).toBe(true);
     expect(screen.queryByRole('alert')).toBeNull();
   }, 30000);

@@ -25,10 +25,10 @@ const hallazgo = (id: string, decision: DecisionHallazgo['decision'] = 'ACEPTADO
 });
 
 describe('catálogo y snapshots', () => {
-  it('conserva las trece familias y fuentes versionadas protegidas', () => {
+  it('F41: solo familias verificadas, con las preguntas respaldadas por su fuente', () => {
     expect(METODOLOGIAS_HEURISTICAS.map(m => [m.id, m.criterios.length])).toEqual([
-      ['nielsen10', 40], ['shneiderman8', 24], ['tognazzini', 46], ['bastien-scapin', 36], ['gerhardt-powals', 30],
-      ['hassan-montero-martin-fernandez', 33], ['hassan-checklist-2003', 71], ['bertini2006', 26], ['wcag22', 46], ['coga2021', 24], ['amershi2019', 36], ['criterios-propios', 16], ['rubrica-utem-eval-heuristica', 22],
+      ['nielsen10', 34], ['shneiderman8', 23], ['tognazzini', 36],
+      ['hassan-montero-martin-fernandez', 27], ['hassan-checklist-2003', 51], ['wcag22', 35], ['coga2021', 21], ['amershi2019', 22], ['criterios-propios', 16], ['rubrica-utem-eval-heuristica', 22],
     ]);
     const ids = METODOLOGIAS_HEURISTICAS.flatMap(m => m.criterios.map(c => c.id));
     expect(new Set(ids).size).toBe(ids.length);
@@ -54,13 +54,13 @@ describe('catálogo y snapshots', () => {
     const otro = copiarMetodologia(METODOLOGIAS_HEURISTICAS[0]);
     otro.escala.tipo = 'ordinal';
     const mezcla = combinarMetodologias([METODOLOGIAS_HEURISTICAS[0], METODOLOGIAS_HEURISTICAS[0], otro]);
-    expect(mezcla.criterios).toHaveLength(120);
-    expect(new Set(mezcla.criterios.map(c => c.id)).size).toBe(120);
+    expect(mezcla.criterios).toHaveLength(102);
+    expect(new Set(mezcla.criterios.map(c => c.id)).size).toBe(102);
     expect(mezcla.criterios.every(c => c.origen.metodologiaId === 'nielsen10')).toBe(true);
     expect(mezcla.escala.tipo).toBe('categorica');
     expect(mezcla.ambito).toContain('Escalas distintas');
-    expect(mezcla.criterios.filter(c => c.escala?.tipo === 'ordinal')).toHaveLength(40);
-    expect(mezcla.criterios.filter(c => !c.escala)).toHaveLength(80);
+    expect(mezcla.criterios.filter(c => c.escala?.tipo === 'ordinal')).toHaveLength(34);
+    expect(mezcla.criterios.filter(c => !c.escala)).toHaveLength(68);
     mezcla.criterios[0].origen.version = 'Cambio local';
     expect(METODOLOGIAS_HEURISTICAS[0].criterios[0].origen.version).not.toBe('Cambio local');
     expect(() => combinarMetodologias([])).toThrow();
@@ -93,7 +93,7 @@ describe('escala por criterio', () => {
     expect(escalaDe(config.metodologia, config.metodologia.criterios[1])).toBe(config.metodologia.escala);
     consenso.criterios = [respuesta(config.metodologia.criterios[0].id, 'n5'), respuesta(config.metodologia.criterios[1].id, 'cumple'), respuesta(config.metodologia.criterios[2].id, 'cumple')];
     const r = resumirEvaluacion(config, consenso);
-    expect(r).toMatchObject({ evaluados: 3, pendientes: 37 });
+    expect(r).toMatchObject({ evaluados: 3, pendientes: 31 });
     expect(r.porCategoria.find(n => n.id === 'cumple')!.count).toBe(2);
     expect(r.porEscala).toEqual([{ fuente: 'Rúbrica local', tipo: 'numerica', criterios: 1, evaluados: 1, distribucion: [{ id: 'n1', etiqueta: '1', count: 0 }, { id: 'n5', etiqueta: '5', count: 1 }] }]);
   });
@@ -101,7 +101,7 @@ describe('escala por criterio', () => {
     const config = configuracion(), consenso = vacio();
     config.metodologia.criterios[0].escala = rango;
     consenso.criterios = [respuesta(config.metodologia.criterios[0].id, 'cumple')];
-    expect(resumirEvaluacion(config, consenso)).toMatchObject({ evaluados: 0, pendientes: 40 });
+    expect(resumirEvaluacion(config, consenso)).toMatchObject({ evaluados: 0, pendientes: 34 });
   });
   it('sin escalas propias el resultado conserva su forma anterior', () => {
     expect(resumirEvaluacion(configuracion(), vacio()).porEscala).toEqual([]);
@@ -130,14 +130,14 @@ describe('resumen del consenso', () => {
   it('distingue pendiente, no aplica e inválido', () => {
     const config = configuracion(), consenso = vacio();
     consenso.criterios = [respuesta(config.metodologia.criterios[0].id), respuesta(config.metodologia.criterios[1].id, null, true), respuesta(config.metodologia.criterios[2].id, 'desconocido')];
-    expect(resumirEvaluacion(config, consenso)).toMatchObject({ evaluados: 1, pendientes: 38, noAplica: 1, indice: null, denominador: 0, formula: null });
+    expect(resumirEvaluacion(config, consenso)).toMatchObject({ evaluados: 1, pendientes: 32, noAplica: 1, indice: null, denominador: 0, formula: null });
     consenso.criterios[1].motivo = '';
-    expect(resumirEvaluacion(config, consenso)).toMatchObject({ pendientes: 38, noAplica: 1 });
+    expect(resumirEvaluacion(config, consenso)).toMatchObject({ pendientes: 32, noAplica: 1 });
   });
   it('no produce un cero cuando todo es no aplica', () => {
     const config = configuracion(), consenso = vacio();
     consenso.criterios = config.metodologia.criterios.map(c => ({ ...respuesta(c.id, null, true), motivo: '' }));
-    expect(resumirEvaluacion(config, consenso)).toMatchObject({ evaluados: 0, pendientes: 0, noAplica: 40, indice: null, denominador: 0 });
+    expect(resumirEvaluacion(config, consenso)).toMatchObject({ evaluados: 0, pendientes: 0, noAplica: 34, indice: null, denominador: 0 });
   });
   it('pondera solo valores numéricos explícitos y muestra el denominador aplicable', () => {
     const config = configuracion(), consenso = vacio();
@@ -145,7 +145,7 @@ describe('resumen del consenso', () => {
     config.metodologia.criterios[0].peso = 3;
     config.metodologia.criterios[1].peso = 1;
     consenso.criterios = [respuesta(config.metodologia.criterios[0].id, 'alto'), respuesta(config.metodologia.criterios[1].id, 'bajo'), respuesta(config.metodologia.criterios[2].id, null, true)];
-    expect(resumirEvaluacion(config, consenso)).toMatchObject({ evaluados: 2, pendientes: 37, noAplica: 1, indice: 7.5, denominador: 4, porCategoria: [{ id: 'bajo', etiqueta: 'Bajo', count: 1 }, { id: 'alto', etiqueta: 'Alto', count: 1 }] });
+    expect(resumirEvaluacion(config, consenso)).toMatchObject({ evaluados: 2, pendientes: 31, noAplica: 1, indice: 7.5, denominador: 4, porCategoria: [{ id: 'bajo', etiqueta: 'Bajo', count: 1 }, { id: 'alto', etiqueta: 'Alto', count: 1 }] });
     config.metodologia.escala.tipo = 'ordinal';
     expect(resumirEvaluacion(config, consenso)).toMatchObject({ indice: null, denominador: 0, formula: null });
     config.metodologia.escala.tipo = 'numerica';
@@ -159,7 +159,7 @@ describe('resumen del consenso', () => {
     const config = configuracion(), consenso = vacio();
     consenso.hallazgos = [hallazgo('fusionado'), hallazgo('fusionado'), hallazgo('descartado', 'DESCARTADO'), hallazgo('pendiente', 'PENDIENTE')];
     consenso.criterios = [respuesta(config.metodologia.criterios[0].id), respuesta(config.metodologia.criterios[0].id, 'no_cumple')];
-    expect(resumirEvaluacion(config, consenso)).toMatchObject({ totalHallazgos: 1, porSeveridad: [0, 0, 0, 1, 0], evaluados: 0, pendientes: 40 });
+    expect(resumirEvaluacion(config, consenso)).toMatchObject({ totalHallazgos: 1, porSeveridad: [0, 0, 0, 1, 0], evaluados: 0, pendientes: 34 });
   });
 });
 
@@ -272,7 +272,7 @@ describe('checklist Hassan y Martín (D22)', () => {
     expect(m.escala.niveles.map(n => n.id)).toEqual(['si', 'no']);
     expect(claveEscalaPredefinida(m.escala)).toBe('si_no');
     expect(problemasMetodologia(m)).toEqual([]);
-    expect(METODOLOGIAS_HEURISTICAS.find(x => x.id === 'hassan-montero-martin-fernandez')!.criterios).toHaveLength(33);
+    expect(METODOLOGIAS_HEURISTICAS.find(x => x.id === 'hassan-montero-martin-fernandez')!.criterios).toHaveLength(27);
   });
   it('no aplica cuenta como respondido sin motivo; un valor fuera de la escala no', () => {
     const c = configChecklist();
@@ -291,7 +291,7 @@ describe('clasificación y cumplimiento (B1)', () => {
   it('la escala operativa marca Cumple favorable y No cumple desfavorable; Parcial queda neutra', () => {
     expect(ESCALA_OPERATIVA_HEURISTICA.niveles.map(n => n.favorable)).toEqual([true, undefined, false]);
     const r = resumirCumplimiento(configuracion(), consensoDe(respuesta('nielsen10:1', 'cumple'), respuesta('nielsen10:2', 'parcial'), respuesta('nielsen10:3', 'no_cumple')))!;
-    expect(r.total).toMatchObject({ favorables: 1, desfavorables: 1, neutros: 1, sinEvaluar: 37, proporcion: 0.5 });
+    expect(r.total).toMatchObject({ favorables: 1, desfavorables: 1, neutros: 1, sinEvaluar: 31, proporcion: 0.5 });
   });
   it('una escala operativa guardada antes sin favorable sigue reconociéndose', () => {
     const antigua = JSON.parse(JSON.stringify(ESCALA_OPERATIVA_HEURISTICA));
@@ -319,13 +319,13 @@ describe('clasificación y cumplimiento (B1)', () => {
   it('calcula la proporción por categoría y total; sin respuestas favorables o desfavorables es null', () => {
     const c = configChecklist(); const ids = c.metodologia.criterios.filter(x => x.categoria === 'Generales').map(x => x.id);
     const r = resumirCumplimiento(c, consensoDe(respuesta(ids[0], 'si'), respuesta(ids[1], 'no'), respuesta(ids[2], 'si'), respuesta(ids[3], null, true)))!;
-    expect(r.porCategoria[0]).toMatchObject({ categoria: 'Generales', favorables: 2, desfavorables: 1, noAplica: 1, sinEvaluar: 3 });
+    expect(r.porCategoria[0]).toMatchObject({ categoria: 'Generales', favorables: 2, desfavorables: 1, noAplica: 1, sinEvaluar: 2 });
     expect(r.porCategoria[0].proporcion).toBeCloseTo(2 / 3);
-    expect(r.total).toMatchObject({ favorables: 2, desfavorables: 1, noAplica: 1, sinEvaluar: 67 });
+    expect(r.total).toMatchObject({ favorables: 2, desfavorables: 1, noAplica: 1, sinEvaluar: 47 });
     expect(r.porCategoria).toHaveLength(11);
     expect(r.porCategoria[1].proporcion).toBeNull();
     const todoNoAplica = resumirCumplimiento(c, consensoDe(...c.metodologia.criterios.map(x => respuesta(x.id, null, true))))!;
-    expect(todoNoAplica.total).toMatchObject({ favorables: 0, desfavorables: 0, noAplica: 71, proporcion: null });
+    expect(todoNoAplica.total).toMatchObject({ favorables: 0, desfavorables: 0, noAplica: 51, proporcion: null });
   });
   it('evaluación antigua o escala sin niveles favorables no produce cumplimiento', () => {
     expect(resumirCumplimiento(sinFavorables(configuracion()), consensoDe(respuesta('nielsen10:1')))).toBeNull();
@@ -337,7 +337,7 @@ describe('clasificación y cumplimiento (B1)', () => {
     const c = sinFavorables(configuracion());
     c.metodologia.criterios[0] = { ...c.metodologia.criterios[0], escala: escalaPredefinida('si_no') };
     const r = resumirCumplimiento(c, consensoDe(respuesta('nielsen10:1', 'si'), respuesta('nielsen10:2', 'cumple')))!;
-    expect(r.total).toMatchObject({ favorables: 1, desfavorables: 0, neutros: 1, sinEvaluar: 38, proporcion: 1 });
+    expect(r.total).toMatchObject({ favorables: 1, desfavorables: 0, neutros: 1, sinEvaluar: 32, proporcion: 1 });
   });
   it('no altera resumirEvaluacion', () => {
     const c = configChecklist();
@@ -363,21 +363,22 @@ describe('rúbrica UTEM', () => {
   });
   it('no cambia la síntesis ni la lista previa del catálogo', () => {
     expect(METODOLOGIAS_HEURISTICAS[0].id).toBe('nielsen10');
-    expect(METODOLOGIAS_HEURISTICAS.find(x => x.id === 'hassan-checklist-2003')!.criterios).toHaveLength(71);
+    expect(METODOLOGIAS_HEURISTICAS.find(x => x.id === 'hassan-checklist-2003')!.criterios).toHaveLength(51);
   });
 });
 
 
 describe('contenido redactado del catálogo (fase 3b)', () => {
   // Las 10 metodologías de un criterio por ítem están redactadas; Checklist Hassan y Rúbrica UTEM no se redactan.
-  const REDACTADAS = ['nielsen10', 'shneiderman8', 'tognazzini', 'bastien-scapin', 'gerhardt-powals', 'hassan-montero-martin-fernandez', 'bertini2006', 'wcag22', 'coga2021', 'amershi2019'];
-  it.each(REDACTADAS)('%s: enunciado por ítem y al menos 2 preguntas por ítem', id => {
+  const REDACTADAS = ['nielsen10', 'shneiderman8', 'tognazzini', 'hassan-montero-martin-fernandez', 'wcag22', 'coga2021', 'amershi2019'];
+  // F41: tras depurar contra la fuente, un ítem puede quedar con una sola pregunta.
+  it.each(REDACTADAS)('%s: enunciado por ítem y al menos 1 pregunta por ítem', id => {
     const m = METODOLOGIAS_HEURISTICAS.find(x => x.id === id)!;
     const categorias = [...new Set(m.criterios.map(c => c.categoria))];
     expect(Object.keys(m.enunciados ?? {}).sort()).toEqual([...categorias].sort());
     for (const categoria of categorias) {
       expect(m.enunciados![categoria].trim().length, `enunciado de ${categoria}`).toBeGreaterThan(20);
-      expect(m.criterios.filter(c => c.categoria === categoria).length, `preguntas de ${categoria}`).toBeGreaterThanOrEqual(2);
+      expect(m.criterios.filter(c => c.categoria === categoria).length, `preguntas de ${categoria}`).toBeGreaterThanOrEqual(1);
     }
     expect(m.criterios.every(c => c.nombre.trim() && c.descripcion.trim()), 'nombre y descripción de cada pregunta').toBe(true);
     expect(new Set(m.criterios.map(c => c.nombre)).size).toBe(m.criterios.length);
@@ -386,11 +387,11 @@ describe('contenido redactado del catálogo (fase 3b)', () => {
     const sin = METODOLOGIAS_HEURISTICAS.filter(m => !m.enunciados).map(m => m.id).sort();
     expect(sin).toEqual(['hassan-checklist-2003', 'rubrica-utem-eval-heuristica']);
   });
-  it('nielsen10: 10 ítems con 3 o 4 preguntas y versión de paráfrasis v2', () => {
+  it('nielsen10: 10 ítems con 2 a 4 preguntas y versión de paráfrasis v2', () => {
     const m = METODOLOGIAS_HEURISTICAS.find(x => x.id === 'nielsen10')!;
     const porItem = Object.values(m.criterios.reduce<Record<string, number>>((a, c) => ({ ...a, [c.categoria]: (a[c.categoria] ?? 0) + 1 }), {}));
     expect(porItem).toHaveLength(10);
-    expect(porItem.every(n => n >= 3 && n <= 4)).toBe(true);
+    expect(porItem.every(n => n >= 2 && n <= 4)).toBe(true);
     expect(m.version).toContain('paráfrasis v2');
     expect(problemasMetodologia(copiarMetodologia(m))).toEqual([]);
   });
