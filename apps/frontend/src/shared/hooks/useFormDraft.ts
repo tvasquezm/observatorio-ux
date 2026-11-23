@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuthStore } from '../../features/auth/store/useAuthStore';
 
+const DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
 function compatible(template: unknown, value: unknown): boolean {
   if (template === null) return value === null || typeof value === 'string' || typeof value === 'boolean';
   if (Array.isArray(template)) return Array.isArray(value) && value.every(v => template.length ? compatible(template[0], v) : typeof v === 'string');
@@ -21,7 +23,7 @@ export function useFormDraft<T>(key: string, value: T, restore: (value: T) => vo
   function persist() {
     const current = latest.current;
     if (!current.userId || manualLogout.current || !current.options.enabled || !current.options.dirty || suppressed.current === JSON.stringify(current.value)) return;
-    try { localStorage.setItem(current.storageKey, JSON.stringify({ userId: current.userId, value: current.value })); setError(''); }
+    try { localStorage.setItem(current.storageKey, JSON.stringify({ userId: current.userId, value: current.value, savedAt: Date.now() })); setError(''); }
     catch { setError('No pudimos guardar el borrador en este navegador. Guarda tus cambios antes de salir.'); }
   }
   useEffect(() => {
@@ -33,7 +35,15 @@ export function useFormDraft<T>(key: string, value: T, restore: (value: T) => vo
       const raw = localStorage.getItem(storageKey);
       if (!raw) return;
       const saved = JSON.parse(raw);
-      if (saved.userId !== userId || !compatible(latest.current.value, saved.value)) { localStorage.removeItem(storageKey); return; }
+      if (
+        saved.userId !== userId ||
+        !Number.isFinite(saved.savedAt) ||
+        saved.savedAt <= Date.now() - DRAFT_TTL_MS ||
+        !compatible(latest.current.value, saved.value)
+      ) {
+        localStorage.removeItem(storageKey);
+        return;
+      }
       latest.current.restore(saved.value);
       setRestored(true);
     } catch { localStorage.removeItem(storageKey); }

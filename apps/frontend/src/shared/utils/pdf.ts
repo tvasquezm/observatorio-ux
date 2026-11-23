@@ -1,22 +1,22 @@
-import type { Content, ContentCanvas, TDocumentDefinitions } from 'pdfmake/interfaces';
+import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces';
 import { resumirEvaluacion, type FaseHeuristica } from '@observatorio-ux/shared-types';
 import type { ProjectReport, ReportMethod } from '../../features/reports/report-data';
 import { INK, MUTED, TEAL, paragraph, table, textValue, title } from './pdf-base';
+import { PDF_DEFAULT_STYLE, PDF_PAGE_MARGINS, PDF_STYLES, keepHeadingsWithContent } from './pdf-base';
 import { cuerpoVista } from '../../features/card-sorting/card-sorting-pdf-content';
+import { journeyVisual, personaVisual } from './pdf-visual';
+import { cargarEvidencia } from '../../features/heuristica-flujo/evidencia.api';
+
+/** Imágenes ya convertidas a PNG para incrustar (fotos de personas y capturas de la heurística). */
+export type ReportConImagenes = ProjectReport & { imagenes?: Record<string, string> };
+const claveCaptura = (evaluacionId: string, evidenciaId: string) => `captura-${evaluacionId}-${evidenciaId}`;
 import { tablaDeVista, tablaSinConsenso } from '../../features/card-sorting/card-sorting-export';
 
 export { INK, MUTED, TEAL, paragraph, table, title };
+export { PDF_DEFAULT_STYLE, PDF_PAGE_MARGINS, PDF_STYLES, keepHeadingsWithContent };
 
 export type ReportBrand = { logo: string; logoWhite: string };
 
-// Vector rectangles keep the brand gradient sharp in print, without a raster background.
-export function brandBand(width: number, height: number): ContentCanvas {
-  return { canvas: [...Array.from({ length: 128 }, (_, index) => {
-    const progress = index / 127;
-    const color = [21, 32, 56].map((start, channel) => Math.round(start + ([38, 59, 196][channel] - start) * progress).toString(16).padStart(2, '0')).join('');
-    return { type: 'rect' as const, x: index * width / 128, y: 0, w: width / 128 + 0.1, h: height, color: `#${color}`, lineWidth: 0 };
-  }), { type: 'rect', x: 0, y: height - 3, w: width, h: 3, color: '#a7c51f', lineWidth: 0 }] };
-}
 const fases: Record<FaseHeuristica, string> = { BORRADOR: 'Borrador', EN_EVALUACION: 'En evaluación', PENDIENTE_CONSENSO: 'Pendiente de consenso', CONSOLIDADA: 'Consolidada', FINALIZADA: 'Finalizada' };
 const severityLabels = ['Sin problema', 'Cosmético', 'Menor', 'Mayor', 'Crítico'];
 const severityColors = ['#526a73', '#526a73', '#85601b', '#a44626', '#922f3d'];
@@ -27,87 +27,124 @@ function details(rows: Array<[string, unknown]>): Content {
   return {
     table: { widths: [118, '*'], body: rows.map(([label, value]) => [
       { text: label, bold: true, color: MUTED, fontSize: 9 },
-      { text: textValue(value) },
+      { text: textValue(value), fontSize: 9.5, lineHeight: 1.15 },
     ]) },
     layout: {
       hLineWidth: (index) => index === 0 ? 0 : 0.5,
       hLineColor: () => '#d7dde7', vLineWidth: () => 0,
       paddingLeft: () => 0, paddingRight: () => 14,
-      paddingTop: () => 7, paddingBottom: () => 7,
+      paddingTop: () => 3, paddingBottom: () => 3,
     }, margin: [0, 0, 0, 12],
   };
 }
 
-// Mismas vistas que la pantalla de resultados: Tarjetas (con barras), sin consenso y Categorías.
-function detalleCardSorting(analytics: Parameters<typeof tablaDeVista>[1]): Content[] {
-  const sinConsenso = tablaSinConsenso(analytics);
-  return [
-    title('Tarjetas'),
-    paragraph(tablaDeVista('cards', analytics).descripcion),
-    ...cuerpoVista(tablaDeVista('cards', analytics)),
-    ...(sinConsenso ? [title('Tarjetas sin consenso'), paragraph(sinConsenso.descripcion), ...cuerpoVista(sinConsenso)] : []),
-    title('Categorías'),
-    paragraph(tablaDeVista('categories', analytics).descripcion),
-    ...cuerpoVista(tablaDeVista('categories', analytics)),
-  ];
+/** Apartado del informe -> vista de resultados de card sorting (las mismas del PDF del estudio). */
+const VISTAS_CARD_SORTING: Array<[string, Parameters<typeof tablaDeVista>[0]]> = [
+  ['tarjetas', 'cards'], ['categorias', 'categories'], ['matriz', 'results'], ['populares', 'popular'],
+  ['similitud', 'similarity'], ['dendrograma', 'dendrogram'], ['participantes', 'participants'],
+];
+
+/**
+ * Vistas de resultados elegidas, con sus gráficos. Las matrices anchas van en página apaisada;
+ * `orientacion` lleva la página actual para saltar solo cuando cambia.
+ */
+function detalleCardSorting(analytics: Parameters<typeof tablaDeVista>[1], incluye: (parte: string) => boolean, orientacion: { actual: 'portrait' | 'landscape' }): Content[] {
+  return VISTAS_CARD_SORTING.filter(([parte]) => incluye(parte)).flatMap(([, vista]) => {
+    const tabla = tablaDeVista(vista, analytics);
+    const sinConsenso = vista === 'cards' ? tablaSinConsenso(analytics) : null;
+    const pagina = tabla.ancha ? 'landscape' : 'portrait';
+    const salto = pagina !== orientacion.actual;
+    orientacion.actual = pagina;
+    return [
+      { stack: [title(tabla.titulo)], ...(salto ? { pageBreak: 'before' as const, pageOrientation: pagina } : {}) },
+      paragraph(tabla.descripcion),
+      ...cuerpoVista(tabla),
+      ...(sinConsenso ? [title(sinConsenso.titulo), paragraph(sinConsenso.descripcion), ...cuerpoVista(sinConsenso)] : []),
+    ];
+  });
 }
 
-function sections(report: ProjectReport): Record<ReportMethod, Content[]> {
+function sections(report: ReportConImagenes): Record<ReportMethod, Content[]> {
+  const incluye = (metodo: ReportMethod, parte: string) => report.partes?.[metodo]?.includes(parte) ?? true;
+  const incluyeCards = (parte: string) => incluye('cards', parte);
+  const orientacionCards: { actual: 'portrait' | 'landscape' } = { actual: 'portrait' };
+  /** Tras una matriz apaisada, el siguiente bloque abre página vertical. */
+  const volverAVertical = (): { pageBreak?: 'before'; pageOrientation?: 'portrait' } => {
+    if (orientacionCards.actual !== 'landscape') return {};
+    orientacionCards.actual = 'portrait';
+    return { pageBreak: 'before', pageOrientation: 'portrait' };
+  };
   return {
     personas: report.personas?.flatMap(({ contenido: person, version }, i) => [
       title(`${i + 1}. ${person.nombreCompleto}`),
       { text: `PERSONA · VERSIÓN ${version}`, style: 'eyebrow', margin: [0, 0, 0, 8] },
+      // F40: la tarjeta tal como se ve en la página; el desglose sigue debajo.
+      ...(incluye('personas', 'visual') ? personaVisual(person) : []),
+      // Sin la tarjeta, la foto va igual junto al perfil.
+      ...(!incluye('personas', 'visual') && incluye('personas', 'perfil') && person.fotografiaUrl && /^data:image\/(png|jpeg);base64,/.test(person.fotografiaUrl) ? [{ image: person.fotografiaUrl, fit: [110, 110], margin: [0, 0, 0, 8] } as Content] : []),
       details([
-        ['Edad', person.edad], ['Ocupación', person.ocupacion], ['Acerca de', person.acercaDe],
-        ['Familia', person.familia], ['Hobbies', person.hobbies], ['Habilidades', person.habilidades],
-        ['Objetivos', person.objetivos], ['Necesidades', person.necesidades], ['Motivaciones', person.motivaciones],
-        ['Frustraciones', person.frustraciones], ['Comportamientos', person.comportamientos],
-        ['Contexto de uso', person.contextoDeUso], ['Expectativas', person.expectativas],
-        ['Rol en el servicio', person.rolEnServicio], ['Relación con el servicio', person.relacionConServicio],
-        ['Características distintivas', person.caracteristicasDistintivas], ['Evidencia', person.evidencia],
-        ['Estado de validación', person.estadoValidacion === 'VALIDADA' ? 'Validada' : 'Pendiente'],
-        ['Observaciones de validación', person.observacionesValidacion],
+        ...(incluye('personas', 'perfil') ? [
+          ['Edad', person.edad], ['Ocupación', person.ocupacion], ['Acerca de', person.acercaDe],
+          ['Familia', person.familia], ['Hobbies', person.hobbies], ['Habilidades', person.habilidades],
+        ] as Array<[string, unknown]> : []),
+        ...(incluye('personas', 'necesidades') ? [
+          ['Objetivos', person.objetivos], ['Necesidades', person.necesidades], ['Motivaciones', person.motivaciones],
+          ['Frustraciones', person.frustraciones], ['Comportamientos', person.comportamientos],
+          ['Contexto de uso', person.contextoDeUso], ['Expectativas', person.expectativas],
+          ['Rol en el servicio', person.rolEnServicio], ['Relación con el servicio', person.relacionConServicio],
+          ['Características distintivas', person.caracteristicasDistintivas],
+        ] as Array<[string, unknown]> : []),
+        ...(incluye('personas', 'validacion') ? [
+          ['Evidencia', person.evidencia],
+          ['Estado de validación', person.estadoValidacion === 'VALIDADA' ? 'Validada' : 'Pendiente'],
+          ['Observaciones de validación', person.observacionesValidacion],
+        ] as Array<[string, unknown]> : []),
       ]),
     ]) ?? [],
     journey: report.journeys?.flatMap(({ contenido: journey, version }, i) => [
       title(`${i + 1}. Recorrido de ${journey.perfilUsuario.nombre}`),
       paragraph(`${journey.perfilUsuario.rol} · Versión ${version} · ${journey.fases.length} fases`),
-      details([
+      // F40: el tablero con la curva de emociones, como en la página; el desglose sigue debajo.
+      ...(incluye('journey', 'visual') ? journeyVisual(journey) : []),
+      ...(incluye('journey', 'resumen') ? [details([
         ['Objetivo del recorrido', journey.objetivo], ['Evento de inicio', journey.eventoInicio],
         ['Evidencia', journey.evidencia],
-      ]),
-      table(['Fase', 'Puntos de contacto', 'Pensamientos', 'Emoción', 'Oportunidades'], journey.fases.map((phase, index) => [
+      ])] : []),
+      ...(incluye('journey', 'fases') ? [table(['Fase', 'Puntos de contacto', 'Pensamientos', 'Emoción', 'Oportunidades'], journey.fases.map((phase, index) => [
         `${index + 1}. ${phase.nombre}`, phase.touchpoints, phase.pensamientos, phase.emocion, phase.oportunidades,
-      ]), [80, '*', '*', 55, '*']),
-      ...journey.fases.flatMap((phase, index) => [
-        title(`Fase ${index + 1}: ${phase.nombre}`),
-        details([
-          ['Actividades', phase.actividades], ['Dificultades / puntos de dolor', phase.dificultades],
-          ['Ganancias / aspectos positivos', phase.ganancias],
-        ]),
-      ]),
+      ]), [80, '*', '*', 55, '*'], true)] : []),
+      ...(incluye('journey', 'detalle') ? [
+        title('Actividades, dificultades y aspectos positivos'),
+        table(['Fase', 'Actividades', 'Dificultades / puntos de dolor', 'Ganancias / aspectos positivos'], journey.fases.map((phase, index) => [
+          `${index + 1}. ${phase.nombre}`, phase.actividades, phase.dificultades, phase.ganancias,
+        ]), [80, '*', '*', '*'], true),
+      ] : []),
     ]) ?? [],
     momentos: report.moments?.flatMap(({ contenido: moment, version }, i) => [
       title(`${i + 1}. Incidentes de ${moment.perfilUsuario.nombre}`),
       paragraph(`${moment.perfilUsuario.rol} · Versión ${version} · ${moment.incidentes.length} incidentes`),
-      table(['Incidente', 'Tipo', 'Impacto', 'Frecuencia'], moment.incidentes.map((incident) => [incident.nombre, incident.tipo, incident.impacto, incident.frecuencia]), ['*', 65, 60, 68]),
-      ...moment.incidentes.flatMap((incident, index) => [
+      ...(incluye('momentos', 'tabla') ? [table(['Incidente', 'Tipo', 'Impacto', 'Frecuencia'], moment.incidentes.map((incident) => [incident.nombre, incident.tipo, incident.impacto, incident.frecuencia]), ['*', 65, 60, 68])] : []),
+      ...(incluye('momentos', 'detalle') ? moment.incidentes.flatMap((incident, index) => [
         title(`${index + 1}. ${incident.nombre}`),
         details([['Descripción', incident.descripcion], ['Causa', incident.causa], ['Acciones sugeridas', incident.accionesSugeridas]]),
-      ]),
+      ]) : []),
     ]) ?? [],
     cards: report.cards?.flatMap(({ study, analytics }, i) => [
-      title(`${i + 1}. ${study.nombre}`),
+      // Si el estudio anterior terminó en una matriz apaisada, este vuelve a página vertical.
+      { stack: [title(`${i + 1}. ${study.nombre}`)], ...volverAVertical() },
       paragraph(`Modalidad: ${study.tipoCardSorting ?? 'Sin modalidad'} · Estudio ${study.cerrado ? 'cerrado' : 'abierto'} · Creado el ${date(study.createdAt)}`),
-      table(['Respuestas completas', 'Tarjetas', 'Acuerdo global'], [[analytics.participantesCount, analytics.cardsCount, analytics.participantesCount ? `${analytics.acuerdoGlobal}%` : 'Sin respuestas']]),
-      paragraph('Los resultados agregados consideran únicamente sesiones completadas. El acuerdo global representa similitud entre pares de tarjetas, no una puntuación de usabilidad.'),
-      details([['Tarjetas definidas', study.cardsDefinidas.map((card) => card.etiqueta)], ['Categorías predefinidas', study.categoriasDefinidas.map((category) => category.nombre)]]),
-      ...(analytics.participantesCount ? [{
-        stack: [
-          ...detalleCardSorting(analytics),
-          ...(analytics.clusters.length ? [title('Agrupaciones sugeridas'), table(['Grupo', 'Tarjetas', 'Acuerdo'], analytics.clusters.map((cluster) => [cluster.nombre, cluster.tarjetas, `${cluster.acuerdo}%`]), [100, '*', 60])] : []),
-        ],
-      } as Content] : [paragraph('Aún no hay respuestas completadas para calcular resultados.')]),
+      ...(incluye('cards', 'resumen') ? [
+        table(['Respuestas completas', 'Tarjetas', 'Acuerdo global'], [[analytics.participantesCount, analytics.cardsCount, analytics.participantesCount ? `${analytics.acuerdoGlobal}%` : 'Sin respuestas']]),
+        paragraph('Los resultados agregados consideran únicamente sesiones completadas. El acuerdo global representa similitud entre pares de tarjetas, no una puntuación de usabilidad.'),
+        details([['Tarjetas definidas', study.cardsDefinidas.map((card) => card.etiqueta)], ['Categorías predefinidas', study.categoriasDefinidas.map((category) => category.nombre)]]),
+      ] : []),
+      ...(VISTAS_CARD_SORTING.some(([parte]) => incluyeCards(parte)) || incluyeCards('agrupaciones') ? (analytics.participantesCount ? [
+        ...detalleCardSorting(analytics, incluyeCards, orientacionCards),
+        ...(incluyeCards('agrupaciones') && analytics.clusters.length ? [
+          { stack: [title('Agrupaciones sugeridas')], ...volverAVertical() } as Content,
+          table(['Grupo', 'Tarjetas', 'Acuerdo'], analytics.clusters.map((cluster) => [cluster.nombre, cluster.tarjetas, `${cluster.acuerdo}%`]), [100, '*', 60]),
+        ] : []),
+      ] : [paragraph('Aún no hay respuestas completadas para calcular resultados.')]) : []),
     ]) ?? [],
     heuristica: report.heuristics?.flatMap((evaluacion, i): Content[] => {
       const { configuracion: config, informe } = evaluacion;
@@ -115,22 +152,26 @@ function sections(report: ProjectReport): Record<ReportMethod, Content[]> {
         title(`${i + 1}. ${config.nombre || config.producto.nombre}`),
         paragraph(`${config.producto.nombre} · ${config.metodologia.nombre} · Versión ${evaluacion.version} · ${fases[evaluacion.fase]}`),
       ];
-      if (!informe) return [...cabecera, paragraph('Esta evaluación todavía no está consolidada: aún no hay problemas acordados.')];
+      if (!informe) return [...cabecera, paragraph('Esta evaluación todavía no está consolidada: aún no hay hallazgos aceptados.')];
       const resumen = resumirEvaluacion(informe.configuracion, informe.consenso);
       const nombreCriterio = (id: string) => informe.configuracion.metodologia.criterios.find((criterio) => criterio.id === id)?.nombre ?? id;
       const problemas = informe.consenso.hallazgos.filter((h) => h.decision === 'ACEPTADO').sort((a, b) => b.severidad - a.severidad);
       return [
         ...cabecera,
-        paragraph(`${problemas.length} problemas acordados · ${informe.finalizadoEn ? `Finalizada el ${date(informe.finalizadoEn)}` : 'Informe preliminar, pendiente de cierre'}`),
+        ...(incluye('heuristica', 'severidad') ? [paragraph(`${problemas.length} hallazgos aceptados · ${informe.finalizadoEn ? `Finalizada el ${date(informe.finalizadoEn)}` : 'Informe preliminar, pendiente de cierre'}`)] : []),
         ...(problemas.length ? [
-          table(['Severidad', 'Problemas'], severityLabels.map((label, level) => [`${level} · ${label}`, resumen.porSeveridad[level] ?? 0]), ['*', 90]),
-          ...problemas.map((problema, index): Content => ({
+          ...(incluye('heuristica', 'severidad') ? [table(['Severidad', 'Problemas'], severityLabels.map((label, level) => [`${level} · ${label}`, resumen.porSeveridad[level] ?? 0]), ['*', 90])] : []),
+          ...(incluye('heuristica', 'problemas') ? problemas.map((problema, index): Content => ({
             stack: [
               title(`Problema ${index + 1} · ${problema.titulo}`),
               { text: `SEVERIDAD ${problema.severidad} · ${severityLabels[problema.severidad] ?? 'Sin clasificar'} · PRIORIDAD ${problema.prioridad}`, bold: true, color: severityColors[problema.severidad] ?? INK, margin: [0, 0, 0, 8] },
               details([['Pantalla o tarea', problema.pantalla], ['Criterios', problema.criterioIds.map(nombreCriterio)], ['Problema', problema.descripcion], ['Recomendación', problema.recomendacion]]),
+              // Capturas del problema, con sus anotaciones, en su lugar.
+              ...problema.evidenciaIds.map((id): Content => report.imagenes?.[claveCaptura(evaluacion.id, id)]
+                ? { image: claveCaptura(evaluacion.id, id), fit: [440, 300], margin: [0, 4, 0, 8] }
+                : { text: 'Captura disponible en la aplicación (no se pudo incluir en este PDF).', italics: true, color: MUTED, margin: [0, 2, 0, 6] }),
             ], unbreakable: JSON.stringify(problema).length < 1600,
-          })),
+          })) : []),
         ] : [paragraph('La revisión acordada no identificó problemas de usabilidad.')]),
       ];
     }) ?? [],
@@ -139,27 +180,25 @@ function sections(report: ProjectReport): Record<ReportMethod, Content[]> {
 
 export function brandChrome(brand: ReportBrand | undefined, scope: string, generatedAt: Date): Pick<TDocumentDefinitions, 'background' | 'header' | 'footer'> {
   return {
-    background: (page, size) => page === 1 ? brandBand(size.width, 156) : null,
-    header: (page) => page === 1 ? {
-      stack: [
-        brand ? { image: 'brandLogoWhite', width: 268 } : { text: 'UXLab Observatorio', color: '#ffffff', bold: true, fontSize: 24 },
-      ], margin: [44, 40, 44, 0],
-    } : {
+    header: () => ({
       columns: [
-        brand ? { image: 'brandLogo', width: 124 } : { text: 'UXLAB / OBSERVATORIO', color: TEAL, bold: true, fontSize: 9 },
+        brand ? { image: 'brandLogo', width: 125 } : { text: 'UXLab Observatorio', color: INK, bold: true, fontSize: 10 },
         { text: scope, alignment: 'right', fontSize: 8, color: MUTED, margin: [0, 10, 0, 0] },
-      ], margin: [44, 28, 44, 0],
-    },
-    footer: (page, total) => ({
-      columns: [
-        { text: `Evidencia de investigación · ${date(generatedAt)}`, fontSize: 8, color: MUTED },
-        { text: `${page} / ${total}`, alignment: 'right', fontSize: 8, color: MUTED },
-      ], margin: [44, 18, 44, 0],
+      ], margin: [54, 25, 54, 0],
+    }),
+    footer: (page, total, size) => ({
+      stack: [
+        { canvas: [{ type: 'line', x1: 0, y1: 0, x2: size.width - 108, y2: 0, lineWidth: 0.4, lineColor: '#b4bbc5' }], margin: [0, 0, 0, 10] },
+        { columns: [
+          { text: `Evidencia de investigación · ${date(generatedAt)}`, fontSize: 8, color: MUTED },
+          { text: `${page} / ${total}`, alignment: 'right', fontSize: 8, color: MUTED },
+        ] },
+      ], margin: [54, 12, 54, 0],
     }),
   };
 }
 
-export function buildReportDefinition(report: ProjectReport, brand?: ReportBrand): TDocumentDefinitions {
+export function buildReportDefinition(report: ReportConImagenes, brand?: ReportBrand): TDocumentDefinitions {
   const blocks = sections(report);
   const counts: Record<ReportMethod, number> = {
     personas: report.personas?.length ?? 0, journey: report.journeys?.length ?? 0,
@@ -168,13 +207,13 @@ export function buildReportDefinition(report: ProjectReport, brand?: ReportBrand
   const scope = report.methods.length === 5 ? 'INFORME COMPLETO' : 'INFORME POR TÉCNICAS';
   return {
     info: { title: `Informe UX · ${report.project.nombre}`, subject: report.methods.map(({ label }) => label).join(', '), creator: 'UXLab Observatorio' },
-    pageSize: 'A4', pageMargins: [44, 66, 44, 54],
-    defaultStyle: { font: 'Roboto', fontSize: 9.5, lineHeight: 1.2, color: INK },
-    images: brand ? { brandLogo: brand.logo, brandLogoWhite: brand.logoWhite } : {},
+    pageSize: 'A4', pageMargins: PDF_PAGE_MARGINS,
+    defaultStyle: PDF_DEFAULT_STYLE,
+    images: { ...(brand ? { brandLogo: brand.logo, brandLogoWhite: brand.logoWhite } : {}), ...(report.imagenes ?? {}) },
     ...brandChrome(brand, scope, report.generatedAt),
     content: [
-      { text: 'INFORME DE INVESTIGACIÓN UX', style: 'eyebrow', margin: [0, 116, 0, 12] },
-      { text: report.project.nombre, fontSize: 32, bold: true, lineHeight: 1.08, margin: [0, 0, 0, 16] },
+      { text: 'INFORME DE INVESTIGACIÓN UX', style: 'eyebrow', alignment: 'center', margin: [0, 36, 0, 18] },
+      { text: report.project.nombre, style: 'coverTitle' },
       paragraph(report.project.descripcion || 'Informe de técnicas y evidencia registrada en el proyecto.'),
       { columns: [
         { stack: [{ text: 'FECHA DE EXPORTACIÓN', style: 'eyebrow' }, { text: date(report.generatedAt), margin: [0, 5, 0, 0] }] },
@@ -186,18 +225,20 @@ export function buildReportDefinition(report: ProjectReport, brand?: ReportBrand
       paragraph('Se incluyen las versiones vigentes guardadas y las sesiones accesibles para la cuenta que exporta. Los registros cuentan fichas, mapas, matrices, estudios o sesiones según la técnica; no representan participantes únicos.'),
       paragraph('La cobertura corresponde a los datos accesibles para la cuenta que exporta. Una técnica sin registros no implica que haya sido evaluada ni que esté libre de problemas.'),
       ...report.methods.flatMap(({ id, label, detail }, index): Content[] => [
-        { text: `SECCIÓN 0${index + 1}`, style: 'eyebrow', pageBreak: 'before', pageOrientation: id === 'journey' ? 'landscape' : 'portrait', margin: [0, 10, 0, 12] },
-        { text: label, fontSize: 27, bold: true, margin: [0, 0, 0, 8] },
-        { text: detail, color: MUTED, margin: [0, 0, 0, 18] },
-        { canvas: [
-          { type: 'rect', x: 0, y: 0, w: id === 'journey' ? 754 : 507, h: 1, color: '#d7dde7' },
-          { type: 'rect', x: 0, y: 0, w: 36, h: 3, color: '#a7c51f' },
-        ], margin: [0, 0, 0, 12] },
-        ...(blocks[id].length ? blocks[id] : [empty()]),
+        { stack: [
+          { text: `SECCIÓN 0${index + 1}`, style: 'eyebrow', margin: [0, 10, 0, 12] },
+          { text: label, style: 'sectionTitle' },
+          { text: detail, color: MUTED, margin: [0, 0, 0, 18] },
+          { canvas: [
+            { type: 'line', x1: 0, y1: 0, x2: id === 'journey' ? 733 : 487, y2: 0, lineWidth: .5, lineColor: '#b4bbc5' },
+          ], margin: [0, 0, 0, 12] },
+          ...(blocks[id].length ? [] : [empty()]),
+        ], unbreakable: true, pageBreak: counts[id] || id === 'journey' || report.methods[index - 1]?.id === 'journey' || (report.methods[index - 1]?.id === 'cards' && counts.cards) ? 'before' : undefined, pageOrientation: id === 'journey' ? 'landscape' : 'portrait' },
+        ...blocks[id],
       ]),
     ],
-    styles: { subheading: { fontSize: 14, bold: true, color: INK }, eyebrow: { fontSize: 9, bold: true, color: TEAL, characterSpacing: 1 } },
-    pageBreakBefore: (node, container) => Boolean(node.headlineLevel && !container.getFollowingNodesOnPage().length),
+    styles: PDF_STYLES,
+    pageBreakBefore: keepHeadingsWithContent,
   };
 }
 
@@ -215,7 +256,7 @@ export async function loadBrandImage(path: string): Promise<string> {
 
 let cargaPdf: ReturnType<typeof cargarPdfMakeSinCache> | null = null;
 
-// Una sola carga por sesión (pdfmake, fuentes y logos pesan ~1,8 MB); si falla se puede reintentar.
+// Una sola carga por sesión; si falla se puede reintentar.
 export function cargarPdfMake() {
   if (!cargaPdf) {
     cargaPdf = cargarPdfMakeSinCache().catch((error) => {
@@ -232,17 +273,53 @@ export function precargarPdf(): void {
 }
 
 async function cargarPdfMakeSinCache() {
-  const [pdfMakeModule, fontContainerModule, logo, logoWhite] = await Promise.all([
-    import('pdfmake/build/pdfmake'), import('pdfmake/build/vfs_fonts'),
+  const fontFiles = ['lmroman10-regular.otf', 'lmroman10-bold.otf', 'lmroman10-italic.otf', 'lmroman10-bolditalic.otf'];
+  const [pdfMakeModule, logo, logoWhite, ...fonts] = await Promise.all([
+    import('pdfmake/build/pdfmake'),
     loadBrandImage('/brand/uxlab-observatorio.png'), loadBrandImage('/brand/uxlab-observatorio-white.png'),
+    ...fontFiles.map((file) => loadBrandImage(`/fonts/${file}`)),
   ]);
   const pdfMake = pdfMakeModule.default ?? pdfMakeModule;
-  pdfMake.addVirtualFileSystem(fontContainerModule.default ?? fontContainerModule);
-  pdfMake.addFonts({ Roboto: { normal: 'Roboto-Regular.ttf', bold: 'Roboto-Medium.ttf', italics: 'Roboto-Italic.ttf', bolditalics: 'Roboto-MediumItalic.ttf' } });
+  pdfMake.addVirtualFileSystem(Object.fromEntries(fontFiles.map((file, index) => [file, fonts[index].split(',')[1]])));
+  pdfMake.addFonts({ LatinModern: { normal: fontFiles[0], bold: fontFiles[1], italics: fontFiles[2], bolditalics: fontFiles[3] } });
   return { pdfMake, brand: { logo, logoWhite } as ReportBrand };
 }
 
-export async function exportarReportePdf(report: ProjectReport): Promise<void> {
+/** Convierte cualquier imagen (WebP, URL o data URL) a PNG para pdfmake; null si el navegador no puede leerla. */
+export async function imagenAPng(src: string): Promise<string | null> {
+  if (/^data:image\/(png|jpeg);base64,/.test(src)) return src;
+  try {
+    const blob = await (await fetch(src)).blob();
+    const bitmap = await createImageBitmap(blob);
+    try {
+      const factor = Math.min(1, 1200 / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement('canvas'); canvas.width = Math.max(1, Math.round(bitmap.width * factor)); canvas.height = Math.max(1, Math.round(bitmap.height * factor));
+      const ctx = canvas.getContext('2d'); if (!ctx) return null;
+      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL('image/png');
+    } finally { bitmap.close(); }
+  } catch { return null; }
+}
+
+/** Prepara las imágenes del informe: fotos de personas y capturas (con anotaciones) de los problemas aceptados. */
+export async function prepararImagenesReporte(report: ProjectReport): Promise<ReportConImagenes> {
+  const imagenes: Record<string, string> = {};
+  const personas = report.personas ? await Promise.all(report.personas.map(async p => {
+    const foto = p.contenido.fotografiaUrl ? await imagenAPng(p.contenido.fotografiaUrl) : null;
+    return { ...p, contenido: { ...p.contenido, fotografiaUrl: foto ?? undefined } };
+  })) : undefined;
+  const incluyeProblemas = report.partes?.heuristica?.includes('problemas') ?? true;
+  if (report.heuristics && incluyeProblemas) {
+    const { rasterizarEvidencia } = await import('../../features/heuristica-flujo/informe-pdf');
+    for (const e of report.heuristics) for (const h of e.informe?.consenso.hallazgos.filter(x => x.decision === 'ACEPTADO') ?? []) for (const id of h.evidenciaIds) {
+      try { const { meta, blob } = await cargarEvidencia(e.proyectoId, e.id, id); imagenes[claveCaptura(e.id, id)] = await rasterizarEvidencia(blob, meta.anotaciones); } catch { /* queda el aviso en el PDF */ }
+    }
+  }
+  return { ...report, personas, imagenes };
+}
+
+export async function exportarReportePdf(reporte: ProjectReport): Promise<void> {
+  const report = await prepararImagenesReporte(reporte);
   const { pdfMake, brand } = await cargarPdfMake();
   const slug = report.project.nombre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'proyecto';
   const scope = report.methods.length === 5 ? 'completo' : report.methods.map(({ id }) => id).join('-');

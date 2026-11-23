@@ -76,7 +76,19 @@ describe('AdminProjectsPanel', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Eliminar' }));
     expect(mocks.confirm).toHaveBeenCalledWith(
       '¿Eliminar el proyecto "Portal académico"? Sus datos dejarán de estar disponibles.',
+      { requireText: 'Portal académico' },
     );
     expect(mocks.remove).toHaveBeenCalledWith('project-1');
+  });
+
+  it('no elimina el proyecto si se cancela la confirmación escrita', async () => {
+    mocks.confirm.mockResolvedValue(false);
+    render(<MemoryRouter><AdminProjectsPanel /></MemoryRouter>);
+    await userEvent.click(screen.getByRole('button', { name: 'Eliminar' }));
+    expect(mocks.confirm).toHaveBeenCalledWith(
+      '¿Eliminar el proyecto "Portal académico"? Sus datos dejarán de estar disponibles.',
+      { requireText: 'Portal académico' },
+    );
+    expect(mocks.remove).not.toHaveBeenCalled();
   });
 });

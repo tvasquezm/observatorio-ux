@@ -14,6 +14,7 @@ import { usePersonas } from '../features/persona/hooks/usePersonaQueries';
 import { useJourneys } from '../features/journey-map/hooks/useJourneyMapQueries';
 import { useCriticalMoments } from '../features/momentos-criticos/hooks/useMomentosCriticosQueries';
 import { useCardSortingEstudiosByProyecto } from '../features/card-sorting/hooks/useCardSortingQueries';
+import { PanelCalidadHeuristica, PanelPendientes, PanelPrioridad, useEvaluacionesProyecto } from '../features/analitica-proyecto/AnaliticaDecision';
 
 const SEVERIDAD_LABEL: Record<number, string> = {
   0: 'No es un problema',
@@ -37,6 +38,8 @@ export function AnalyticsPage() {
   const journeysQuery = useJourneys(proyectoId);
   const momentsQuery = useCriticalMoments(proyectoId);
   const cardSortingQuery = useCardSortingEstudiosByProyecto(proyectoId);
+  const evaluacionesQuery = useEvaluacionesProyecto(proyectoId);
+  const evaluaciones = evaluacionesQuery.data ?? [];
   const isLoadingAll = isLoading || personasQuery.isLoading || journeysQuery.isLoading || momentsQuery.isLoading || cardSortingQuery.isLoading;
   const aggregateError = error ?? personasQuery.error ?? journeysQuery.error ?? momentsQuery.error ?? cardSortingQuery.error;
 
@@ -91,6 +94,14 @@ export function AnalyticsPage() {
               <small>{(data.porSeveridad[3]?.count ?? 0) + (data.porSeveridad[4]?.count ?? 0)} de prioridad alta</small>
             </article>
           </section>
+          <PanelPendientes proyectoId={proyectoId} datos={{
+            personas: personasQuery.data?.length ?? 0, journeys: journeysQuery.data?.length ?? 0, momentos: momentsQuery.data?.length ?? 0,
+            estudios: cardSortingQuery.data ?? [], evaluaciones,
+          }} />
+          <div className="analitica-decision">
+            <PanelPrioridad evaluaciones={evaluaciones} />
+            <PanelCalidadHeuristica evaluaciones={evaluaciones} />
+          </div>
 
           <article className="panel analytics-coverage">
             <div className="panel-head">

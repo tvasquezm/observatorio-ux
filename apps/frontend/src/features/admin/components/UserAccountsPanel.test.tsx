@@ -6,6 +6,7 @@ import { UserAccountsPanel } from './UserAccountsPanel';
 const mocks = vi.hoisted(() => ({
   confirm: vi.fn(),
   updateRole: vi.fn(),
+  cuentaActiva: vi.fn(),
   currentUser: {
     id: 'admin-1',
     nombre: 'Admin Uno',
@@ -31,6 +32,7 @@ vi.mock('../hooks/useUsersQueries', () => ({
     refetch: vi.fn(),
   }),
   useUpdateUserRole: () => ({ mutate: mocks.updateRole, isPending: false }),
+  useSetCuentaActiva: () => ({ mutate: mocks.cuentaActiva, isPending: false }),
 }));
 
 vi.mock('../../auth/store/useAuthStore', () => ({
@@ -46,6 +48,19 @@ beforeEach(() => {
 });
 
 describe('UserAccountsPanel', () => {
+  it('busca por nombre o correo y permite filtrar por rol', async () => {
+    render(<UserAccountsPanel />);
+    const search = screen.getByRole('searchbox', { name: 'Buscar cuentas' });
+    await userEvent.type(search, 'docente@ux.cl');
+    expect(screen.getByText('Docente Uno')).toBeVisible();
+    expect(screen.queryByText('Admin Uno')).not.toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByLabelText('Filtrar por rol'), 'ADMIN');
+    expect(screen.getByText('No hay cuentas que coincidan con los filtros.')).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Limpiar filtros' }));
+    expect(screen.getByText('Admin Uno')).toBeVisible();
+    expect(screen.getByText('Docente Uno')).toBeVisible();
+  });
+
   it('protege la cuenta actual y permite cambiar el rol de otra cuenta', async () => {
     render(<UserAccountsPanel />);
 
@@ -60,5 +75,13 @@ describe('UserAccountsPanel', () => {
       id: 'docente-1',
       rol: 'ESTUDIANTE',
     });
+  });
+
+  it('F35: desactiva otra cuenta con confirmación; la propia no se puede desactivar', async () => {
+    render(<UserAccountsPanel />);
+    expect(screen.queryByRole('button', { name: 'Desactivar a Admin Uno' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Desactivar a Docente Uno' }));
+    expect(mocks.confirm).toHaveBeenCalledWith('¿Desactivar la cuenta de "Docente Uno"? No podrá ingresar; sus datos se conservan.');
+    expect(mocks.cuentaActiva).toHaveBeenCalledWith({ id: 'docente-1', activa: false });
   });
 });

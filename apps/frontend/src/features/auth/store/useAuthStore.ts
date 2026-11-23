@@ -13,7 +13,7 @@
 
 import { create } from 'zustand';
 import type { EvaluatorRole, EvaluatorUser } from '../api/auth.api';
-import { me as fetchMe, logout as logoutApi } from '../api/auth.api';
+import { AuthApiError, me as fetchMe, logout as logoutApi } from '../api/auth.api';
 import {
   canUsePerspective,
   clearStoredPerspective,
@@ -24,6 +24,8 @@ import {
 
 const USER_KEY = 'evaluadorUser';
 let sessionCheckPromise: Promise<void> | null = null;
+/** Tope de espera de /auth/me: el backend gratuito puede tardar en despertar. */
+export const SESSION_CHECK_TIMEOUT_MS = 60_000;
 
 interface AuthState {
   user: EvaluatorUser | null;
@@ -32,6 +34,8 @@ interface AuthState {
   isAuthenticated: boolean;
   /** true mientras checkSession() no resolvió al menos una vez. */
   isChecking: boolean;
+  /** true si /auth/me no respondió (red, servidor iniciando o error 5xx): no es lo mismo que no tener sesión. */
+  sessionUnreachable: boolean;
   expiresAt: number | null;
   sessionEnding: boolean;
   sessionNotice: boolean;
@@ -43,6 +47,8 @@ interface AuthState {
   /** Valida la sesión real contra /auth/me y reutiliza la misma promesa
    *  cuando React StrictMode monta el árbol dos veces en desarrollo. */
   checkSession: () => Promise<void>;
+  /** Vuelve a consultar /auth/me después de un fallo de conexión. */
+  retrySession: () => Promise<void>;
 }
 
 function leerUserGuardado(): EvaluatorUser | null {
@@ -70,6 +76,23 @@ function leerUserGuardado(): EvaluatorUser | null {
 
 const cachedUser = leerUserGuardado();
 
+function purgeDrafts(shouldRemove: (owner: unknown) => boolean) {
+  const keys = Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index));
+  for (const key of keys) {
+    if (!key?.startsWith('observatorio-ux-draft:')) continue;
+    const raw = localStorage.getItem(key);
+    if (raw === null) continue;
+    let owner: unknown;
+    try {
+      owner = JSON.parse(raw).userId;
+    } catch {
+      localStorage.removeItem(key);
+      continue;
+    }
+    if (shouldRemove(owner)) localStorage.removeItem(key);
+  }
+}
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: cachedUser,
   perspectiveRole: cachedUser ? readStoredPerspective(cachedUser, sessionStorage) : null,
@@ -78,6 +101,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // se confirma con el backend.
   isAuthenticated: !!cachedUser,
   isChecking: true,
+  sessionUnreachable: false,
   expiresAt: null,
   sessionEnding: false,
   sessionNotice: false,
@@ -89,6 +113,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   setSession: (user, expiresAt) => {
+    purgeDrafts(owner => owner !== user.id);
     localStorage.setItem(USER_KEY, JSON.stringify(user));
     storePerspective(user, user.rol, sessionStorage);
     set({ user, perspectiveRole: user.rol, isAuthenticated: true, isChecking: false, expiresAt: expiresAt ?? null, sessionEnding: false, sessionNotice: false });
@@ -105,10 +130,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   logout: () => {
     window.dispatchEvent(new Event('observatorio-ux-manual-logout'));
     const userId = get().user?.id;
-    for (const key of Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index)!)) {
-      if (!key.startsWith('observatorio-ux-draft:')) continue;
-      try { if (JSON.parse(localStorage.getItem(key)!).userId === userId) localStorage.removeItem(key); } catch { localStorage.removeItem(key); }
-    }
+    purgeDrafts(owner => owner === userId);
     sessionStorage.removeItem('observatorio-ux-returnTo');
     localStorage.removeItem(USER_KEY);
     clearStoredPerspective(sessionStorage);
@@ -125,28 +147,42 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (sessionCheckPromise) return sessionCheckPromise;
 
     sessionCheckPromise = (async () => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), SESSION_CHECK_TIMEOUT_MS);
       try {
-        const { user, session } = await fetchMe();
+        const { user, session } = await fetchMe(controller.signal);
         localStorage.setItem(USER_KEY, JSON.stringify(user));
         set({
           user,
           perspectiveRole: readStoredPerspective(user, sessionStorage),
           isAuthenticated: true,
           isChecking: false,
+          sessionUnreachable: false,
           expiresAt: session?.expiresAt ?? null,
           sessionEnding: false,
         });
-      } catch {
-        // 401 (cookie ausente/expirada/inválida) o error de red: no hay
-        // sesión real que sostener, sin importar lo que dijera la caché.
+      } catch (error) {
+        // Sin respuesta (red, tiempo agotado, 5xx): no se borra la sesión
+        // guardada; ProtectedRoute ofrece reintentar en vez de pantalla en blanco.
+        if (!(error instanceof AuthApiError) || error.status >= 500) {
+          set({ isChecking: false, sessionUnreachable: true });
+          return;
+        }
+        // 401/403: no hay sesión real que sostener, sin importar la caché.
         localStorage.removeItem(USER_KEY);
         clearStoredPerspective(sessionStorage);
-        set({ user: null, perspectiveRole: null, isAuthenticated: false, isChecking: false });
+        set({ user: null, perspectiveRole: null, isAuthenticated: false, isChecking: false, sessionUnreachable: false });
       } finally {
+        clearTimeout(timer);
         sessionCheckPromise = null;
       }
     })();
 
     return sessionCheckPromise;
+  },
+
+  retrySession: () => {
+    set({ isChecking: true, sessionUnreachable: false });
+    return get().checkSession();
   },
 }));

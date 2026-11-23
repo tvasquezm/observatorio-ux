@@ -6,7 +6,7 @@ import { AuthService } from './auth.service.js';
 export class ParticipanteTokenService {
   constructor(private readonly authService: AuthService) {}
 
-  issue(participanteId: string, proyectoId: string, codigoInvitacion: string) {
-    return this.authService.issueParticipantToken(participanteId, proyectoId, codigoInvitacion);
+  issue(participanteId: string, proyectoId: string, resumeToken: string) {
+    return this.authService.issueParticipantToken(participanteId, proyectoId, false, resumeToken);
   }
 }

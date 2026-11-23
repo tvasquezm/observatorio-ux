@@ -172,6 +172,7 @@ describe('CardSortingWorkspace · subcategorías', () => {
     await crearCategoria('Recursos');
     await crearCategoria('Biblioteca', 'Recursos');
 
+    expect(screen.getByText('Dentro de').querySelector('.optional-tag')).toHaveTextContent('(opcional)');
     const opciones = within(screen.getByLabelText('Dentro de (opcional)'))
       .getAllByRole('option')
       .map((o) => o.textContent);

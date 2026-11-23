@@ -42,12 +42,14 @@ export const trabajoSchema = revisionSchema.extend({
 });
 export const consensoSchema = revisionSchema.extend({
   criterios: z.array(respuestaSchema.extend({ justificacion: texto })).max(500).refine(v => unico(v.map(c => c.criterioId)), 'Criterios repetidos'),
-  hallazgos: z.array(hallazgoSchema.extend({ origenIds: ids(5000), decision: z.enum(['PENDIENTE', 'ACEPTADO', 'DESCARTADO']), justificacion: texto })).max(5000).refine(v => unico(v.map(h => h.id)), 'Hallazgos repetidos')
+  hallazgos: z.array(hallazgoSchema.extend({ origenIds: ids(5000), decision: z.enum(['PENDIENTE', 'ACEPTADO', 'DESCARTADO']), justificacion: texto, autorId: identificador.optional(), creadoEn: z.iso.datetime().optional() })).max(5000).refine(v => unico(v.map(h => h.id)), 'Hallazgos repetidos')
     .refine(v => v.filter(h => !h.origenIds.length).length <= MAX_HALLAZGOS_NUEVOS_EQUIPO, `Máximo ${MAX_HALLAZGOS_NUEVOS_EQUIPO} hallazgos nuevos del equipo.`),
-  positivos: z.array(z.strictObject({ id: identificador, titulo: z.string().max(300), descripcion: texto })).max(200).refine(v => unico(v.map(p => p.id)), 'Aspectos positivos repetidos').optional(),
+  positivos: z.array(z.strictObject({ id: identificador, titulo: z.string().max(300), descripcion: texto, evidenciaIds: ids(10).optional() })).max(200).refine(v => unico(v.map(p => p.id)), 'Aspectos positivos repetidos').optional(),
   conclusion: texto.optional(),
   mejoras: z.array(z.strictObject({ id: identificador, titulo: z.string().max(300), descripcion: texto, antesIds: ids(10), despuesIds: ids(10) })).max(100).refine(v => unico(v.map(m => m.id)), 'Mejoras repetidas').optional(),
 });
+/** F31: problema que agrega al acuerdo alguien del equipo. Sin revisión: se agrega de forma atómica sin pisar el borrador de quien redacta. */
+export const aporteSchema = z.strictObject({ hallazgo: hallazgoSchema });
 export const votoRedactorSchema = revisionSchema.extend({ candidatoId: identificador });
 export const decidirRedactorSchema = revisionSchema.extend({ redactorId: identificador });
 export const pedirCambiosSchema = revisionSchema.extend({ comentario: z.string().trim().min(1, 'Escribe qué cambios pides.').max(2000) });

@@ -1,4 +1,5 @@
 import type { CriterioFlujo, EscalaFlujo, MetodologiaFlujo, OrigenCriterio } from './heuristica-flujo';
+import { depurarMetodologia, FAMILIAS_SIN_VERIFICAR } from './heuristica-depuracion';
 
 export const ESCALA_OPERATIVA_HEURISTICA: EscalaFlujo = {
   tipo: 'categorica', sentido: 'sin_orden', fuente: 'Escala operativa de la plataforma',
@@ -786,7 +787,9 @@ const RUBRICA_UTEM: MetodologiaFlujo = metodologia(
 );
 
 /** Catálogo protegido y congelado. El checklist va junto a la síntesis de Hassan y Martín. */
-export const METODOLOGIAS_HEURISTICAS: MetodologiaFlujo[] = [...CATALOGO_BASE.flatMap(m => m.id === 'hassan-montero-martin-fernandez' ? [m, HASSAN_CHECKLIST] : [m]), RUBRICA_UTEM];
+/** F41: solo preguntas respaldadas por su fuente; las familias sin verificar quedan fuera (ver heuristica-depuracion.ts). */
+export const METODOLOGIAS_HEURISTICAS: MetodologiaFlujo[] = [...CATALOGO_BASE.flatMap(m => m.id === 'hassan-montero-martin-fernandez' ? [m, HASSAN_CHECKLIST] : [m]), RUBRICA_UTEM]
+  .filter(m => !FAMILIAS_SIN_VERIFICAR.includes(m.id)).map(depurarMetodologia);
 congelar(METODOLOGIAS_HEURISTICAS);
 export function claveEscalaPredefinida(escala: EscalaFlujo): ClaveEscalaPredefinida | null {
   // `favorable` no cambia la identidad de la escala: los métodos guardados antes de B1 siguen reconociéndose.

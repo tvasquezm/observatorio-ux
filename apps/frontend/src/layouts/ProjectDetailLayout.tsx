@@ -24,11 +24,8 @@ export function ProjectDetailLayout() {
   const { data: proyecto } = useProject(proyectoId ?? null);
   const { user, perspectiveRole } = useAuthStore();
   const activeRole = user ? resolvePerspective(user.rol, perspectiveRole) : null;
-  const canManageParticipants =
-    !!user && (activeRole === 'ADMIN' || user.id === proyecto?.creadoPorId);
   const visibleItems = SECCIONES_PROYECTO.filter((item) => {
     if (item.requires === 'analitica') return !!activeRole && canViewAnalytics(activeRole);
-    if (item.requires === 'participantes') return canManageParticipants;
     return true;
   });
   const currentItem = visibleItems.find((item) => item.to === (pathname.split('/')[3] ?? ''));
@@ -66,7 +63,7 @@ export function ProjectDetailLayout() {
           <span className="kicker">PROYECTO DE INVESTIGACIÓN</span>
           <h1 id="project-title" tabIndex={-1}>{proyecto?.nombre ?? 'Proyecto'}</h1>
           {proyecto?.descripcion && <p>{proyecto.descripcion}</p>}
-          {proyecto && !proyecto.salaId && <p>Sin sala · <Link to="/salas">Vincular a una sala</Link></p>}
+          {proyecto && !proyecto.salaId && <p>Sin sala</p>}
         </div>
         <Link className="secondary" to={`/proyectos/${proyectoId}/miembros`}>Miembros</Link>
       </div>

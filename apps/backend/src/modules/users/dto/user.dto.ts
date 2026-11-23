@@ -1,4 +1,4 @@
-import { IsEmail, IsIn, IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsIn, IsNotEmpty, IsOptional, IsString, MaxLength, MinLength, ValidateIf } from 'class-validator';
 import type { EvaluatorRole } from '@observatorio-ux/shared-types';
 
 const USER_ROLES: EvaluatorRole[] = ['ESTUDIANTE', 'DOCENTE', 'ADMIN'];
@@ -11,9 +11,15 @@ export class CreateDocenteDto {
   @IsEmail()
   email!: string;
 
+  @IsOptional()
+  @IsIn(['PASSWORD', 'GOOGLE'])
+  acceso?: 'PASSWORD' | 'GOOGLE';
+
+  @ValidateIf((dto: CreateDocenteDto) => dto.acceso !== 'GOOGLE')
   @IsString()
   @MinLength(8)
-  password!: string;
+  @MaxLength(72)
+  password?: string;
 }
 
 export class UpdateUserRoleDto {

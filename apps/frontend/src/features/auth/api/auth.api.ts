@@ -23,6 +23,28 @@ export function changePassword(currentPassword: string, newPassword: string): Pr
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
 
+/** F35: passwordLogin indica si el servidor acepta todavía el ingreso con contraseña (apagado en producción). */
+export type GoogleLoginConfig = ({ enabled: false } | { enabled: true; clientId: string; nonce: string }) & { passwordLogin?: boolean };
+
+export async function getGoogleLoginConfig(): Promise<GoogleLoginConfig> {
+  const response = await fetch(`${API_BASE}/auth/google/config`, { credentials: 'include', cache: 'no-store' });
+  if (!response.ok) throw new Error('No se pudo consultar el acceso con Google.');
+  return response.json();
+}
+
+export async function loginWithGoogle(credential: string): Promise<LoginResponse> {
+  const response = await fetch(`${API_BASE}/auth/google`, {
+    method: 'POST', credentials: 'include',
+    headers: { 'Content-Type': 'application/json', ...csrfHeaders('POST') },
+    body: JSON.stringify({ credential }),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new AuthApiError(response.status, typeof data?.message === 'string' ? data.message : 'No se pudo ingresar con Google.');
+  }
+  return response.json();
+}
+
 export class AuthApiError extends Error {
   constructor(public readonly status: number, message: string) {
     super(message);
@@ -66,9 +88,10 @@ export async function login(email: string, password: string): Promise<LoginRespo
  * localStorage es solo una caché optimista para no mostrar la UI vacía
  * mientras esta llamada resuelve, nunca un reemplazo de esta validación.
  */
-export async function me(): Promise<LoginResponse> {
+export async function me(signal?: AbortSignal): Promise<LoginResponse> {
   const res = await fetch(`${API_BASE}/auth/me`, {
     credentials: 'include',
+    signal,
   });
   if (!res.ok) {
     throw new AuthApiError(res.status, 'Sesión no válida.');

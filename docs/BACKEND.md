@@ -103,31 +103,13 @@ link o QR) puede entrar:
    paso vuelve a exigir que exista consentimiento aceptado para el proyecto.
 4. Enviar los resultados con `POST /api/card-sorting/sessions/:id/results`.
 
-### Participante — flujo previo con whitelist/email (se mantiene para invitaciones controladas)
+### Participantes registrados (retirado en F36)
 
-Vigente cuando el docente quiere restringir quién participa (p. ej. Evaluación
-Heurística con invitaciones nominales):
-
-4. Cargar participantes autorizados con `POST /api/projects/:id/participantes`.
-   El cuerpo tiene la forma `{ "participantes": [{ "email": "...", "nombre": "..." }] }`.
-   La respuesta incluye un `codigoInvitacion` aleatorio por cada entrada nueva; se muestra
-   una sola vez y debe compartirse de forma privada con la persona correspondiente.
-5. Crear una sesión Card Sorting desde `POST /api/card-sorting/sessions`.
-6. El participante se registra con `POST /api/auth/participants/register`, incluyendo su
-   `codigoInvitacion`.
-7. Registrar su consentimiento con `POST /api/auth/participants/consent` usando
-   `participanteId`, `proyectoId`, `aceptado`, `version` y `codigoInvitacion`.
-8. Solicitar `POST /api/auth/participants/token` con `participanteId` y
-   `proyectoId` y `codigoInvitacion`.
-9. Usar ese token en `POST /api/card-sorting/sessions/:id/join`.
-10. Enviar los resultados con `POST /api/card-sorting/sessions/:id/results`.
-
-El registro exige que el email esté en la whitelist y que el código de invitación
-coincida con su hash almacenado. El consentimiento y la emisión del token vuelven
-a comprobar ambos datos cuando existe una entrada de whitelist asociada; el código
-en texto plano nunca se guarda en la base de datos. Si el participante entró por
-el acceso abierto (sin whitelist), `POST /api/auth/participants/consent` no exige
-ningún código.
+Desde F36 (2026-11-22) todos los participantes son anónimos y entran por el acceso
+abierto. Se retiraron las invitaciones por correo (`/api/projects/:id/participantes`,
+`/api/auth/participants/register`, `codigoInvitacion`) y la tabla
+`participantes_whitelist`. El consentimiento y la renovación del token solo aceptan
+el `resumeToken` entregado por `POST /api/auth/participants/access`.
 
 En desarrollo también existen `GET /api/auth/test-token` y
 `GET /api/auth/test-participant-token`, que generan tokens a partir de los datos

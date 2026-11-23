@@ -133,6 +133,7 @@ export function pendientesAcuerdo(e: EvaluacionFlujo): PendienteAcuerdo[] {
   }
   const resueltos = new Set(c.hallazgos.flatMap(h => h.origenIds));
   for (const t of e.trabajos) for (const h of t.hallazgos) if (!resueltos.has(h.id)) falta('hallazgos', h.id, h.titulo.trim() || 'Hallazgo sin título', `Sin resolver: hallazgo de ${t.nombre} que falta fusionar, aceptar o descartar.`);
+  for (const h of c.aportes ?? []) if (!resueltos.has(h.id)) falta('hallazgos', h.id, h.titulo.trim() || 'Problema sin título', 'Sin resolver: problema agregado por el equipo que falta aceptar o descartar.');
   for (const h of c.hallazgos) {
     const nombre = h.titulo.trim() || 'Hallazgo sin título';
     if (h.decision === 'PENDIENTE') falta('hallazgos', h.id, nombre, 'Falta decidir: aceptarlo o descartarlo.');

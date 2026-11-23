@@ -1,6 +1,49 @@
 # Arquitectura — Observatorio UX
 
-Este documento registra las decisiones de arquitectura relevantes del proyecto, sprint a sprint. Cada entrada explica **qué se decidió**, **por qué**, **qué alternativas se descartaron** y **cómo funciona en la práctica**, para que el equipo (y evaluadores) puedan entender el razonamiento sin tener que reconstruirlo desde el código o el backlog.
+## Arquitectura vigente al 2 de noviembre de 2026
+
+El Observatorio UX organiza la investigación en proyectos que pueden asociarse a una sala. Estudiantes y docentes producen evidencia con cinco técnicas. Una persona invitada a un estudio de Card Sorting entra por su enlace y recibe una credencial limitada al proyecto. El servidor decide qué recursos puede leer o modificar cada identidad.
+
+### Componentes y recorrido de los datos
+
+| Componente | Responsabilidad |
+|---|---|
+| Aplicación web en React y Vite | React Router separa el acceso invitado, el espacio del proyecto y el panel administrativo. TanStack Query carga los datos de la API y actualiza las vistas después de guardar. La perspectiva seleccionada condiciona la interfaz. |
+| Contratos en TypeScript | `packages/shared-types` contiene tipos y esquemas de los dominios UX que comparten la web y la API. Se compila antes de los servicios que lo consumen. |
+| API REST en NestJS | Bajo `/api`, los controladores reciben las solicitudes. Las estrategias de autenticación identifican al actor, los guards restringen las rutas y los servicios comprueban acceso al proyecto o a la sala antes de operar mediante Prisma. |
+| PostgreSQL y Prisma | PostgreSQL conserva cuentas, membresías y evidencia entre reinicios. Las migraciones versionadas reproducen el esquema. El seed de ejemplo es una operación explícita de desarrollo. |
+
+**Ejemplo de escritura.** Al editar una Persona, la web solicita un bloqueo a la API. Al guardar, envía el contenido y la versión que abrió. El servicio comprueba permisos, bloqueo y versión, luego inserta una fila en PostgreSQL. La web vuelve a consultar la lista. Si otra persona se adelantó, la API devuelve un conflicto y el editor debe recuperar la versión vigente.
+
+### Límites de acceso
+
+La cuenta de estudiante trabaja sobre los proyectos a los que tiene acceso. El docente gestiona sus salas y supervisa los proyectos asociados. El administrador gestiona cuentas y roles. En los artefactos versionados, un docente o administrador que observa un proyecto ajeno tiene acceso de lectura. Para editar como demostración debe ser el creador del proyecto. El permiso de lectura permite revisar evidencia sin alterar el trabajo del equipo.
+
+El participante de Card Sorting entra desde otra ruta, con identidad limitada al proyecto. El enlace público crea la sesión anónima y la incorporación al estudio exige consentimiento. La API limita la frecuencia de los accesos y separa esta identidad de la sesión del evaluador.
+
+### Organización de la evidencia
+
+- **Salas, equipos y proyectos.** Una sala reúne al docente, sus estudiantes y los equipos de trabajo. El proyecto delimita técnicas, miembros, invitaciones y comentarios. Pertenecer a la sala, integrar un proyecto y administrarlo son permisos distintos.
+- **Personas, Journey Maps y Momentos críticos.** Comparten el modelo `UxArtifact`. Una identidad lógica agrupa versiones con contenido JSON, autor y fecha. La eliminación lógica oculta el conjunto de versiones. El bloqueo y la detección de conflictos se detallan en los ADR.
+- **Card Sorting.** La sesión de investigación agrupa configuración, tarjetas, categorías, agrupaciones y respuestas. La invitación y el consentimiento se asocian al proyecto. El flujo del participante usa una credencial distinta a la del equipo investigador.
+- **Evaluación heurística.** El equipo configura criterios, registra revisiones individuales, compara resultados y construye un acuerdo. El redactor elegido edita el acuerdo y los demás integrantes pueden confirmarlo o pedir cambios. Este flujo tiene reglas de concurrencia y persistencia propias.
+- **Informes.** El servicio de reportes reúne los datos accesibles del proyecto para exportar JSON o PDF. La interfaz también permite elegir secciones y generar un PDF a partir de los datos del informe.
+
+### Ejecución y despliegue
+
+| Entorno | Entrada y comunicación |
+|---|---|
+| Desarrollo con Compose | El navegador abre Vite en `localhost:5173`. Vite envía `/api` a `backend:3000` por la red de Compose. El backend conecta a `db:5432`. Desde el host, PostgreSQL está en el puerto 5434. |
+| Compose productivo | Nginx publica un único puerto (8080 por defecto), sirve de proxy al frontend estático y dirige `/api` al backend. PostgreSQL usa un volumen persistente. Para publicar el servicio se requiere terminación HTTPS. |
+| Configuración alojada | Vercel sirve la web y reescribe `/api` hacia el backend de Render. El Blueprint de Render configura el contenedor de la API y la conexión a PostgreSQL externo (Neon). |
+
+La API expone `GET /api/health` para comprobar disponibilidad. El backend aplica migraciones al arrancar en Compose. Los secretos JWT, la conexión a la base de datos y los orígenes permitidos se configuran por entorno.
+
+**Decisiones vigentes.** [ADR-001 · Autenticación](adr/001-autenticacion.md) · [ADR-002 · Bloqueo de edición](adr/002-bloqueo-pesimista.md) · [ADR-003 · Historial de versiones](adr/003-versionado-append-only.md).
+
+**Fuentes de implementación.** [Rutas de la web](../apps/frontend/src/App.tsx) · [Módulos del backend](../apps/backend/src/modules/) · [Modelo relacional](../apps/backend/prisma/schema.prisma) · [Compose local](../docker-compose.yml) · [Compose productivo](../docker-compose.production.yml) · [Vercel](../apps/frontend/vercel.json) · [Render](../render.yaml).
+
+Las entradas siguientes conservan el historial de decisiones y describen el estado de cada etapa.
 
 ---
 

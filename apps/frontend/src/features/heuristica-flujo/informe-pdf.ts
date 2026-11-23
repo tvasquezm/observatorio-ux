@@ -1,24 +1,39 @@
 import type { AnotacionEvidencia, EvaluacionFlujo } from '@observatorio-ux/shared-types';
 import { clasificarCriterios, escalaDe, origenHallazgo, resumirCumplimiento, resumirEvaluacion, SEVERIDADES } from '@observatorio-ux/shared-types';
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces';
-import { brandChrome, cargarPdfMake, date, INK, MUTED, table, TEAL, type ReportBrand } from '../../shared/utils/pdf';
+import { brandChrome, cargarPdfMake, date, MUTED, table, type ReportBrand } from '../../shared/utils/pdf';
+import { PDF_DEFAULT_STYLE, PDF_PAGE_MARGINS, PDF_STYLES, keepHeadingsWithContent, title } from '../../shared/utils/pdf-base';
 import { cargarEvidencia } from './evidencia.api';
 import { textoCumplimiento } from './flujo-utils';
 
-const titulo = (text: string): Content => ({ text, fontSize: 14, bold: true, margin: [0, 18, 0, 8], color: TEAL });
-const campo = (text: string, value: string): Content => ({ text: `${text}: ${value || 'No registrado'}`, margin: [0, 2, 0, 4] });
+const titulo = title;
+const campo = (text: string, value: string): Content => ({ stack: [
+  { text, fontSize: 8.5, bold: true, color: MUTED, margin: [0, 0, 0, 3] },
+  { text: value || 'No registrado' },
+], unbreakable: value.length < 600, margin: [0, 4, 0, 9] });
 
-export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: Map<string, string | null>, generadoEn: Date, brand?: ReportBrand): TDocumentDefinitions {
+type OpcionesInformePdf = { partes?: readonly string[] };
+
+function idsEvidencia(consenso: EvaluacionFlujo['consenso'] | undefined, { partes }: OpcionesInformePdf) {
+  return new Set([
+    ...(!partes || partes.includes('hallazgos') ? consenso?.hallazgos.filter(h => h.decision === 'ACEPTADO').flatMap(h => h.evidenciaIds) ?? [] : []),
+    ...(!partes || partes.includes('mejoras') ? consenso?.mejoras?.flatMap(m => [...m.antesIds, ...m.despuesIds]) ?? [] : []),
+    ...(!partes || partes.includes('positivos') ? consenso?.positivos?.flatMap(p => p.evidenciaIds ?? []) ?? [] : []),
+  ]);
+}
+
+export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: Map<string, string | null>, generadoEn: Date, brand?: ReportBrand, opciones: OpcionesInformePdf = {}): TDocumentDefinitions {
   if (!['CONSOLIDADA', 'FINALIZADA'].includes(evaluacion.fase) || !evaluacion.informe) throw new Error('Primero consolida y aprueba la evaluación.');
   const informe = evaluacion.informe;
   const config = informe.configuracion;
   const consenso = informe.consenso;
+  const incluye = (parte: string) => opciones.partes?.includes(parte) ?? true;
   const resumen = resumirEvaluacion(config, consenso);
   const cumplimiento = resumirCumplimiento(config, consenso);
   const clases = clasificarCriterios(config, consenso);
   const grupos = (['desfavorable', 'favorable'] as const).flatMap(clase => {
     const criterios = config.metodologia.criterios.filter(c => clases.some(r => r.criterioId === c.id && r.clase === clase));
-    return [titulo(`${clase === 'desfavorable' ? 'Problemas' : 'Aciertos'} (${criterios.length})`), ...(criterios.length ? criterios.map(c => ({ text: c.nombre } as Content)) : [{ text: 'Sin criterios en este grupo.' } as Content])];
+    return [titulo(`${clase === 'desfavorable' ? 'Criterios con problema' : 'Criterios cumplidos'} (${criterios.length})`), ...(criterios.length ? criterios.map(c => ({ text: c.nombre } as Content)) : [{ text: 'Sin criterios en este grupo.' } as Content])];
   });
   if (resumen.pendientes || !config.evaluadorIds.every(id => consenso.aprobadoPor.includes(id)) || consenso.hallazgos.some(h => h.decision === 'PENDIENTE')) throw new Error('El informe consolidado tiene decisiones o aprobaciones pendientes.');
   const hallazgos = consenso.hallazgos.filter(h => h.decision === 'ACEPTADO').slice().sort((a, b) => b.severidad - a.severidad);
@@ -29,7 +44,8 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
   };
   const escalasPropias = [...new Map(config.metodologia.criterios.filter(c => c.escala).map(c => [JSON.stringify(c.escala), c.escala!] as const)).values()];
   const imagenes: Record<string, string> = {};
-  for (const [id, img] of capturas) if (img) imagenes[`evidencia-${id}`] = img;
+  const evidenciaIncluida = idsEvidencia(consenso, opciones);
+  for (const [id, img] of capturas) if (img && evidenciaIncluida.has(id)) imagenes[`evidencia-${id}`] = img;
   const positivos = consenso.positivos ?? [];
   const mejoras = consenso.mejoras ?? [];
   const conclusion = (consenso.conclusion ?? '').trim();
@@ -52,45 +68,56 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
   ]);
   return {
     info: { title: `Evaluación heurística · ${config.nombre} · v${informe.version}`, creator: 'UXLab Observatorio', subject: 'Informe consolidado de evaluación heurística' },
-    pageSize: 'A4', pageMargins: [44, 66, 44, 54], defaultStyle: { font: 'Roboto', fontSize: 9.5, color: INK, lineHeight: 1.2 },
+    pageSize: 'A4', pageMargins: PDF_PAGE_MARGINS, defaultStyle: PDF_DEFAULT_STYLE,
     images: { ...(brand ? { brandLogo: brand.logo, brandLogoWhite: brand.logoWhite } : {}), ...imagenes },
     ...brandChrome(brand, 'EVALUACIÓN HEURÍSTICA', generadoEn),
     content: [
-      { text: finalizado ? 'Informe final' : 'Informe preliminar consolidado', style: 'eyebrow', margin: [0, 100, 0, 12] },
-      { text: config.nombre, fontSize: 25, bold: true, margin: [0, 0, 0, 12] },
-      campo('Versión del informe', String(informe.version)), campo('Producto', `${config.producto.nombre} · ${config.producto.version}`),
-      campo('Clave del producto', config.producto.clave), campo('Enlace del producto', config.producto.url), campo('Dispositivo', config.producto.dispositivo),
-      campo('Objetivo', config.objetivo), campo('Tareas', config.tareas), campo('Pantallas incluidas', config.pantallas), campo('Exclusiones', config.exclusiones || 'Ninguna declarada'),
-      campo('Metodología', `${config.metodologia.nombre} · ${config.metodologia.version}`), campo('Autoría', config.metodologia.autor), campo('Fuente', config.metodologia.fuente),
-      campo('Evaluadores', informe.evaluadores.map(e => e.nombre).join(', ')), campo('Inicio', informe.iniciadoEn ? date(informe.iniciadoEn) : 'No registrado'),
-      campo('Consolidación', date(informe.consolidadoEn)), campo('Cierre', informe.finalizadoEn ? date(informe.finalizadoEn) : 'Pendiente de cierre'), campo('Exportación', date(generadoEn)),
-      titulo('Escala de valoración'),
-      campo('Tipo y sentido', `${config.metodologia.escala.tipo} · ${config.metodologia.escala.sentido}`), campo('Origen de la escala', config.metodologia.escala.fuente),
-      table(['Respuesta', 'Significado', 'Valor'], config.metodologia.escala.niveles.map(n => [n.etiqueta, n.significado, n.valor ?? 'Sin puntaje']), [100, '*', 70]),
-      ...escalasPropias.flatMap((e): Content[] => [
-        campo('Escala propia de algunos criterios', `${e.tipo} · ${e.sentido} · ${e.fuente}`),
-        table(['Respuesta', 'Significado', 'Valor'], e.niveles.map(n => [n.etiqueta, n.significado, n.valor ?? 'Sin puntaje']), [100, '*', 70]),
-      ]),
-      titulo('Cobertura y resultados'),
-      table(['Criterios evaluados', 'No aplica', 'Pendientes', 'Problemas únicos'], [[resumen.evaluados, resumen.noAplica, resumen.pendientes, resumen.totalHallazgos]]),
-      table([resumen.porEscala.length ? 'Valoración (escala de la metodología)' : 'Valoración del criterio', 'Cantidad'], resumen.porCategoria.map(n => [n.etiqueta, n.count]), ['*', 90]),
-      ...resumen.porEscala.map(g => table([`Valoración (escala propia: ${g.fuente})`, 'Cantidad'], g.distribucion.map(n => [n.etiqueta, n.count]), ['*', 90])),
-      table(['Severidad del problema', 'Cantidad'], SEVERIDADES.map(n => [`${n.valor} · ${n.etiqueta}`, resumen.porSeveridad[n.valor]]), ['*', 90]),
-      { text: 'No aplica y sin evaluar quedan fuera del cálculo. La severidad es ordinal: se informa por distribución, sin asumir distancias iguales entre niveles.', color: MUTED },
-      ...(resumen.formula ? [campo('Fórmula del índice', resumen.formula), campo('Denominador (suma de pesos aplicables evaluados)', String(resumen.denominador)), campo('Índice', resumen.indice === null ? 'No calculable' : String(Math.round(resumen.indice * 1000) / 1000))] : []),
-      ...(cumplimiento ? [titulo('Cumplimiento'), table(['Categoría', 'Cumplimiento'], [...cumplimiento.porCategoria.map(c => [c.categoria, textoCumplimiento(c)]), ['Total', textoCumplimiento(cumplimiento.total)]], ['*', '*']), { text: 'El porcentaje compara aciertos y problemas. No incluye respuestas neutras, sin evaluar ni «No aplica».', color: MUTED } as Content] : []),
-      ...grupos, { text: `${resumen.noAplica} no aplican. Los criterios neutros y sin evaluar quedan fuera de ambos grupos.` },
-      titulo('Criterios y decisiones acordadas'),
-      table(['Criterio / fuente', 'Valoración final', 'Justificación'], consenso.criterios.map(r => { const c = config.metodologia.criterios.find(x => x.id === r.criterioId); return [`${nombreCriterio(r.criterioId)}\n${c?.origen.autor ?? ''} · ${c?.origen.version ?? ''}\n${c?.origen.fuente ?? ''}`, valorCriterio(r), r.justificacion]; }), ['*', 100, '*']),
-      ...(positivos.length ? [titulo('Aspectos positivos'), ...positivos.flatMap((p): Content[] => [{ text: p.titulo, bold: true, margin: [0, 6, 0, 2] }, ...(p.descripcion ? [{ text: p.descripcion, margin: [0, 0, 0, 4] } as Content] : [])])] : []),
-      titulo('Problemas y recomendaciones'), ...(detalleHallazgos.length ? detalleHallazgos : [{ text: 'La revisión acordada no identificó problemas de usabilidad.' } as Content]),
-      ...(mejoras.length ? [titulo('Mejoras antes/después'), ...detalleMejoras] : []),
-      ...(conclusion ? [titulo('Conclusión y recomendaciones finales'), { text: conclusion } as Content] : []),
-      titulo('Decisiones de revisión'),
-      table(['Problema', 'Decisión', 'Orígenes', 'Motivo'], consenso.hallazgos.map(h => [h.titulo, h.decision === 'ACEPTADO' ? 'Aceptado / fusionado' : 'Descartado', origenHallazgo(h) === 'equipo' ? 'Nuevo del equipo' : h.origenIds.join(', '), h.justificacion]), ['*', 90, 90, '*']),
-      campo('Aprobación explícita', informe.evaluadores.filter(e => consenso.aprobadoPor.includes(e.id)).map(e => e.nombre).join(', ')),
+      { text: finalizado ? 'Informe final' : 'Informe preliminar consolidado', style: 'eyebrow', alignment: 'center', margin: [0, 36, 0, 18] },
+      { text: config.nombre, style: 'coverTitle' },
+      { columns: [campo('Versión del informe', String(informe.version)), campo('Producto', `${config.producto.nombre} · ${config.producto.version}`)], columnGap: 20 },
+      { columns: [campo('Clave del producto', config.producto.clave), campo('Enlace del producto', config.producto.url), campo('Dispositivo', config.producto.dispositivo)], columnGap: 20 },
+      campo('Objetivo', config.objetivo), campo('Tareas', config.tareas),
+      { columns: [campo('Pantallas incluidas', config.pantallas), campo('Exclusiones', config.exclusiones || 'Ninguna declarada')], columnGap: 20 },
+      { columns: [campo('Metodología', `${config.metodologia.nombre} · ${config.metodologia.version}`), campo('Autoría', config.metodologia.autor)], columnGap: 20 },
+      campo('Fuente', config.metodologia.fuente),
+      ...(incluye('resumen') ? [campo('Evaluadores', informe.evaluadores.map(e => e.nombre).join(', '))] : []),
+      { columns: [campo('Inicio', informe.iniciadoEn ? date(informe.iniciadoEn) : 'No registrado'), campo('Consolidación', date(informe.consolidadoEn)), campo('Cierre', informe.finalizadoEn ? date(informe.finalizadoEn) : 'Pendiente de cierre'), campo('Exportación', date(generadoEn))], columnGap: 16 },
+      ...(incluye('criterios') ? [
+        { stack: [titulo('Escala de valoración')], pageBreak: 'before' } as Content,
+        campo('Tipo y sentido', `${config.metodologia.escala.tipo} · ${config.metodologia.escala.sentido}`), campo('Origen de la escala', config.metodologia.escala.fuente),
+        table(['Respuesta', 'Significado', 'Valor'], config.metodologia.escala.niveles.map(n => [n.etiqueta, n.significado, n.valor ?? 'Sin puntaje']), [100, '*', 70]),
+        ...escalasPropias.flatMap((e): Content[] => [
+          campo('Escala propia de algunos criterios', `${e.tipo} · ${e.sentido} · ${e.fuente}`),
+          table(['Respuesta', 'Significado', 'Valor'], e.niveles.map(n => [n.etiqueta, n.significado, n.valor ?? 'Sin puntaje']), [100, '*', 70]),
+        ]),
+      ] : []),
+      ...(incluye('resumen') ? [
+        titulo('Cobertura y resultados'),
+        table(['Criterios evaluados', 'No aplica', 'Pendientes', 'Hallazgos aceptados para mejorar'], [[resumen.evaluados, resumen.noAplica, resumen.pendientes, resumen.totalHallazgos]]),
+        table([resumen.porEscala.length ? 'Valoración (escala de la metodología)' : 'Valoración del criterio', 'Cantidad'], resumen.porCategoria.map(n => [n.etiqueta, n.count]), ['*', 90]),
+        ...resumen.porEscala.map(g => table([`Valoración (escala propia: ${g.fuente})`, 'Cantidad'], g.distribucion.map(n => [n.etiqueta, n.count]), ['*', 90])),
+        table(['Severidad del problema', 'Cantidad'], SEVERIDADES.map(n => [`${n.valor} · ${n.etiqueta}`, resumen.porSeveridad[n.valor]]), ['*', 90]),
+        { text: 'No aplica y sin evaluar quedan fuera del cálculo. La severidad es ordinal: se informa por distribución, sin asumir distancias iguales entre niveles.', color: MUTED },
+        ...(resumen.formula ? [campo('Fórmula del índice', resumen.formula), campo('Denominador (suma de pesos aplicables evaluados)', String(resumen.denominador)), campo('Índice', resumen.indice === null ? 'No calculable' : String(Math.round(resumen.indice * 1000) / 1000))] : []),
+      ] : []),
+      ...(incluye('cumplimiento') && cumplimiento ? [titulo('Cumplimiento'), table(['Categoría', 'Cumplimiento'], [...cumplimiento.porCategoria.map(c => [c.categoria, textoCumplimiento(c)]), ['Total', textoCumplimiento(cumplimiento.total)]], ['*', '*']), { text: 'El porcentaje compara aciertos y problemas. No incluye respuestas neutras, sin evaluar ni «No aplica».', color: MUTED } as Content] : []),
+      ...(incluye('criterios') ? [
+        ...grupos, { text: `${resumen.noAplica} no aplican. Los criterios neutros y sin evaluar quedan fuera de ambos grupos.` },
+        titulo('Criterios y decisiones acordadas'),
+        table(['Criterio / fuente', 'Valoración final', 'Justificación'], consenso.criterios.map(r => { const c = config.metodologia.criterios.find(x => x.id === r.criterioId); return [`${nombreCriterio(r.criterioId)}\n${c?.origen.autor ?? ''} · ${c?.origen.version ?? ''}\n${c?.origen.fuente ?? ''}`, valorCriterio(r), r.justificacion]; }), ['*', 100, '*']),
+      ] : []),
+      ...(incluye('positivos') && positivos.length ? [titulo('Aspectos positivos'), ...positivos.flatMap((p): Content[] => [{ text: p.titulo, bold: true, margin: [0, 6, 0, 2] }, ...(p.descripcion ? [{ text: p.descripcion, margin: [0, 0, 0, 4] } as Content] : []), ...(p.evidenciaIds ?? []).map(imagenEvidencia)])] : []),
+      ...(incluye('hallazgos') ? [titulo('Problemas y recomendaciones'), ...(detalleHallazgos.length ? detalleHallazgos : [{ text: 'La revisión acordada no identificó problemas de usabilidad.' } as Content])] : []),
+      ...(incluye('mejoras') && mejoras.length ? [titulo('Mejoras antes/después'), ...detalleMejoras] : []),
+      ...(incluye('conclusion') && conclusion ? [titulo('Conclusión y recomendaciones finales'), { text: conclusion } as Content] : []),
+      ...(incluye('resumen') ? [
+        titulo('Decisiones de revisión'),
+        table(['Problema', 'Decisión', 'Orígenes', 'Motivo'], consenso.hallazgos.map(h => [h.titulo, h.decision === 'ACEPTADO' ? 'Aceptado / fusionado' : 'Descartado', origenHallazgo(h) === 'equipo' ? 'Nuevo del equipo' : h.origenIds.join(', '), h.justificacion]), ['*', 90, 90, '*']),
+        campo('Aprobación explícita', informe.evaluadores.filter(e => consenso.aprobadoPor.includes(e.id)).map(e => e.nombre).join(', ')),
+      ] : []),
     ],
-    styles: { eyebrow: { fontSize: 9, bold: true, color: TEAL } },
+    styles: PDF_STYLES,
+    pageBreakBefore: keepHeadingsWithContent,
   };
 }
 
@@ -118,10 +145,9 @@ export async function rasterizarEvidencia(blob: Blob, anotaciones: AnotacionEvid
   } finally { bitmap.close(); }
 }
 
-export async function exportarInformeFlujoPdf(proyectoId: string, evaluacion: EvaluacionFlujo): Promise<void> {
+export async function exportarInformeFlujoPdf(proyectoId: string, evaluacion: EvaluacionFlujo, opciones: OpcionesInformePdf = {}): Promise<void> {
   const capturas = new Map<string, string | null>();
-  const consenso = evaluacion.informe?.consenso;
-  const ids = [...new Set([...(consenso?.hallazgos.filter(h => h.decision === 'ACEPTADO').flatMap(h => h.evidenciaIds) ?? []), ...(consenso?.mejoras ?? []).flatMap(m => [...m.antesIds, ...m.despuesIds])])];
+  const ids = idsEvidencia(evaluacion.informe?.consenso, opciones);
   for (const id of ids) {
     try { const { meta, blob } = await cargarEvidencia(proyectoId, evaluacion.id, id); capturas.set(id, await rasterizarEvidencia(blob, meta.anotaciones)); }
     catch { capturas.set(id, null); }
@@ -129,5 +155,5 @@ export async function exportarInformeFlujoPdf(proyectoId: string, evaluacion: Ev
   const { pdfMake, brand } = await cargarPdfMake();
   const nombre = evaluacion.informe?.configuracion.nombre ?? 'evaluacion';
   const slug = nombre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 60);
-  await pdfMake.createPdf(construirInformeFlujoPdf(evaluacion, capturas, new Date(), brand)).download(`heuristica-${slug}-v${evaluacion.informe?.version ?? 1}.pdf`);
+  await pdfMake.createPdf(construirInformeFlujoPdf(evaluacion, capturas, new Date(), brand, opciones)).download(`heuristica-${slug}-v${evaluacion.informe?.version ?? 1}.pdf`);
 }

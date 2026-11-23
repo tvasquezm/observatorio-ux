@@ -14,6 +14,7 @@ import { TechniqueListHead, TechniqueEmpty } from '../../shared/components/Techn
 import { Icon } from '../../shared/components/ui/Icon';
 import { TechniqueProcess } from '../../shared/components/TechniqueProcess';
 import { ConfiguracionEditor } from './ConfiguracionEditor';
+import { ComentariosTecnica } from '../comments/components/ComentariosTecnica';
 import { TrabajoEditor, SaveStatus } from './TrabajoEditor';
 import { ConsensoEditor } from './ConsensoEditor';
 import { InformeView } from './InformeView';
@@ -151,5 +152,6 @@ export function FlujoHeuristicaPage() {
       </>}
       {history.data?.length === 0 && <TechniqueEmpty icono={<Icon name="heuristica" size={28} />} titulo="Aún no hay revisiones guardadas" texto="Usa + Nueva evaluación para comenzar la primera revisión del producto." />}
     </>}
+    comentarios={<ComentariosTecnica proyectoId={proyectoId} tecnica="evaluacion-heuristica" />}
   />;
 }

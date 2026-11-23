@@ -4,12 +4,13 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CardSortingEntry } from './CardSortingEntry';
 
-function Harness({ defaultMode }: { defaultMode: 'uno' | 'lista' }) {
+function Harness({ defaultMode, optional }: { defaultMode: 'uno' | 'lista'; optional?: boolean }) {
   const [value, setValue] = useState('');
   return (
     <>
       <CardSortingEntry
         title="Tarjetas"
+        optional={optional}
         singular="tarjeta"
         plural="tarjetas"
         value={value}
@@ -26,6 +27,12 @@ function Harness({ defaultMode }: { defaultMode: 'uno' | 'lista' }) {
 }
 
 describe('CardSortingEntry', () => {
+  it('muestra la marca solo si el ingreso es opcional', () => {
+    const { rerender } = render(<Harness defaultMode="uno" />);
+    expect(screen.queryByText('(opcional)')).toBeNull();
+    rerender(<Harness defaultMode="uno" optional />);
+    expect(screen.getByText('(opcional)')).toBeVisible();
+  });
   it('explica cómo agregar una lista con etiquetas visibles', () => {
     render(<Harness defaultMode="lista" />);
     expect(screen.getByRole('button', { name: 'Una por una' })).toBeVisible();

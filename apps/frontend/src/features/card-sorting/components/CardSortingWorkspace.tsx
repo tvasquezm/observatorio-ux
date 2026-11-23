@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState, type DragEvent } from 'react';
 import { AnilloAvance } from '../../../shared/components/AnilloAvance';
+import { OptionalTag } from '../../../shared/components/OptionalTag';
 import { MAX_CATEGORIA, normalizarTexto as normalizeCategory } from '../card-sorting-input';
 
 const COARSE_POINTER_QUERY = '(pointer: coarse)';
@@ -419,7 +420,7 @@ export function CardSortingWorkspace({
               </div>
               {onPadresChange && parentOptions.length > 0 && (
                 <>
-                  <label htmlFor={`${newCategoryId}-parent`}>Dentro de (opcional)</label>
+                  <label htmlFor={`${newCategoryId}-parent`}>Dentro de<OptionalTag /></label>
                   <select
                     id={`${newCategoryId}-parent`}
                     value={newParent}

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { VistaExportable } from '../card-sorting-export';
 import type { OpcionesEstudioPdf } from '../card-sorting-pdf';
+import { PdfContentPicker } from '../../../shared/components/PdfContentPicker';
 
 const DESCRIPCIONES: Record<VistaExportable, string> = {
   cards: 'Distribución de tarjetas, barras y tarjetas sin consenso.',
@@ -23,7 +24,7 @@ interface Props {
 
 export function CardSortingPdfDialog({ tabs, busy, error, onClose, onGenerate }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
-  const [selected, setSelected] = useState(() => tabs.map(t => t.id));
+  const [selected, setSelected] = useState<string[]>(() => tabs.map(t => t.id));
   const [resumen, setResumen] = useState(true);
   const [color, setColor] = useState(true);
   const [separarSecciones, setSeparar] = useState(true);
@@ -31,14 +32,15 @@ export function CardSortingPdfDialog({ tabs, busy, error, onClose, onGenerate }:
   const contenido = [...(resumen ? ['Portada y resumen'] : []), ...tabs.filter(t => selected.includes(t.id)).map(t => t.label)];
   return <dialog ref={ref} className="report-dialog" aria-labelledby="cs-pdf-title" onCancel={e => { e.preventDefault(); if (!busy) onClose(); }}>
     <h2 id="cs-pdf-title">Exportar resultados (PDF)</h2>
-    <fieldset disabled={busy}>
-      <legend>Qué incluir</legend>
-      <label className="pdf-section"><input type="checkbox" aria-label="Portada y resumen" checked={resumen} onChange={e => setResumen(e.target.checked)} />
-        <span><strong>Portada y resumen</strong><small>Nombre, fecha e indicadores generales.</small></span></label>
-      {tabs.map(t => <label key={t.id} className="pdf-section"><input type="checkbox" aria-label={t.label} checked={selected.includes(t.id)}
-        onChange={e => setSelected(e.target.checked ? [...selected, t.id] : selected.filter(id => id !== t.id))} />
-        <span><strong>{t.label}</strong><small>{DESCRIPCIONES[t.id]}</small></span></label>)}
-    </fieldset>
+    <PdfContentPicker
+      legend="Qué incluir"
+      opciones={tabs.map(tab => ({ ...tab, descripcion: DESCRIPCIONES[tab.id] }))}
+      seleccion={selected}
+      onChange={setSelected}
+      disabled={busy}
+      extra={<label className="pdf-section"><input type="checkbox" aria-label="Portada y resumen" checked={resumen} onChange={e => setResumen(e.target.checked)} />
+        <span><strong>Portada y resumen</strong><small>Nombre, fecha e indicadores generales.</small></span></label>}
+    />
     <fieldset disabled={busy}><legend>Presentación</legend>
       <label className="pdf-section"><input type="radio" name="cs-pdf-color" checked={color} onChange={() => setColor(true)} />Color</label>
       <label className="pdf-section"><input type="radio" name="cs-pdf-color" checked={!color} onChange={() => setColor(false)} />Blanco y negro</label>

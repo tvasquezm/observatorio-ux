@@ -1,41 +1,22 @@
-# CIERRE FASE F2
+# FASE F2: Instrucciones con un solo formato
 
-Fecha: 2026-11-12
+Estado: hecha (textos de Card Sorting aprobados por el usuario el 2026-11-18)
+Archivos tocados: `apps/frontend/src/shared/components/TechniqueInstructions.tsx` (nuevo), `apps/frontend/src/shared/components/TechniquePageHeader.tsx`, `apps/frontend/src/shared/components/TechniquePageHeader.test.tsx`, `apps/frontend/src/pages/CardSortingPage.tsx`, `apps/frontend/src/pages/CardSortingPage.test.tsx`, `apps/frontend/src/features/card-sorting/components/CardSortingGuide.tsx` (borrado), `apps/frontend/src/features/card-sorting/components/CardSortingGuide.test.tsx` (borrado), `apps/frontend/src/styles/theme.css`, `docs/fases/APROBACIONES_PENDIENTES.md` (nuevo).
+
+Comandos ejecutados y resultado:
+- `grep -n "CardSortingGuide|cs-guide" apps/frontend/src` -> antes: solo `CardSortingPage`, su prueba y el CSS; después: sin resultados.
+- `grep -n "cs-guide|CardSortingGuide" apps tests` -> sin resultados (código de salida 1).
+- `pnpm --filter frontend exec vitest run src/pages/CardSortingPage.test.tsx src/shared/components/TechniquePageHeader.test.tsx` -> 2 archivos, 34 pruebas en verde.
+- `pnpm --filter frontend exec vitest run src/shared/components src/pages/__tests__ src/features/card-sorting` -> 31 archivos, 276 pruebas en verde.
+- `pnpm --filter frontend test` y `pnpm --filter frontend build` -> verdes en la corrida conjunta (ver F5).
 
 Hecho:
-- Un formulario de creación compartido en Proyectos y Sala; sala fija al crear desde ella.
-- Todas las perspectivas eligen sala en /proyectos; estudiante ve las habilitadas, docente las propias, administrador todas.
-- Sin opciones, se explica cómo conseguir una sala y se enlaza a /salas.
-- Proyectos antiguos siguen visibles/editables, con «Sin sala» y acceso a la vinculación existente.
-- Técnicas accesibles también desde el menú del resumen. Inicio del evaluador explica Sala → Proyecto → Técnica.
-- Terminología visible clasificada en `F2_TERMINOLOGIA.md` (43 textos más mensajes de validación del formulario).
+- Paso 1: componente compartido `TechniqueInstructions` (`InstructionList = Array<string | { texto; enLaHerramienta? }>`); `TechniquePageHeader` lo usa cuando `instructions` es una lista. Los `string[]` de Personas, Journey Map, Momentos críticos y Evaluación heurística siguen funcionando con su texto intacto.
+- Paso 2 y 3: aprobada la tabla de `APROBACIONES_PENDIENTES.md`, los 8 acordeones de `CardSortingGuide` pasan a 6 pasos del mismo formato en `CardSortingPage`, con la línea "En la herramienta:" en cada paso y el texto nuevo de R27: "Si una tarjeta podría ir en varios lugares, elige la mejor opción y colócala ahí."
+- Se conservan: grupo de 3 invitado por separado (cuenta como tres participantes), jerarquía de 2 niveles solo en abiertos e híbridos, umbral de consenso editable (50 % por defecto) y dónde se ven los resultados (matriz, ubicaciones populares, respuestas, tarjetas, categorías, agrupaciones dominantes y sin consenso).
+- Paso 4: eliminados `CardSortingGuide` y su prueba, y todo el CSS `cs-guide-*`; el estilo de `.technique-instructions` queda en uno solo (se retira el override de `.personas-page`).
 
-Archivos tocados: formulario compartido y controlador de creación desde sala, ProjectsPage, SalaDetallePage, hooks de proyectos, ProjectDetailLayout, DashboardPage, textos de card sorting/onboarding/analítica/participantes y sus pruebas.
+Cambios respecto al plan (desvíos): en el paso 5 se conserva la frase "Pregunta al participante para entender sus decisiones." del antiguo paso 6, para no perder contenido al fusionar (la tabla aprobada fusionaba los pasos 4 y 6 en el 5). No se agregó contenido nuevo salvo el texto de R27 que el plan fija literal.
 
-Contratos reales:
-- POST /projects conserva { nombre, descripcion?, salaId? }. Backend solo exige sala a ESTUDIANTE; DOCENTE/ADMIN sin sala siguen válidos.
-- La UI siempre envía salaId. Crear invalida `['projects']` y `['salas', salaId, 'proyectos']`; la lista de la sala muestra el proyecto al recibirlo.
-- Backend verifica inscripción por email normalizado, habilitación y ownership; no necesitó cambios de producto.
-- OnboardingPage es del participante: la explicación de jerarquía se ubica en DashboardPage.
-- Las pestañas de sala ocultan el formulario de creación sin desmontarlo: su borrador no se pierde al cambiar pestaña.
-
-Desvíos: por compartir las mismas líneas, formulario/selector obligatorio/indicador de huérfanos se agrupan en un commit; no se crean rutas, endpoints ni migraciones. El vínculo lleva al formulario existente de salas, como permite el plan. Se conservan textos legales y usos académicos de «estudio».
-
-Verificación:
-```text
-Tests nuevos de /proyectos: 3 fallos esperados antes del cambio; verdes después.
-pnpm --filter backend test projects.service --runInBand:
-Test Suites: 1 passed; Tests: 25 passed
-Incluye estudiante sin sala, inscrito/habilitado, deshabilitado, no inscrito;
-docente dueño/no dueño, administrador en sala ajena y docente sin sala.
-pnpm --filter frontend test: 73 archivos, 730 pruebas aprobadas
-pnpm --filter frontend build: built in 651ms; exit 0
-pnpm --filter backend build: nest build; exit 0
-Chromium, API simulada: docente y estudiante crean desde sala en claro/oscuro.
-Las cuatro peticiones incluyen salaId=s1 y el proyecto aparece en la sala.
-Estudiante con permiso desactivado: botón ausente.
-```
-
-Capturas / evidencia manual: `evidencias/F2` (375 px claro y 1280 px oscuro, formulario con sala fija). `verificacion.json` registra los payloads sin credenciales.
-
-Pendientes: revisión humana de permisos con API/base de datos reales antes de producción. No se modificó ni migró ningún proyecto existente.
+Pendientes y dudas:
+- Chromium con PostgreSQL local completó las diez capturas de las cinco técnicas con el panel abierto, a 375 px y escritorio. [Capturas](FASE_F2_capturas/)

@@ -17,6 +17,10 @@ export const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string().valid('development', 'test', 'production').required(),
   PORT: Joi.number().port().default(3000),
   DATABASE_URL: Joi.string().required(),
+  GOOGLE_CLIENT_ID: Joi.string().pattern(/^\d+-[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/).allow('').optional(),
+  // F35: dominios de Google Workspace aceptados (coma) y respaldo de emergencia para el ingreso con contraseña.
+  GOOGLE_ALLOWED_DOMAINS: Joi.string().allow('').optional(),
+  PASSWORD_LOGIN_ENABLED: Joi.string().valid('true', 'false', '').optional(),
   JWT_SECRET: Joi.string().when('NODE_ENV', {
     is: 'production',
     then: Joi.string().min(32),
@@ -36,7 +40,7 @@ export const envValidationSchema = Joi.object({
     .invalid(Joi.ref('JWT_SECRET'))
     .required()
     .messages({ 'any.invalid': 'JWT_PARTICIPANTE_SECRET debe ser distinto de JWT_SECRET' }),
-  JWT_PARTICIPANTE_EXPIRES_IN: Joi.string().default('4h'),
+  JWT_PARTICIPANTE_EXPIRES_IN: duration().default('4h'),
   CORS_ORIGIN: Joi.string().default('http://localhost:5173'),
   // Saltos de proxy de confianza (req.ip para throttling). 1 = un solo proxy.
   TRUST_PROXY_HOPS: Joi.number().integer().min(1).max(5).default(1),

@@ -4,13 +4,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { createHash, randomBytes } from 'crypto';
 import { PrismaService } from '../../core/database/prisma.service.js';
 import { ProjectAccessService } from '../../core/access/project-access.service.js';
 import { AuthenticatedUser } from '../auth/types/authenticated-user.interface.js';
 import {
   AddMemberDto,
-  AddToWhitelistDto,
   CreateProjectDto,
   UpdateProjectDto,
 } from './projects.dto.js';
@@ -153,88 +151,6 @@ export class ProjectsService {
       data: { deletedAt: new Date() },
     });
     return { eliminado: true };
-  }
-
-  async addToWhitelist(
-    id: string,
-    dto: AddToWhitelistDto,
-    user: AuthenticatedUser,
-  ) {
-    await this.projectAccess.assertOwnerOrAdmin(
-      id,
-      user,
-      'Solo el creador del proyecto o un administrador pueden invitar participantes.',
-    );
-
-    const invitaciones = await this.prisma.$transaction(async (tx) => {
-      const creadas: Array<{ email: string; codigoInvitacion: string }> = [];
-      const participantesUnicos = new Map(
-        dto.participantes.map((participante) => [
-          participante.email.trim().toLowerCase(),
-          participante,
-        ]),
-      );
-
-      for (const [email, participante] of participantesUnicos) {
-        const existente = await tx.participanteWhitelist.findUnique({
-          where: { proyectoId_email: { proyectoId: id, email } },
-        });
-
-        // Volver a agregar una invitación todavía pendiente rota el código.
-        // Así el docente puede recuperarse si perdió el valor mostrado una vez.
-        if (existente?.participanteId) continue;
-
-        const codigoInvitacion = randomBytes(18).toString('base64url');
-        const codigoInvitacionHash = createHash('sha256').update(codigoInvitacion).digest('hex');
-
-        if (existente) {
-          await tx.participanteWhitelist.update({
-            where: { id: existente.id },
-            data: { codigoInvitacionHash },
-          });
-        } else {
-          await tx.participanteWhitelist.create({
-            data: {
-              proyectoId: id,
-              email,
-              nombre: participante.nombre?.trim(),
-              creadoPorId: user.id,
-              codigoInvitacionHash,
-            },
-          });
-        }
-
-        creadas.push({ email, codigoInvitacion });
-      }
-
-      return creadas;
-    });
-
-    return {
-      agregados: invitaciones.length,
-      enviados: dto.participantes.length,
-      invitaciones,
-    };
-  }
-
-  async listWhitelist(id: string, user: AuthenticatedUser) {
-    await this.projectAccess.assertOwnerOrAdmin(
-      id,
-      user,
-      'Solo el creador del proyecto o un administrador pueden ver las invitaciones.',
-    );
-
-    return this.prisma.participanteWhitelist.findMany({
-      where: { proyectoId: id },
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        email: true,
-        nombre: true,
-        usado: true,
-        createdAt: true,
-      },
-    });
   }
 
   async listMembers(id: string, user: AuthenticatedUser) {

@@ -76,6 +76,14 @@ export class HeuristicaFlujoController {
   guardarConsenso(@Param('proyectoId', ParseUUIDPipe) proyectoId: string, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() user: AuthenticatedUser) {
     return this.service.guardarConsenso(proyectoId, id, body, user);
   }
+  @Post('evaluaciones/:id/consenso/aportes')
+  agregarAporte(@Param('proyectoId', ParseUUIDPipe) proyectoId: string, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.agregarAporte(proyectoId, id, body, user);
+  }
+  @Delete('evaluaciones/:id/consenso/aportes/:aporteId')
+  quitarAporte(@Param('proyectoId', ParseUUIDPipe) proyectoId: string, @Param('id', ParseUUIDPipe) id: string, @Param('aporteId') aporteId: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.quitarAporte(proyectoId, id, aporteId.slice(0, 150), user);
+  }
   @Post('evaluaciones/:id/redactor/voto')
   votarRedactor(@Param('proyectoId', ParseUUIDPipe) proyectoId: string, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() user: AuthenticatedUser) {
     return this.service.votarRedactor(proyectoId, id, body, user);

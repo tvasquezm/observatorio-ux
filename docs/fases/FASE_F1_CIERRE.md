@@ -1,40 +1,15 @@
-# CIERRE FASE F1
+# FASE F1: Quitar explicación completa y PDF
 
-Fecha: 2026-11-12
+Estado: hecha
+Archivos tocados: `apps/frontend/src/pages/ProjectOverviewPage.tsx`, `apps/frontend/src/pages/__tests__/ProjectOverviewPage.test.tsx`, `apps/frontend/src/shared/components/TechniqueHelp.tsx` (borrado), `apps/frontend/src/shared/components/TechniqueHelp.test.tsx` (borrado), `apps/frontend/src/shared/utils/tecnica-pdf.ts` (borrado), `apps/frontend/src/shared/utils/tecnica-pdf.test.ts` (borrado), `apps/frontend/src/shared/content/tecnicas-info.ts`, `apps/frontend/src/shared/content/tecnicas-info.test.ts`, `apps/frontend/src/styles/theme.css`, `CHANGELOG.md`.
 
-Hecho:
-- Texto del anillo de avance en rem proporcional al tamaño del anillo.
-- Preferencias deja de recortar los controles de fuente a 150 % en móvil.
-- Se conservan los cinco niveles y su aplicación temprana en main.tsx.
+Comandos ejecutados y resultado:
+- `grep -rn "TechniqueHelp|tecnica-pdf|explicacionCompleta"` (antes): solo `ProjectOverviewPage`, los dos componentes con sus pruebas y `tecnicas-info`; confirmado que nada más los importaba.
+- `pnpm --filter frontend exec vitest run src/pages/__tests__/ProjectOverviewPage.test.tsx src/shared/content` -> 2 archivos, 3 pruebas en verde.
+- `pnpm --filter frontend test` -> 81 archivos, 771 pruebas en verde (antes 83/781: se retiran 2 archivos y 10 pruebas de lo eliminado).
+- `pnpm --filter frontend build` -> `built in 1.55s`, código de salida 0.
+- `grep -n "TechniqueHelp|tecnica-pdf|explicacionCompleta|technique-help|tech-choice" apps packages tests` -> solo la aserción nueva `expect(info).not.toHaveProperty('explicacionCompleta')`.
 
-Archivos tocados: AnilloAvance.tsx, su test y dos reglas acotadas de theme.css.
+Cambios respecto al plan (desvíos): ninguno. Se eliminaron además las reglas CSS `.technique-help*` y `.tech-choice` de `theme.css` y el envoltorio `.tech-choice` del JSX, tal como pedía la fase. Se sobrescribe el `FASE_F1_CIERRE.md` del plan anterior: queda en el historial de Git.
 
-Contratos reales: normal / large / xlarge / xxlarge / huge; localStorage `observatorio-ux-font-size`. El texto SVG de anotaciones conserva sus 25 unidades: escala dentro del viewBox 0–1000.
-
-Desvíos del plan: base `Hallazgos-prueba-de-usabilidad` (5f0ce21), donde existen las prestaciones que el documento da por hechas. Se excluye el modo express de heurística por petición directa del usuario. No se modifican cambios locales de otros trabajos ni parte1/.
-
-Verificación (salidas):
-```text
-Node v24.19.0; pnpm 10.34.5
-pnpm install --offline --frozen-lockfile: 962 paquetes reutilizados; exit 0
-pnpm --filter @observatorio-ux/shared-types build: exit 0
-pnpm --filter backend exec prisma generate: Generated Prisma Client (7.10.0)
-Línea base, antes de modificar producto:
-pnpm --filter frontend test: 72 archivos, 719 pruebas aprobadas
-pnpm --filter frontend build: built in 2.39s; exit 0
-pnpm --filter backend test --runInBand: 25 suites, 374 pruebas aprobadas
-Regresión del anillo: falla con px; pasa con rem.
-pnpm --filter frontend test: 72 archivos, 720 pruebas aprobadas
-Tras ajustar Preferencias:
-pnpm --filter frontend test AnilloAvance AppLayout: 26 pruebas aprobadas
-pnpm --filter frontend build: built in 659ms; exit 0
-rg -n 'font-size:\s*[0-9.]+px' apps/frontend/src: sin coincidencias
-```
-
-Capturas / evidencia manual: Chromium headless, API simulada; 375 y 1280 px, xxlarge y huge, claro/oscuro/alto contraste. Proyectos, detalle, sala, ingreso, resultados, login, Preferencias y exportación general. Detalle de mediciones en `evidencias/F1/verificacion.json`. Capturas del caso 375/huge en esa carpeta. Preferencias permite reducir el tamaño en las 12 combinaciones, sin desborde interno. Login y PDF se repitieron esperando su contenido real; se sustituyó la captura inicial de login, que redirigía al inicio por tener sesión.
-
-Pendientes:
-- Resultados, 375/huge: las pestañas se superponen visualmente; F1 lo registra sin corregirlo, según su alcance.
-- React advierte por `fetchpriority` en el login, previo al cambio.
-- El navegador completo de esta máquina falla por configuración en paralelo; se usó el headless shell ya instalado.
-- Los tests no usan datos productivos; no se hizo despliegue.
+Pendientes y dudas: ninguno.

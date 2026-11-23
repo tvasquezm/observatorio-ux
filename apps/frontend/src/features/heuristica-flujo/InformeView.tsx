@@ -13,6 +13,7 @@ import { flujoRequest } from './flujo.api';
 import { fechaChile, participacionInforme, textoCumplimiento, textoEscala } from './flujo-utils';
 import { useFlujoDraft } from './useFlujoDraft';
 import { ResumenCriterios } from './ResumenCriterios';
+import { InformePdfDialog } from './InformePdfDialog';
 
 function Dato({ etiqueta, valor }: { etiqueta: string; valor: ReactNode }) {
   return <div><dt>{etiqueta}</dt><dd className="hx-dato">{valor || 'No indicado'}</dd></div>;
@@ -43,6 +44,8 @@ export function InformeView({ evaluacion, historial, usuarioId, onSaved, onBack 
   const [previaId, setPreviaId] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [pdfOpen, setPdfOpen] = useState(false);
+  const [pdfError, setPdfError] = useState('');
   const leaveGuard = useRef<(() => Promise<boolean>) | null>(null);
   const compare = useQuery({ queryKey: ['heuristica-flujo', evaluacion.proyectoId, usuarioId, evaluacion.id, 'comparacion', previaId], queryFn: () => flujoRequest<ComparacionFlujo>(evaluacion.proyectoId, `/evaluaciones/${evaluacion.id}/comparacion/${previaId}`), enabled: !!previaId });
   const informe = evaluacion.informe;
@@ -64,15 +67,59 @@ export function InformeView({ evaluacion, historial, usuarioId, onSaved, onBack 
     }
     catch (e) { setError(e instanceof Error ? e.message : 'No se pudo completar la acción'); } finally { setBusy(false); }
   }
+  const NIVEL_SEVERIDAD = ['Sin problema', 'Cosmético', 'Menor', 'Mayor', 'Crítico'];
+  /** F38: primero los problemas a mejorar, de mayor a menor severidad; luego los que quedaron por revisar o descartados. */
+  const orden = (d: string) => d === 'ACEPTADO' ? 0 : d === 'PENDIENTE' ? 1 : 2;
+  const hallazgos = [...informe.consenso.hallazgos].sort((a, b) => orden(a.decision) - orden(b.decision) || b.severidad - a.severidad);
+  const secciones = [
+    { id: 'inf-resultado', titulo: 'Resultado' },
+    { id: 'inf-mejoras', titulo: 'Qué se puede mejorar' },
+    ...(cumplimiento ? [{ id: 'inf-cumplimiento', titulo: 'Cumplimiento' }] : []),
+    ...(positivos.length ? [{ id: 'inf-positivos', titulo: 'Lo que funciona bien' }] : []),
+    ...(mejoras.length ? [{ id: 'inf-antes-despues', titulo: 'Antes y después' }] : []),
+    ...(conclusion ? [{ id: 'inf-conclusion', titulo: 'Conclusión' }] : []),
+    { id: 'inf-detalle', titulo: 'Detalle' },
+    ...(evaluacion.fase === 'FINALIZADA' ? [{ id: 'inf-comparacion', titulo: 'Comparación' }] : []),
+  ];
   return <>
     <button type="button" className="secondary hf-volver" onClick={async () => { if (!leaveGuard.current || await leaveGuard.current()) onBack(); }}><span aria-hidden="true">←</span> Volver</button>
-    <div className="page-head"><div><h2>Informe · {config.nombre}</h2><p>{evaluacion.fase === 'FINALIZADA' ? 'Informe final inmutable' : 'Informe consolidado pendiente de finalización'} · Revisión {informe.version}</p></div><span className="badge">{evaluacion.fase}</span></div>
-    <section className="panel"><div className="panel-head"><h2>Resultado de la revisión</h2></div><dl className="hx-stats"><div><dt>Criterios evaluados</dt><dd>{resumen.evaluados}/{config.metodologia.criterios.length}</dd></div><div><dt>No aplica</dt><dd>{resumen.noAplica}</dd></div><div><dt>Pendientes</dt><dd>{resumen.pendientes}</dd></div><div><dt>Problemas únicos aceptados</dt><dd>{resumen.totalHallazgos}</dd></div></dl>
+    {/* (1) Encabezado con estado y acciones (F38). */}
+    <div className="page-head hf-informe-encabezado"><div><h2>Informe · {config.nombre}</h2><p>{evaluacion.fase === 'FINALIZADA' ? 'Informe final inmutable' : 'Informe consolidado pendiente de finalización'} · Revisión {informe.version}</p></div><span className="badge">{evaluacion.fase}</span>
+      <div className="hf-actions hf-informe-acciones"><button type="button" className="secondary" disabled={busy} onClick={() => { setPdfError(''); setPdfOpen(true); }}>Descargar informe PDF</button>
+        {evaluacion.coordinadorId === usuarioId && (evaluacion.fase === 'CONSOLIDADA' ? <button type="button" className="primary" disabled={busy} onClick={() => void action('finalizar')}>Finalizar informe</button> : <button type="button" className="primary" disabled={busy} onClick={() => void action('version')}>Crear nueva revisión independiente</button>)}</div></div>
+    {error && <p role="alert" className="hf-error">{error}</p>}
+    <nav className="hf-informe-indice" aria-label="Secciones del informe"><ul>{secciones.map(x => <li key={x.id}><a href={`#${x.id}`}>{x.titulo}</a></li>)}</ul></nav>
+    {/* (2) Resultado en cifras. */}
+    <section className="panel" id="inf-resultado" aria-labelledby="inf-resultado-t"><div className="panel-head"><h2 id="inf-resultado-t">Resultado de la revisión</h2><InfoTip label="Ayuda: resultado" visibleLabel="¿Cómo leer esto?" align="start">Un criterio puede tener varios hallazgos o ninguno: por eso esta cifra no coincide con la cantidad de criterios con problema.</InfoTip></div><dl className="hx-stats"><div><dt>Criterios evaluados</dt><dd>{resumen.evaluados}/{config.metodologia.criterios.length}</dd></div><div><dt>No aplica</dt><dd>{resumen.noAplica}</dd></div><div><dt>Pendientes</dt><dd>{resumen.pendientes}</dd></div><div><dt>Hallazgos aceptados para mejorar</dt><dd>{resumen.totalHallazgos}</dd></div></dl>
       <details><summary>Ver respuestas y gravedad de los problemas</summary><ul aria-label="Distribución de valoraciones">{resumen.porCategoria.map(c => <li key={c.id}>{c.etiqueta}: {c.count}</li>)}</ul>{resumen.porEscala.map(g => <ul key={g.fuente + g.tipo + g.distribucion.map(n => n.id).join()} aria-label={`Distribución con escala propia: ${g.fuente}`}>{g.distribucion.map(n => <li key={n.id}>{n.etiqueta}: {n.count} (escala propia: {g.fuente})</li>)}</ul>)}<ul aria-label="Distribución de severidad">{resumen.porSeveridad.map((count, i) => <li key={i}>Severidad {i}: {count}</li>)}</ul>
       {resumen.formula && <p>Índice: {resumen.indice ?? 'No calculable'} · Fórmula: {resumen.formula} · Denominador: {resumen.denominador}</p>}
       </details>
     </section>
-    <details className="panel" open><summary>Ver qué se revisó y quién participó</summary>
+    {/* (3) Lo más importante: qué mejorar, abierto y por severidad. */}
+    <section className="panel" id="inf-mejoras" aria-labelledby="inf-mejoras-t"><div className="panel-head"><h2 id="inf-mejoras-t">Qué se puede mejorar</h2></div>
+      {!hallazgos.length && <p>La revisión acordada no identificó problemas de usabilidad.</p>}
+      {hallazgos.map(h => <article className="finding hf-hallazgo-tarjeta" key={h.id} data-severidad={h.severidad}>
+        <h3>{h.titulo}</h3>
+        <p className="hf-hallazgo-meta"><span className={`badge hf-severidad hf-severidad-${h.severidad}`}>Severidad {h.severidad} · {NIVEL_SEVERIDAD[h.severidad]}</span> <span>Prioridad {h.prioridad}</span> <span>{h.decision === 'ACEPTADO' ? 'Mejorar' : h.decision === 'DESCARTADO' ? 'Descartado' : 'Por revisar'}</span></p>
+        {h.decision === 'ACEPTADO' && <>{h.recomendacion && <p><strong>Recomendación:</strong> {h.recomendacion}</p>}<p>{h.pantalla ? `${h.pantalla}: ` : ''}{h.descripcion}</p></>}
+        <details><summary>Evidencia y notas</summary><p>Origen: {origenHallazgo(h) === 'equipo' ? 'Nuevo del equipo' : h.origenIds.join(', ')} · {h.justificacion}</p>{h.notas && <p>{h.notas}</p>}{h.decision === 'ACEPTADO' && <EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={h.evidenciaIds} editable={false} />}</details>
+      </article>)}
+    </section>
+    {/* (4) Cumplimiento y criterios con problema o cumplidos. */}
+    {cumplimiento && <section className="panel" id="inf-cumplimiento" aria-labelledby="inf-cumplimiento-t"><div className="panel-head"><h2 id="inf-cumplimiento-t">Cumplimiento</h2><InfoTip label="Ayuda: cumplimiento" visibleLabel="¿Cómo leer esto?" align="start">{TECNICAS_INFO['evaluacion-heuristica'].ayudaGraficos.cumplimiento}</InfoTip></div><p>El porcentaje compara aciertos y problemas. No incluye respuestas neutras, sin evaluar ni «No aplica».</p>
+      <div className="hf-table"><table><thead><tr><th>Categoría</th><th>Cumplimiento</th></tr></thead><tbody>{cumplimiento.porCategoria.map(c => <tr key={c.categoria}><td>{c.categoria}</td><td>{textoCumplimiento(c)}</td></tr>)}<tr><th scope="row">Total</th><td>{textoCumplimiento(cumplimiento.total)}</td></tr></tbody></table></div></section>}
+    <ResumenCriterios configuracion={config} consenso={informe.consenso} />
+    {/* (5) Lo que funciona bien. */}
+    {positivos.length > 0 && <section className="panel" id="inf-positivos" aria-labelledby="inf-positivos-t"><div className="panel-head"><h2 id="inf-positivos-t">Lo que funciona bien</h2></div>{positivos.map(p => <article className="finding" key={p.id}><h3>{p.titulo}</h3>{p.descripcion && <p>{p.descripcion}</p>}{!!p.evidenciaIds?.length && <EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={p.evidenciaIds} editable={false} />}</article>)}</section>}
+    {/* (6) Antes y después. */}
+    {mejoras.length > 0 && <section className="panel" id="inf-antes-despues" aria-labelledby="inf-antes-despues-t"><div className="panel-head"><h2 id="inf-antes-despues-t">Antes y después</h2></div>{mejoras.map((m, i) => <article className="finding" key={m.id}><h3>{i + 1}. {m.titulo}</h3>{m.descripcion && <p className="hf-texto-multilinea">{m.descripcion}</p>}
+      <h4>Antes</h4>{m.antesIds.length ? <EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={m.antesIds} editable={false} /> : <p>Sin capturas.</p>}
+      <h4>Después</h4>{m.despuesIds.length ? <EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={m.despuesIds} editable={false} /> : <p>Sin capturas.</p>}</article>)}</section>}
+    {/* (7) Conclusión. */}
+    {conclusion && <section className="panel" id="inf-conclusion" aria-labelledby="inf-conclusion-t"><div className="panel-head"><h2 id="inf-conclusion-t">Conclusión y recomendaciones finales</h2></div><p className="hf-texto-multilinea">{conclusion}</p></section>}
+    {/* (8) Detalle: alcance, participantes y respuestas, plegados. */}
+    <section className="panel" id="inf-detalle" aria-labelledby="inf-detalle-t"><div className="panel-head"><h2 id="inf-detalle-t">Detalle</h2></div>
+    <details><summary>Ver qué se revisó y quién participó</summary>
       <section aria-labelledby="inf-que"><h3 id="inf-que">Qué se evaluó</h3><dl className="hx-stats">
         <Dato etiqueta="Producto" valor={[config.producto.nombre, config.producto.version && `versión ${config.producto.version}`].filter(Boolean).join(', ')} />
         <Dato etiqueta="Dirección web" valor={config.producto.url} /><Dato etiqueta="Dispositivo" valor={config.producto.dispositivo} />
@@ -97,21 +144,24 @@ export function InformeView({ evaluacion, historial, usuarioId, onSaved, onBack 
       </dl>
       <ul aria-label="Confirmación por persona">{participacion.confirmaciones.map(c => <li key={c.id}>{c.nombre}: {c.confirmo ? 'confirmó el acuerdo' : 'falta confirmar'}</li>)}</ul></section>
     </details>
-    {cumplimiento && <section className="panel"><div className="panel-head"><h2>Cumplimiento</h2><InfoTip label="Ayuda: cumplimiento" visibleLabel="¿Cómo leer esto?" align="start">{TECNICAS_INFO['evaluacion-heuristica'].ayudaGraficos.cumplimiento}</InfoTip></div><p>El porcentaje compara aciertos y problemas. No incluye respuestas neutras, sin evaluar ni «No aplica».</p>
-      <div className="hf-table"><table><thead><tr><th>Categoría</th><th>Cumplimiento</th></tr></thead><tbody>{cumplimiento.porCategoria.map(c => <tr key={c.categoria}><td>{c.categoria}</td><td>{textoCumplimiento(c)}</td></tr>)}<tr><th scope="row">Total</th><td>{textoCumplimiento(cumplimiento.total)}</td></tr></tbody></table></div></section>}
-    <ResumenCriterios configuracion={config} consenso={informe.consenso} />
-    <details className="panel"><summary>Ver respuestas y razones del equipo, pregunta por pregunta</summary><div className="hf-table"><table><thead><tr><th>Criterio / origen</th><th>Acuerdo</th><th>Justificación</th></tr></thead><tbody>{config.metodologia.criterios.map(c => { const r = informe.consenso.criterios.find(r => r.criterioId === c.id); return <tr key={c.id}><td>{c.nombre}<br />{c.origen.autor} · {c.origen.version}<br /><Fuente value={c.origen.fuente} /></td><td>{r?.noAplica ? `No aplica${r.motivo ? `: ${r.motivo}` : ''}` : escalaDe(config.metodologia, c).niveles.find(n => n.id === r?.valor)?.etiqueta ?? 'Pendiente'}</td><td>{r?.justificacion}<br />{r?.notas}</td></tr>; })}</tbody></table></div></details>
-    {positivos.length > 0 && <details className="panel"><summary>Ver lo que funciona bien</summary>{positivos.map(p => <article className="finding" key={p.id}><h3>{p.titulo}</h3>{p.descripcion && <p>{p.descripcion}</p>}</article>)}</details>}
-    <section className="panel"><div className="panel-head"><h2>Qué se puede mejorar</h2></div>{informe.consenso.hallazgos.map(h => <details className="finding" key={h.id}><summary>{h.titulo} · {h.decision === 'ACEPTADO' ? 'Mejorar' : h.decision === 'DESCARTADO' ? 'Descartado' : 'Por revisar'}</summary><p>Origen: {origenHallazgo(h) === 'equipo' ? 'Nuevo del equipo' : h.origenIds.join(', ')} · {h.justificacion}</p>{h.decision === 'ACEPTADO' && <><p>{h.pantalla}: {h.descripcion}</p><p>Severidad {h.severidad} · Prioridad {h.prioridad}</p><p>Recomendación: {h.recomendacion}</p><p>{h.notas}</p><EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={h.evidenciaIds} editable={false} /></>}</details>)}</section>
-    {mejoras.length > 0 && <details className="panel"><summary>Ver imágenes de antes y después</summary>{mejoras.map((m, i) => <article className="finding" key={m.id}><h3>{i + 1}. {m.titulo}</h3>{m.descripcion && <p style={{ whiteSpace: 'pre-wrap' }}>{m.descripcion}</p>}
-      <h4>Antes</h4>{m.antesIds.length ? <EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={m.antesIds} editable={false} /> : <p>Sin capturas.</p>}
-      <h4>Después</h4>{m.despuesIds.length ? <EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={m.despuesIds} editable={false} /> : <p>Sin capturas.</p>}</article>)}</details>}
-    {conclusion && <section className="panel"><div className="panel-head"><h2>Conclusión y recomendaciones finales</h2></div><p style={{ whiteSpace: 'pre-wrap' }}>{conclusion}</p></section>}
-    <div className="hf-actions"><button type="button" className="secondary" disabled={busy} onClick={async () => { setBusy(true); setError(''); try { const { exportarInformeFlujoPdf } = await import('./informe-pdf'); await exportarInformeFlujoPdf(evaluacion.proyectoId, evaluacion); } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo generar PDF'); } finally { setBusy(false); } }}>Descargar informe PDF</button>
-      {evaluacion.coordinadorId === usuarioId && (evaluacion.fase === 'CONSOLIDADA' ? <button type="button" className="primary" disabled={busy} onClick={() => void action('finalizar')}>Finalizar informe</button> : <button type="button" className="primary" disabled={busy} onClick={() => void action('version')}>Crear nueva revisión independiente</button>)}</div>
-    {evaluacion.fase === 'FINALIZADA' && <details className="panel"><summary>Comparar con una revisión anterior</summary><Field label="Comparar con evaluación finalizada del mismo producto"><select value={previaId} onChange={async e => { const id = e.target.value; if (!leaveGuard.current || await leaveGuard.current()) setPreviaId(id); }}><option value="">Seleccionar evaluación anterior</option>{opciones.map(e => <option key={e.id} value={e.id}>{e.configuracion.nombre} · {e.configuracion.producto.version} · {new Date(e.finalizadoEn ?? e.updatedAt).toLocaleDateString()}</option>)}</select></Field>
+    <details><summary>Ver respuestas y razones del equipo, pregunta por pregunta</summary><div className="hf-table"><table><thead><tr><th>Criterio / origen</th><th>Acuerdo</th><th>Justificación</th></tr></thead><tbody>{config.metodologia.criterios.map(c => { const r = informe.consenso.criterios.find(r => r.criterioId === c.id); return <tr key={c.id}><td>{c.nombre}<br />{c.origen.autor} · {c.origen.version}<br /><Fuente value={c.origen.fuente} /></td><td>{r?.noAplica ? `No aplica${r.motivo ? `: ${r.motivo}` : ''}` : escalaDe(config.metodologia, c).niveles.find(n => n.id === r?.valor)?.etiqueta ?? 'Pendiente'}</td><td>{r?.justificacion}<br />{r?.notas}</td></tr>; })}</tbody></table></div></details>
+    </section>
+    {/* (9) Comparación con la versión anterior. */}
+    {evaluacion.fase === 'FINALIZADA' && <section className="panel" id="inf-comparacion" aria-labelledby="inf-comparacion-t"><div className="panel-head"><h2 id="inf-comparacion-t">Comparación</h2></div><details><summary>Comparar con una revisión anterior</summary><Field label="Comparar con evaluación finalizada del mismo producto"><select value={previaId} onChange={async e => { const id = e.target.value; if (!leaveGuard.current || await leaveGuard.current()) setPreviaId(id); }}><option value="">Seleccionar evaluación anterior</option>{opciones.map(e => <option key={e.id} value={e.id}>{e.configuracion.nombre} · {e.configuracion.producto.version} · {new Date(e.finalizadoEn ?? e.updatedAt).toLocaleDateString()}</option>)}</select></Field>
       {compare.isLoading && <p role="status">Comprobando compatibilidad…</p>}{compare.error && <p role="alert" className="hf-error">{compare.error.message}</p>}
-      {compare.data && opciones.find(e => e.id === previaId) && <ComparacionEditor key={previaId} actual={evaluacion} anterior={opciones.find(e => e.id === previaId)!} comparacion={compare.data} usuarioId={usuarioId} onSaved={onSaved} registerGuard={guard => { leaveGuard.current = guard; }} />}</details>}
-    {error && <p role="alert" className="hf-error">{error}</p>}
+      {compare.data && opciones.find(e => e.id === previaId) && <ComparacionEditor key={previaId} actual={evaluacion} anterior={opciones.find(e => e.id === previaId)!} comparacion={compare.data} usuarioId={usuarioId} onSaved={onSaved} registerGuard={guard => { leaveGuard.current = guard; }} />}</details></section>}
+    {pdfOpen && <InformePdfDialog informe={informe} busy={busy} error={pdfError} onClose={() => setPdfOpen(false)} onGenerate={async partes => {
+      setBusy(true);
+      setPdfError('');
+      try {
+        const { exportarInformeFlujoPdf } = await import('./informe-pdf');
+        await exportarInformeFlujoPdf(evaluacion.proyectoId, evaluacion, { partes });
+        setPdfOpen(false);
+      } catch (cause) {
+        setPdfError(cause instanceof Error ? cause.message : 'No se pudo generar PDF');
+      } finally {
+        setBusy(false);
+      }
+    }} />}
   </>;
 }

@@ -5,11 +5,13 @@ import type { ReactNode } from 'react';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 function TestRouter({ children }: { children: ReactNode }) { return <RouterProvider router={createMemoryRouter([{ path: '*', element: children }])} />; }
 import { ProfesorSalasPage } from './ProfesorSalasPage';
+import { ConfirmDialog } from '../../../shared/components/ui/ConfirmDialog';
 
 const api = vi.hoisted(() => ({
   getSalas: vi.fn(),
   createSala: vi.fn(),
   updateSala: vi.fn(),
+  softDeleteSala: vi.fn(),
 }));
 
 const auth = vi.hoisted(() => ({
@@ -62,6 +64,7 @@ beforeEach(() => {
     },
   ]);
   api.updateSala.mockResolvedValue({ id: 'sala-1' });
+  api.softDeleteSala.mockResolvedValue({ id: 'sala-1' });
 });
 
 describe('ProfesorSalasPage — edición de sala', () => {
@@ -128,6 +131,24 @@ describe('ProfesorSalasPage — edición de sala', () => {
     expect(screen.getByRole('button', { name: 'Guardando…' })).toBeDisabled();
     finish();
     expect(await screen.findByRole('status')).toHaveTextContent('actualizada');
+  });
+
+  it('no elimina la sala hasta escribir su nombre, y la elimina cuando coincide', async () => {
+    render(
+      <TestRouter>
+        <><ProfesorSalasPage /><ConfirmDialog /></>
+      </TestRouter>,
+    );
+    await userEvent.click(await screen.findByRole('button', { name: 'Eliminar sala Sala 4' }));
+    expect(screen.getByText('¿Eliminar la sala "Sala 4"? Se puede recuperar dentro de 20 días.')).toBeVisible();
+    const campo = screen.getByLabelText('Escribe «Sala 4» para confirmar');
+    expect(screen.getByRole('button', { name: 'Confirmar' })).toBeDisabled();
+    await userEvent.type(campo, 'Sala');
+    expect(screen.getByRole('button', { name: 'Confirmar' })).toBeDisabled();
+    expect(api.softDeleteSala).not.toHaveBeenCalled();
+    await userEvent.type(campo, ' 4');
+    await userEvent.click(screen.getByRole('button', { name: 'Confirmar' }));
+    await waitFor(() => expect(api.softDeleteSala).toHaveBeenCalledWith('sala-1'));
   });
 
   it('ofrece al estudiante unirse solo a sus salas invitadas sin mostrar controles de gestión', async () => {

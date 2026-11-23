@@ -1,31 +1,13 @@
-# CIERRE FASE F3
+# FASE F3: Comentarios de heurística alineados
 
-Fecha: 2026-11-12
+Estado: hecha
+Archivos tocados: `apps/frontend/src/pages/EvaluacionHeuristicaPage.tsx`, `apps/frontend/src/features/heuristica-flujo/FlujoHeuristicaPage.tsx`, `apps/frontend/src/features/heuristica-flujo/flujo.test.tsx`.
 
-Hecho:
-- F3a: insignia determinista por sala (ocho tokens + inicial), enlace Miembros en cabecera y summary de Comentarios con icono/aspecto de botón, conservando carga diferida.
-- F3b: OptionalTag reutilizado en proyecto, sala, Persona y Journey Map; inventario de validaciones en `F3_CAMPOS_OPCIONALES.md`. No se etiqueta como opcional ningún campo obligatorio de Momentos críticos. Heurística y preguntas de card sorting ya tenían las etiquetas correspondientes.
-- Ingreso con «Una por una», «Agregar varias tarjetas/categorías/preguntas» y «Escribe una por línea.». Conserva contador, deduplicación y botón masivo con singular/plural.
+Comandos ejecutados y resultado:
+- `grep -n "EvaluacionHeuristicaPage\|comentarios=" apps/frontend/src` -> confirmado: las otras cuatro técnicas pasan `ComentariosTecnica` por el slot `comentarios` de `TechniquePage`; solo Evaluación heurística lo pintaba fuera, en `EvaluacionHeuristicaPage` (hermano de `FlujoHeuristicaPage`).
+- `pnpm --filter frontend exec vitest run src/features/heuristica-flujo src/features/comments` -> 14 archivos, 306 pruebas en verde (incluye la prueba nueva).
 
-Archivos tocados: insignia/lista/detalle de salas, ProjectDetailLayout, ComentariosTecnica, OptionalTag, formularios enumerados, CardSortingEntry, reglas puntuales de theme.css y tests.
+Cambios respecto al plan (desvíos): ninguno. `EvaluacionHeuristicaPage` queda solo con `<FlujoHeuristicaPage />`; el panel de comentarios no cambia de contenido, solo de sitio. Confirmado al ejecutar que `TechniquePage` envuelve todas las ramas de la página (carga, error, evaluación abierta e historial), así que el desplegable de Comentarios se ve siempre, también con una evaluación abierta.
 
-Contratos reales: hash unsigned base 31 del id, módulo ocho; la misma sala conserva color entre lista/detalle y temas. Ningún cambio de datos ni endpoint. Comentarios sigue montando su panel solo al abrirlo, sin consultas para conteos.
-
-Desvíos: división F3a/F3b por tamaño, según el plan. Se mantuvieron las etiquetas opcionales ya correctas; no se añadió el helper a componentes que ya tenían un patrón válido.
-
-Verificación:
-```text
-Regresión de summary, Miembros, OptionalTag y etiquetas de ingreso: fallan antes y pasan después.
-pnpm --filter frontend test SalaBadge ComentariosTecnica ProjectDetailLayout ProfesorSalasPage SalaDetalle: 24 pruebas aprobadas
-pnpm --filter frontend test OptionalTag CardSortingEntry PersonasPage JourneyMapPage ProjectsPage ProfesorSalasPage CardSortingPage: 80 pruebas aprobadas
-pnpm --filter frontend test: 75 archivos, 734 pruebas aprobadas
-pnpm --filter frontend build: built in 794ms; exit 0
-Paleta: texto blanco sobre los ocho colores entre 4.75:1 y 5.37:1.
-Colores frente a superficie oscura #182033: entre 3.03:1 y 3.42:1.
-Frente a superficie clara #fff: entre 4.75:1 y 5.37:1.
-Los bordes usan --ink para conservar delimitación en alto contraste.
-```
-
-Capturas / evidencia manual: diez capturas en `evidencias/F3`: salas (ocho insignias), cabecera de proyecto, ingreso masivo en paso 2, Persona y Journey Map. 1280 px, escala Large, claro y oscuro, API simulada. La navegación entre pasos conserva las entradas y las etiquetas.
-
-Pendientes: revisión con personas no técnicas; validación con lectores de pantalla y datos reales. La captura de página completa conserva la cabecera fija a la altura de desplazamiento que provoca el foco del formulario; no se modificó ese comportamiento previo.
+Pendientes y dudas:
+- Chromium verificó que el desplegable vive dentro de `.technique-page` en Personas y Evaluación heurística, a 375 px y escritorio. [Capturas comparadas](FASE_F3_capturas/)

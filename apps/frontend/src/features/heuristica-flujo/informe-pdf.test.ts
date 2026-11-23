@@ -10,6 +10,21 @@ function evaluacion(): EvaluacionFlujo {
   return { id: 'e1', proyectoId: 'p1', coordinadorId: 'u1', revision: 5, version: 1, anteriorId: null, fase: 'FINALIZADA', configuracion: { ...config, nombre: 'Configuración posterior' }, trabajos: [{ evaluadorId: 'u1', nombre: 'Ana', respuestas: [], hallazgos: [{ ...finding, titulo: 'Hallazgo sin consenso' }], guardadoEn: '2026-10-09', entregadoEn: '2026-10-09' }], consenso, informe: { version: 1, configuracion: config, consenso, evaluadores: [{ id: 'u1', nombre: 'Ana' }], iniciadoEn: '2026-10-09', consolidadoEn: '2026-10-09', finalizadoEn: '2026-10-09' }, comparacion: null, createdAt: '2026-10-09', updatedAt: '2026-10-09', iniciadoEn: '2026-10-09', consolidadoEn: '2026-10-09', finalizadoEn: '2026-10-09' };
 }
 describe('Informe consolidado PDF', () => {
+  it('limita el contenido a la portada y los hallazgos aceptados cuando se elige ese bloque', () => {
+    const ev = evaluacion();
+    const pdf = construirInformeFlujoPdf(ev, new Map(), new Date('2026-10-09T12:00:00Z'), undefined, { partes: ['hallazgos'] });
+    const contenido = JSON.stringify(pdf.content);
+    expect(contenido).toContain('Informe acordado');
+    expect(contenido).toContain('Error acordado');
+    expect(contenido).not.toMatch(/Cobertura y resultados|Criterios y decisiones acordadas|Decisiones de revisión|Cumplimiento/);
+  });
+  it('una selección explícita de todas las partes equivale al informe habitual', () => {
+    const ev = evaluacion();
+    const fecha = new Date('2026-10-09T12:00:00Z');
+    const todas = ['resumen', 'cumplimiento', 'criterios', 'hallazgos', 'positivos', 'mejoras', 'conclusion'];
+    expect(JSON.stringify(construirInformeFlujoPdf(ev, new Map(), fecha, undefined, { partes: todas })))
+      .toBe(JSON.stringify(construirInformeFlujoPdf(ev, new Map(), fecha)));
+  });
   it('usa el snapshot del informe y cuenta únicamente problemas aceptados', () => {
     const ev = evaluacion();
     ev.informe!.consenso.hallazgos.push({ ...finding, id: 'descartado', titulo: 'Problema descartado', decision: 'DESCARTADO' });
@@ -86,6 +101,16 @@ describe('Informe PDF: aspectos positivos y conclusión', () => {
     ev.informe!.consenso.conclusion = 'Corregir el formulario antes de publicar.';
     const contenido = JSON.stringify(construirInformeFlujoPdf(ev, new Map(), new Date('2026-10-09T12:00:00Z')).content);
     for (const texto of ['Aspectos positivos', 'Menú claro', 'Etiquetas comprensibles.', 'Conclusión y recomendaciones finales', 'Corregir el formulario antes de publicar.']) expect(contenido).toContain(texto);
+  });
+  it('incluye las capturas del aspecto positivo y las omite si no se eligió esa parte', () => {
+    const ev = evaluacion();
+    ev.informe!.consenso.positivos = [{ id: 'pos1', titulo: 'Menú claro', descripcion: '', evidenciaIds: ['capPos'] }];
+    const capturas = new Map([['capPos', 'data:image/png;base64,AAAA']]);
+    const pdf = construirInformeFlujoPdf(ev, capturas, new Date('2026-10-09T12:00:00Z'));
+    expect(pdf.images).toHaveProperty('evidencia-capPos');
+    expect(JSON.stringify(pdf.content)).toContain('"image":"evidencia-capPos"');
+    const sinPositivos = construirInformeFlujoPdf(ev, capturas, new Date('2026-10-09T12:00:00Z'), undefined, { partes: ['hallazgos'] });
+    expect(sinPositivos.images).not.toHaveProperty('evidencia-capPos');
   });
 });
 

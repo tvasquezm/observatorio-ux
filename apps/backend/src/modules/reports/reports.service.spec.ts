@@ -26,10 +26,24 @@ describe('ReportsService', () => {
     findUnique.mockResolvedValue(project);
   });
 
-  it('genera un PDF real con las fuentes incluidas en la dependencia', async () => {
+  it('genera un PDF real con las fuentes académicas locales', async () => {
     const pdf = await service.generatePdf('p1', user);
     expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
     expect(pdf.subarray(-20).toString()).toContain('%%EOF');
+  });
+
+  it('presenta datos anidados con etiquetas legibles y conserva ceros, negativos y listas', async () => {
+    findUnique.mockResolvedValue({ ...project, artefactos: [{
+      tipo: 'PERSONA', version: 1, autor: project.creadoPor, createdAt: project.createdAt,
+      artefactoLogicoId: 'a1', contenido: { nombreCompleto: 'Ana Pérez', edad: 0, validada: false,
+        necesidades: ['Leer sin ampliar', 'Usar teclado'], contextoDeUso: { frecuencia: -1 }, evidencia: [] },
+    }] });
+    const printer = jest.spyOn(PdfPrinter.prototype, 'createPdfKitDocument');
+    await service.generatePdf('p1', user);
+    const content = JSON.stringify(printer.mock.calls[0][0].content);
+    for (const text of ['nombre completo', 'Ana Pérez', 'Leer sin ampliar', 'Usar teclado', 'contexto de uso', 'Sin registros.']) expect(content).toContain(text);
+    for (const text of ['0', 'false', '-1']) expect(content).toContain(`"text":"${text}"`);
+    expect(content).not.toContain('\\n  \\"nombreCompleto');
   });
 
   it('rechaza el acceso al proyecto antes de consultar datos para JSON o PDF', async () => {

@@ -62,7 +62,6 @@ model Proyecto {
   sesiones            ResearchSession[]
   evaluacionesHeuristicas EvaluacionHeuristicaCompleta[]
   artefactos          UxArtifact[]
-  whitelist           ParticipanteWhitelist[]
   miembros            ProyectoMiembro[]
   comentarios         Comentario[]
   participantesAcceso Participante[]
@@ -93,13 +92,18 @@ model Usuario {
   nombre       String
   email        String   @unique
   passwordHash String?
+  googleSubject String? @unique
+  /// F35: cuenta desactivada por la administración (no entra; sus datos se conservan).
+  desactivadoEn DateTime?
   rol          Rol
+  // Versión de sesión: se sube al cerrar sesión y al cambiar la contraseña.
+  // Los JWT del evaluador llevan `sv` y se comparan contra este valor.
+  sesionVersion Int     @default(0)
   createdAt    DateTime @default(now())
 
   proyectosCreados  Proyecto[]              @relation("ProyectosCreados")
   sesionesEvaluador ResearchSession[]       @relation("SesionesComoEvaluador")
   artefactosAutor   UxArtifact[]            @relation("ArtefactosComoAutor")
-  whitelistCreada   ParticipanteWhitelist[]
   proyectosMiembro  ProyectoMiembro[]
   comentariosAutor  Comentario[]            @relation("ComentariosComoAutor")
   equiposCreados    Equipo[]                @relation("EquiposCreados")
@@ -125,31 +129,9 @@ model Participante {
   consentimientos   Consentimiento[]
   sesiones          ResearchSession[]       @relation("SesionesComoParticipante")
   categoriasCreadas Category[]
-  whitelistEntries  ParticipanteWhitelist[]
 
   @@index([proyectoId, createdAt])
   @@map("participantes")
-}
-
-model ParticipanteWhitelist {
-  id                   String   @id @default(uuid())
-  proyecto             Proyecto @relation(fields: [proyectoId], references: [id])
-  proyectoId           String
-  email                String
-  nombre               String?
-  usado                Boolean  @default(false)
-  codigoInvitacionHash String?
-
-  participante   Participante? @relation(fields: [participanteId], references: [id])
-  participanteId String?
-
-  creadoPor   Usuario  @relation(fields: [creadoPorId], references: [id])
-  creadoPorId String
-  createdAt   DateTime @default(now())
-
-  @@unique([proyectoId, email])
-  @@index([proyectoId, participanteId])
-  @@map("participantes_whitelist")
 }
 
 // Consentimiento informado

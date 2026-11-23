@@ -63,7 +63,6 @@ export function CardSortingDendrogram({ tarjetas, similitud }: { tarjetas: strin
           aria-label={`Dendrograma de ${tarjetas.length} tarjetas, enlace promedio`}
           viewBox={`0 0 ${ancho} ${alto}`}
           className="cs-dendro-svg"
-          style={{ maxWidth: ancho }}
         >
           {orden.map((indice) => (
             <text key={indice} x={ETIQUETA_W - 8} y={(yHoja.get(indice) ?? 0) + 4} textAnchor="end" className="cs-dendro-label">

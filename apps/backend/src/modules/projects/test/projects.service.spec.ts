@@ -26,11 +26,6 @@ describe('ProjectsService', () => {
       findUnique: jest.Mock;
     };
     salaEstudiante: { findUnique: jest.Mock };
-    participanteWhitelist: {
-      findUnique: jest.Mock;
-      create: jest.Mock;
-      update: jest.Mock;
-    };
   };
 
   const DUEÑO_ID = 'usuario-dueño';
@@ -64,11 +59,6 @@ describe('ProjectsService', () => {
         findUnique: jest.fn(),
       },
       salaEstudiante: { findUnique: jest.fn() },
-      participanteWhitelist: {
-        findUnique: jest.fn(),
-        create: jest.fn(),
-        update: jest.fn(),
-      },
     };
 
     const moduleRef = await Test.createTestingModule({
@@ -293,28 +283,6 @@ describe('ProjectsService', () => {
       await expect(service.findOne('no-existe', userDueño)).rejects.toBeInstanceOf(
         NotFoundException,
       );
-    });
-  });
-
-  describe('invitaciones de participantes', () => {
-    it('devuelve el código una sola vez y almacena únicamente su hash', async () => {
-      prisma.proyecto.findUnique.mockResolvedValue(proyectoDeEjemplo);
-      prisma.participanteWhitelist.findUnique.mockResolvedValue(null);
-      prisma.participanteWhitelist.create.mockResolvedValue({ id: 'invitacion-1' });
-
-      const result = await service.addToWhitelist(
-        PROYECTO_ID,
-        { participantes: [{ email: ' Persona@Ejemplo.cl ' }] },
-        userDueño,
-      );
-
-      expect(result.agregados).toBe(1);
-      expect(result.invitaciones[0].email).toBe('persona@ejemplo.cl');
-      expect(result.invitaciones[0].codigoInvitacion.length).toBeGreaterThanOrEqual(16);
-
-      const data = prisma.participanteWhitelist.create.mock.calls[0][0].data;
-      expect(data.codigoInvitacionHash).toMatch(/^[a-f0-9]{64}$/);
-      expect(data.codigoInvitacionHash).not.toBe(result.invitaciones[0].codigoInvitacion);
     });
   });
 

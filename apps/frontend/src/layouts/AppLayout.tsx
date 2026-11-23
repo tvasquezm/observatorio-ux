@@ -7,7 +7,9 @@ import { canSwitchPerspective, canViewAnalytics, canViewSalas, resolvePerspectiv
 import { ProfilePerspectiveSwitcher } from '../shared/components/ProfilePerspectiveSwitcher';
 import { PerspectivePreviewNotice } from '../shared/components/PerspectivePreviewNotice';
 import { ChangePasswordForm } from '../features/auth/components/ChangePasswordForm';
+import { useAccesoConfig } from '../features/auth/hooks/useAccesoConfig';
 import { SessionExpiryDialog } from '../features/auth/components/SessionExpiryDialog';
+import { FontSizeQuickAccess } from './FontSizeQuickAccess';
 const ExportReportDialog = lazy(() => import('../features/reports/ExportReportDialog').then((module) => ({ default: module.ExportReportDialog })));
 
 const NAV_ITEMS = [
@@ -39,6 +41,7 @@ const CRUMB_LABELS: Record<string, string> = {
 export function AppLayout() {
   useEffect(() => { sessionStorage.removeItem('observatorio-ux-returnTo'); }, []);
   const { user, perspectiveRole, setPerspective, logout } = useAuthStore();
+  const { conContrasena } = useAccesoConfig();
   const location = useLocation();
   const navigate = useNavigate();
   const [darkMode, setDarkMode] = useState(() => {
@@ -57,6 +60,13 @@ export function AppLayout() {
     return FONT_SIZES.some((size) => size.value === saved) ? (saved as FontSize) : 'normal';
   });
   const fontSizeIndex = FONT_SIZES.findIndex((size) => size.value === fontSize);
+  const fontSizeControls = {
+    percent: FONT_SIZES[fontSizeIndex].percent,
+    canDecrease: fontSizeIndex > 0,
+    canIncrease: fontSizeIndex < FONT_SIZES.length - 1,
+    onDecrease: () => setFontSize(FONT_SIZES[fontSizeIndex - 1].value),
+    onIncrease: () => setFontSize(FONT_SIZES[fontSizeIndex + 1].value),
+  };
   const crumb = CRUMB_LABELS[location.pathname] ?? (location.pathname.startsWith('/salas/') ? 'Detalle de sala' : 'Proyectos');
   const preferencesRef = useRef<HTMLDialogElement>(null);
   const sidebarRef = useRef<HTMLElement>(null);
@@ -180,13 +190,14 @@ export function AppLayout() {
         <div className="top">
           <nav className="crumb" aria-label="Ubicación general"><Link to="/">Inicio</Link>{location.pathname !== '/' && <><span aria-hidden="true">›</span><strong>{crumb}</strong></>}</nav>
           <div className="top-actions">
-            <button type="button" className="secondary" aria-haspopup="dialog" onClick={() => preferencesRef.current?.showModal()}>
-              Preferencias
+            <FontSizeQuickAccess {...fontSizeControls} />
+            <button type="button" className="ghost" aria-haspopup="dialog" onClick={() => preferencesRef.current?.showModal()}>
+              Configuración
             </button>
-            <dialog ref={preferencesRef} className="report-dialog preferences-dialog" aria-labelledby="preferences-title">
+            <dialog ref={preferencesRef} className="report-dialog preferences-dialog" aria-labelledby="settings-title">
               <div className="preferences-heading">
-                <h2 id="preferences-title">Preferencias</h2>
-                <button type="button" className="secondary" aria-label="Cerrar preferencias" onClick={() => preferencesRef.current?.close()}>✕</button>
+                <h2 id="settings-title">Configuración</h2>
+                <button type="button" className="secondary" aria-label="Cerrar configuración" onClick={() => preferencesRef.current?.close()}>✕</button>
               </div>
               <div className="preferences-panel">
             {user && activeRole && canSwitchPerspective(user.rol) && (
@@ -215,39 +226,13 @@ export function AppLayout() {
             >
               Alto contraste
             </button>
-            <div className="font-size-picker" role="group" aria-label="Tamaño del texto">
-              <span className="font-size-picker-label" aria-hidden="true">Tamaño del texto</span>
-              <div className="font-size-picker-options">
-                <button
-                  type="button"
-                  className="theme-toggle"
-                  data-size="down"
-                  aria-label="Reducir tamaño del texto"
-                  disabled={fontSizeIndex === 0}
-                  onClick={() => setFontSize(FONT_SIZES[fontSizeIndex - 1].value)}
-                >
-                  A−
-                </button>
-                <output className="font-size-picker-value" aria-live="polite">{FONT_SIZES[fontSizeIndex].percent} %</output>
-                <button
-                  type="button"
-                  className="theme-toggle"
-                  data-size="up"
-                  aria-label="Aumentar tamaño del texto"
-                  disabled={fontSizeIndex === FONT_SIZES.length - 1}
-                  onClick={() => setFontSize(FONT_SIZES[fontSizeIndex + 1].value)}
-                >
-                  A+
-                </button>
-              </div>
             </div>
-            </div>
-            {user && <ChangePasswordForm />}
+            {user && conContrasena && <details className="password-collapse"><summary>Cambiar contraseña</summary><ChangePasswordForm /></details>}
               </div>
             </dialog>
             <button
               type="button"
-              className="secondary"
+              className="ghost"
               onClick={() => setExportOpen(true)}
             >
               Exportar PDF

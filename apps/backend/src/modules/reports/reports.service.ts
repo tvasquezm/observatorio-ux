@@ -1,13 +1,10 @@
-import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import PdfPrinter from 'pdfmake';
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces.js';
 import { PrismaService } from '../../core/database/prisma.service.js';
 import { ProjectAccessService } from '../../core/access/project-access.service.js';
 import { AuthenticatedUser } from '../auth/types/authenticated-user.interface.js';
-
-// ESM no trae `require`: pdfmake/build/vfs_fonts es CommonJS.
-const requireCjs = createRequire(import.meta.url);
 
 @Injectable()
 export class ReportsService {
@@ -131,19 +128,25 @@ export class ReportsService {
   async generatePdf(proyectoId: string, user: AuthenticatedUser): Promise<Buffer> {
     const report = await this.buildReport(proyectoId, user);
 
-    const vfs: Record<string, string> = requireCjs('pdfmake/build/vfs_fonts');
     const fonts = {
-      Roboto: {
-        normal: Buffer.from(vfs['Roboto-Regular.ttf'], 'base64'),
-        bold: Buffer.from(vfs['Roboto-Medium.ttf'], 'base64'),
-        italics: Buffer.from(vfs['Roboto-Italic.ttf'], 'base64'),
-        bolditalics: Buffer.from(vfs['Roboto-MediumItalic.ttf'], 'base64'),
+      LatinModern: {
+        normal: readFileSync(new URL('./fonts/lmroman10-regular.otf', import.meta.url)),
+        bold: readFileSync(new URL('./fonts/lmroman10-bold.otf', import.meta.url)),
+        italics: readFileSync(new URL('./fonts/lmroman10-italic.otf', import.meta.url)),
+        bolditalics: readFileSync(new URL('./fonts/lmroman10-bolditalic.otf', import.meta.url)),
       },
     };
 
     const printer = new PdfPrinter(fonts);
 
     const document: TDocumentDefinitions = {
+      pageSize: 'A4',
+      pageMargins: [54, 72, 54, 54],
+      header: { text: 'UXLab Observatorio', fontSize: 10, bold: true, color: '#1f2d4a', margin: [54, 28, 54, 0] },
+      footer: (page, total) => ({ columns: [
+        { text: 'Observatorio UX · Evidencia de investigación', color: '#5c6b7f', fontSize: 8 },
+        { text: `${page} / ${total}`, alignment: 'right', color: '#5c6b7f', fontSize: 8 },
+      ], margin: [54, 18, 54, 0] }),
       info: {
         title: `Reporte de proyecto - ${report.proyecto.nombre}`,
         author: 'Observatorio UX',
@@ -193,53 +196,60 @@ export class ReportsService {
         {
           text: 'Sesiones de investigación',
           style: 'section',
-          pageBreak: report.artefactos.length > 0 ? 'before' : undefined,
         },
         ...this.buildSessionsContent(report.sesiones),
 
         {
           text: 'Comentarios y retroalimentación',
           style: 'section',
-          pageBreak: report.sesiones.length > 0 ? 'before' : undefined,
         },
         ...this.buildCommentsContent(report.comentarios),
       ],
       styles: {
         title: {
-          fontSize: 22,
+          fontSize: 9,
           bold: true,
-          margin: [0, 0, 0, 8],
+          color: '#3049b2',
+          characterSpacing: 1,
+          margin: [0, 12, 0, 12],
         },
         projectName: {
-          fontSize: 18,
+          font: 'LatinModern',
+          fontSize: 25,
+          alignment: 'center',
           bold: true,
-          margin: [0, 0, 0, 8],
+          margin: [0, 0, 0, 16],
         },
         description: {
           fontSize: 10,
-          color: '#555555',
+          color: '#5c6b7f',
         },
         section: {
-          fontSize: 15,
+          font: 'LatinModern',
+          fontSize: 20,
           bold: true,
-          margin: [0, 16, 0, 10],
+          margin: [0, 24, 0, 12],
         },
         subsection: {
-          fontSize: 11,
+          font: 'LatinModern',
+          fontSize: 15,
           bold: true,
-          margin: [0, 8, 0, 5],
+          margin: [0, 18, 0, 8],
         },
         body: {
-          fontSize: 9,
+          fontSize: 10.5,
         },
+        dataLabel: { fontSize: 8.5, bold: true, color: '#5c6b7f', margin: [0, 3, 0, 3] },
         small: {
           fontSize: 8,
-          color: '#555555',
+          color: '#5c6b7f',
         },
       },
       defaultStyle: {
-        font: 'Roboto',
-        fontSize: 9,
+        font: 'LatinModern',
+        fontSize: 11,
+        lineHeight: 1.18,
+        color: '#222222',
       },
     };
 
@@ -283,11 +293,7 @@ export class ReportsService {
         ].join(' | '),
         style: 'small',
       },
-      {
-        text: this.stringifyJson(artefacto.contenido),
-        style: 'body',
-        margin: [0, 3, 0, 10],
-      },
+      ...this.buildDataContent(artefacto.contenido),
     ]);
   }
 
@@ -320,11 +326,7 @@ export class ReportsService {
       },
       ...(sesion.resultado
         ? [
-            {
-              text: this.stringifyJson(sesion.resultado),
-              style: 'body',
-              margin: [0, 3, 0, 10],
-            } as Content,
+            ...this.buildDataContent(sesion.resultado),
           ]
         : [
             {
@@ -333,15 +335,11 @@ export class ReportsService {
               margin: [0, 3, 0, 10],
             } as Content,
           ]),
-      ...(sesion.tipo === 'CARD_SORTING' ? [{
-        text: this.stringifyJson({
+      ...(sesion.tipo === 'CARD_SORTING' ? this.buildDataContent({
           tarjetas: sesion.cardsDefinidas,
           categorias: sesion.categoriasDefinidas,
           agrupaciones: sesion.agrupaciones,
-        }),
-        style: 'body',
-        margin: [0, 3, 0, 10],
-      } as Content] : []),
+        }) : []),
     ]);
   }
 
@@ -377,20 +375,22 @@ export class ReportsService {
     ]);
   }
 
-  private stringifyJson(value: unknown): string {
-    if (value === null || value === undefined) {
-      return 'Sin información.';
+  private buildDataContent(value: unknown): Content[] {
+    if (Array.isArray(value)) {
+      return value.length ? value.flatMap((item, index): Content[] => [
+        ...(typeof item === 'object' && item !== null ? [{ text: `Registro ${index + 1}`, style: 'dataLabel' } as Content] : []),
+        ...this.buildDataContent(item),
+      ]) : [{ text: 'Sin registros.', style: 'small', margin: [0, 0, 0, 8] }];
     }
-
-    if (typeof value === 'string') {
-      return value;
+    if (value && typeof value === 'object') {
+      return Object.entries(value).map(([key, item]): Content => ({
+        stack: [
+          { text: key.replace(/([a-záéíóúñ])([A-ZÁÉÍÓÚÑ])/g, '$1 $2').replace(/_/g, ' ').toLocaleLowerCase('es'), style: 'dataLabel' },
+          ...this.buildDataContent(item),
+        ], margin: [12, 0, 0, 4],
+      }));
     }
-
-    try {
-      return JSON.stringify(value, null, 2);
-    } catch {
-      return String(value);
-    }
+    return [{ text: value == null || value === '' ? 'Sin información.' : String(value), style: 'body', margin: [0, 0, 0, 8] }];
   }
 
   private formatDate(value: Date | string): string {

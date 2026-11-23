@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule, JwtSignOptions } from '@nestjs/jwt';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AuthController } from './auth.controller.js';
+import { GoogleAuthService } from './google-auth.service.js';
 import { AuthService } from './auth.service.js';
 import { JwtStrategy } from './jwt.strategy.js';
 import { JwtParticipanteStrategy } from './jwt-participante.strategy.js';
@@ -29,6 +30,7 @@ import { ParticipantesCleanupService } from './participantes-cleanup.service.js'
   ],
   controllers: [AuthController],
   providers: [
+    GoogleAuthService,
     AuthService,
     JwtStrategy,
     JwtParticipanteStrategy,

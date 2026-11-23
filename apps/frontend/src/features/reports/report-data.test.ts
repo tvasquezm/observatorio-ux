@@ -27,6 +27,15 @@ beforeEach(() => {
 });
 
 describe('informes por técnicas', () => {
+  it('no reserva una página por cada técnica vacía y restaura el formato tras el Journey', async () => {
+    const report = await loadProjectReport('p1', REPORT_METHODS.map(({ id }) => id));
+    const sections = (buildReportDefinition(report).content as Array<{ stack?: Array<{ text?: string }>; pageBreak?: string; pageOrientation?: string }>).filter(node => node.stack?.[0].text?.startsWith('SECCIÓN'));
+    expect(sections).toHaveLength(5);
+    expect(sections[1]).toMatchObject({ pageBreak: 'before', pageOrientation: 'landscape' });
+    expect(sections[2]).toMatchObject({ pageBreak: 'before', pageOrientation: 'portrait' });
+    expect(sections[3].pageBreak).toBeUndefined();
+    expect(sections[4].pageBreak).toBeUndefined();
+  });
   it('una técnica no consulta ni imprime las otras cuatro', async () => {
     const report = await loadProjectReport('p1', ['heuristica']);
     expect(listarEvaluaciones).toHaveBeenCalledWith('p1');
@@ -58,6 +67,20 @@ describe('informes por técnicas', () => {
     const content = JSON.stringify(buildReportDefinition(report).content);
     for (const value of ['Usuaria principal', 'Consulta semanal', 'Usa lector de pantalla',
       'Entrevista del 15 de septiembre', 'Validada', 'Revisada con el equipo']) expect(content).toContain(value);
+
+    const parcial = await loadProjectReport('p1', ['personas', 'journey'], { personas: ['necesidades'], journey: [] });
+    expect(parcial.partes).toEqual({ personas: ['necesidades'] });
+    expect(parcial.methods.map(method => method.id)).toEqual(['personas']);
+    expect(listJourneys).not.toHaveBeenCalled();
+    const recortado = JSON.stringify(buildReportDefinition(parcial).content);
+    expect(recortado).toContain('Ana');
+    expect(recortado).toContain('Usuaria principal');
+    expect(recortado).not.toContain('Entrevista del 15 de septiembre');
+    expect(recortado).not.toContain('Hobbies');
+
+    const todas = await loadProjectReport('p1', ['personas'], { personas: ['visual', 'perfil', 'necesidades', 'validacion'] });
+    expect(JSON.stringify(buildReportDefinition({ ...todas, generatedAt: report.generatedAt })))
+      .toBe(JSON.stringify(buildReportDefinition(report)));
   });
 
   it('incluye el contexto, la evidencia y los nuevos campos de cada fase del Journey Map', async () => {
@@ -116,5 +139,48 @@ describe('informes por técnicas', () => {
     const content = JSON.stringify(buildReportDefinition(report).content);
     for (const value of ['Revisión del portal', 'Falta barra de progreso', 'Mostrar una barra de progreso', 'Visibilidad del estado']) expect(content).toContain(value);
     expect(content).not.toContain('Problema antiguo');
+  });
+});
+
+describe('card sorting en el informe del proyecto', () => {
+  const tarjetas = ['Becas', 'Matrícula', 'Horario', 'Notas', 'Biblioteca', 'Casino', 'Deportes', 'Salud'];
+  const categorias = ['Trámites', 'Académico', 'Vida', 'Servicios', 'Pagos', 'Ayuda', 'Otros'];
+  const analytics = {
+    estudio: { id: 'e1', proyectoId: 'p1', nombre: 'Menú del portal', cerrado: true, createdAt: '2026-10-01' },
+    participantesCount: 5, cardsCount: 8, acuerdoGlobal: 62, tarjetas,
+    matrizSimilitud: tarjetas.map((_, i) => tarjetas.map((__, j) => (i === j ? 100 : 20 + ((i + j) % 5) * 15))),
+    frecuenciaPorCategoria: [], clusters: [{ nombre: 'Grupo 1', tarjetas: 'Becas, Matrícula', acuerdo: 80 }], sinConsenso: [],
+    muestra: 'baja', umbrales: { consenso: 50, muestraMinima: 15, muestraEstable: 30 }, categorias,
+    resultsMatrix: { categorias, filas: tarjetas.map((tarjeta, i) => ({ tarjeta, valores: categorias.map((_, j) => (i + j) % 4) })) },
+    popularPlacementsMatrix: { categorias, filas: tarjetas.map((tarjeta, i) => ({ tarjeta, valores: categorias.map((_, j) => ((i + j) % 5) * 20) })) },
+    porCarta: [], porCategoria: [], participantes: [], preguntas: [],
+  };
+  beforeEach(() => {
+    vi.mocked(getCardSortingEstudiosByProyecto).mockResolvedValue([{ id: 'e1', nombre: 'Menú del portal', evaluadorId: 'owner', cerrado: true, createdAt: '2026-10-01', tipoCardSorting: 'ABIERTO', cardsDefinidas: [], categoriasDefinidas: [] }] as never);
+    vi.mocked(getCardSortingAnalytics).mockResolvedValue(analytics as never);
+  });
+
+  it('incluye los mapas de calor y el dendrograma, y las matrices anchas van apaisadas', async () => {
+    const report = await loadProjectReport('p1', ['cards', 'heuristica'], { cards: ['matriz', 'similitud', 'dendrograma', 'agrupaciones'] });
+    const nodos = buildReportDefinition(report).content as Array<{ stack?: Array<{ stack?: Array<{ text?: string }>; text?: string }>; pageBreak?: string; pageOrientation?: string }>;
+    const titulo = (texto: string) => nodos.find(n => n.stack?.[0]?.stack?.[0]?.text === texto);
+    expect(titulo('Matriz de ubicaciones')).toMatchObject({ pageBreak: 'before', pageOrientation: 'landscape' });
+    expect(titulo('Similitud entre tarjetas')?.pageBreak).toBeUndefined();
+    expect(titulo('Dendrograma')).toMatchObject({ pageBreak: 'before', pageOrientation: 'portrait' });
+    const pdf = JSON.stringify(nodos);
+    expect(pdf).toContain('"svg"');
+    expect(pdf).toContain('#253ff6');
+    expect(pdf).toContain('Agrupaciones sugeridas');
+    expect(pdf).not.toContain('Tarjetas populares');
+    const secciones = nodos.filter(n => n.stack?.[0]?.text?.startsWith('SECCIÓN'));
+    expect(secciones[1]).toMatchObject({ pageBreak: 'before', pageOrientation: 'portrait' });
+  });
+
+  it('una elección guardada con "Resultados detallados" sigue trayendo Tarjetas y Categorías', async () => {
+    const report = await loadProjectReport('p1', ['cards'], { cards: ['resultados'] });
+    const pdf = JSON.stringify(buildReportDefinition(report).content);
+    expect(pdf).toContain('"Tarjetas"');
+    expect(pdf).toContain('"Categorías"');
+    expect(pdf).not.toContain('Dendrograma');
   });
 });
