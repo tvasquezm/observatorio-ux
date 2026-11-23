@@ -3,6 +3,9 @@ import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 
+// Tipografía de marca: Figtree (alternativa libre a Bilo del manual), servida desde el bundle.
+import '@fontsource-variable/figtree/wght.css';
+import '@fontsource-variable/figtree/wght-italic.css';
 import './styles/theme.css';
 import App from './App';
 import { ToastContainer } from './shared/components/ToastContainer';
