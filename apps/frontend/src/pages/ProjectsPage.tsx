@@ -153,6 +153,20 @@ export function ProjectsPage() {
               <div className="form-actions"><button className="primary" disabled={isUpdating}>Guardar</button><button className="secondary" type="button" disabled={isUpdating} onClick={() => void cancelarCreacion()}>Cancelar</button></div></form>}
           </article>
         ))}
+        {/* Con pocos proyectos, el espacio libre guía el siguiente paso en vez de quedar vacío. */}
+        {!busqueda && filtrados.length > 0 && filtrados.length < 3 && (
+          <aside className="project-guide" aria-labelledby="project-guide-title">
+            <span className="kicker">CÓMO AVANZAR</span>
+            <h3 id="project-guide-title">De la evidencia al informe</h3>
+            <ol>
+              <li><strong>Personas</strong> definen a quién investigas.</li>
+              <li><strong>Journey Map y Momentos críticos</strong> muestran dónde se traba su experiencia.</li>
+              <li><strong>Card Sorting y Evaluación heurística</strong> ponen a prueba la estructura y la interfaz.</li>
+              <li><strong>Analítica e informe PDF</strong> priorizan qué arreglar y lo comunican.</li>
+            </ol>
+            {canCreate && <button type="button" className="secondary" disabled={isPending || isUpdating} onClick={() => void abrirCreacion()}>Crear otro proyecto</button>}
+          </aside>
+        )}
         {!isLoading && !isError && proyectos && filtrados.length === 0 && <div className="panel empty-state"><span aria-hidden="true">⌕</span><p>{busqueda ? 'No hay proyectos que coincidan con la búsqueda.' : 'No hay proyectos todavía.'}</p>{busqueda ? <button type="button" className="secondary" onClick={() => { const next = new URLSearchParams(searchParams); next.delete('q'); setSearchParams(next, { replace: true }); }}>Limpiar búsqueda</button> : canCreate && <button type="button" className="secondary" onClick={() => void abrirCreacion()}>Crear tu primer proyecto</button>}</div>}
       </div>
     </div>

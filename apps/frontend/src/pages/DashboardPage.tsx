@@ -12,6 +12,7 @@ import { useProjects } from '../features/projects/hooks/useProjectsQueries';
 import { useSalas } from '../features/salas/hooks/useSalasQueries';
 import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { Icon } from '../shared/components/ui/Icon';
+import { PanelContinuar } from '../features/analitica-proyecto/PanelContinuar';
 
 const TECHNIQUES = [
   { to: 'personas', label: 'Personas', icon: 'personas', cls: 'c2' },
@@ -67,6 +68,8 @@ export function DashboardPage() {
           {!activo && <p className="text-muted">Selecciona un proyecto para abrir sus técnicas.</p>}
         </> : <><p>Todavía no tienes proyectos.</p><Link to="/proyectos" className="primary">Crear tu primer proyecto</Link></>}
       </section>
+
+      {activo && <PanelContinuar proyectoId={activo.id} />}
 
       <h2 id="paso-tecnica" className="step-title"><span className="step-num" aria-hidden="true">2</span> Técnica</h2>
       <section className="techniques" aria-labelledby="paso-tecnica">

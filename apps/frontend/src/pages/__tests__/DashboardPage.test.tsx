@@ -15,6 +15,7 @@ vi.mock('../../features/projects/hooks/useProjectsQueries', () => ({
   useProjects: mocks.useProjects,
 }));
 
+vi.mock('../../features/analitica-proyecto/PanelContinuar', () => ({ PanelContinuar: () => null }));
 vi.mock('../../features/salas/hooks/useSalasQueries', () => ({
   useSalas: mocks.useSalas,
 }));
