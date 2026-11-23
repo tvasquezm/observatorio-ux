@@ -8,6 +8,7 @@ import { MatrizItem, agruparPorItem, esUnaTabla } from './MatrizItem';
 import { useFlujoDraft } from './useFlujoDraft';
 import { flujoRequest } from './flujo.api';
 import { notify } from '../../shared/api/toast';
+import { useConfirm } from '../../shared/api/confirm';
 import { compararTrabajo, criterioRespondido, guardarSesion, leerSesion, pendientesTrabajo } from './flujo-utils';
 import type { ComparacionTrabajo } from './flujo-utils';
 
@@ -47,6 +48,9 @@ export function TrabajoEditor({ evaluacion, usuarioId, onSaved, onBack }: { eval
   const [verEquipo, setVerEquipo] = useState(false);
   const irAIndice = (i: number) => { if (!pending) setIndice(i); };
   const criterioActual = evaluacion.configuracion.metodologia.criterios[indice];
+  const confirmar = useConfirm();
+  /** Al avanzar con preguntas sin responder se pregunta si volver ahora o seguir (el diálogo toma el foco). */
+  const confirmarAvance = (mensaje: string) => confirmar(mensaje, { confirmLabel: 'Volver ahora', cancelLabel: 'Seguir y volver después' });
   const [enfoque, setEnfoque] = useState<{ criterioId: string; marca: number } | undefined>();
   const [llevadoA, setLlevadoA] = useState('');
   const [visitadas, setVisitadas] = useState<ReadonlySet<string>>(() => new Set());
@@ -84,7 +88,7 @@ export function TrabajoEditor({ evaluacion, usuarioId, onSaved, onBack }: { eval
     {trabajo && <div hidden={verEquipo} className="hf-trabajo-individual">
       <div className="hf-revision-distribucion"><NavegadorPreguntas config={evaluacion.configuracion} respuestas={state.draft.respuestas} indice={indice} onChange={irAIndice} visitadas={visitadas}><div className="hf-resumen-compacto" aria-label="Resumen de mi revisión"><span>{state.draft.respuestas.filter(r => r.noAplica && r.valor === null).length} no aplican</span></div></NavegadorPreguntas>
       <div className="hf-contenido">
-        <fieldset disabled={busy}><legend className="sr-only">Responde las preguntas</legend><MatrizItem criterios={evaluacion.configuracion.metodologia.criterios} config={evaluacion.configuracion} respuestas={state.draft.respuestas} modo="individual" editable={editable} guardado={{ dirty: state.dirty, saving: state.saving, error: state.error }} foco={criterioActual?.id} onFoco={id => { const i = evaluacion.configuracion.metodologia.criterios.findIndex(c => c.id === id); if (i >= 0) setIndice(i); }} bloqueado={pending} enfocar={enfoque} proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} onEvidencePending={(id, v) => setEvidencePending(p => ({ ...p, [`valoracion:${id}`]: v }))} onChange={r => state.setDraft({ ...state.draft, respuestas: [...state.draft.respuestas.filter(x => x.criterioId !== r.criterioId), r] })} /></fieldset>
+        <fieldset disabled={busy}><legend className="sr-only">Responde las preguntas</legend><MatrizItem criterios={evaluacion.configuracion.metodologia.criterios} config={evaluacion.configuracion} respuestas={state.draft.respuestas} modo="individual" editable={editable} guardado={{ dirty: state.dirty, saving: state.saving, error: state.error }} foco={criterioActual?.id} onFoco={id => { const i = evaluacion.configuracion.metodologia.criterios.findIndex(c => c.id === id); if (i >= 0) setIndice(i); }} bloqueado={pending} enfocar={enfoque} confirmarAvance={confirmarAvance} proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} onEvidencePending={(id, v) => setEvidencePending(p => ({ ...p, [`valoracion:${id}`]: v }))} onChange={r => state.setDraft({ ...state.draft, respuestas: [...state.draft.respuestas.filter(x => x.criterioId !== r.criterioId), r] })} /></fieldset>
       </div></div>
       <footer className="hf-pie-trabajo">
       {editable && <><SaveStatus {...state} comparacion={state.remote ? compararTrabajo(evaluacion.configuracion, state.remote as TrabajoFlujo, state.draft) : undefined} />{enUltimaSeccion && <button type="button" className={listoParaEntregar ? 'primary' : 'secondary'} disabled={state.saving || pending || busy} onClick={async () => {

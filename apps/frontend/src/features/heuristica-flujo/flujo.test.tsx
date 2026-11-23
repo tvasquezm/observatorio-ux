@@ -65,7 +65,7 @@ describe('flujo individual', () => {
     expect(await screen.findByText(`Te llevé a: ${criterios[0].nombre}`)).toBeInTheDocument();
     const fila = screen.getByRole('rowheader', { name: (t: string) => t.startsWith(criterios[0].nombre) }).closest('tr')!;
     expect(fila).toHaveAttribute('data-pendiente');
-    expect(within(fila).getAllByRole('radio')[0]).toHaveFocus();
+    await waitFor(() => expect(within(fila).getAllByRole('radio')[0]).toHaveFocus());
     expect(screen.queryByRole('button', { name: 'Entregar mi evaluación' })).toBeNull();
   });
   it('permite entregar todas las preguntas no aplicables sin motivo ni valoración', async () => {
@@ -471,7 +471,10 @@ describe('vista de tablas por ítem', () => {
     renderFlow(<Harness initial={checklistEval(true)} />);
     expect(screen.getAllByRole('table')).toHaveLength(1);
     expect(screen.getAllByRole('radio')).toHaveLength(2 * 3);
+    // Sin responder, avanzar pregunta si volver: se elige seguir.
+    confirm.mockResolvedValueOnce(false);
     await userEvent.click(screen.getByRole('button', { name: 'Sección siguiente' }));
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining('sin responder'), { confirmLabel: 'Volver ahora', cancelLabel: 'Seguir y volver después' });
     expect(screen.getAllByRole('table')).toHaveLength(1);
     expect(screen.getAllByRole('radio')).toHaveLength(4);
   });

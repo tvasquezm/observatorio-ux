@@ -3280,3 +3280,8 @@ div:has(> .project-section > .hf) > .project-heading p { margin:4px 0 0; font-si
 .report-tecnica-panel .pdf-picker { margin: 0; }
 .pdf-picker--compacto { display: grid; gap: 4px 16px; }
 @media (min-width: 560px) { .pdf-picker--compacto { grid-template-columns: 1fr 1fr; } }
+
+/* Preguntas que quedaron sin responder al dejar su sección: destacadas al volver. */
+.hf .hf-matriz tr[data-faltante] > * { background: color-mix(in srgb, var(--danger-text) 7%, var(--surface)); }
+.hf .hf-matriz tr[data-faltante] > th { box-shadow: inset 4px 0 0 var(--danger-text); }
+.hf .hf-faltante-etiqueta { display: inline-block; margin-left: 8px; padding: 1px 8px; border: 1px solid var(--danger-text); border-radius: 999px; color: var(--danger-text); font-size: 0.75rem; font-weight: 700; white-space: nowrap; }

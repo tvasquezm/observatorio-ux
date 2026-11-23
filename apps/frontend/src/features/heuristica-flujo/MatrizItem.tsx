@@ -39,6 +39,8 @@ interface Props {
   onEvidencePending?: (criterioId: string, pending: boolean) => void;
   /** Lleva a una pregunta concreta: abre su sección, la muestra, enfoca su primera respuesta y la resalta. La marca cambia en cada pedido para repetirlo. */
   enfocar?: { criterioId: string; marca: number };
+  /** Al pulsar «Sección siguiente» dejando preguntas sin responder: true = volver ahora, false = continuar. Sin esta prop se avanza con un aviso. */
+  confirmarAvance?: (mensaje: string) => Promise<boolean>;
 }
 interface Subgrupo { escala: EscalaFlujo; criterios: CriterioFlujo[] }
 export interface Grupo { categoria: string; criterios: CriterioFlujo[]; subgrupos: Subgrupo[] }
@@ -69,7 +71,7 @@ const textoRespuesta = (r: RespuestaCriterio | undefined, niveles: EscalaFlujo['
 export const RESALTE_MS = 2500;
 
 /** Tabla calificable: una por ítem, con título y enunciado siempre visibles. */
-export function MatrizItem({ criterios, config, respuestas, modo, individuales = [], onChange, hallazgos = [], editable = true, onAddHallazgo, guardado = { dirty: false, saving: false, error: '' }, foco, onFoco, problemasAbiertos, onToggleProblemas, renderProblemas, bloqueado = false, proyectoId, evaluacionId, onEvidencePending, enfocar }: Props) {
+export function MatrizItem({ criterios, config, respuestas, modo, individuales = [], onChange, hallazgos = [], editable = true, onAddHallazgo, guardado = { dirty: false, saving: false, error: '' }, foco, onFoco, problemasAbiertos, onToggleProblemas, renderProblemas, bloqueado = false, proyectoId, evaluacionId, onEvidencePending, enfocar, confirmarAvance }: Props) {
   const id = useId();
   const esEquipo = modo === 'equipo';
   const propiasDe = (cid: string) => individuales.map(i => ({ i, r: i.respuestas.find(x => x.criterioId === cid) }));
@@ -96,9 +98,23 @@ export function MatrizItem({ criterios, config, respuestas, modo, individuales =
   const [dejada, setDejada] = useState<string | null>(null);
   useEffect(() => { if (enfocar) setObjetivo(enfocar); }, [enfocar?.marca]);
   const irA = (i: number) => { const g = grupos[i]; if (!g) return; setActual(i); onFoco?.(g.criterios[0].id); };
-  const avanzar = () => {
+  /** Secciones que la persona dejó con preguntas sin responder: al volver a ellas, esas filas se destacan. */
+  const [dejadas, setDejadas] = useState<ReadonlySet<string>>(() => new Set());
+  const seccionPrevia = useRef(a);
+  useEffect(() => {
+    const previa = grupos[seccionPrevia.current];
+    seccionPrevia.current = a;
+    if (esEquipo || !previa || previa === grupos[a]) return;
+    if (faltantesDeGrupo(config, previa, respuestas).length) setDejadas(prev => prev.has(previa.categoria) ? prev : new Set(prev).add(previa.categoria));
+  }, [a]);
+  const avanzar = async () => {
     const g = grupos[a];
-    setDejada(g && faltantesDeGrupo(config, g, respuestas).length ? g.categoria : null);
+    const faltan = g ? faltantesDeGrupo(config, g, respuestas) : [];
+    if (faltan.length && confirmarAvance) {
+      const volver = await confirmarAvance(`${faltan.length === 1 ? 'Dejaste 1 pregunta sin responder' : `Dejaste ${faltan.length} preguntas sin responder`} en «${g.categoria}». ¿Quieres responderlas ahora o seguir y volver después?`);
+      if (volver) { llevarA(faltan[0].id); return; }
+    }
+    setDejada(faltan.length ? g.categoria : null);
     irA(a + 1);
   };
   const llevarA = (criterioId: string) => { onFoco?.(criterioId); setObjetivo({ criterioId, marca: Date.now() }); };
@@ -118,14 +134,16 @@ export function MatrizItem({ criterios, config, respuestas, modo, individuales =
   }, [objetivo]);
   useEffect(() => {
     if (!resaltado || !objetivo) return;
-    const fila = typeof document !== 'undefined' ? document.getElementById(`${id}-${resaltado}-fila`) : null;
-    if (fila) {
+    // Un tick después: si se llegó desde un diálogo, este devuelve el foco al cerrarse y no debe ganarle.
+    const enfocarFila = setTimeout(() => {
+      const fila = typeof document !== 'undefined' ? document.getElementById(`${id}-${resaltado}-fila`) : null;
+      if (!fila) return;
       const quieto = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
       fila.scrollIntoView?.({ block: 'center', behavior: quieto ? 'auto' : 'smooth' });
       fila.querySelector<HTMLInputElement>('input[type=radio]:not(:disabled)')?.focus({ preventScroll: true });
-    }
+    }, 0);
     const t = setTimeout(() => setResaltado(null), RESALTE_MS);
-    return () => clearTimeout(t);
+    return () => { clearTimeout(enfocarFila); clearTimeout(t); };
   }, [resaltado, objetivo, actual]);
   const marcaDe = (r: RespuestaCriterio): Marca => { const t = textoDe(r); return !t.trim() ? 'ninguna' : t === guardadas[r.criterioId] ? 'guardado' : guardado.error ? 'error' : 'pendiente'; };
   const alternar = (cid: string) => setAbiertos(prev => { const n = new Set(prev); if (n.has(cid)) n.delete(cid); else n.add(cid); return n; });
@@ -142,9 +160,10 @@ export function MatrizItem({ criterios, config, respuestas, modo, individuales =
     const textoProblemas = problemas === 1 ? '1 problema' : `${problemas} problemas`;
     const problemasVisibles = !!renderProblemas && problemas > 0 && !!problemasAbiertos?.has(c.id);
     const ok = criterioRespondido(config, c, respuestas.find(x => x.criterioId === c.id));
+    const faltante = !ok && !esEquipo && dejadas.has(c.categoria);
     return <Fragment key={c.id}>
-      <tr id={`${nombre}-fila`} data-respondido={ok || undefined} data-pendiente={resaltado === c.id || undefined}>
-        <th scope="row" id={`${nombre}-p`}>{c.nombre}{conEnunciado && c.descripcion && <small className="hf-enunciado-fila">{c.descripcion}</small>}</th>
+      <tr id={`${nombre}-fila`} data-respondido={ok || undefined} data-pendiente={resaltado === c.id || undefined} data-faltante={faltante || undefined}>
+        <th scope="row" id={`${nombre}-p`}>{c.nombre}{faltante && <span className="hf-faltante-etiqueta"> Sin responder</span>}{conEnunciado && c.descripcion && <small className="hf-enunciado-fila">{c.descripcion}</small>}</th>
         {niveles.map(n => <td key={n.id}><label className="hf-celda" title={n.significado}><input type="radio" name={nombre} disabled={!editable} aria-label={n.etiqueta} aria-describedby={`${nombre}-p`} checked={!r.noAplica && r.valor === n.id} onChange={() => onChange({ ...r, noAplica: false, valor: n.id })} /><span className="hf-celda-txt">{n.etiqueta}</span></label></td>)}
         <td><label className="hf-celda"><input type="radio" name={nombre} disabled={!editable} aria-label="No aplica" aria-describedby={`${nombre}-p`} checked={r.noAplica} onChange={() => onChange({ ...r, noAplica: true, valor: null })} /><span className="hf-celda-txt">No aplica</span></label></td>
         <td className="hf-acciones-fila">
@@ -213,7 +232,7 @@ export function MatrizItem({ criterios, config, respuestas, modo, individuales =
       })}
     {!esEquipo && grupos.length > 1 && !unaTabla && <div className="hf-navegar">
       <button type="button" className="secondary" disabled={bloqueado || a <= 0} onClick={() => irA(a - 1)}><span aria-hidden="true">←</span> Sección anterior</button>
-      {a < grupos.length - 1 && <button type="button" className="secondary" disabled={bloqueado} onClick={avanzar}>Sección siguiente <span aria-hidden="true">→</span></button>}
+      {a < grupos.length - 1 && <button type="button" className="secondary" disabled={bloqueado} onClick={() => void avanzar()}>Sección siguiente <span aria-hidden="true">→</span></button>}
     </div>}
   </div>;
 }

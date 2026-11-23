@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { copiarMetodologia, escalaPredefinida, METODOLOGIAS_HEURISTICAS } from '@observatorio-ux/shared-types';
 import type { ConfiguracionFlujo, DecisionCriterio, HallazgoFlujo, MetodologiaFlujo, RespuestaCriterio } from '@observatorio-ux/shared-types';
@@ -10,9 +10,9 @@ import { hallazgoVacio } from './flujo-utils';
 
 const metodo = (id: string) => copiarMetodologia(METODOLOGIAS_HEURISTICAS.find(m => m.id === id)!);
 const configDe = (m: MetodologiaFlujo): ConfiguracionFlujo => ({ nombre: 'R', producto: { clave: 'p', nombre: 'P', version: '1', url: '', dispositivo: 'web' }, objetivo: '', tareas: '', pantallas: '', exclusiones: '', metodologia: m, evaluadorIds: [], lectorIds: [] });
-function Harness({ m, guardado, inicial = [], editable = true, enfocar }: { m: MetodologiaFlujo; guardado?: EstadoGuardado; inicial?: RespuestaCriterio[]; editable?: boolean; enfocar?: { criterioId: string; marca: number } }) {
+function Harness({ m, guardado, inicial = [], editable = true, enfocar, confirmarAvance }: { m: MetodologiaFlujo; guardado?: EstadoGuardado; inicial?: RespuestaCriterio[]; editable?: boolean; enfocar?: { criterioId: string; marca: number }; confirmarAvance?: (mensaje: string) => Promise<boolean> }) {
   const [rs, setRs] = useState<RespuestaCriterio[]>(inicial);
-  return <MatrizItem criterios={m.criterios} config={configDe(m)} respuestas={rs} modo="individual" editable={editable} guardado={guardado} enfocar={enfocar} onAddHallazgo={vi.fn()} onChange={r => setRs(p => [...p.filter(x => x.criterioId !== r.criterioId), r])} />;
+  return <MatrizItem criterios={m.criterios} config={configDe(m)} respuestas={rs} modo="individual" editable={editable} guardado={guardado} enfocar={enfocar} confirmarAvance={confirmarAvance} onAddHallazgo={vi.fn()} onChange={r => setRs(p => [...p.filter(x => x.criterioId !== r.criterioId), r])} />;
 }
 
 function ConGuardado({ m }: { m: MetodologiaFlujo }) {
@@ -268,7 +268,7 @@ describe('MatrizItem: llevar a la pregunta pendiente y avisar al avanzar (F30)',
   const exacto = (nombre: string) => (texto: string) => texto === nombre || texto.startsWith(nombre);
   const filaDe = (nombre: string) => screen.getByRole('rowheader', { name: exacto(nombre) }).closest('tr')!;
 
-  it('enfocar una pregunta de otra sección la muestra, enfoca su primera respuesta y la resalta', () => {
+  it('enfocar una pregunta de otra sección la muestra, enfoca su primera respuesta y la resalta', async () => {
     const m = metodo('nielsen10');
     const objetivo = m.criterios.find(c => c.categoria !== m.criterios[0].categoria)!;
     const { rerender } = render(<Harness m={m} />);
@@ -276,18 +276,18 @@ describe('MatrizItem: llevar a la pregunta pendiente y avisar al avanzar (F30)',
     rerender(<Harness m={m} enfocar={{ criterioId: objetivo.id, marca: 1 }} />);
     const fila = filaDe(objetivo.nombre);
     expect(fila).toHaveAttribute('data-pendiente');
-    expect(within(fila).getAllByRole('radio')[0]).toHaveFocus();
+    await waitFor(() => expect(within(fila).getAllByRole('radio')[0]).toHaveFocus());
   });
 
-  it('enfocar una pregunta de la sección visible también la enfoca y repetir el pedido vuelve a resaltarla', () => {
+  it('enfocar una pregunta de la sección visible también la enfoca y repetir el pedido vuelve a resaltarla', async () => {
     const m = metodo('nielsen10');
     const objetivo = m.criterios[2];
     const { rerender } = render(<Harness m={m} />);
     rerender(<Harness m={m} enfocar={{ criterioId: objetivo.id, marca: 1 }} />);
-    expect(within(filaDe(objetivo.nombre)).getAllByRole('radio')[0]).toHaveFocus();
+    await waitFor(() => expect(within(filaDe(objetivo.nombre)).getAllByRole('radio')[0]).toHaveFocus());
     (document.activeElement as HTMLElement).blur();
     rerender(<Harness m={m} enfocar={{ criterioId: objetivo.id, marca: 2 }} />);
-    expect(within(filaDe(objetivo.nombre)).getAllByRole('radio')[0]).toHaveFocus();
+    await waitFor(() => expect(within(filaDe(objetivo.nombre)).getAllByRole('radio')[0]).toHaveFocus());
     expect(filaDe(objetivo.nombre)).toHaveAttribute('data-pendiente');
   });
 
@@ -303,7 +303,7 @@ describe('MatrizItem: llevar a la pregunta pendiente y avisar al avanzar (F30)',
     await userEvent.click(screen.getByRole('button', { name: 'Volver a responderlas' }));
     const fila = filaDe(primera[2].nombre);
     expect(fila).toHaveAttribute('data-pendiente');
-    expect(within(fila).getAllByRole('radio')[0]).toHaveFocus();
+    await waitFor(() => expect(within(fila).getAllByRole('radio')[0]).toHaveFocus());
   });
 
   it('el aviso desaparece cuando se completan las preguntas que faltaban', async () => {
@@ -315,5 +315,29 @@ describe('MatrizItem: llevar a la pregunta pendiente y avisar al avanzar (F30)',
     await userEvent.click(screen.getByRole('button', { name: 'Volver a responderlas' }));
     await userEvent.click(within(filaDe(primera[0].nombre)).getAllByRole('radio')[0]);
     expect(screen.queryByText(/^Dejaste/)).toBeNull();
+  });
+
+  it('al avanzar con faltantes pregunta: "Volver ahora" se queda y lleva a la primera sin responder', async () => {
+    const m = metodo('nielsen10');
+    const primera = m.criterios.filter(c => c.categoria === m.criterios[0].categoria);
+    const confirmarAvance = vi.fn().mockResolvedValue(true);
+    render(<Harness m={m} confirmarAvance={confirmarAvance} />);
+    await userEvent.click(screen.getByRole('button', { name: /^Sección siguiente/ }));
+    expect(confirmarAvance).toHaveBeenCalledWith(expect.stringContaining(`Dejaste ${primera.length} preguntas sin responder en «${m.criterios[0].categoria}»`));
+    expect(screen.getByRole('heading', { level: 3, name: m.criterios[0].categoria })).toBeInTheDocument();
+    await waitFor(() => expect(within(filaDe(primera[0].nombre)).getAllByRole('radio')[0]).toHaveFocus());
+  });
+
+  it('"Seguir" avanza y al volver a la sección las preguntas que faltaban quedan destacadas', async () => {
+    const m = metodo('nielsen10');
+    const primera = m.criterios.filter(c => c.categoria === m.criterios[0].categoria);
+    render(<Harness m={m} confirmarAvance={vi.fn().mockResolvedValue(false)} />);
+    await userEvent.click(within(filaDe(primera[0].nombre)).getAllByRole('radio')[0]);
+    await userEvent.click(screen.getByRole('button', { name: /^Sección siguiente/ }));
+    expect(screen.queryByRole('heading', { level: 3, name: m.criterios[0].categoria })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: /Sección anterior/ }));
+    expect(filaDe(primera[0].nombre)).not.toHaveAttribute('data-faltante');
+    expect(filaDe(primera[1].nombre)).toHaveAttribute('data-faltante');
+    expect(screen.getAllByText('Sin responder')).toHaveLength(primera.length - 1);
   });
 });
