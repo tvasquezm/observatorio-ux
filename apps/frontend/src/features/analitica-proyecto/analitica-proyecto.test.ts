@@ -74,3 +74,28 @@ describe('trabajo en curso de la persona', () => {
     expect(lista.map(p => p.texto)).toEqual(['Termina tu revisión de "Portal".', 'El equipo espera tu revisión del acuerdo en "App".']);
   });
 });
+
+describe('lo importante de cada técnica', () => {
+  it('resume las cinco técnicas con sus cifras y lo que conviene mirar primero', async () => {
+    const { resumenTecnicas } = await import('./analitica-proyecto');
+    const resumen = resumenTecnicas({
+      personas: [{ contenido: { frustraciones: ['Formularios largos', 'Lentitud'], necesidades: [] } }, { contenido: { frustraciones: ['formularios largos'] } }],
+      journeys: [{ contenido: { perfilUsuario: { nombre: 'Ana' }, fases: [{ nombre: 'Pago', emocion: 'Negativa' }, { nombre: 'Búsqueda', emocion: 'Positiva' }] } }],
+      momentos: [{ contenido: { perfilUsuario: { nombre: 'Ana' }, incidentes: [
+        { nombre: 'Error al pagar', tipo: 'Negativo', impacto: 'Alto', frecuencia: 'Alta' },
+        { nombre: 'Demora leve', tipo: 'Negativo', impacto: 'Bajo', frecuencia: 'Baja' },
+        { nombre: 'Ayuda clara', tipo: 'Positivo', impacto: 'Medio', frecuencia: 'Media' },
+      ] } }],
+      estudios: [{ nombre: 'Menú', respuestasCount: 4, cerrado: false, cardsDefinidas: [1, 2, 3] }],
+      evaluaciones: [],
+    });
+    expect(resumen.map(t => t.id)).toEqual(['personas', 'journey-map', 'momentos-criticos', 'card-sorting', 'evaluacion-heuristica']);
+    expect(resumen[0].destacado?.items[0]).toBe('Formularios largos (2)');
+    expect(resumen[1].cifras.map(c => c.valor)).toEqual([1, 2, 1]);
+    expect(resumen[1].destacado?.items).toEqual(['Pago · Ana']);
+    expect(resumen[2].cifras.map(c => c.valor)).toEqual([3, 1, 1]);
+    expect(resumen[2].destacado?.items[0]).toContain('Error al pagar');
+    expect(resumen[3].destacado?.items[0]).toBe('Menú: 4 respuestas · abierto · faltan 11 para la muestra mínima');
+    expect(resumen[4].vacio).toBe('Aún no hay evaluaciones heurísticas.');
+  });
+});

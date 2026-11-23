@@ -42,6 +42,7 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
     const criterio = config.metodologia.criterios.find(c => c.id === r.criterioId);
     return r.noAplica ? `No aplica${r.motivo ? `: ${r.motivo}` : ''}` : (criterio ? escalaDe(config.metodologia, criterio) : config.metodologia.escala).niveles.find(n => n.id === r.valor)?.etiqueta ?? 'Pendiente';
   };
+  const fuentes = [...new Set([config.metodologia.fuente, ...config.metodologia.criterios.map(c => c.origen.fuente)].map(f => (f ?? '').trim()).filter(Boolean))];
   const escalasPropias = [...new Map(config.metodologia.criterios.filter(c => c.escala).map(c => [JSON.stringify(c.escala), c.escala!] as const)).values()];
   const imagenes: Record<string, string> = {};
   const evidenciaIncluida = idsEvidencia(consenso, opciones);
@@ -79,15 +80,14 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
       campo('Objetivo', config.objetivo), campo('Tareas', config.tareas),
       { columns: [campo('Pantallas incluidas', config.pantallas), campo('Exclusiones', config.exclusiones || 'Ninguna declarada')], columnGap: 20 },
       { columns: [campo('Metodología', `${config.metodologia.nombre} · ${config.metodologia.version}`), campo('Autoría', config.metodologia.autor)], columnGap: 20 },
-      campo('Fuente', config.metodologia.fuente),
       ...(incluye('resumen') ? [campo('Evaluadores', informe.evaluadores.map(e => e.nombre).join(', '))] : []),
       { columns: [campo('Inicio', informe.iniciadoEn ? date(informe.iniciadoEn) : 'No registrado'), campo('Consolidación', date(informe.consolidadoEn)), campo('Cierre', informe.finalizadoEn ? date(informe.finalizadoEn) : 'Pendiente de cierre'), campo('Exportación', date(generadoEn))], columnGap: 16 },
       ...(incluye('criterios') ? [
         { stack: [titulo('Escala de valoración')], pageBreak: 'before' } as Content,
-        campo('Tipo y sentido', `${config.metodologia.escala.tipo} · ${config.metodologia.escala.sentido}`), campo('Origen de la escala', config.metodologia.escala.fuente),
+        campo('Tipo y sentido', `${config.metodologia.escala.tipo} · ${config.metodologia.escala.sentido}`), 
         table(['Respuesta', 'Significado', 'Valor'], config.metodologia.escala.niveles.map(n => [n.etiqueta, n.significado, n.valor ?? 'Sin puntaje']), [100, '*', 70]),
         ...escalasPropias.flatMap((e): Content[] => [
-          campo('Escala propia de algunos criterios', `${e.tipo} · ${e.sentido} · ${e.fuente}`),
+          campo('Escala propia de algunos criterios', `${e.tipo} · ${e.sentido}`),
           table(['Respuesta', 'Significado', 'Valor'], e.niveles.map(n => [n.etiqueta, n.significado, n.valor ?? 'Sin puntaje']), [100, '*', 70]),
         ]),
       ] : []),
@@ -95,7 +95,7 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
         titulo('Cobertura y resultados'),
         table(['Criterios evaluados', 'No aplica', 'Pendientes', 'Hallazgos aceptados para mejorar'], [[resumen.evaluados, resumen.noAplica, resumen.pendientes, resumen.totalHallazgos]]),
         table([resumen.porEscala.length ? 'Valoración (escala de la metodología)' : 'Valoración del criterio', 'Cantidad'], resumen.porCategoria.map(n => [n.etiqueta, n.count]), ['*', 90]),
-        ...resumen.porEscala.map(g => table([`Valoración (escala propia: ${g.fuente})`, 'Cantidad'], g.distribucion.map(n => [n.etiqueta, n.count]), ['*', 90])),
+        ...resumen.porEscala.map((g, i) => table([`Valoración (escala propia ${i + 1})`, 'Cantidad'], g.distribucion.map(n => [n.etiqueta, n.count]), ['*', 90])),
         table(['Severidad del problema', 'Cantidad'], SEVERIDADES.map(n => [`${n.valor} · ${n.etiqueta}`, resumen.porSeveridad[n.valor]]), ['*', 90]),
         { text: 'No aplica y sin evaluar quedan fuera del cálculo. La severidad es ordinal: se informa por distribución, sin asumir distancias iguales entre niveles.', color: MUTED },
         ...(resumen.formula ? [campo('Fórmula del índice', resumen.formula), campo('Denominador (suma de pesos aplicables evaluados)', String(resumen.denominador)), campo('Índice', resumen.indice === null ? 'No calculable' : String(Math.round(resumen.indice * 1000) / 1000))] : []),
@@ -104,7 +104,7 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
       ...(incluye('criterios') ? [
         ...grupos, { text: `${resumen.noAplica} no aplican. Los criterios neutros y sin evaluar quedan fuera de ambos grupos.` },
         titulo('Criterios y decisiones acordadas'),
-        table(['Criterio / fuente', 'Valoración final', 'Justificación'], consenso.criterios.map(r => { const c = config.metodologia.criterios.find(x => x.id === r.criterioId); return [`${nombreCriterio(r.criterioId)}\n${c?.origen.autor ?? ''} · ${c?.origen.version ?? ''}\n${c?.origen.fuente ?? ''}`, valorCriterio(r), r.justificacion]; }), ['*', 100, '*']),
+        table(['Criterio', 'Valoración final', 'Justificación'], consenso.criterios.map(r => [nombreCriterio(r.criterioId), valorCriterio(r), r.justificacion]), ['*', 100, '*']),
       ] : []),
       ...(incluye('positivos') && positivos.length ? [titulo('Aspectos positivos'), ...positivos.flatMap((p): Content[] => [{ text: p.titulo, bold: true, margin: [0, 6, 0, 2] }, ...(p.descripcion ? [{ text: p.descripcion, margin: [0, 0, 0, 4] } as Content] : []), ...(p.evidenciaIds ?? []).map(imagenEvidencia)])] : []),
       ...(incluye('hallazgos') ? [titulo('Problemas y recomendaciones'), ...(detalleHallazgos.length ? detalleHallazgos : [{ text: 'La revisión acordada no identificó problemas de usabilidad.' } as Content])] : []),
@@ -115,6 +115,8 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
         table(['Problema', 'Decisión', 'Orígenes', 'Motivo'], consenso.hallazgos.map(h => [h.titulo, h.decision === 'ACEPTADO' ? 'Aceptado / fusionado' : 'Descartado', origenHallazgo(h) === 'equipo' ? 'Nuevo del equipo' : h.origenIds.join(', '), h.justificacion]), ['*', 90, 90, '*']),
         campo('Aprobación explícita', informe.evaluadores.filter(e => consenso.aprobadoPor.includes(e.id)).map(e => e.nombre).join(', ')),
       ] : []),
+      // Una sola referencia al final: de ahí provienen las preguntas (no se repite en cada criterio).
+      ...(fuentes.length ? [titulo('Fuente de las preguntas'), { text: `Las preguntas de esta evaluación provienen de: ${fuentes.join(' · ')}`, color: MUTED } as Content] : []),
     ],
     styles: PDF_STYLES,
     pageBreakBefore: keepHeadingsWithContent,

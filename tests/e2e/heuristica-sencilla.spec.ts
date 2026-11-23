@@ -50,8 +50,6 @@ test('guía una evaluación desde su creación hasta el informe', async ({ page 
   await expect(problemas.getByText(/^Agregado por /)).toBeVisible();
   await problemas.getByRole('textbox', { name: 'Título del problema', exact: true }).fill('El menú es confuso');
   await problemas.getByRole('textbox', { name: 'Descripción del problema', exact: true }).fill('Las opciones no explican a qué sección llevan.');
-  await problemas.getByText('Ver o cambiar preguntas relacionadas', { exact: true }).click();
-  await problemas.getByRole('checkbox').first().check();
   await page.getByLabel('Decisión del consenso').selectOption('ACEPTADO');
   await page.getByLabel('Justificación de aceptación, fusión o descarte', { exact: true }).fill('El equipo lo comprobó al navegar.');
   await page.getByRole('tab', { name: 'Preparar el informe', exact: true }).click();

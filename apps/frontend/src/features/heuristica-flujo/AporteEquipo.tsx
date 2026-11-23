@@ -22,7 +22,7 @@ export function AporteEquipo({ evaluacion, usuarioId, nombreDe, onSaved }: { eva
 
   async function guardar() {
     if (!borrador) return;
-    const campos = [!borrador.titulo.trim() && 'título', !borrador.descripcion.trim() && 'descripción', !borrador.criterioIds.length && 'pregunta relacionada'].filter(Boolean);
+    const campos = [!borrador.titulo.trim() && 'título', !borrador.descripcion.trim() && 'descripción'].filter(Boolean);
     if (campos.length) { setError(`Completa ${campos.join(' y ')}.`); return; }
     setBusy(true); setError('');
     try {
@@ -48,7 +48,7 @@ export function AporteEquipo({ evaluacion, usuarioId, nombreDe, onSaved }: { eva
       </li>)}</ul>
     </>}
     {borrador ? <fieldset disabled={busy} className="hf-form-card"><legend>Nuevo problema</legend>
-      <HallazgoEditor value={borrador} config={evaluacion.configuracion} onChange={setBorrador} />
+      <HallazgoEditor value={borrador} config={evaluacion.configuracion} conCriterios={false} onChange={setBorrador} />
       <div className="hf-form-evidencia">
         <h4>Capturas <small>(opcional)</small></h4>
         <EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={borrador.evidenciaIds} editable={!busy} onChange={ids => setBorrador(prev => prev && { ...prev, evidenciaIds: ids })} onPendingChange={setSubiendo} />
@@ -61,7 +61,7 @@ export function AporteEquipo({ evaluacion, usuarioId, nombreDe, onSaved }: { eva
     </fieldset>
       : <>
         {error && <p role="alert" className="hf-error">{error}</p>}
-        <button type="button" className="secondary hf-form-agregar" disabled={busy} onClick={() => { setAviso(''); setBorrador(hallazgoVacio(evaluacion.configuracion.metodologia.criterios[0].id)); }}>Agregar problema</button>
+        <button type="button" className="secondary hf-form-agregar" disabled={busy} onClick={() => { setAviso(''); setBorrador({ ...hallazgoVacio(evaluacion.configuracion.metodologia.criterios[0].id), criterioIds: [] }); }}>Agregar problema</button>
       </>}
   </div>;
 }

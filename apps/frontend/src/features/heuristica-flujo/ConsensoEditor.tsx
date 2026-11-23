@@ -65,7 +65,7 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
       <legend>Decisión {i + 1}: {h.titulo}</legend>
       <p className="hf-autoria">{autoriaDe(h)}</p>
       <Field label="Decisión del consenso"><select value={h.decision} onChange={e => update({ ...h, decision: e.target.value as DecisionHallazgo['decision'] })}><option value="PENDIENTE">Pendiente</option><option value="ACEPTADO">Aceptar problema único</option><option value="DESCARTADO">Descartar conservando original</option></select></Field>
-      <HallazgoEditor value={h} config={evaluacion.configuracion} onChange={x => update({ ...h, ...x })} />
+      <HallazgoEditor value={h} config={evaluacion.configuracion} conCriterios={false} onChange={x => update({ ...h, ...x })} />
       <Field label="Justificación de aceptación, fusión o descarte"><textarea value={h.justificacion} onChange={e => update({ ...h, justificacion: e.target.value })} /></Field>
       {/* Los problemas nuevos del equipo suben y anotan sus capturas aquí; los de origen muestran las de su autor. */}
       <div className="hf-form-evidencia">

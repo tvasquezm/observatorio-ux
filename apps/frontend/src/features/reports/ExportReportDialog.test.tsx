@@ -106,7 +106,7 @@ it('la plantilla Resumen ejecutivo deja gráficos y resúmenes, y Solo hallazgos
   expect(dialog.getByRole('button', { name: /^Resumen ejecutivo/ })).toHaveAttribute('aria-pressed', 'true');
   expect(dialog.getByRole('status')).toHaveTextContent('5 de 5 técnicas seleccionadas · 10 apartados');
   await userEvent.click(dialog.getByRole('button', { name: /^Solo hallazgos/ }));
-  expect(dialog.getByRole('status')).toHaveTextContent('2 de 5 técnicas seleccionadas · 4 apartados');
+  expect(dialog.getByRole('status')).toHaveTextContent('2 de 5 técnicas seleccionadas · 5 apartados');
   await userEvent.click(dialog.getByRole('button', { name: 'Descargar PDF' }));
   await waitFor(() => expect(mocks.load).toHaveBeenCalledWith('p1', ['momentos', 'heuristica'], {}, {}));
 });

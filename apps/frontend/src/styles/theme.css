@@ -3352,6 +3352,8 @@ div:has(> .project-section > .hf) > .project-heading p { margin:4px 0 0; font-si
 .project-guide h3 { margin: 0; color: var(--heading); font-size: var(--fs-lg); }
 .project-guide ol { margin: 4px 0 8px; padding-left: 20px; display: grid; gap: 6px; font-size: var(--fs-sm); line-height: 1.5; }
 .project-guide .secondary { justify-self: start; }
+/* La tarjeta no se estira a la altura de la guía: evita el hueco vacío bajo el pie. */
+.project-grid > .project-card { align-self: start; }
 /* Acuerdo: formularios de "Agregar problema" y "Lo que funciona bien", con capturas dentro. */
 .hf-form-seccion .panel-head p { margin: 4px 0 0; }
 .hf .hf-form-lista, .hf-form-lista { display: grid; gap: var(--espacio-3); margin: 0; padding: 0; border: 0; min-width: 0; }
@@ -3396,3 +3398,17 @@ div:has(> .project-section > .hf) > .project-heading p { margin:4px 0 0; font-si
 .hf-form-evidencia input[type='file']::file-selector-button { margin-right: 12px; padding: 8px 14px; border: 1px solid var(--teal); border-radius: 8px; background: var(--surface); color: var(--teal); font: inherit; font-weight: 700; cursor: pointer; }
 .hf-form-evidencia input[type='file']::file-selector-button:hover { background: var(--teal-soft); }
 .hf-form-evidencia .field small { display: block; margin-top: 4px; color: var(--muted); font-weight: 400; }
+/* Analítica: lo importante de cada técnica */
+.analitica-tecnicas { margin-block: var(--section-gap); }
+.analitica-tecnicas-titulo { margin: 0 0 10px; color: var(--heading); font-size: var(--fs-lg); }
+.analitica-tecnicas-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 12px; }
+.analitica-tecnica { display: grid; align-content: start; gap: 10px; margin: 0; padding: 16px; }
+.analitica-tecnica-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.analitica-tecnica-head h4 { margin: 0; color: var(--heading); font-size: var(--fs-md); }
+.analitica-tecnica-head a { color: var(--teal); font-size: var(--fs-sm); font-weight: 700; }
+.analitica-cifras { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.analitica-cifras div { display: flex; flex-direction: column-reverse; gap: 2px; }
+.analitica-cifras dt { color: var(--muted); font-size: var(--fs-xs); line-height: 1.3; }
+.analitica-cifras dd { margin: 0; color: var(--ink); font-size: var(--fs-xl); font-weight: 700; line-height: 1.1; }
+.analitica-tecnica-sub { margin: 0 0 4px; color: var(--ink); font-size: var(--fs-sm); font-weight: 700; }
+.analitica-tecnica ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; color: var(--ink-soft); font-size: var(--fs-sm); line-height: 1.45; overflow-wrap: anywhere; }

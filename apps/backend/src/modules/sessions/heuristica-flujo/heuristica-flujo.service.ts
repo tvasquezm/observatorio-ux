@@ -223,12 +223,12 @@ export class HeuristicaFlujoService {
     }
   }
 
-  private async validarHallazgos(e: EvaluacionFlujo, hallazgos: HallazgoFlujo[], tx: Prisma.TransactionClient, autorId: string | null, completos: boolean) {
+  private async validarHallazgos(e: EvaluacionFlujo, hallazgos: HallazgoFlujo[], tx: Prisma.TransactionClient, autorId: string | null, completos: boolean, exigirCriterio = true) {
     const criterios = e.configuracion.metodologia.criterios;
     if (hallazgos.some(h => h.criterioIds.some(id => !criterios.some(c => c.id === id)))) throw new BadRequestException('Hallazgo con criterio desconocido.');
     if (completos) for (const h of hallazgos) {
       if (!h.titulo.trim()) throw new BadRequestException('Escribe el título de cada hallazgo.');
-      if (!h.criterioIds.length) throw new BadRequestException(`Selecciona un criterio para el hallazgo «${h.titulo}».`);
+      if (exigirCriterio && !h.criterioIds.length) throw new BadRequestException(`Selecciona un criterio para el hallazgo «${h.titulo}».`);
       if (!h.descripcion.trim()) throw new BadRequestException(`Describe el hallazgo «${h.titulo}».`);
     }
     const ids = [...new Set(hallazgos.flatMap(h => h.evidenciaIds))];
@@ -309,7 +309,7 @@ export class HeuristicaFlujoService {
       if (aportes.length >= MAX_APORTES_EQUIPO) throw new BadRequestException(`Máximo ${MAX_APORTES_EQUIPO} problemas agregados por el equipo.`);
       const usados = new Set([...e.trabajos.flatMap(t => t.hallazgos.map(h => h.id)), ...aportes.map(h => h.id), ...e.consenso.hallazgos.map(h => h.id)]);
       if (usados.has(b.hallazgo.id)) throw new BadRequestException('El identificador del problema ya existe.');
-      await this.validarHallazgos(e, [b.hallazgo], tx, user.id, true);
+      await this.validarHallazgos(e, [b.hallazgo], tx, user.id, true, false);
       const aporte: AporteEquipo = { ...b.hallazgo, autorId: user.id, creadoEn: new Date().toISOString() };
       e.consenso = { ...e.consenso, aportes: [...aportes, aporte], aprobadoPor: [] };
       return this.persistir(e, tx, user);

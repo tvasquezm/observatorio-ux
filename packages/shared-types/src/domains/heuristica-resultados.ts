@@ -140,7 +140,6 @@ export function pendientesAcuerdo(e: EvaluacionFlujo): PendienteAcuerdo[] {
     if (!h.justificacion.trim()) falta('hallazgos', h.id, nombre, 'Falta la justificación.');
     if ((origenHallazgo(h) === 'equipo' || h.decision === 'ACEPTADO') && !h.titulo.trim()) falta('hallazgos', h.id, nombre, 'Falta el título.');
     if ((origenHallazgo(h) === 'equipo' || h.decision === 'ACEPTADO') && !h.descripcion.trim()) falta('hallazgos', h.id, nombre, 'Falta la descripción.');
-    if (h.decision === 'ACEPTADO' && !h.criterioIds.length) falta('hallazgos', h.id, nombre, 'Falta elegir al menos un criterio.');
   }
   for (const p of c.positivos ?? []) if (!p.titulo.trim()) falta('positivos', p.id, 'Aspecto positivo sin título', 'Falta el título.');
   for (const m of c.mejoras ?? []) if (!m.titulo.trim()) falta('mejoras', m.id, 'Mejora sin título', 'Falta el título.');

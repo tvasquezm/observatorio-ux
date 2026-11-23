@@ -173,6 +173,19 @@ function sections(report: ReportConImagenes): Record<ReportMethod, Content[]> {
             ], unbreakable: JSON.stringify(problema).length < 1600,
           })) : []),
         ] : [paragraph('La revisión acordada no identificó problemas de usabilidad.')]),
+        // Lo que funciona bien: también es evidencia del informe, con sus capturas.
+        ...(incluye('heuristica', 'positivos') && informe.consenso.positivos?.length ? [
+          title('Lo que funciona bien'),
+          ...informe.consenso.positivos.map((positivo): Content => ({
+            stack: [
+              { text: positivo.titulo, bold: true, margin: [0, 2, 0, 3] },
+              ...(positivo.descripcion ? [paragraph(positivo.descripcion)] : []),
+              ...(positivo.evidenciaIds ?? []).map((id): Content => report.imagenes?.[claveCaptura(evaluacion.id, id)]
+                ? { image: claveCaptura(evaluacion.id, id), fit: [440, 300], margin: [0, 4, 0, 8] }
+                : { text: 'Captura disponible en la aplicación (no se pudo incluir en este PDF).', italics: true, color: MUTED, margin: [0, 2, 0, 6] }),
+            ], unbreakable: JSON.stringify(positivo).length < 1600,
+          })),
+        ] : []),
       ];
     }) ?? [],
   };
@@ -309,10 +322,17 @@ export async function prepararImagenesReporte(report: ProjectReport): Promise<Re
     return { ...p, contenido: { ...p.contenido, fotografiaUrl: foto ?? undefined } };
   })) : undefined;
   const incluyeProblemas = report.partes?.heuristica?.includes('problemas') ?? true;
-  if (report.heuristics && incluyeProblemas) {
+  const incluyePositivos = report.partes?.heuristica?.includes('positivos') ?? true;
+  if (report.heuristics && (incluyeProblemas || incluyePositivos)) {
     const { rasterizarEvidencia } = await import('../../features/heuristica-flujo/informe-pdf');
-    for (const e of report.heuristics) for (const h of e.informe?.consenso.hallazgos.filter(x => x.decision === 'ACEPTADO') ?? []) for (const id of h.evidenciaIds) {
-      try { const { meta, blob } = await cargarEvidencia(e.proyectoId, e.id, id); imagenes[claveCaptura(e.id, id)] = await rasterizarEvidencia(blob, meta.anotaciones); } catch { /* queda el aviso en el PDF */ }
+    for (const e of report.heuristics) {
+      const ids = [
+        ...(incluyeProblemas ? e.informe?.consenso.hallazgos.filter(x => x.decision === 'ACEPTADO').flatMap(h => h.evidenciaIds) ?? [] : []),
+        ...(incluyePositivos ? e.informe?.consenso.positivos?.flatMap(p => p.evidenciaIds ?? []) ?? [] : []),
+      ];
+      for (const id of new Set(ids)) {
+        try { const { meta, blob } = await cargarEvidencia(e.proyectoId, e.id, id); imagenes[claveCaptura(e.id, id)] = await rasterizarEvidencia(blob, meta.anotaciones); } catch { /* queda el aviso en el PDF */ }
+      }
     }
   }
   return { ...report, personas, imagenes };

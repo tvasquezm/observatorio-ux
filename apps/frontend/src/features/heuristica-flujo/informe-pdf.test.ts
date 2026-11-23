@@ -54,7 +54,11 @@ describe('Informe consolidado PDF', () => {
     ev.informe!.consenso.criterios[0].valor = 'si';
     const contenido = JSON.stringify(construirInformeFlujoPdf(ev, new Map(), new Date()).content);
     expect(contenido).toContain('Escala propia de algunos criterios');
-    expect(contenido).toContain('Valoración (escala propia: Checklist propio)');
+    expect(contenido).toContain('Valoración (escala propia 1)');
+    // Las fuentes no se repiten por criterio ni por escala: hay una sola referencia al final.
+    expect(contenido).not.toContain('Checklist propio');
+    expect(contenido.match(/nngroup\.com/g)).toHaveLength(1);
+    expect(contenido).toContain('Las preguntas de esta evaluación provienen de: https://www.nngroup.com/articles/ten-usability-heuristics/');
     expect(contenido).toContain('Sí cumple');
   });
   it('incluye cumplimiento en texto solo si la escala define favorables', () => {

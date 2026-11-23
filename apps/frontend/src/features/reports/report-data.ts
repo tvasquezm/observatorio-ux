@@ -38,6 +38,7 @@ export const REPORT_METHODS = [
   { id: 'heuristica', label: 'Evaluación Heurística', detail: 'Problemas acordados, severidad y recomendaciones', partes: [
     { id: 'severidad', label: 'Resumen por severidad' },
     { id: 'problemas', label: 'Detalle de cada problema' },
+    { id: 'positivos', label: 'Lo que funciona bien' },
   ] },
 ] as const;
 export type ReportMethod = typeof REPORT_METHODS[number]['id'];
