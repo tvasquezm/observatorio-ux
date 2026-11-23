@@ -29,7 +29,7 @@ unset DATABASE_URL && pnpm exec playwright test [tests/e2e/<spec>]   # completo 
 
 - `npx tsc` no funciona: usar `pnpm exec tsc`.
 - Usuario de prueba del seed (solo local): `profesor@test.com` (ver `tests/e2e/helpers.ts`).
-- Stack completo de desarrollo: `docker compose up -d` (frontend en 5173). Vite dentro de Docker no detecta cambios del disco de Windows: `docker compose restart frontend` para ver cambios.
+- Stack completo de desarrollo: `docker compose up -d` (frontend en 5173). Vite dentro de Docker no detecta cambios del disco de Windows: `docker compose restart frontend` para ver cambios. Si cambió `packages/shared-types`: primero `docker compose restart shared-types` (solo compila al arrancar), luego `restart frontend backend`. Fuera de Docker, borrar `apps/frontend/node_modules/.vite` si Vite sirve la versión vieja.
 - El contenedor `observatorio-ux-loadtest-*` es de pruebas de carga del usuario: no tocarlo.
 
 ## Particularidades que causan reintentos

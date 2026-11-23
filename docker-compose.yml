@@ -69,7 +69,9 @@ services:
     command:
       - sh
       - -c
-      - sh scripts/ensure-deps.sh frontend && exec pnpm --filter frontend dev -- --host
+      # --force: rehace la caché de dependencias al arrancar. Sin esto, tras recompilar
+      # shared-types Vite sigue sirviendo la versión anterior aunque se reinicie el contenedor.
+      - sh scripts/ensure-deps.sh frontend && exec pnpm --filter frontend exec vite --host --force
     ports:
       - "5173:5173"
     depends_on:

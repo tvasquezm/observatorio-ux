@@ -3412,3 +3412,8 @@ div:has(> .project-section > .hf) > .project-heading p { margin:4px 0 0; font-si
 .analitica-cifras dd { margin: 0; color: var(--ink); font-size: var(--fs-xl); font-weight: 700; line-height: 1.1; }
 .analitica-tecnica-sub { margin: 0 0 4px; color: var(--ink); font-size: var(--fs-sm); font-weight: 700; }
 .analitica-tecnica ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; color: var(--ink-soft); font-size: var(--fs-sm); line-height: 1.45; overflow-wrap: anywhere; }
+/* Acuerdo: lo que falta se destaca al llevar a la persona hasta ahí. */
+.hf-form-card[data-destacado], .hf-form-resumen[data-destacado] { outline: 3px solid var(--danger-text); outline-offset: 3px; box-shadow: 0 0 0 8px color-mix(in srgb, var(--danger-text) 12%, transparent); transition: box-shadow .3s; }
+.hf-pendientes-lista { display: grid; gap: 6px; padding-left: 18px; }
+.hf-pendientes-lista li > span { margin-right: 8px; }
+.hf-pendientes-lista .link-btn { font-weight: 700; }

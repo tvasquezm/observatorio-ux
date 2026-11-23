@@ -7,8 +7,8 @@ import { Field } from './campos';
  * Lo que funciona bien en el producto: cada aspecto es una tarjeta con título, descripción
  * y capturas (con anotaciones), igual que un problema. Guardado, se pliega a un resumen.
  */
-export function AspectosPositivos({ evaluacion, positivos, bloqueo, onChange, onPendingChange }: {
-  evaluacion: EvaluacionFlujo; positivos: AspectoPositivo[]; bloqueo: boolean;
+export function AspectosPositivos({ evaluacion, positivos, bloqueo, onChange, onPendingChange, destacadoId }: {
+  evaluacion: EvaluacionFlujo; positivos: AspectoPositivo[]; bloqueo: boolean; destacadoId?: string | null;
   onChange: (positivos: AspectoPositivo[]) => void; onPendingChange: (id: string, subiendo: boolean) => void;
 }) {
   const [plegados, setPlegados] = useState<ReadonlySet<string>>(() => new Set(positivos.filter(p => p.titulo.trim()).map(p => p.id)));
@@ -22,7 +22,7 @@ export function AspectosPositivos({ evaluacion, positivos, bloqueo, onChange, on
     {positivos.map((p, i) => {
       const n = i + 1;
       const capturas = p.evidenciaIds?.length ?? 0;
-      if (plegados.has(p.id)) return <article key={p.id} className="hf-form-resumen" aria-label={`Aspecto positivo ${n}: ${p.titulo}`}>
+      if (plegados.has(p.id)) return <article key={p.id} id={"positivo-" + p.id} tabIndex={-1} data-destacado={destacadoId === "positivo-" + p.id || undefined} className="hf-form-resumen" aria-label={`Aspecto positivo ${n}: ${p.titulo}`}>
         <div>
           <h4>{p.titulo}</h4>
           {p.descripcion && <p>{p.descripcion}</p>}
@@ -33,7 +33,7 @@ export function AspectosPositivos({ evaluacion, positivos, bloqueo, onChange, on
           <button type="button" className="link-btn link-btn--delete" onClick={() => quitar(p.id)}>Quitar aspecto positivo {n}</button>
         </div>
       </article>;
-      return <fieldset key={p.id} className="hf-form-card">
+      return <fieldset key={p.id} id={"positivo-" + p.id} tabIndex={-1} data-destacado={destacadoId === "positivo-" + p.id || undefined} className="hf-form-card">
         <legend>Aspecto positivo {n}: {p.titulo || 'Sin título'}</legend>
         <Field label={`Título del aspecto positivo ${n}`}><input maxLength={300} value={p.titulo} placeholder="Por ejemplo: el menú usa palabras que la gente entiende" onChange={e => cambiar(p.id, { titulo: e.target.value })} /></Field>
         <Field label={`Descripción del aspecto positivo ${n}`}><textarea maxLength={10000} rows={3} value={p.descripcion} placeholder="Qué se observó y por qué ayuda a la persona usuaria." onChange={e => cambiar(p.id, { descripcion: e.target.value })} /></Field>

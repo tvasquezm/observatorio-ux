@@ -2,8 +2,11 @@ import { useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 /** Keep editors mounted so changing views preserves drafts and pending uploads. */
-export function RecorridoSencillo({ pasos, acciones }: { pasos: { titulo: string; ayuda: string; contenido: ReactNode }[]; acciones?: ReactNode }) {
-  const [indice, setIndice] = useState(0);
+/** `paso`/`onPaso` opcionales: permiten llevar a la persona a otro paso desde fuera (por ejemplo, a lo que falta). */
+export function RecorridoSencillo({ pasos, acciones, paso, onPaso }: { pasos: { titulo: string; ayuda: string; contenido: ReactNode }[]; acciones?: ReactNode; paso?: number; onPaso?: (i: number) => void }) {
+  const [propio, setPropio] = useState(0);
+  const indice = paso ?? propio;
+  const setIndice = (i: number) => { setPropio(i); onPaso?.(i); };
   const id = useId();
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
   function ir(i: number) { setIndice(i); tabs.current[i]?.focus(); }

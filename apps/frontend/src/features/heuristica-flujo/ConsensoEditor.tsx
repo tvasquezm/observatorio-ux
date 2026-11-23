@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { RecorridoSencillo } from './RecorridoSencillo';
-import { ETIQUETA_SECCION_ACUERDO, MAX_HALLAZGOS_NUEVOS_EQUIPO, origenHallazgo, pendientesAcuerdo, redactorDe } from '@observatorio-ux/shared-types';
+import { ETIQUETA_SECCION_ACUERDO, MAX_HALLAZGOS_NUEVOS_EQUIPO, mejoraVacia, origenHallazgo, pendientesAcuerdo, redactorDe } from '@observatorio-ux/shared-types';
 import type { DecisionHallazgo, EvaluacionFlujo, MiembroEquipoFlujo, SeccionAcuerdo } from '@observatorio-ux/shared-types';
 import { Field } from './ConfiguracionEditor';
 import { EvidenciaEditor } from './EvidenciaEditor';
@@ -19,7 +19,7 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
   const soloLectura = usuarioId !== redactorId;
   const [subiendo, setSubiendo] = useState<Record<string, boolean>>({});
   const subiendoCapturas = Object.values(subiendo).some(Boolean);
-  const state = useFlujoDraft(evaluacion, usuarioId, 'consenso', { criterios: evaluacion.consenso.criterios, hallazgos: evaluacion.consenso.hallazgos, positivos: evaluacion.consenso.positivos ?? [], conclusion: evaluacion.consenso.conclusion ?? '', mejoras: evaluacion.consenso.mejoras ?? [] }, onSaved, subiendoCapturas, !soloLectura);
+  const state = useFlujoDraft(evaluacion, usuarioId, 'consenso', { criterios: evaluacion.consenso.criterios, hallazgos: evaluacion.consenso.hallazgos, positivos: evaluacion.consenso.positivos ?? [], conclusion: evaluacion.consenso.conclusion ?? '', mejoras: (evaluacion.consenso.mejoras ?? []).filter(m => !mejoraVacia(m)) }, onSaved, subiendoCapturas, !soloLectura);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const bloqueo = busy || soloLectura;
@@ -59,10 +59,71 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
     return 'Agregado por el equipo';
   };
   const update = (h: DecisionHallazgo) => state.setDraft({ ...state.draft, hallazgos: state.draft.hallazgos.map(x => x.id === h.id ? h : x) });
+  /** Lo que le falta a una decisión para estar lista (vacío = lista). */
+  const faltasDe = (id: string) => pendientes.filter(p => p.seccion === 'hallazgos' && p.id === id).flatMap(p => p.faltas);
+  // Los problemas listos se pliegan a un resumen para no ocupar tanta pantalla (como los aspectos positivos).
+  const [plegados, setPlegados] = useState<ReadonlySet<string>>(() => {
+    const inicial = pendientesAcuerdo(evaluacion);
+    return new Set(evaluacion.consenso.hallazgos.filter(h => !inicial.some(p => p.seccion === 'hallazgos' && p.id === h.id)).map(h => h.id));
+  });
+  const plegar = (id: string, si: boolean) => setPlegados(prev => { const n = new Set(prev); if (si) n.add(id); else n.delete(id); return n; });
+  const [faltasVisibles, setFaltasVisibles] = useState<string | null>(null);
+  // Llevar a lo que falta: cambia de paso si hace falta, despliega, desplaza y destaca.
+  const [paso, setPaso] = useState(0);
+  const [enfoqueCriterio, setEnfoqueCriterio] = useState<{ criterioId: string; marca: number } | undefined>();
+  const [destacado, setDestacado] = useState<{ id: string; marca: number } | null>(null);
+  const [llevadoA, setLlevadoA] = useState('');
+  useEffect(() => {
+    if (!destacado) return;
+    const mostrar = setTimeout(() => {
+      const el = document.getElementById(destacado.id);
+      el?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+      el?.focus({ preventScroll: true });
+    }, 0);
+    const apagar = setTimeout(() => setDestacado(null), 6000);
+    return () => { clearTimeout(mostrar); clearTimeout(apagar); };
+  }, [destacado?.marca]);
+  function irAPendiente(p: (typeof pendientes)[number]) {
+    const marca = Date.now();
+    if (p.seccion === 'criterios') { setPaso(0); setEnfoqueCriterio({ criterioId: p.id, marca }); }
+    else {
+      setPaso(1);
+      if (p.seccion === 'hallazgos') {
+        const h = state.draft.hallazgos.find(x => x.id === p.id || x.origenIds.includes(p.id));
+        if (!h) return;
+        plegar(h.id, false); setFaltasVisibles(h.id); setDestacado({ id: `decision-${h.id}`, marca });
+      } else if (p.seccion === 'positivos') setDestacado({ id: `positivo-${p.id}`, marca });
+      else return;
+    }
+    setLlevadoA(`Te llevé a lo que falta: ${p.nombre}. ${p.faltas.join(' ')}`);
+  }
+  function guardarDecision(h: DecisionHallazgo) {
+    if (faltasDe(h.id).length) { setFaltasVisibles(h.id); setDestacado({ id: `decision-${h.id}`, marca: Date.now() }); return; }
+    setFaltasVisibles(null); plegar(h.id, true);
+    void state.save().catch(() => {});
+  }
+  const DECISION: Record<DecisionHallazgo['decision'], string> = { PENDIENTE: 'Pendiente', ACEPTADO: 'Aceptado: entra al informe', DESCARTADO: 'Descartado: no entra al informe' };
   function renderDecision(h: DecisionHallazgo, i: number) {
     const esEquipo = origenHallazgo(h) === 'equipo';
-    return <fieldset key={h.id} disabled={bloqueo} tabIndex={-1} className={esEquipo ? "hf-form-card" : undefined} ref={el => { decisiones.current[h.id] = el; }}>
-      <legend>Decisión {i + 1}: {h.titulo}</legend>
+    const n = i + 1;
+    const quitar = esEquipo && !soloLectura && <button type="button" className="link-btn link-btn--delete" disabled={bloqueo} onClick={() => {
+      setAvisoEquipo('');
+      state.setDraft({ ...state.draft, hallazgos: state.draft.hallazgos.filter(x => x.id !== h.id) });
+    }}>{`Quitar problema ${n}`}</button>;
+    if (plegados.has(h.id)) return <article key={h.id} id={`decision-${h.id}`} tabIndex={-1} className="hf-form-resumen" data-destacado={destacado?.id === `decision-${h.id}` || undefined} aria-label={`Decisión ${n}: ${h.titulo}`}>
+      <div>
+        <h4>{h.titulo || 'Problema sin título'}</h4>
+        <p className="hf-form-meta">{DECISION[h.decision]} · Severidad {h.severidad} · {autoriaDe(h)}{h.evidenciaIds.length ? ` · ${h.evidenciaIds.length} captura${h.evidenciaIds.length === 1 ? '' : 's'}` : ''}</p>
+        <p className="hf-form-meta" role="status">Problema guardado con éxito</p>
+      </div>
+      <div className="hf-form-resumen-acciones">
+        <button type="button" className="ghost" onClick={() => plegar(h.id, false)}>{soloLectura ? `Ver problema ${n}` : `Editar problema ${n}`}</button>
+        {quitar}
+      </div>
+    </article>;
+    const faltas = faltasVisibles === h.id ? faltasDe(h.id) : [];
+    return <fieldset key={h.id} id={`decision-${h.id}`} disabled={bloqueo} tabIndex={-1} className="hf-form-card" data-destacado={destacado?.id === `decision-${h.id}` || undefined} ref={el => { decisiones.current[h.id] = el; }}>
+      <legend>Decisión {n}: {h.titulo}</legend>
       <p className="hf-autoria">{autoriaDe(h)}</p>
       <Field label="Decisión del consenso"><select value={h.decision} onChange={e => update({ ...h, decision: e.target.value as DecisionHallazgo['decision'] })}><option value="PENDIENTE">Pendiente</option><option value="ACEPTADO">Aceptar problema único</option><option value="DESCARTADO">Descartar conservando original</option></select></Field>
       <HallazgoEditor value={h} config={evaluacion.configuracion} conCriterios={false} onChange={x => update({ ...h, ...x })} />
@@ -73,10 +134,11 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
         <EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={h.evidenciaIds} editable={esEquipo && !bloqueo}
           onChange={esEquipo ? ids => state.setDraft(prev => ({ ...prev, hallazgos: prev.hallazgos.map(x => x.id === h.id ? { ...x, evidenciaIds: ids } : x) })) : undefined} onPendingChange={esEquipo ? v => setSubiendo(p => p[h.id] === v ? p : { ...p, [h.id]: v }) : undefined} />
       </div>
-      {esEquipo && <button type="button" className="link-btn link-btn--delete" onClick={() => {
-        setAvisoEquipo('');
-        state.setDraft({ ...state.draft, hallazgos: state.draft.hallazgos.filter(x => x.id !== h.id) });
-      }}>{`Quitar problema ${i + 1}`}</button>}
+      {faltas.length > 0 && <div role="alert" className="hf-error"><p>Para guardar el problema {n} falta:</p><ul>{faltas.map(f => <li key={f}>{f}</li>)}</ul></div>}
+      {!soloLectura && <div className="hf-form-acciones">
+        {quitar}
+        <button type="button" className="secondary" onClick={() => guardarDecision(h)}>{`Guardar problema ${n}`}</button>
+      </div>}
     </fieldset>;
   }
   async function action(action: 'aprobar' | 'consolidar' | 'entregar-acuerdo') {
@@ -109,31 +171,33 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
       <p>{soloLectura ? `Redacta el acuerdo: ${nombreDe(redactorId)}. Solo esa persona puede editarlo; tú puedes leerlo y confirmarlo.` : 'Tú redactas el acuerdo.'}</p>
       {evaluacion.consenso.guardadoPor && evaluacion.consenso.guardadoEn && <p>{`Última edición por ${nombreDe(evaluacion.consenso.guardadoPor)} · ${fechaChile(evaluacion.consenso.guardadoEn)}`}</p>}</section>
     <RedactorPanel evaluacion={evaluacion} usuarioId={usuarioId} nombreDe={nombreDe} guardar={state.save} getRevision={state.getRevision} onSaved={onSaved} />
-    <RecorridoSencillo pasos={[{ titulo: 'Acordar las respuestas', ayuda: 'Lean las respuestas de cada persona y elijan una respuesta común. Expliquen por qué están de acuerdo.', contenido: (<>
+    <p role="status" className="hf-llevado">{llevadoA}</p>
+    <RecorridoSencillo paso={paso} onPaso={setPaso} pasos={[{ titulo: 'Acordar las respuestas', ayuda: 'Lean las respuestas de cada persona y elijan una respuesta común. Expliquen por qué están de acuerdo.', contenido: (<>
     <fieldset disabled={bloqueo}><legend>Acuerdo por pregunta</legend>
       <MatrizItem criterios={criterios} config={evaluacion.configuracion} modo="equipo" respuestas={state.draft.criterios} editable={!soloLectura}
         individuales={evaluacion.trabajos.map(t => ({ evaluadorId: t.evaluadorId, nombre: t.nombre, respuestas: t.respuestas }))}
-        guardado={{ dirty: state.dirty, saving: state.saving, error: state.error }}
+        guardado={{ dirty: state.dirty, saving: state.saving, error: state.error }} enfocar={enfoqueCriterio}
         onChange={r => state.setDraft(prev => ({ ...prev, criterios: [...prev.criterios.filter(x => x.criterioId !== r.criterioId), { ...r, justificacion: r.justificacion ?? '' }] }))} />
     </fieldset>
     </>) }, { titulo: 'Preparar el informe', ayuda: 'Decidan qué hacer con cada problema encontrado (aceptarlo o descartarlo), agreguen los que detectó el equipo y escriban qué recomiendan mejorar. Cada persona debe confirmar el acuerdo antes de que el coordinador prepare el informe.', contenido: (<>
     <section className="panel" aria-labelledby="hf-problemas-equipo">
       <div className="panel-head"><h2 id="hf-problemas-equipo">Problemas que detectó el equipo</h2></div>
-      <fieldset disabled={bloqueo}>
+      <div className="hf-form-lista">
+        <p className="hf-ayuda">Cualquier persona del equipo puede agregar problemas; queda registrado quién lo agregó. Quien redacta decide si cada uno entra al informe. Al guardar un problema se pliega para dejar espacio al siguiente. {nuevos} de {MAX_HALLAZGOS_NUEVOS_EQUIPO} agregados por quien redacta.</p>
+        {state.draft.hallazgos.map((h, i) => renderDecision(h, i))}
         <p role="status" className="hf-aviso">{avisoEquipo}</p>
-        <p className="hf-ayuda">Cualquier persona del equipo puede agregar problemas; queda registrado quién lo agregó. Quien redacta decide si cada uno entra al informe. {nuevos} de {MAX_HALLAZGOS_NUEVOS_EQUIPO} agregados por quien redacta.</p>
-        {!soloLectura && <button type="button" className="secondary" disabled={busy || nuevos >= MAX_HALLAZGOS_NUEVOS_EQUIPO} onClick={() => {
+        {/* Abajo de la lista: al terminar un problema se puede empezar el siguiente sin volver arriba. */}
+        {!soloLectura && <button type="button" className="secondary hf-form-agregar" disabled={busy || nuevos >= MAX_HALLAZGOS_NUEVOS_EQUIPO} onClick={() => {
           const nueva: DecisionHallazgo = { ...hallazgoVacio(criterios[0].id), criterioIds: [], origenIds: [], decision: 'PENDIENTE', justificacion: '', autorId: usuarioId, creadoEn: new Date().toISOString() };
           state.setDraft({ ...state.draft, hallazgos: [...state.draft.hallazgos, nueva] });
           setAvisoEquipo(`Problema creado como decisión ${state.draft.hallazgos.length + 1}. Complétalo en esta sección.`);
           setNuevaId(nueva.id);
         }}>Agregar problema</button>}
-        {state.draft.hallazgos.map((h, i) => renderDecision(h, i))}
-      </fieldset>
+      </div>
       {soloLectura && (esExperto || usuarioId === evaluacion.coordinadorId) && <AporteEquipo evaluacion={evaluacion} usuarioId={usuarioId} nombreDe={nombreDe} onSaved={onSaved} />}
     </section>
     <section className="panel hf-form-seccion" aria-labelledby="hf-positivos-titulo"><div className="panel-head"><div><h2 id="hf-positivos-titulo">Lo que funciona bien</h2><p className="hf-ayuda">Opcional. Registra los aciertos del producto, con capturas si ayudan a mostrarlos.</p></div></div>
-      <AspectosPositivos evaluacion={evaluacion} positivos={state.draft.positivos} bloqueo={bloqueo}
+      <AspectosPositivos evaluacion={evaluacion} positivos={state.draft.positivos} bloqueo={bloqueo} destacadoId={destacado?.id}
         onChange={positivos => state.setDraft(prev => ({ ...prev, positivos }))}
         onPendingChange={(id, v) => setSubiendo(p => p[id] === v ? p : { ...p, [id]: v })} />
     </section>
@@ -144,14 +208,18 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
     <section className="panel" aria-label="Pendientes del acuerdo"><div className="panel-head"><h2>Pendientes para entregar el acuerdo</h2></div>
       {completo ? <p role="status">No hay pendientes: el acuerdo está completo.</p> : <>
         <p role="status">Faltan {pendientes.length} {pendientes.length === 1 ? 'elemento' : 'elementos'} por completar.</p>
-        {(Object.keys(ETIQUETA_SECCION_ACUERDO) as SeccionAcuerdo[]).map(sec => { const items = pendientes.filter(p => p.seccion === sec); return items.length ? <div key={sec}><h3>{ETIQUETA_SECCION_ACUERDO[sec]} ({items.length})</h3><ul>{items.map(p => <li key={`${sec}:${p.id}`}>{p.nombre}: {p.faltas.join(' ')}</li>)}</ul></div> : null; })}
+        {(Object.keys(ETIQUETA_SECCION_ACUERDO) as SeccionAcuerdo[]).map(sec => { const items = pendientes.filter(p => p.seccion === sec); return items.length ? <div key={sec}><h3>{ETIQUETA_SECCION_ACUERDO[sec]} ({items.length})</h3><ul className="hf-pendientes-lista">{items.map(p => <li key={`${sec}:${p.id}`}><span>{p.nombre}: {p.faltas.join(' ')}</span>{sec !== 'mejoras' && <button type="button" className="link-btn" onClick={() => irAPendiente(p)}>Ir{' '}<span className="sr-only">a {p.nombre}</span></button>}</li>)}</ul></div> : null; })}
       </>}
     </section>
     <section className="panel" ref={confirmacion} tabIndex={-1}><div className="panel-head"><h2>Confirmación de todos los expertos</h2></div>{yaConfirmo && <p role="status"><strong>Ya confirmaste el acuerdo</strong></p>}<p>Editar el consenso revoca las confirmaciones previas. {state.dirty ? 'Hay cambios pendientes: las aprobaciones visibles corresponden a la versión guardada.' : ''}</p>
       <ul>{evaluacion.trabajos.map(t => <li key={t.evaluadorId}>{t.nombre}: {evaluacion.consenso.aprobadoPor.includes(t.evaluadorId) && !state.dirty ? 'Confirmado' : 'Confirmación pendiente'}</li>)}</ul>
       {!!evaluacion.consenso.pedidosCambios?.length && <><h3>Cambios pedidos</h3><ul>{evaluacion.consenso.pedidosCambios.map(p => <li key={p.evaluadorId}>{nombreDe(p.evaluadorId)} pidió cambios: {p.comentario}</li>)}</ul></>}
       {!soloLectura && <p className="hf-ayuda">Al entregar el acuerdo quedas confirmado automáticamente. Los demás expertos podrán confirmarlo o pedir cambios.</p>}
-      <div className="hf-actions">{!soloLectura && <button type="button" className={!yaEntregado && !todosConfirmaron ? 'primary' : 'secondary'} disabled={busy || state.saving || !completo} onClick={() => void action('entregar-acuerdo')}>Entregar acuerdo</button>}
+      <div className="hf-actions">{!soloLectura && <button type="button" className={!yaEntregado && !todosConfirmaron ? 'primary' : 'secondary'} disabled={busy || state.saving} onClick={() => {
+        // Si falta algo, en vez de un botón inactivo se lleva a la persona a lo primero que falta.
+        if (!completo) { const primero = pendientes.find(p => p.seccion !== 'mejoras'); if (primero) irAPendiente(primero); return; }
+        void action('entregar-acuerdo');
+      }}>Entregar acuerdo</button>}
       {soloLectura && esExperto && <><button type="button" className={yaConfirmo || todosConfirmaron ? 'secondary' : 'primary'} disabled={busy || state.saving || !completo || yaConfirmo} onClick={() => void action('aprobar')}>Estoy de acuerdo</button>
         <button type="button" className="secondary" disabled={busy || pidiendo} onClick={() => setPidiendo(true)}>Pido cambios</button></>}
       {evaluacion.coordinadorId === usuarioId && <button type="button" className={todosConfirmaron ? 'primary' : 'secondary'} disabled={busy || state.saving || state.dirty || !todosConfirmaron} onClick={() => void action('consolidar')}>Preparar informe</button>}</div>

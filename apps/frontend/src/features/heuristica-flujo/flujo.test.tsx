@@ -693,13 +693,17 @@ describe('consenso en equipo sobre la tabla', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Simular cambio' }));
     expect(await screen.findByText('Cambió quien redacta el acuerdo: ahora redacta Beto.')).toBeInTheDocument();
   });
-  it('lista los pendientes por sección y bloquea la entrega hasta completarlos', async () => {
+  it('lista los pendientes por sección y, al intentar entregar, lleva a lo que falta', async () => {
     renderFlow(<ConsensoEditor evaluacion={equipoEval('no_cumple')} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
     await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
     expect(screen.getByText('Faltan 1 elemento por completar.')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Criterios (1)' })).toBeInTheDocument();
     expect(screen.getByText(/: Falta evaluarlo\./)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Entregar acuerdo' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /^Ir a / })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Entregar acuerdo' }));
+    expect(api).not.toHaveBeenCalledWith('p1', '/evaluaciones/e1/entregar-acuerdo', 'POST', expect.anything());
+    expect(screen.getByRole('tab', { name: 'Acordar las respuestas' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText(/^Te llevé a lo que falta: /)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Estoy de acuerdo' })).toBeNull();
   });
   it('el redactor entrega el acuerdo completo con la revisión vigente', async () => {
@@ -786,6 +790,27 @@ describe('consenso en equipo sobre la tabla', () => {
     await waitFor(() => expect(screen.getByRole('group', { name: /Decisión 1/ })).toHaveFocus());
     await userEvent.click(screen.getByRole('button', { name: 'Quitar problema 1' }));
     expect(screen.queryByLabelText('Decisión del consenso')).toBeNull();
+  });
+  it('pliega el problema listo al guardarlo y ofrece agregar otro debajo', async () => {
+    renderFlow(<ConsensoEditor evaluacion={equipoEval('cumple')} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
+    const region = screen.getByRole('region', { name: 'Problemas que detectó el equipo' });
+    const equipo = within(region);
+    await userEvent.click(equipo.getByRole('button', { name: 'Agregar problema' }));
+    const decision = screen.getByRole('group', { name: /Decisión 1/ });
+    // El botón para agregar otro queda debajo del formulario.
+    expect(decision.compareDocumentPosition(equipo.getByRole('button', { name: 'Agregar problema' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await userEvent.click(equipo.getByRole('button', { name: 'Guardar problema 1' }));
+    expect(within(decision).getByRole('alert')).toHaveTextContent('Falta decidir');
+    await userEvent.type(equipo.getByLabelText('Título del problema'), 'Menú confuso');
+    await userEvent.type(equipo.getByLabelText('Descripción del problema'), 'No se entiende.');
+    await userEvent.selectOptions(equipo.getByLabelText('Decisión del consenso'), 'ACEPTADO');
+    await userEvent.type(equipo.getByLabelText('Justificación de aceptación, fusión o descarte'), 'Lo vimos todos.');
+    await userEvent.click(equipo.getByRole('button', { name: 'Guardar problema 1' }));
+    expect(equipo.queryByLabelText('Decisión del consenso')).toBeNull();
+    expect(equipo.getByText('Problema guardado con éxito')).toBeInTheDocument();
+    await userEvent.click(equipo.getByRole('button', { name: 'Editar problema 1' }));
+    expect(equipo.getByLabelText('Título del problema')).toHaveValue('Menú confuso');
   });
   it('desactiva el botón al llegar al tope de hallazgos nuevos', async () => {
     const e = equipoEval('cumple');
@@ -987,6 +1012,13 @@ describe('mejoras antes/después', () => {
     expect(screen.queryByRole('button', { name: 'Agregar mejora' })).toBeNull();
     await userEvent.type(screen.getByLabelText('Conclusión y recomendaciones finales'), 'Listo');
     await waitFor(() => expect(api).toHaveBeenCalledWith('p1', '/evaluaciones/e1/consenso', 'PATCH', expect.objectContaining({ mejoras: [expect.objectContaining({ titulo: 'Botón visible' })] })), { timeout: 3000 });
+  });
+  it('una mejora vacía de un borrador antiguo no bloquea la entrega del acuerdo', async () => {
+    const { pendientesAcuerdo } = await import('@observatorio-ux/shared-types');
+    const e = evaluation({ fase: 'PENDIENTE_CONSENSO' });
+    e.consenso.mejoras = [{ id: 'vacia', titulo: '', descripcion: '', antesIds: [], despuesIds: [] }, { id: 'con-captura', titulo: '', descripcion: '', antesIds: ['a1'], despuesIds: [] }];
+    const ids = pendientesAcuerdo(e).filter(p => p.seccion === 'mejoras').map(p => p.id);
+    expect(ids).toEqual(['con-captura']);
   });
   it('F38: el informe sigue el orden de lectura, su índice omite secciones vacías y ordena problemas por severidad', () => {
     const e = final('orden');
