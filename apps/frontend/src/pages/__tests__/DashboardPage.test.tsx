@@ -131,3 +131,28 @@ describe('Inicio en dos pasos', () => {
 function nombreTecnica(id: string) {
   return { personas: 'Personas', 'journey-map': 'Journey Map', 'momentos-criticos': 'Momentos críticos', 'card-sorting': 'Card Sorting', 'evaluacion-heuristica': 'Evaluación heurística' }[id] ?? id;
 }
+
+describe('Filtro por sala', () => {
+  it('no aparece si todos los proyectos están en la misma sala', () => {
+    montar();
+    expect(screen.queryByLabelText('Sala')).not.toBeInTheDocument();
+  });
+
+  it('filtra los proyectos del selector según la sala elegida', async () => {
+    mocks.useSalas.mockReturnValue({ isLoading: false, data: [{ id: 's1', nombre: 'Taller UX A', periodo: '2026-2' }, { id: 's2', nombre: 'Taller UX B', periodo: '2026-2' }] });
+    mocks.useProjects.mockReturnValue({ isLoading: false, data: [
+      { ...proyecto, salaId: 's1' },
+      { ...proyecto, id: 'p2', nombre: 'Proyecto Dos', salaId: 's2' },
+      { ...proyecto, id: 'p3', nombre: 'Proyecto Tres', salaId: null },
+    ] });
+    montar();
+    const sala = screen.getByLabelText('Sala');
+    expect(within(sala).getAllByRole('option').map(o => o.textContent)).toEqual(['Todas las salas', 'Taller UX A', 'Taller UX B', 'Sin sala']);
+    const proyectos = () => within(screen.getByLabelText('Proyecto activo')).getAllByRole('option').map(o => o.textContent);
+    expect(proyectos()).toHaveLength(4);
+    await userEvent.selectOptions(sala, 's2');
+    expect(proyectos()).toEqual(['Selecciona un proyecto…', 'Proyecto Dos']);
+    await userEvent.selectOptions(sala, '__sin-sala__');
+    expect(proyectos()).toEqual(['Selecciona un proyecto…', 'Proyecto Tres']);
+  });
+});

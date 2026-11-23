@@ -27,14 +27,16 @@ beforeEach(() => {
 });
 
 describe('informes por técnicas', () => {
-  it('no reserva una página por cada técnica vacía y restaura el formato tras el Journey', async () => {
+  it('todas las hojas van apaisadas y cada sección abre hoja nueva', async () => {
     const report = await loadProjectReport('p1', REPORT_METHODS.map(({ id }) => id));
-    const sections = (buildReportDefinition(report).content as Array<{ stack?: Array<{ text?: string }>; pageBreak?: string; pageOrientation?: string }>).filter(node => node.stack?.[0].text?.startsWith('SECCIÓN'));
+    const def = buildReportDefinition(report);
+    expect(def.pageOrientation).toBe('landscape');
+    const sections = (def.content as Array<{ stack?: Array<{ text?: string }>; pageBreak?: string; pageOrientation?: string }>).filter(node => node.stack?.[0].text?.startsWith('SECCIÓN'));
     expect(sections).toHaveLength(5);
-    expect(sections[1]).toMatchObject({ pageBreak: 'before', pageOrientation: 'landscape' });
-    expect(sections[2]).toMatchObject({ pageBreak: 'before', pageOrientation: 'portrait' });
-    expect(sections[3].pageBreak).toBeUndefined();
-    expect(sections[4].pageBreak).toBeUndefined();
+    for (const section of sections) {
+      expect(section.pageBreak).toBe('before');
+      expect(section.pageOrientation).toBeUndefined();
+    }
   });
   it('una técnica no consulta ni imprime las otras cuatro', async () => {
     const report = await loadProjectReport('p1', ['heuristica']);
@@ -110,7 +112,7 @@ describe('informes por técnicas', () => {
     expect(definition.images).toEqual({ brandLogo: 'logo-color', brandLogoWhite: 'logo-blanco' });
     const content = JSON.stringify(definition.content);
     expect(content).toContain('Journey Map');
-    expect(content).toContain('landscape');
+    expect(definition.pageOrientation).toBe('landscape');
     expect(content).not.toContain('De los datos a las decisiones.');
     expect(content).not.toContain('Evaluación Heurística');
   });
@@ -160,20 +162,35 @@ describe('card sorting en el informe del proyecto', () => {
     vi.mocked(getCardSortingAnalytics).mockResolvedValue(analytics as never);
   });
 
-  it('incluye los mapas de calor y el dendrograma, y las matrices anchas van apaisadas', async () => {
+  it('incluye los mapas de calor y el dendrograma, y cada gráfico abre hoja propia en el informe apaisado', async () => {
     const report = await loadProjectReport('p1', ['cards', 'heuristica'], { cards: ['matriz', 'similitud', 'dendrograma', 'agrupaciones'] });
     const nodos = buildReportDefinition(report).content as Array<{ stack?: Array<{ stack?: Array<{ text?: string }>; text?: string }>; pageBreak?: string; pageOrientation?: string }>;
     const titulo = (texto: string) => nodos.find(n => n.stack?.[0]?.stack?.[0]?.text === texto);
-    expect(titulo('Matriz de ubicaciones')).toMatchObject({ pageBreak: 'before', pageOrientation: 'landscape' });
-    expect(titulo('Similitud entre tarjetas')?.pageBreak).toBeUndefined();
-    expect(titulo('Dendrograma')).toMatchObject({ pageBreak: 'before', pageOrientation: 'portrait' });
+    expect(titulo('Matriz de ubicaciones')?.pageBreak).toBeUndefined();
+    expect(titulo('Similitud entre tarjetas')?.pageBreak).toBe('before');
+    expect(titulo('Dendrograma')?.pageBreak).toBe('before');
+    expect(JSON.stringify(nodos)).not.toContain('pageOrientation');
     const pdf = JSON.stringify(nodos);
     expect(pdf).toContain('"svg"');
     expect(pdf).toContain('#253ff6');
     expect(pdf).toContain('Agrupaciones sugeridas');
     expect(pdf).not.toContain('Tarjetas populares');
     const secciones = nodos.filter(n => n.stack?.[0]?.text?.startsWith('SECCIÓN'));
-    expect(secciones[1]).toMatchObject({ pageBreak: 'before', pageOrientation: 'portrait' });
+    expect(secciones[1]).toMatchObject({ pageBreak: 'before' });
+  });
+
+  it('genera el PDF real con todas las hojas del mismo tamaño apaisado', async () => {
+    const report = await loadProjectReport('p1', ['cards', 'heuristica'], { cards: ['matriz', 'similitud', 'dendrograma', 'agrupaciones'] });
+    const definicion = { ...buildReportDefinition(report), defaultStyle: { fontSize: 11 } };
+    const pdfMakeModule = await import('pdfmake/build/pdfmake');
+    const vfs = await import('pdfmake/build/vfs_fonts');
+    const pdfMake = (pdfMakeModule as unknown as { default: typeof pdfMakeModule }).default ?? pdfMakeModule;
+    (pdfMake as unknown as { addVirtualFileSystem: (v: unknown) => void }).addVirtualFileSystem((vfs as unknown as { default?: unknown }).default ?? vfs);
+    const buffer = await (pdfMake as unknown as { createPdf: (d: unknown) => { getBuffer: () => Promise<Uint8Array> } }).createPdf(definicion).getBuffer();
+    const texto = Buffer.from(buffer).toString('latin1');
+    const cajas = texto.match(/\/MediaBox \[[^\]]+\]/g) ?? [];
+    expect(cajas.length).toBeGreaterThan(2);
+    expect(new Set(cajas)).toEqual(new Set(['/MediaBox [0 0 841.89 595.28]']));
   });
 
   it('una elección guardada con "Resultados detallados" sigue trayendo Tarjetas y Categorías', async () => {

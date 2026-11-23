@@ -27,9 +27,10 @@ function barra(segmentos: SegmentoBarra[]): Content {
 const vacio = (valor: unknown) => (valor === '' || valor == null ? '—' : valor);
 const abreviar = (texto: string) => (texto.length > 14 ? `${texto.slice(0, 13)}…` : texto);
 
-export function cuerpoVista(tabla: TablaVista): Content[] {
+/** `apaisada` fuerza las medidas de página horizontal (el informe general va entero apaisado). */
+export function cuerpoVista(tabla: TablaVista, apaisada = false): Content[] {
   if (tabla.filas.length === 0) return [paragraph('Sin datos para esta vista.')];
-  const util = tabla.ancha ? UTIL.apaisada : UTIL.vertical;
+  const util = tabla.ancha || apaisada ? UTIL.apaisada : UTIL.vertical;
   if (tabla.grafico?.tipo === 'calor') return mapaCalor(tabla.grafico.matriz, util.ancho);
   if (tabla.grafico?.tipo === 'dendrograma') return dendrogramaPdf(tabla.grafico.tarjetas, tabla.grafico.similitud, util.ancho, util.alto);
   if (tabla.ancha && tabla.columnas.length > MAX_COLUMNAS_ANCHAS) {

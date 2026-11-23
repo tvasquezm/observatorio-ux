@@ -7,6 +7,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { getReturnTo } from '../../../shared/auth/session-expired';
 import { GoogleSignIn } from '../components/GoogleSignIn';
 import { useAccesoConfig } from '../hooks/useAccesoConfig';
+import { VideoTutorial } from '../../../shared/components/VideoTutorial';
 import './google-sign-in.css';
 
 export function LoginPage() {
@@ -74,6 +75,8 @@ export function LoginPage() {
         </form>}
 
         <GoogleSignIn />
+
+        <VideoTutorial variante="enlace" />
 
         <details className="login-help">
           <summary>{conContrasena ? '¿Olvidaste tu contraseña o no puedes ingresar?' : '¿No puedes ingresar?'}</summary>
