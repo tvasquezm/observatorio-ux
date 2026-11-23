@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { listProjects } from '../projects/api/projects.api';
-import { loadProjectReport, REPORT_METHODS, type ReportMethod, type ReportParts } from './report-data';
+import { listarLienzos, loadProjectReport, REPORT_METHODS, type ReportLienzos, type ReportMethod, type ReportParts } from './report-data';
 import { TecnicaAcordeon } from './TecnicaAcordeon';
 import { notify } from '../../shared/api/toast';
 
@@ -15,9 +15,11 @@ export function ExportReportDialog({ projectId, onClose }: { projectId?: string;
   const [selectedProject, setSelectedProject] = useState(projectId ?? '');
   const [selection, setSelection] = useState<ReportMethod[]>(REPORT_METHODS.map(({ id }) => id));
   const [partes, setPartes] = useState<ReportParts>({});
+  const [lienzos, setLienzos] = useState<ReportLienzos>({});
   /** Solo una técnica desplegada a la vez (F39). */
   const [abierta, setAbierta] = useState<ReportMethod | null>(null);
-  const incluidas = selection.filter(id => partes[id]?.length !== 0);
+  // Una técnica sin apartados o sin lienzos elegidos no entra al PDF.
+  const incluidas = selection.filter(id => partes[id]?.length !== 0 && lienzos[id]?.length !== 0);
   const seleccionesParciales = REPORT_METHODS.some(method =>
     selection.includes(method.id) && (partes[method.id]?.length ?? method.partes.length) < method.partes.length,
   );
@@ -25,6 +27,7 @@ export function ExportReportDialog({ projectId, onClose }: { projectId?: string;
   const busyRef = useRef(false);
   const [error, setError] = useState('');
   const projects = useQuery({ queryKey: ['report-projects'], queryFn: listProjects, staleTime: 0 });
+  const disponibles = useQuery({ queryKey: ['report-lienzos', selectedProject], queryFn: () => listarLienzos(selectedProject), enabled: !!selectedProject, staleTime: 0, retry: false });
 
   useEffect(() => {
     const previousFocus = document.activeElement as HTMLElement | null;
@@ -41,7 +44,7 @@ export function ExportReportDialog({ projectId, onClose }: { projectId?: string;
     setError('');
     try {
       const [report, { exportarReportePdf }] = await Promise.all([
-        loadProjectReport(selectedProject, incluidas, partes),
+        loadProjectReport(selectedProject, incluidas, partes, lienzos),
         import('../../shared/utils/pdf'),
       ]);
       await exportarReportePdf(report);
@@ -66,7 +69,7 @@ export function ExportReportDialog({ projectId, onClose }: { projectId?: string;
       <form aria-busy={busy} onSubmit={(event) => { event.preventDefault(); void download(); }}>
         <fieldset disabled={busy} className="report-project">
           <label htmlFor={selectId}>Proyecto</label>
-          <select ref={projectRef} id={selectId} required value={selectedProject} onChange={(event) => setSelectedProject(event.target.value)}>
+          <select ref={projectRef} id={selectId} required value={selectedProject} onChange={(event) => { setSelectedProject(event.target.value); setLienzos({}); }}>
             <option value="">{projects.isPending ? 'Cargando proyectos…' : 'Selecciona un proyecto'}</option>
             {projects.data?.map((project) => <option key={project.id} value={project.id}>{project.nombre}</option>)}
           </select>
@@ -76,8 +79,8 @@ export function ExportReportDialog({ projectId, onClose }: { projectId?: string;
         <fieldset disabled={busy} className="report-selection">
           <legend>Técnicas que se incluirán</legend>
           <div className="report-select-actions">
-            <button type="button" onClick={() => { setSelection(REPORT_METHODS.map(({ id }) => id)); setPartes({}); setAbierta(null); }}>Informe completo</button>
-            <button type="button" onClick={() => { setSelection([]); setPartes({}); setAbierta(null); }}>Quitar todas</button>
+            <button type="button" onClick={() => { setSelection(REPORT_METHODS.map(({ id }) => id)); setPartes({}); setLienzos({}); setAbierta(null); }}>Informe completo</button>
+            <button type="button" onClick={() => { setSelection([]); setPartes({}); setLienzos({}); setAbierta(null); }}>Quitar todas</button>
           </div>
           {REPORT_METHODS.map(({ id, label, detail, partes: opciones }) => (
             <TecnicaAcordeon key={id} id={id} label={label} detail={detail} opciones={opciones}
@@ -85,7 +88,9 @@ export function ExportReportDialog({ projectId, onClose }: { projectId?: string;
               partes={partes[id] ?? opciones.map(opcion => opcion.id)}
               onIncluir={incluir => { setSelection(current => incluir ? [...current, id] : current.filter(value => value !== id)); setAbierta(incluir ? id : abierta === id ? null : abierta); }}
               onAbrir={abrir => setAbierta(abrir ? id : null)}
-              onPartes={ids => setPartes(current => ({ ...current, [id]: ids }))} />
+              onPartes={ids => setPartes(current => ({ ...current, [id]: ids }))}
+              lienzos={disponibles.data?.[id]} lienzosElegidos={lienzos[id]}
+              onLienzos={ids => setLienzos(current => ({ ...current, [id]: ids }))} />
           ))}
         </fieldset>
         <p className="report-note">Incluye datos guardados del proyecto y las evaluaciones accesibles para tu cuenta.</p>

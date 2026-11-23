@@ -7,15 +7,20 @@ import { ExportReportDialog } from './ExportReportDialog';
 const mocks = vi.hoisted(() => ({
   load: vi.fn(),
   exportPdf: vi.fn(),
+  lienzos: vi.fn(),
 }));
 vi.mock('../projects/api/projects.api', () => ({ listProjects: async () => [{ id: 'p1', nombre: 'Mi proyecto' }] }));
 vi.mock('./report-data', async original => ({
   ...await original<typeof import('./report-data')>(),
   loadProjectReport: mocks.load,
+  listarLienzos: mocks.lienzos,
 }));
 vi.mock('../../shared/utils/pdf', () => ({ exportarReportePdf: mocks.exportPdf }));
 
-beforeEach(() => { mocks.load.mockReset(); mocks.exportPdf.mockReset(); });
+beforeEach(() => {
+  mocks.load.mockReset(); mocks.exportPdf.mockReset();
+  mocks.lienzos.mockResolvedValue({ personas: [{ id: 'p-ana', nombre: 'Ana' }, { id: 'p-beto', nombre: 'Beto' }], journey: [], momentos: [], cards: [], heuristica: [] });
+});
 
 async function abrir() {
   render(<QueryClientProvider client={new QueryClient()}><ExportReportDialog projectId="p1" onClose={vi.fn()} /></QueryClientProvider>);
@@ -39,7 +44,7 @@ it('exporta las partes marcadas y omite la técnica si se desmarcan todas sus pa
   await waitFor(() => expect(mocks.exportPdf).toHaveBeenCalledWith(report));
   expect(mocks.load).toHaveBeenCalledWith('p1', ['personas', 'journey', 'cards', 'heuristica'], {
     personas: ['visual', 'necesidades', 'validacion'], momentos: [],
-  });
+  }, {});
 });
 
 it('F39: solo una técnica abierta a la vez; Listo la pliega, deja el resumen y reabrir conserva la selección', async () => {
@@ -54,7 +59,7 @@ it('F39: solo una técnica abierta a la vez; Listo la pliega, deja el resumen y 
   await userEvent.click(dialog.getByRole('button', { name: 'Listo: apartados de Journey Map' }));
   expect(dialog.queryByRole('group', { name: 'Qué incluir de Journey Map' })).toBeNull();
   expect(dialog.getByRole('button', { name: 'Elegir apartados de Journey Map' })).toHaveFocus();
-  expect(dialog.getByText('3 de 4 apartados')).toBeInTheDocument();
+  expect(dialog.getByText(/3 de 4 apartados/)).toBeInTheDocument();
   expect(dialog.getAllByText('Todo · 3 de 3 apartados').length).toBeGreaterThan(0);
   await userEvent.click(dialog.getByRole('button', { name: 'Elegir apartados de Personas' }));
   expect(within(dialog.getByRole('group', { name: 'Qué incluir de Personas' })).getByRole('checkbox', { name: 'Perfil y descripción' })).not.toBeChecked();
@@ -75,4 +80,15 @@ it('F39: desmarcar una técnica la excluye y pliega; marcarla la despliega; Info
   await userEvent.click(dialog.getByRole('button', { name: 'Informe completo' }));
   expect(dialog.getByRole('status')).toHaveTextContent('5 de 5 técnicas seleccionadas');
   expect(dialog.getByRole('button', { name: 'Descargar PDF' })).toBeEnabled();
+});
+
+it('permite elegir cuáles lienzos de una técnica van al PDF (por ejemplo, una de dos personas)', async () => {
+  mocks.load.mockResolvedValue({ project: { id: 'p1' } });
+  const dialog = await abrir();
+  await userEvent.click(dialog.getByRole('button', { name: 'Elegir apartados de Personas' }));
+  const cuales = within(await dialog.findByRole('group', { name: 'Cuáles de Personas' }));
+  await userEvent.click(cuales.getByRole('checkbox', { name: 'Beto' }));
+  expect(dialog.getByText(/^1 de 2 · /)).toBeInTheDocument();
+  await userEvent.click(dialog.getByRole('button', { name: 'Descargar PDF' }));
+  await waitFor(() => expect(mocks.load).toHaveBeenCalledWith('p1', expect.any(Array), {}, { personas: ['p-ana'] }));
 });

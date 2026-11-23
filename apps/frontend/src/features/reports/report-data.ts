@@ -36,19 +36,42 @@ export const REPORT_METHODS = [
 ] as const;
 export type ReportMethod = typeof REPORT_METHODS[number]['id'];
 export type ReportParts = Partial<Record<ReportMethod, string[]>>;
+/** Lienzos elegidos por técnica (ids). Sin entrada = todos. */
+export type ReportLienzos = Partial<Record<ReportMethod, string[]>>;
+export interface Lienzo { id: string; nombre: string }
 
-async function loadCards(projectId: string) {
+async function estudiosVisibles(projectId: string) {
   const studies = await getCardSortingEstudiosByProyecto(projectId);
   const user = useAuthStore.getState().user;
+  return studies.filter((study) => user?.rol === 'ADMIN' || study.evaluadorId === user?.id);
+}
+
+/** Lienzos disponibles de cada técnica del proyecto, para elegir cuáles van al PDF. */
+export async function listarLienzos(projectId: string): Promise<Record<ReportMethod, Lienzo[]>> {
+  const [personas, journeys, moments, cards, heuristics] = await Promise.all([
+    listPersonas(projectId), listJourneys(projectId), listCriticalMoments(projectId), estudiosVisibles(projectId),
+    listarEvaluaciones(projectId).then(evaluacionesVigentes),
+  ]);
+  return {
+    personas: personas.map(p => ({ id: p.artefactoLogicoId, nombre: p.contenido.nombreCompleto || 'Persona sin nombre' })),
+    journey: journeys.map(j => ({ id: j.artefactoLogicoId, nombre: `Recorrido de ${j.contenido.perfilUsuario.nombre}` })),
+    momentos: moments.map(m => ({ id: m.artefactoLogicoId, nombre: `Incidentes de ${m.contenido.perfilUsuario.nombre}` })),
+    cards: cards.map(c => ({ id: c.id, nombre: c.nombre })),
+    heuristica: heuristics.map(e => ({ id: e.id, nombre: e.configuracion.nombre || e.configuracion.producto.nombre })),
+  };
+}
+
+async function loadCards(projectId: string, elegidos?: string[]) {
+  const studies = (await estudiosVisibles(projectId)).filter(study => !elegidos || elegidos.includes(study.id));
   const results = [];
   // Evita una ráfaga de peticiones cuando el proyecto tiene muchos estudios.
-  for (const study of studies.filter((study) => user?.rol === 'ADMIN' || study.evaluadorId === user?.id)) {
+  for (const study of studies) {
     results.push({ study, analytics: await getCardSortingAnalytics(study.id) });
   }
   return results;
 }
 
-export async function loadProjectReport(projectId: string, selection: readonly ReportMethod[], partes: ReportParts = {}) {
+export async function loadProjectReport(projectId: string, selection: readonly ReportMethod[], partes: ReportParts = {}, lienzos: ReportLienzos = {}) {
   const partesIncluidas: ReportParts = {};
   for (const { id, partes: opciones } of REPORT_METHODS) {
     if (!selection.includes(id)) continue;
@@ -58,13 +81,14 @@ export async function loadProjectReport(projectId: string, selection: readonly R
   const methods = REPORT_METHODS.filter(({ id }) => partesIncluidas[id] !== undefined);
   if (!projectId || !methods.length) throw new Error('Selecciona un proyecto y al menos una técnica.');
   const includes = (id: ReportMethod) => methods.some((method) => method.id === id);
+  const elegido = (metodo: ReportMethod) => (id: string) => !lienzos[metodo] || lienzos[metodo]!.includes(id);
   const [project, personas, journeys, moments, cards, heuristics] = await Promise.all([
     getProject(projectId),
-    includes('personas') ? listPersonas(projectId) : undefined,
-    includes('journey') ? listJourneys(projectId) : undefined,
-    includes('momentos') ? listCriticalMoments(projectId) : undefined,
-    includes('cards') ? loadCards(projectId) : undefined,
-    includes('heuristica') ? listarEvaluaciones(projectId).then(evaluacionesVigentes) : undefined,
+    includes('personas') ? listPersonas(projectId).then(l => l.filter(a => elegido('personas')(a.artefactoLogicoId))) : undefined,
+    includes('journey') ? listJourneys(projectId).then(l => l.filter(a => elegido('journey')(a.artefactoLogicoId))) : undefined,
+    includes('momentos') ? listCriticalMoments(projectId).then(l => l.filter(a => elegido('momentos')(a.artefactoLogicoId))) : undefined,
+    includes('cards') ? loadCards(projectId, lienzos.cards) : undefined,
+    includes('heuristica') ? listarEvaluaciones(projectId).then(evaluacionesVigentes).then(l => l.filter(e => elegido('heuristica')(e.id))) : undefined,
   ]);
   // No se descarga un informe parcial si falla alguna de las técnicas elegidas.
   return { project, methods, partes: partesIncluidas, personas, journeys, moments, cards, heuristics, generatedAt: new Date() };
