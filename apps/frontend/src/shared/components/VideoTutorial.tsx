@@ -2,11 +2,12 @@
 //
 // Botón "Ver video tutorial" que abre el video en un diálogo. La dirección se
 // configura con VITE_VIDEO_TUTORIAL_URL (YouTube, Vimeo o un archivo .mp4/.webm,
-// por ejemplo /video/tutorial.mp4 dentro de public/). Sin dirección no se muestra.
+// por ejemplo /video/tutorial.mp4 dentro de public/). Sin variable se usa el video oficial.
 
 import { useId, useRef, useState } from 'react';
 
-export const VIDEO_TUTORIAL_URL: string = import.meta.env.VITE_VIDEO_TUTORIAL_URL ?? '';
+/** Video oficial del tutorial; VITE_VIDEO_TUTORIAL_URL permite cambiarlo sin tocar el código. */
+export const VIDEO_TUTORIAL_URL: string = import.meta.env.VITE_VIDEO_TUTORIAL_URL || 'https://youtu.be/eEmAiAIrMbY';
 
 type Fuente = { tipo: 'iframe'; src: string } | { tipo: 'video'; src: string };
 
