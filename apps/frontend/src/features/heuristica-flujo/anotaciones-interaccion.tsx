@@ -16,6 +16,31 @@ export function Marca({ anotacion, resaltada }: { anotacion: AnotacionEvidencia;
   return <g className={resaltada ? 'evidencia-marca--resaltada' : undefined}><MarcaBase anotacion={anotacion} /></g>;
 }
 
+/** Punto donde se ubica el número de una marca: inicio de la flecha o esquina superior izquierda. */
+export function anclaMarca(a: AnotacionEvidencia) {
+  return a.tipo === 'flecha' || a.tipo === 'texto' ? { x: a.x, y: a.y } : { x: Math.min(a.x, a.x2), y: Math.min(a.y, a.y2) };
+}
+
+/**
+ * Números sobre la captura que conectan cada marca con su nota. En lectura son botones:
+ * al pasar el mouse, enfocar o tocar, muestran la nota sin tapar la lista.
+ */
+export function NumerosMarcas({ anotaciones, interactivo, resaltada, onResaltar }: { anotaciones: AnotacionEvidencia[]; interactivo: boolean; resaltada?: string | null; onResaltar?: (id: string | null) => void }) {
+  return <div className="evidencia-numeros">{anotaciones.map((a, i) => {
+    if (a.tipo === 'texto') return null;
+    const { x, y } = anclaMarca(a);
+    const estilo = { left: `${x * 100}%`, top: `${y * 100}%`, ['--marca' as string]: a.color };
+    const nota = a.texto.trim();
+    const clase = `evidencia-numero${resaltada === a.id ? ' activa' : ''}`;
+    if (!interactivo) return <span key={a.id} className={clase} style={estilo} aria-hidden="true">{i + 1}</span>;
+    return <button key={a.id} type="button" className={clase} style={estilo} aria-label={`Marca ${i + 1}${nota ? `: ${nota}` : ''}`}
+      onClick={e => { e.stopPropagation(); (e.currentTarget as HTMLButtonElement).focus(); }}
+      onMouseEnter={() => onResaltar?.(a.id)} onMouseLeave={() => onResaltar?.(null)} onFocus={() => onResaltar?.(a.id)} onBlur={() => onResaltar?.(null)}>
+      {i + 1}{nota && <span className="evidencia-nota" role="tooltip">{nota}</span>}
+    </button>;
+  })}</div>;
+}
+
 /** Distancia (0–1) bajo la cual un gesto sobre la captura cuenta como clic y no como trazo. */
 const UMBRAL_CLIC = 0.01;
 /** Radio (0–1) de agarre de un tirador y holgura al apuntar a una marca. */

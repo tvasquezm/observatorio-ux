@@ -18,6 +18,11 @@ describe('Informe consolidado PDF', () => {
     expect(contenido).toContain('Error acordado');
     expect(contenido).not.toMatch(/Cobertura y resultados|Criterios y decisiones acordadas|Decisiones de revisión|Cumplimiento/);
   });
+  it('el pie lista las notas de las marcas con su número', async () => {
+    const { notasCaptura } = await import('./flujo-utils');
+    const marca = (texto: string, tipo: 'rectangulo' | 'texto' = 'rectangulo') => ({ id: texto || tipo, tipo, x: 0, y: 0, x2: 1, y2: 1, color: '#ff0000', texto });
+    expect(notasCaptura([marca('Botón oculto'), marca(''), marca('antigua', 'texto'), marca('Menú confuso')])).toBe('1. Botón oculto · 4. Menú confuso');
+  });
   it('pone bajo cada captura quién la subió y anotó', () => {
     const pies = new Map([['cap1', 'Captura y marcas de Pepito · anotada el 23 nov 2026, 17:30']]);
     const pdf = construirInformeFlujoPdf(evaluacion(), new Map([['cap1', 'data:image/png;base64,AAAA']]), new Date(), undefined, { pies });

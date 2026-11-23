@@ -127,3 +127,8 @@ export function autoriaCaptura(meta: Pick<EvidenciaFlujo, 'autorNombre' | 'anota
   if (meta.anotaciones.length) return `Captura y marcas de ${autor} · subida el ${fechaChile(meta.createdAt)}`;
   return `Captura de ${autor} · subida el ${fechaChile(meta.createdAt)}`;
 }
+
+/** Notas de las marcas numeradas, para el pie de la captura en el PDF ("1. … · 3. …"). */
+export function notasCaptura(anotaciones: EvidenciaFlujo['anotaciones']): string {
+  return anotaciones.map((a, i) => a.tipo !== 'texto' && a.texto.trim() ? `${i + 1}. ${a.texto.trim()}` : '').filter(Boolean).join(' · ');
+}

@@ -4,7 +4,8 @@ import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces';
 import { brandChrome, cargarPdfMake, date, MUTED, table, type ReportBrand } from '../../shared/utils/pdf';
 import { PDF_DEFAULT_STYLE, PDF_PAGE_MARGINS, PDF_STYLES, keepHeadingsWithContent, title } from '../../shared/utils/pdf-base';
 import { cargarEvidencia } from './evidencia.api';
-import { autoriaCaptura, textoCumplimiento } from './flujo-utils';
+import { autoriaCaptura, notasCaptura, textoCumplimiento } from './flujo-utils';
+import { anclaMarca } from './anotaciones-interaccion';
 
 const titulo = title;
 const campo = (text: string, value: string): Content => ({ stack: [
@@ -127,6 +128,19 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
   };
 }
 
+/** Círculo numerado en el ancla de la marca (esquina superior izquierda o inicio de la flecha). */
+export function dibujarNumero(ctx: CanvasRenderingContext2D, a: AnotacionEvidencia, n: number, width: number, height: number) {
+  const { x, y } = anclaMarca(a);
+  const r = Math.max(11, width / 70);
+  const cx = Math.min(width - r, Math.max(r, x * width)), cy = Math.min(height - r, Math.max(r, y * height));
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fillStyle = a.color; ctx.fill();
+  ctx.lineWidth = Math.max(2, r / 5); ctx.strokeStyle = '#ffffff'; ctx.stroke();
+  ctx.fillStyle = '#ffffff'; ctx.font = `bold ${Math.round(r * 1.1)}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(String(n), cx, cy + 1);
+  ctx.restore();
+}
+
 export function dibujarAnotacion(ctx: CanvasRenderingContext2D, a: AnotacionEvidencia, width: number, height: number) {
   const x = Math.min(a.x, a.x2) * width, y = Math.min(a.y, a.y2) * height;
   const w = Math.abs(a.x2 - a.x) * width, h = Math.abs(a.y2 - a.y) * height;
@@ -147,6 +161,8 @@ export async function rasterizarEvidencia(blob: Blob, anotaciones: AnotacionEvid
     const ctx = canvas.getContext('2d'); if (!ctx) throw new Error('No se pudo preparar la captura para el PDF.');
     ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
     anotaciones.forEach(a => dibujarAnotacion(ctx, a, canvas.width, canvas.height));
+    // Número de cada marca (como en la app), para leer su nota en el pie de la captura.
+    anotaciones.forEach((a, i) => { if (a.tipo !== 'texto') dibujarNumero(ctx, a, i + 1, canvas.width, canvas.height); });
     return canvas.toDataURL('image/png');
   } finally { bitmap.close(); }
 }
@@ -156,7 +172,7 @@ export async function exportarInformeFlujoPdf(proyectoId: string, evaluacion: Ev
   const pies = new Map<string, string>();
   const ids = idsEvidencia(evaluacion.informe?.consenso, opciones);
   for (const id of ids) {
-    try { const { meta, blob } = await cargarEvidencia(proyectoId, evaluacion.id, id); capturas.set(id, await rasterizarEvidencia(blob, meta.anotaciones)); pies.set(id, autoriaCaptura(meta)); }
+    try { const { meta, blob } = await cargarEvidencia(proyectoId, evaluacion.id, id); capturas.set(id, await rasterizarEvidencia(blob, meta.anotaciones)); pies.set(id, [autoriaCaptura(meta), notasCaptura(meta.anotaciones)].filter(Boolean).join('\n')); }
     catch { capturas.set(id, null); }
   }
   const { pdfMake, brand } = await cargarPdfMake();

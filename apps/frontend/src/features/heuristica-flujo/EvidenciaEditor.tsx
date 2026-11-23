@@ -9,7 +9,7 @@ import { Icon } from '../../shared/components/ui/Icon';
 import { comprimirImagen } from '../../shared/utils/comprimir-imagen';
 import { cargarEvidencia, guardarAnotaciones, subirEvidenciaFlujo } from './evidencia.api';
 import { normalizarTipoEvidencia, validarImagenEvidencia } from './evidencia-validar';
-import { FLECHAS, Marca, Tiradores, ajustarConTeclado, avanzarGesto, iniciarGesto, puntoEnSvg, terminarGesto } from './anotaciones-interaccion';
+import { FLECHAS, Marca, NumerosMarcas, Tiradores, ajustarConTeclado, avanzarGesto, iniciarGesto, puntoEnSvg, terminarGesto } from './anotaciones-interaccion';
 import { autoriaCaptura } from './flujo-utils';
 import type { Gesto } from './anotaciones-interaccion';
 
@@ -71,6 +71,7 @@ function VisorAmpliado({ url, anotaciones, conMarcas, onClose, edicion }: { url:
               {edicion.seleccionada && <Tiradores anotacion={edicion.seleccionada} />}
             </svg>
             : <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true" className="evidencia-capa">{anotaciones.map(a => <Marca key={a.id} anotacion={a} />)}</svg>)}
+          {conMarcas && <NumerosMarcas anotaciones={anotaciones} interactivo={!edicion} />}
         </div>
       </div>
     </div>,
@@ -200,9 +201,10 @@ function Lienzo({ proyectoId, evaluacionId, meta, blob, editable, onPendingChang
         {visibles.map(a => <Marca key={a.id} anotacion={a} resaltada={a.id === resaltada} />)}{preview && <Marca anotacion={preview} />}
         {seleccionada && <Tiradores anotacion={seleccionada} />}
       </svg>}
+      {!original && <NumerosMarcas anotaciones={visibles} interactivo={!editable} resaltada={resaltada} onResaltar={setResaltada} />}
     </div>
     <p className="evidencia-autoria">{autoriaCaptura(meta)}</p>
-    <ol className="evidencia-lista" aria-label="Anotaciones de la captura">{anotaciones.map((a, i) => <li key={a.id} className="evidencia-tarjeta" tabIndex={0} aria-label={`Anotación ${i + 1}`}
+    {anotaciones.length > 0 && <ol className={`evidencia-lista${editable ? ' evidencia-lista--edicion' : ''}`} aria-label="Anotaciones de la captura">{anotaciones.map((a, i) => <li key={a.id} className={`evidencia-tarjeta${resaltada === a.id ? ' activa' : ''}`} tabIndex={0} aria-label={`Anotación ${i + 1}`}
       onMouseEnter={() => setResaltada(a.id)} onMouseLeave={() => setResaltada(null)} onFocus={() => { setResaltada(a.id); if (editable && a.tipo !== 'texto') setSeleccion(a.id); }}
       onKeyDown={e => {
         const d = FLECHAS[e.key];
@@ -212,14 +214,15 @@ function Lienzo({ proyectoId, evaluacionId, meta, blob, editable, onPendingChang
         if (JSON.stringify(nueva) !== JSON.stringify(a)) cambiar(anotaciones.map(n => n.id === a.id ? nueva : n));
       }}
       onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setResaltada(null); }}>
-      <span className="evidencia-muestra" style={{ background: a.color }} aria-hidden="true" />
-      {(!editable || a.tipo === 'texto' || a.texto) && <span className="evidencia-nombre">{TIPOS[a.tipo]}{a.texto && `: ${a.texto}`}</span>}
+      <span className="evidencia-indice" style={{ ['--marca' as string]: a.color }} aria-hidden="true">{i + 1}</span>
+      {(!editable || a.tipo === 'texto') && <span className="evidencia-nombre">{a.texto.trim() || TIPOS[a.tipo]}</span>}
       {editable && a.tipo !== 'texto' && <>
         <select className="input-sm" aria-label={`Forma de la anotación ${i + 1}`} value={a.tipo} disabled={guardando} onChange={e => modificar(a.id, { tipo: e.target.value as Forma })}>{FORMAS.map(f => <option key={f} value={f}>{TIPOS[f]}</option>)}</select>
         <input type="color" className="evidencia-color" aria-label={`Color de la anotación ${i + 1}`} value={a.color} disabled={guardando} onChange={e => modificar(a.id, { color: e.target.value })} />
+        <input className="input-sm evidencia-nota-input" aria-label={`Nota de la anotación ${i + 1}`} placeholder="Nota: qué muestra esta marca (opcional)" maxLength={300} value={a.texto} disabled={guardando} onChange={e => modificar(a.id, { texto: e.target.value })} />
       </>}
       {editable && <button type="button" className="evidencia-accion evidencia-accion--danger" disabled={guardando} aria-label={`Eliminar anotación ${i + 1}`} title="Eliminar anotación" onClick={() => cambiar(anotaciones.filter(n => n.id !== a.id))}><Icon name="trash" size={20} /></button>}
-    </li>)}</ol>
+    </li>)}</ol>}
     {error && <p role="alert">{error}{editable && <button type="button" className="text-button" disabled={guardando} onClick={() => void recuperar()}>Recuperar anotaciones guardadas</button>}</p>}<p role="status">{estado || (dirty ? 'Anotaciones pendientes de guardar.' : '')}</p>
     {ampliada && url && <VisorAmpliado url={url} anotaciones={visibles} conMarcas={!original} onClose={cerrarVisor}
       edicion={editable ? {

@@ -3407,7 +3407,8 @@ div:has(> .project-section > .hf) > .project-heading p { margin:4px 0 0; font-si
 .analitica-tecnica-head h4 { margin: 0; color: var(--heading); font-size: var(--fs-md); }
 .analitica-tecnica-head a { color: var(--teal); font-size: var(--fs-sm); font-weight: 700; }
 .analitica-cifras { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; }
-.analitica-cifras div { display: flex; flex-direction: column-reverse; gap: 2px; }
+.analitica-cifras div { display: flex; flex-direction: column; justify-content: flex-start; gap: 2px; }
+.analitica-cifras dd { order: -1; }
 .analitica-cifras dt { color: var(--muted); font-size: var(--fs-xs); line-height: 1.3; }
 .analitica-cifras dd { margin: 0; color: var(--ink); font-size: var(--fs-xl); font-weight: 700; line-height: 1.1; }
 .analitica-tecnica-sub { margin: 0 0 4px; color: var(--ink); font-size: var(--fs-sm); font-weight: 700; }
@@ -3446,3 +3447,20 @@ div:has(> .project-section > .hf) > .project-heading p { margin:4px 0 0; font-si
 @media (prefers-reduced-motion: reduce) { .preferences-switch-track, .preferences-switch-track::after { transition: none; } }
 /* Pie de cada captura: quién la subió y anotó, y cuándo. */
 .evidencia-autoria { margin: 6px 0 10px; color: var(--muted); font-size: var(--fs-xs); line-height: 1.4; }
+/* Marcas numeradas: el número conecta la marca con su nota; la nota aparece al pasar el mouse o tocar. */
+.evidencia-numeros { position: absolute; inset: 0; pointer-events: none; }
+.evidencia-numero { position: absolute; display: grid; place-items: center; width: 24px; height: 24px; min-width: 24px; min-height: 24px; padding: 0; transform: translate(-50%, -50%); border: 2px solid #fff; border-radius: 50%; background: var(--marca, #a23333); color: #fff; font: 800 12px/1 var(--font-sans); box-shadow: 0 1px 4px rgba(0, 0, 0, .45); }
+button.evidencia-numero { pointer-events: auto; cursor: help; }
+.evidencia-numero.activa, button.evidencia-numero:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+.evidencia-nota { position: absolute; left: 50%; top: calc(100% + 8px); z-index: 5; display: none; width: max-content; max-width: min(260px, 70vw); padding: 8px 10px; transform: translateX(-50%); border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow); font: 500 var(--fs-xs)/1.45 var(--font-sans); text-align: left; white-space: normal; }
+button.evidencia-numero:hover .evidencia-nota, button.evidencia-numero:focus .evidencia-nota { display: block; }
+/* Lista de marcas: compacta. En lectura son fichas en una fila; al editar, una línea por marca. */
+.evidencia-lista { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; max-width: 720px; margin: 4px 0 8px; padding: 0; list-style: none; }
+.evidencia-tarjeta { display: inline-flex; flex-wrap: nowrap; align-items: center; gap: 6px; padding: 3px 10px 3px 4px; border: 1px solid var(--line-soft); border-radius: 999px; background: var(--surface-alt); font-size: var(--fs-xs); }
+.evidencia-tarjeta.activa { border-color: var(--teal); }
+.evidencia-tarjeta .evidencia-nombre { color: var(--ink-soft); max-width: 32ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.evidencia-indice { display: grid; place-items: center; flex: 0 0 20px; width: 20px; height: 20px; border-radius: 50%; background: var(--marca, #a23333); color: #fff; font-size: 11px; font-weight: 800; }
+.evidencia-lista--edicion { display: grid; gap: 6px; }
+.evidencia-lista--edicion .evidencia-tarjeta { display: flex; border-radius: 10px; padding: 6px 8px; }
+.evidencia-lista--edicion .evidencia-nota-input { flex: 1 1 200px; min-width: 0; width: auto !important; }
+@media (max-width: 600px) { .evidencia-lista--edicion .evidencia-tarjeta { flex-wrap: wrap; } .evidencia-lista--edicion .evidencia-nota-input { flex-basis: 100%; } }

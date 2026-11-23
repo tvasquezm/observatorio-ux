@@ -57,6 +57,22 @@ describe('EvidenciaEditor', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Guardar anotaciones' }));
     expect(await screen.findByText(/^Captura y marcas de Pepito Pérez · anotada el /)).toBeInTheDocument();
   });
+  it('cada marca lleva número y una nota que se ve al pasar el mouse o tocar en la vista', async () => {
+    abrir();
+    await screen.findByAltText('Captura de evidencia');
+    rectangulo();
+    await userEvent.type(screen.getByLabelText('Nota de la anotación 1'), 'El botón no se ve');
+    await waitFor(() => expect(api.guardarAnotaciones).toHaveBeenLastCalledWith('p1', 'ev1', 'cap1', [expect.objectContaining({ texto: 'El botón no se ve' })], expect.any(Number)), { timeout: 3000 });
+  });
+  it('en solo lectura el número de la marca muestra su nota', async () => {
+    api.cargarEvidencia.mockResolvedValue({ meta: { ...meta, anotaciones: [{ id: 'r1', tipo: 'rectangulo', x: 0.1, y: 0.1, x2: 0.5, y2: 0.5, color: colorPredeterminado, texto: 'El botón no se ve' }] }, blob: new Blob(['png'], { type: 'image/png' }) });
+    abrir(false);
+    const numero = await screen.findByRole('button', { name: 'Marca 1: El botón no se ve' });
+    await userEvent.click(numero);
+    expect(numero).toHaveFocus();
+    expect(within(numero).getByRole('tooltip')).toHaveTextContent('El botón no se ve');
+    expect(screen.getByRole('listitem', { name: 'Anotación 1' })).toHaveTextContent('El botón no se ve');
+  });
   it('guarda las marcas solo al dejar de dibujar, sin pulsar Guardar', async () => {
     abrir();
     await screen.findByAltText('Captura de evidencia');
@@ -352,7 +368,7 @@ describe('EvidenciaEditor', () => {
     abrir();
     await screen.findByAltText('Captura de evidencia');
     const tarjeta = screen.getByRole('listitem', { name: 'Anotación 1' });
-    expect(tarjeta).toHaveTextContent('Texto: Revisar botón');
+    expect(tarjeta).toHaveTextContent('Revisar botón');
     expect(screen.getByLabelText('Vista de las anotaciones')).toHaveTextContent('Revisar botón');
     expect(within(tarjeta).queryByLabelText('Forma de la anotación 1')).not.toBeInTheDocument();
     expect(within(tarjeta).queryByLabelText('Color de la anotación 1')).not.toBeInTheDocument();
