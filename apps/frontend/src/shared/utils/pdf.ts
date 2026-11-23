@@ -4,6 +4,7 @@ import type { ProjectReport, ReportMethod } from '../../features/reports/report-
 import { INK, MUTED, TEAL, paragraph, table, textValue, title } from './pdf-base';
 import { PDF_DEFAULT_STYLE, PDF_PAGE_MARGINS, PDF_STYLES, keepHeadingsWithContent } from './pdf-base';
 import { cuerpoVista } from '../../features/card-sorting/card-sorting-pdf-content';
+import { journeyVisual, personaVisual } from './pdf-visual';
 import { tablaDeVista, tablaSinConsenso } from '../../features/card-sorting/card-sorting-export';
 
 export { INK, MUTED, TEAL, paragraph, table, title };
@@ -52,6 +53,8 @@ function sections(report: ProjectReport): Record<ReportMethod, Content[]> {
     personas: report.personas?.flatMap(({ contenido: person, version }, i) => [
       title(`${i + 1}. ${person.nombreCompleto}`),
       { text: `PERSONA · VERSIÓN ${version}`, style: 'eyebrow', margin: [0, 0, 0, 8] },
+      // F40: la tarjeta tal como se ve en la página; el desglose sigue debajo.
+      ...(incluye('personas', 'visual') ? personaVisual(person) : []),
       details([
         ...(incluye('personas', 'perfil') ? [
           ['Edad', person.edad], ['Ocupación', person.ocupacion], ['Acerca de', person.acercaDe],
@@ -74,6 +77,8 @@ function sections(report: ProjectReport): Record<ReportMethod, Content[]> {
     journey: report.journeys?.flatMap(({ contenido: journey, version }, i) => [
       title(`${i + 1}. Recorrido de ${journey.perfilUsuario.nombre}`),
       paragraph(`${journey.perfilUsuario.rol} · Versión ${version} · ${journey.fases.length} fases`),
+      // F40: el tablero con la curva de emociones, como en la página; el desglose sigue debajo.
+      ...(incluye('journey', 'visual') ? journeyVisual(journey) : []),
       ...(incluye('journey', 'resumen') ? [details([
         ['Objetivo del recorrido', journey.objetivo], ['Evento de inicio', journey.eventoInicio],
         ['Evidencia', journey.evidencia],

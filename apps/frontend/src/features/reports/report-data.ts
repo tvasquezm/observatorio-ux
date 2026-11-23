@@ -9,11 +9,13 @@ import { useAuthStore } from '../auth/store/useAuthStore';
 
 export const REPORT_METHODS = [
   { id: 'personas', label: 'Personas', detail: 'Perfiles, necesidades y objetivos', partes: [
+    { id: 'visual', label: 'Tarjeta como en la página' },
     { id: 'perfil', label: 'Perfil y descripción' },
     { id: 'necesidades', label: 'Necesidades y comportamiento' },
     { id: 'validacion', label: 'Evidencia y validación' },
   ] },
   { id: 'journey', label: 'Journey Map', detail: 'Fases, emociones y oportunidades', partes: [
+    { id: 'visual', label: 'Mapa como en la página' },
     { id: 'resumen', label: 'Objetivo y evento de inicio' },
     { id: 'fases', label: 'Tabla de fases' },
     { id: 'detalle', label: 'Detalle por fase' },
