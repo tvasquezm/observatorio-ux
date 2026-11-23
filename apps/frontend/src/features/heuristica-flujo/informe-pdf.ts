@@ -4,7 +4,7 @@ import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces';
 import { brandChrome, cargarPdfMake, date, MUTED, table, type ReportBrand } from '../../shared/utils/pdf';
 import { PDF_DEFAULT_STYLE, PDF_PAGE_MARGINS, PDF_STYLES, keepHeadingsWithContent, title } from '../../shared/utils/pdf-base';
 import { cargarEvidencia } from './evidencia.api';
-import { textoCumplimiento } from './flujo-utils';
+import { autoriaCaptura, textoCumplimiento } from './flujo-utils';
 
 const titulo = title;
 const campo = (text: string, value: string): Content => ({ stack: [
@@ -12,7 +12,8 @@ const campo = (text: string, value: string): Content => ({ stack: [
   { text: value || 'No registrado' },
 ], unbreakable: value.length < 600, margin: [0, 4, 0, 9] });
 
-type OpcionesInformePdf = { partes?: readonly string[] };
+/** `pies`: texto bajo cada captura (quién la subió y anotó, y cuándo), por id. */
+type OpcionesInformePdf = { partes?: readonly string[]; pies?: ReadonlyMap<string, string> };
 
 function idsEvidencia(consenso: EvaluacionFlujo['consenso'] | undefined, { partes }: OpcionesInformePdf) {
   return new Set([
@@ -51,6 +52,10 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
   const mejoras = consenso.mejoras ?? [];
   const conclusion = (consenso.conclusion ?? '').trim();
   const finalizado = informe.finalizadoEn !== null;
+  const pieCaptura = (id: string): Content[] => { const pie = opciones.pies?.get(id); return pie ? [{ text: pie, fontSize: 8, color: MUTED, margin: [0, -2, 0, 8] }] : []; };
+  const imagenEvidencia = (id: string): Content => capturas.get(id)
+    ? { stack: [{ image: `evidencia-${id}`, fit: [460, 310], margin: [0, 6, 0, 6] }, ...pieCaptura(id)], unbreakable: true }
+    : { text: `Captura ${id} disponible en la aplicación (no incluida en este PDF).`, color: MUTED, italics: true };
   const detalleHallazgos: Content[] = hallazgos.flatMap((h, i) => [
     titulo(`${i + 1}. ${h.titulo}`),
     campo('Severidad', `${h.severidad} · ${SEVERIDADES[h.severidad].etiqueta}`),
@@ -58,9 +63,8 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
     campo('Problema', h.descripcion), campo('Recomendación', h.recomendacion), campo('Justificación del acuerdo', h.justificacion),
     ...(h.notas ? [campo('Notas', h.notas)] : []),
     campo(origenHallazgo(h) === 'equipo' ? 'Origen' : 'Hallazgos individuales de origen', origenHallazgo(h) === 'equipo' ? 'Nuevo del equipo' : h.origenIds.join(', ')),
-    ...h.evidenciaIds.map(id => capturas.get(id) ? { image: `evidencia-${id}`, fit: [460, 310], margin: [0, 6, 0, 6] } as Content : { text: `Captura ${id} disponible en la aplicación (no incluida en este PDF).`, color: MUTED, italics: true } as Content),
+    ...h.evidenciaIds.map(imagenEvidencia),
   ]);
-  const imagenEvidencia = (id: string): Content => capturas.get(id) ? { image: `evidencia-${id}`, fit: [460, 310], margin: [0, 6, 0, 6] } : { text: `Captura ${id} disponible en la aplicación (no incluida en este PDF).`, color: MUTED, italics: true };
   const detalleMejoras: Content[] = mejoras.flatMap((m, i): Content[] => [
     titulo(`${i + 1}. ${m.titulo}`),
     ...(m.descripcion ? [{ text: m.descripcion, margin: [0, 2, 0, 4] } as Content] : []),
@@ -149,13 +153,14 @@ export async function rasterizarEvidencia(blob: Blob, anotaciones: AnotacionEvid
 
 export async function exportarInformeFlujoPdf(proyectoId: string, evaluacion: EvaluacionFlujo, opciones: OpcionesInformePdf = {}): Promise<void> {
   const capturas = new Map<string, string | null>();
+  const pies = new Map<string, string>();
   const ids = idsEvidencia(evaluacion.informe?.consenso, opciones);
   for (const id of ids) {
-    try { const { meta, blob } = await cargarEvidencia(proyectoId, evaluacion.id, id); capturas.set(id, await rasterizarEvidencia(blob, meta.anotaciones)); }
+    try { const { meta, blob } = await cargarEvidencia(proyectoId, evaluacion.id, id); capturas.set(id, await rasterizarEvidencia(blob, meta.anotaciones)); pies.set(id, autoriaCaptura(meta)); }
     catch { capturas.set(id, null); }
   }
   const { pdfMake, brand } = await cargarPdfMake();
   const nombre = evaluacion.informe?.configuracion.nombre ?? 'evaluacion';
   const slug = nombre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 60);
-  await pdfMake.createPdf(construirInformeFlujoPdf(evaluacion, capturas, new Date(), brand, opciones)).download(`heuristica-${slug}-v${evaluacion.informe?.version ?? 1}.pdf`);
+  await pdfMake.createPdf(construirInformeFlujoPdf(evaluacion, capturas, new Date(), brand, { ...opciones, pies })).download(`heuristica-${slug}-v${evaluacion.informe?.version ?? 1}.pdf`);
 }

@@ -97,4 +97,5 @@ export interface AnotacionEvidencia {
   id: string; tipo: 'rectangulo' | 'circulo' | 'flecha' | 'destacado' | 'texto';
   x: number; y: number; x2: number; y2: number; color: string; texto: string;
 }
-export interface EvidenciaFlujo { id: string; revision: number; evaluacionId: string; autorId: string; mimeType: string; tamano: number; anotaciones: AnotacionEvidencia[]; createdAt: string }
+/** `autorNombre` y `anotadoEn`: quién subió la captura (solo su autor puede anotarla) y cuándo guardó sus marcas por última vez. */
+export interface EvidenciaFlujo { id: string; revision: number; evaluacionId: string; autorId: string; autorNombre?: string; mimeType: string; tamano: number; anotaciones: AnotacionEvidencia[]; createdAt: string; anotadoEn?: string | null }

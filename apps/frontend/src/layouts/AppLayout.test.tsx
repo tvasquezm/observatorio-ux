@@ -32,26 +32,44 @@ describe('Preferencia de contraste', () => {
     const mount = () => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><AppLayout /></MemoryRouter></QueryClientProvider>);
     mount();
     fireEvent.click(screen.getByRole('button', { name: 'Configuración' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Alto contraste' }));
+    fireEvent.click(screen.getByRole('switch', { name: /Alto contraste/ }));
     expect(document.documentElement.dataset.contrast).toBe('high');
     expect(localStorage.getItem('observatorio-ux-contrast')).toBe('high');
     cleanup();
     mount();
     fireEvent.click(screen.getByRole('button', { name: 'Configuración' }));
-    const toggle = screen.getByRole('button', { name: 'Alto contraste' });
-    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    const toggle = screen.getByRole('switch', { name: /Alto contraste/ });
+    expect(toggle).toBeChecked();
     fireEvent.click(toggle);
     expect(document.documentElement.dataset.contrast).toBe('normal');
-    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    expect(toggle).not.toBeChecked();
   });
 
   it('conserva el contraste elegido al cambiar entre modo claro y oscuro', () => {
     localStorage.setItem('observatorio-ux-contrast', 'high');
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><AppLayout /></MemoryRouter></QueryClientProvider>);
     fireEvent.click(screen.getByRole('button', { name: 'Configuración' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Activar modo oscuro' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Oscuro' }));
     expect(document.documentElement.dataset.theme).toBe('dark');
     expect(document.documentElement.dataset.contrast).toBe('high');
+  });
+
+  it('el tema tiene tres opciones; «Según el sistema» sigue al sistema y se recuerda', () => {
+    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+    const mount = () => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><AppLayout /></MemoryRouter></QueryClientProvider>);
+    mount();
+    fireEvent.click(screen.getByRole('button', { name: 'Configuración' }));
+    expect(screen.getByRole('radio', { name: 'Según el sistema' })).toBeChecked();
+    expect(document.documentElement.dataset.theme).toBe('dark');
+    fireEvent.click(screen.getByRole('radio', { name: 'Claro' }));
+    expect(document.documentElement.dataset.theme).toBe('light');
+    expect(localStorage.getItem('observatorio-ux-theme')).toBe('light');
+    fireEvent.click(screen.getByRole('radio', { name: 'Según el sistema' }));
+    expect(localStorage.getItem('observatorio-ux-theme')).toBe('system');
+    cleanup();
+    mount();
+    fireEvent.click(screen.getByRole('button', { name: 'Configuración' }));
+    expect(screen.getByRole('radio', { name: 'Según el sistema' })).toBeChecked();
   });
 });
 
@@ -122,8 +140,8 @@ describe('Preferencia de tamaño del texto', () => {
     localStorage.setItem('observatorio-ux-font-size', 'xlarge');
     mount();
     fireEvent.click(screen.getByRole('button', { name: 'Configuración' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Activar modo oscuro' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Alto contraste' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Oscuro' }));
+    fireEvent.click(screen.getByRole('switch', { name: /Alto contraste/ }));
     expect(document.documentElement.dataset.fontSize).toBe('xlarge');
     open();
     expect(screen.getByText('125 %')).toBeInTheDocument();
@@ -150,16 +168,22 @@ describe('Selector "Viendo como"', () => {
 });
 
 describe('Configuración: contraseña', () => {
-  it('muestra Cambiar contraseña colapsado y se despliega a pedido', () => {
+  it('muestra la cuenta con su rol y permite cerrar sesión desde Configuración', () => {
+    auth.role = 'DOCENTE';
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><AppLayout /></MemoryRouter></QueryClientProvider>);
+    fireEvent.click(screen.getByRole('button', { name: 'Configuración' }));
+    const cuenta = within(screen.getByRole('region', { name: 'Tu cuenta' }));
+    expect(cuenta.getByText('Ana Pérez')).toBeInTheDocument();
+    expect(cuenta.getByText(/^Docente/)).toBeInTheDocument();
+    expect(cuenta.getByRole('button', { name: 'Cerrar sesión' })).toBeEnabled();
+    expect(screen.getByText('La vista Administrador solo está disponible para cuentas con ese rol.')).toBeInTheDocument();
+  });
+  it('no ofrece cambiar contraseña: el acceso es con Google', () => {
     auth.role = 'DOCENTE';
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><AppLayout /></MemoryRouter></QueryClientProvider>);
     fireEvent.click(screen.getByRole('button', { name: 'Configuración' }));
     const dialog = screen.getByRole('dialog', { name: 'Configuración' });
-    const details = dialog.querySelector('details.password-collapse') as HTMLDetailsElement;
-    expect(details.open).toBe(false);
-    expect(screen.getByLabelText('Contraseña actual')).not.toBeVisible();
-    fireEvent.click(within(dialog).getByText('Cambiar contraseña', { selector: 'summary' }));
-    expect(details.open).toBe(true);
+    expect(within(dialog).queryByText(/contraseña/i)).not.toBeInTheDocument();
   });
 });
 

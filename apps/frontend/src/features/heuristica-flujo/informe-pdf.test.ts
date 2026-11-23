@@ -18,6 +18,11 @@ describe('Informe consolidado PDF', () => {
     expect(contenido).toContain('Error acordado');
     expect(contenido).not.toMatch(/Cobertura y resultados|Criterios y decisiones acordadas|Decisiones de revisión|Cumplimiento/);
   });
+  it('pone bajo cada captura quién la subió y anotó', () => {
+    const pies = new Map([['cap1', 'Captura y marcas de Pepito · anotada el 23 nov 2026, 17:30']]);
+    const pdf = construirInformeFlujoPdf(evaluacion(), new Map([['cap1', 'data:image/png;base64,AAAA']]), new Date(), undefined, { pies });
+    expect(JSON.stringify(pdf.content)).toContain('Captura y marcas de Pepito · anotada el 23 nov 2026, 17:30');
+  });
   it('una selección explícita de todas las partes equivale al informe habitual', () => {
     const ev = evaluacion();
     const fecha = new Date('2026-10-09T12:00:00Z');

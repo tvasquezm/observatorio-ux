@@ -3,11 +3,10 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../features/auth/store/useAuthStore';
-import { canSwitchPerspective, canViewAnalytics, canViewSalas, resolvePerspective } from '../shared/auth/perspectivas';
+import { canSwitchPerspective, canViewAnalytics, canViewSalas, PERSPECTIVE_LABELS, resolvePerspective } from '../shared/auth/perspectivas';
+import { useAccesoConfig } from '../features/auth/hooks/useAccesoConfig';
 import { ProfilePerspectiveSwitcher } from '../shared/components/ProfilePerspectiveSwitcher';
 import { PerspectivePreviewNotice } from '../shared/components/PerspectivePreviewNotice';
-import { ChangePasswordForm } from '../features/auth/components/ChangePasswordForm';
-import { useAccesoConfig } from '../features/auth/hooks/useAccesoConfig';
 import { SessionExpiryDialog } from '../features/auth/components/SessionExpiryDialog';
 import { FontSizeQuickAccess } from './FontSizeQuickAccess';
 const ExportReportDialog = lazy(() => import('../features/reports/ExportReportDialog').then((module) => ({ default: module.ExportReportDialog })));
@@ -29,6 +28,14 @@ const FONT_SIZES = [
 ] as const;
 type FontSize = (typeof FONT_SIZES)[number]['value'];
 
+type ThemeChoice = 'light' | 'dark' | 'system';
+const THEME_OPTIONS: { value: ThemeChoice; label: string }[] = [
+  { value: 'light', label: 'Claro' },
+  { value: 'dark', label: 'Oscuro' },
+  { value: 'system', label: 'Según el sistema' },
+];
+const ROLE_LABELS: Record<string, string> = PERSPECTIVE_LABELS;
+
 const CRUMB_LABELS: Record<string, string> = {
   '/': 'Inicio',
   '/proyectos': 'Proyectos',
@@ -41,13 +48,25 @@ const CRUMB_LABELS: Record<string, string> = {
 export function AppLayout() {
   useEffect(() => { sessionStorage.removeItem('observatorio-ux-returnTo'); }, []);
   const { user, perspectiveRole, setPerspective, logout } = useAuthStore();
-  const { conContrasena } = useAccesoConfig();
+  // Solo se afirma el acceso con Google cuando el ingreso con contraseña está apagado (producción).
+  const acceso = useAccesoConfig();
+  const googleActivo = acceso.data?.enabled === true && !acceso.conContrasena;
   const location = useLocation();
   const navigate = useNavigate();
-  const [darkMode, setDarkMode] = useState(() => {
-    const savedTheme = window.localStorage.getItem('observatorio-ux-theme');
-    return savedTheme === 'dark' || (savedTheme === null && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  // Tema elegido: claro, oscuro o el del sistema (sin preferencia guardada se sigue al sistema).
+  const [theme, setTheme] = useState<ThemeChoice>(() => {
+    const saved = window.localStorage.getItem('observatorio-ux-theme');
+    return saved === 'dark' || saved === 'light' ? saved : 'system';
   });
+  const [systemDark, setSystemDark] = useState(() => !!window.matchMedia?.('(prefers-color-scheme: dark)')?.matches);
+  useEffect(() => {
+    const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
+    if (!mq?.addEventListener) return;
+    const onChange = (e: MediaQueryListEvent) => setSystemDark(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  const darkMode = theme === 'dark' || (theme === 'system' && systemDark);
   const [exportOpen, setExportOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() =>
     window.localStorage.getItem('observatorio-ux-sidebar-collapsed') === 'true',
@@ -83,8 +102,8 @@ export function AppLayout() {
 
   useEffect(() => {
     document.documentElement.dataset.theme = darkMode ? 'dark' : 'light';
-    window.localStorage.setItem('observatorio-ux-theme', darkMode ? 'dark' : 'light');
-  }, [darkMode]);
+    window.localStorage.setItem('observatorio-ux-theme', theme);
+  }, [darkMode, theme]);
 
   useEffect(() => {
     const contrast = highContrast ? 'high' : 'normal';
@@ -200,6 +219,20 @@ export function AppLayout() {
                 <button type="button" className="secondary" aria-label="Cerrar configuración" onClick={() => preferencesRef.current?.close()}>✕</button>
               </div>
               <div className="preferences-panel">
+            {user && (
+              <section className="preferences-account" aria-labelledby="preferences-account-title">
+                <h3 id="preferences-account-title">Tu cuenta</h3>
+                <div className="preferences-account-card">
+                  <span className="preferences-account-avatar" aria-hidden="true">{iniciales}</span>
+                  <div>
+                    <strong>{user.nombre}</strong>
+                    {user.email && <span>{user.email}</span>}
+                    <span>{ROLE_LABELS[user.rol] ?? user.rol}{googleActivo ? ' · Ingresas con tu cuenta de Google' : ''}</span>
+                  </div>
+                </div>
+                <button type="button" className="secondary" onClick={logout}>Cerrar sesión</button>
+              </section>
+            )}
             {user && activeRole && canSwitchPerspective(user.rol) && (
               <ProfilePerspectiveSwitcher
                 accountRole={user.rol}
@@ -208,26 +241,25 @@ export function AppLayout() {
               />
             )}
             <div className="preferences-appearance">
-            <h3>Apariencia</h3>
-            <button
-              type="button"
-              className="theme-toggle"
-              aria-label={darkMode ? 'Activar modo claro' : 'Activar modo oscuro'}
-              aria-pressed={darkMode}
-              onClick={() => setDarkMode((current) => !current)}
-            >
-              {darkMode ? 'Modo claro' : 'Modo oscuro'}
-            </button>
-            <button
-              type="button"
-              className="theme-toggle"
-              aria-pressed={highContrast}
-              onClick={() => setHighContrast((current) => !current)}
-            >
-              Alto contraste
-            </button>
+              <h3>Apariencia</h3>
+              <fieldset className="preferences-theme">
+                <legend>Tema</legend>
+                <div className="preferences-segmented">
+                  {THEME_OPTIONS.map((option) => (
+                    <label key={option.value} className={theme === option.value ? 'active' : undefined}>
+                      <input type="radio" name="preferences-theme" value={option.value} checked={theme === option.value} onChange={() => setTheme(option.value)} />
+                      {option.label}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              <label className="preferences-switch">
+                <input type="checkbox" role="switch" checked={highContrast} onChange={(e) => setHighContrast(e.target.checked)} />
+                <span className="preferences-switch-track" aria-hidden="true" />
+                <span><strong>Alto contraste</strong><small>Bordes y textos más marcados.</small></span>
+              </label>
+              <p className="preferences-note">El tema y el contraste se guardan en este navegador. El tamaño del texto se cambia con el botón «Aa» de la barra superior.</p>
             </div>
-            {user && conContrasena && <details className="password-collapse"><summary>Cambiar contraseña</summary><ChangePasswordForm /></details>}
               </div>
             </dialog>
             <button

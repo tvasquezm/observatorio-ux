@@ -529,6 +529,21 @@ describe('Consenso: mejoras antes/después con capturas', () => {
     await expect(service.obtenerEvidencia('p', e.id, suelta.id, lector)).rejects.toBeInstanceOf(ForbiddenException);
     await expect(subir(service, e.id, coordinador)).rejects.toBeInstanceOf(ConflictException);
   });
+  it('en el acuerdo, el autor anota su captura; otro miembro no puede y tras consolidar ya no se edita', async () => {
+    const { service } = preparar();
+    let e = await entregarTodos(service, 1);
+    const captura = await subir(service, e.id, coordinador);
+    expect(captura).toMatchObject({ autorNombre: 'coordinador', anotadoEn: null });
+    const anotaciones = [{ id: 'a', tipo: 'rectangulo', x: 0.1, y: 0.1, x2: 0.5, y2: 0.5, color: '#ff0000', texto: '' }];
+    // Queda quién anotó (el autor de la captura) y cuándo.
+    await expect(service.anotarEvidencia('p', e.id, captura.id, { revision: captura.revision, anotaciones }, coordinador)).resolves.toMatchObject({ anotaciones, revision: 1, autorNombre: 'coordinador', anotadoEn: expect.any(String) });
+    await expect(service.anotarEvidencia('p', e.id, captura.id, { revision: 1, anotaciones: [] }, experto)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.anotarEvidencia('p', e.id, captura.id, { revision: 1, anotaciones: [] }, lector)).rejects.toBeInstanceOf(ForbiddenException);
+    e = await service.guardarConsenso('p', e.id, decisiones(e), coordinador);
+    for (const id of e.configuracion.evaluadorIds) e = await service.aprobar('p', e.id, { revision: e.revision }, usuario(id));
+    e = await service.consolidar('p', e.id, { revision: e.revision }, coordinador);
+    await expect(service.anotarEvidencia('p', e.id, captura.id, { revision: 1, anotaciones: [] }, coordinador)).rejects.toBeInstanceOf(ConflictException);
+  });
   it('no deja adjuntar en consenso a un lector ni a un ajeno', async () => {
     const { service } = preparar();
     const e = await entregarTodos(service, 1);

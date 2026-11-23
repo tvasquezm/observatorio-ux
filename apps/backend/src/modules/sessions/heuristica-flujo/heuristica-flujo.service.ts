@@ -424,8 +424,10 @@ export class HeuristicaFlujoService {
     });
   }
 
-  private meta(ev: EvidenciaHeuristicaCompleta): EvidenciaFlujo {
-    return { id: ev.id, revision: ev.revision, evaluacionId: ev.evaluacionId, autorId: ev.autorId, mimeType: ev.mimeType, tamano: ev.tamano, anotaciones: ev.anotaciones as unknown as EvidenciaFlujo['anotaciones'], createdAt: ev.createdAt.toISOString() };
+  /** Datos de la captura con el nombre de su autor (quien la subió es el único que puede anotarla). */
+  private async meta(ev: EvidenciaHeuristicaCompleta, tx: Prisma.TransactionClient = this.prisma): Promise<EvidenciaFlujo> {
+    const autor = (await tx.usuario.findMany({ where: { id: { in: [ev.autorId] } }, select: { id: true, nombre: true } })).find(u => u.id === ev.autorId);
+    return { id: ev.id, revision: ev.revision, evaluacionId: ev.evaluacionId, autorId: ev.autorId, autorNombre: autor?.nombre, mimeType: ev.mimeType, tamano: ev.tamano, anotaciones: ev.anotaciones as unknown as EvidenciaFlujo['anotaciones'], createdAt: ev.createdAt.toISOString(), anotadoEn: ev.anotadoEn?.toISOString() ?? null };
   }
   async subirEvidencia(proyectoId: string, id: string, archivo: ArchivoSubido | undefined, user: AuthenticatedUser) {
     if (!archivo?.buffer?.length || archivo.buffer.length > EVIDENCIA_MAX_BYTES) throw new BadRequestException(`Adjunta PNG/JPEG/WebP de hasta ${EVIDENCIA_MAX_MB} MB.`);
@@ -436,7 +438,7 @@ export class HeuristicaFlujoService {
       else this.editable(e, user);
       const cantidad = await tx.evidenciaHeuristicaCompleta.count({ where: { evaluacionId: id, autorId: user.id } });
       if (cantidad >= 50) throw new ConflictException('Máximo 50 capturas por experto.');
-      return this.meta(await tx.evidenciaHeuristicaCompleta.create({ data: { evaluacionId: id, autorId: user.id, mimeType, tamano: archivo.buffer.length, datos: Uint8Array.from(archivo.buffer), anotaciones: [] } }));
+      return this.meta(await tx.evidenciaHeuristicaCompleta.create({ data: { evaluacionId: id, autorId: user.id, mimeType, tamano: archivo.buffer.length, datos: Uint8Array.from(archivo.buffer), anotaciones: [] } }), tx);
     });
   }
 
@@ -453,16 +455,18 @@ export class HeuristicaFlujoService {
   async obtenerEvidencia(proyectoId: string, id: string, evidenciaId: string, user: AuthenticatedUser, metadata = false) {
     await this.projectAccess.assertAccess(proyectoId, user);
     const ev = await this.captura(await this.cargar(proyectoId, id, user), evidenciaId, user);
-    return metadata ? this.meta(ev) : { mimeType: ev.mimeType, datos: Buffer.from(ev.datos) };
+    return metadata ? await this.meta(ev) : { mimeType: ev.mimeType, datos: Buffer.from(ev.datos) };
   }
   async anotarEvidencia(proyectoId: string, id: string, evidenciaId: string, body: unknown, user: AuthenticatedUser) {
     const b = validar(anotacionesSchema, body);
     return this.bloqueada(proyectoId, id, user, undefined, async (e, tx) => {
-      this.editable(e, user);
+      // Misma regla que al subir: en el acuerdo también se anotan las capturas (de problemas y aspectos positivos).
+      if (e.fase === 'PENDIENTE_CONSENSO') { if (e.coordinadorId !== user.id && !e.configuracion.evaluadorIds.includes(user.id)) throw new ForbiddenException('Solo el coordinador o un experto pueden anotar capturas durante el consenso.'); }
+      else this.editable(e, user);
       const ev = await this.captura(e, evidenciaId, user, tx);
       if (ev.autorId !== user.id) throw new ForbiddenException('Solo el autor puede anotar su captura.');
       if (ev.revision !== b.revision) throw new ConflictException('La captura cambió. Conserva tus anotaciones y vuelve a cargar antes de guardar.');
-      return this.meta(await tx.evidenciaHeuristicaCompleta.update({ where: { id: evidenciaId }, data: { revision: { increment: 1 }, anotaciones: json(b.anotaciones) } }));
+      return this.meta(await tx.evidenciaHeuristicaCompleta.update({ where: { id: evidenciaId }, data: { revision: { increment: 1 }, anotaciones: json(b.anotaciones), anotadoEn: new Date() } }), tx);
     });
   }
 

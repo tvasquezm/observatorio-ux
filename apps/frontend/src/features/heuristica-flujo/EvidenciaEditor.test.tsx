@@ -48,6 +48,29 @@ describe('EvidenciaEditor', () => {
     await screen.findByText('Anotaciones guardadas.');
     expect(api.subirEvidenciaFlujo).not.toHaveBeenCalled();
   });
+  it('bajo la captura dice quién la subió y, al guardar marcas, cuándo las anotó', async () => {
+    api.cargarEvidencia.mockResolvedValue({ meta: { ...meta, autorNombre: 'Pepito Pérez' }, blob: new Blob(['png'], { type: 'image/png' }) });
+    api.guardarAnotaciones.mockImplementation(async (_p, _e, _i, anotaciones, revision) => ({ ...meta, autorNombre: 'Pepito Pérez', anotaciones, revision: revision + 1, anotadoEn: '2026-11-23T20:30:00.000Z' }));
+    abrir();
+    expect(await screen.findByText(/^Captura de Pepito Pérez · subida el /)).toBeInTheDocument();
+    rectangulo();
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar anotaciones' }));
+    expect(await screen.findByText(/^Captura y marcas de Pepito Pérez · anotada el /)).toBeInTheDocument();
+  });
+  it('guarda las marcas solo al dejar de dibujar, sin pulsar Guardar', async () => {
+    abrir();
+    await screen.findByAltText('Captura de evidencia');
+    rectangulo();
+    await waitFor(() => expect(api.guardarAnotaciones).toHaveBeenCalledWith('p1', 'ev1', 'cap1', [expect.objectContaining({ tipo: 'rectangulo' })], 0), { timeout: 3000 });
+    await screen.findByText('Anotaciones guardadas.');
+  });
+  it('si el editor se cierra con marcas pendientes (problema plegado), las guarda igual', async () => {
+    const vista = abrir();
+    await screen.findByAltText('Captura de evidencia');
+    rectangulo();
+    vista.unmount();
+    expect(api.guardarAnotaciones).toHaveBeenCalledWith('p1', 'ev1', 'cap1', [expect.objectContaining({ tipo: 'rectangulo' })], 0);
+  });
   it('dibujar crea la anotación con la forma y el color elegidos', async () => {
     abrir();
     await screen.findByAltText('Captura de evidencia');

@@ -8,7 +8,7 @@ import { journeyVisual, personaVisual } from './pdf-visual';
 import { cargarEvidencia } from '../../features/heuristica-flujo/evidencia.api';
 
 /** Imágenes ya convertidas a PNG para incrustar (fotos de personas y capturas de la heurística). */
-export type ReportConImagenes = ProjectReport & { imagenes?: Record<string, string> };
+export type ReportConImagenes = ProjectReport & { imagenes?: Record<string, string>; piesCapturas?: Record<string, string> };
 const claveCaptura = (evaluacionId: string, evidenciaId: string) => `captura-${evaluacionId}-${evidenciaId}`;
 import { tablaDeVista, tablaSinConsenso } from '../../features/card-sorting/card-sorting-export';
 
@@ -65,6 +65,11 @@ function detalleCardSorting(analytics: Parameters<typeof tablaDeVista>[1], inclu
 }
 
 function sections(report: ReportConImagenes): Record<ReportMethod, Content[]> {
+  /** Captura con su pie: quién la subió y anotó, y cuándo. */
+  const capturaConPie = (evaluacionId: string, id: string): Content => {
+    const pie = report.piesCapturas?.[claveCaptura(evaluacionId, id)];
+    return { stack: [{ image: claveCaptura(evaluacionId, id), fit: [440, 300], margin: [0, 4, 0, pie ? 2 : 8] }, ...(pie ? [{ text: pie, fontSize: 8, color: MUTED, margin: [0, 0, 0, 8] } as Content] : [])], unbreakable: true };
+  };
   const incluye = (metodo: ReportMethod, parte: string) => report.partes?.[metodo]?.includes(parte) ?? true;
   const incluyeCards = (parte: string) => incluye('cards', parte);
   const orientacionCards: { actual: 'portrait' | 'landscape' } = { actual: 'portrait' };
@@ -168,7 +173,7 @@ function sections(report: ReportConImagenes): Record<ReportMethod, Content[]> {
               details([['Pantalla o tarea', problema.pantalla], ['Criterios', problema.criterioIds.map(nombreCriterio)], ['Problema', problema.descripcion], ['Recomendación', problema.recomendacion]]),
               // Capturas del problema, con sus anotaciones, en su lugar.
               ...problema.evidenciaIds.map((id): Content => report.imagenes?.[claveCaptura(evaluacion.id, id)]
-                ? { image: claveCaptura(evaluacion.id, id), fit: [440, 300], margin: [0, 4, 0, 8] }
+                ? capturaConPie(evaluacion.id, id)
                 : { text: 'Captura disponible en la aplicación (no se pudo incluir en este PDF).', italics: true, color: MUTED, margin: [0, 2, 0, 6] }),
             ], unbreakable: JSON.stringify(problema).length < 1600,
           })) : []),
@@ -181,7 +186,7 @@ function sections(report: ReportConImagenes): Record<ReportMethod, Content[]> {
               { text: positivo.titulo, bold: true, margin: [0, 2, 0, 3] },
               ...(positivo.descripcion ? [paragraph(positivo.descripcion)] : []),
               ...(positivo.evidenciaIds ?? []).map((id): Content => report.imagenes?.[claveCaptura(evaluacion.id, id)]
-                ? { image: claveCaptura(evaluacion.id, id), fit: [440, 300], margin: [0, 4, 0, 8] }
+                ? capturaConPie(evaluacion.id, id)
                 : { text: 'Captura disponible en la aplicación (no se pudo incluir en este PDF).', italics: true, color: MUTED, margin: [0, 2, 0, 6] }),
             ], unbreakable: JSON.stringify(positivo).length < 1600,
           })),
@@ -317,6 +322,7 @@ export async function imagenAPng(src: string): Promise<string | null> {
 /** Prepara las imágenes del informe: fotos de personas y capturas (con anotaciones) de los problemas aceptados. */
 export async function prepararImagenesReporte(report: ProjectReport): Promise<ReportConImagenes> {
   const imagenes: Record<string, string> = {};
+  const piesCapturas: Record<string, string> = {};
   const personas = report.personas ? await Promise.all(report.personas.map(async p => {
     const foto = p.contenido.fotografiaUrl ? await imagenAPng(p.contenido.fotografiaUrl) : null;
     return { ...p, contenido: { ...p.contenido, fotografiaUrl: foto ?? undefined } };
@@ -325,17 +331,18 @@ export async function prepararImagenesReporte(report: ProjectReport): Promise<Re
   const incluyePositivos = report.partes?.heuristica?.includes('positivos') ?? true;
   if (report.heuristics && (incluyeProblemas || incluyePositivos)) {
     const { rasterizarEvidencia } = await import('../../features/heuristica-flujo/informe-pdf');
+    const { autoriaCaptura } = await import('../../features/heuristica-flujo/flujo-utils');
     for (const e of report.heuristics) {
       const ids = [
         ...(incluyeProblemas ? e.informe?.consenso.hallazgos.filter(x => x.decision === 'ACEPTADO').flatMap(h => h.evidenciaIds) ?? [] : []),
         ...(incluyePositivos ? e.informe?.consenso.positivos?.flatMap(p => p.evidenciaIds ?? []) ?? [] : []),
       ];
       for (const id of new Set(ids)) {
-        try { const { meta, blob } = await cargarEvidencia(e.proyectoId, e.id, id); imagenes[claveCaptura(e.id, id)] = await rasterizarEvidencia(blob, meta.anotaciones); } catch { /* queda el aviso en el PDF */ }
+        try { const { meta, blob } = await cargarEvidencia(e.proyectoId, e.id, id); imagenes[claveCaptura(e.id, id)] = await rasterizarEvidencia(blob, meta.anotaciones); piesCapturas[claveCaptura(e.id, id)] = autoriaCaptura(meta); } catch { /* queda el aviso en el PDF */ }
       }
     }
   }
-  return { ...report, personas, imagenes };
+  return { ...report, personas, imagenes, piesCapturas };
 }
 
 export async function exportarReportePdf(reporte: ProjectReport): Promise<void> {

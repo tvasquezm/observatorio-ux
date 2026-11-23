@@ -10,6 +10,7 @@ import { comprimirImagen } from '../../shared/utils/comprimir-imagen';
 import { cargarEvidencia, guardarAnotaciones, subirEvidenciaFlujo } from './evidencia.api';
 import { normalizarTipoEvidencia, validarImagenEvidencia } from './evidencia-validar';
 import { FLECHAS, Marca, Tiradores, ajustarConTeclado, avanzarGesto, iniciarGesto, puntoEnSvg, terminarGesto } from './anotaciones-interaccion';
+import { autoriaCaptura } from './flujo-utils';
 import type { Gesto } from './anotaciones-interaccion';
 
 interface Props {
@@ -151,11 +152,29 @@ function Lienzo({ proyectoId, evaluacionId, meta, blob, editable, onPendingChang
   /** Cerrar el visor no descarta nada: si quedan cambios sin guardar, el editor lo avisa. */
   function cerrarVisor() { setAmpliada(false); if (dirty) setEstado('Cerraste la captura ampliada con anotaciones pendientes de guardar.'); }
   function deshacer() { setAnotaciones(historial[historial.length - 1]); setHistorial(h => h.slice(0, -1)); setEstado(''); }
-  async function guardar() {
+  async function guardar(): Promise<boolean> {
     setGuardando(true); setError('');
-    try { const nuevaMeta = await guardarAnotaciones(proyectoId, evaluacionId, meta.id, anotaciones, revision); qc.setQueryData(['flujo-evidencia', proyectoId, evaluacionId, meta.id, userId], { meta: nuevaMeta, blob }); setGuardadas(JSON.stringify(anotaciones)); setRevision(nuevaMeta.revision); setEstado('Anotaciones guardadas.'); }
-    catch (e) { setError(mensaje(e)); } finally { setGuardando(false); }
+    const enviadas = anotaciones;
+    try { const nuevaMeta = await guardarAnotaciones(proyectoId, evaluacionId, meta.id, enviadas, revision); qc.setQueryData(['flujo-evidencia', proyectoId, evaluacionId, meta.id, userId], { meta: nuevaMeta, blob }); setGuardadas(JSON.stringify(enviadas)); setRevision(nuevaMeta.revision); ultimo.current = { ...ultimo.current, revision: nuevaMeta.revision }; setEstado('Anotaciones guardadas.'); return true; }
+    catch (e) { setError(mensaje(e)); return false; } finally { setGuardando(false); }
   }
+  // Guardado automático: las marcas se guardan solas al dejar de dibujar, como el resto del formulario.
+  // Si el editor se cierra (por ejemplo, al plegar el problema) con marcas pendientes, se guardan igual.
+  const fallido = useRef<string | null>(null);
+  const ultimo = useRef({ anotaciones, revision, dirty, editable });
+  ultimo.current = { anotaciones, revision, dirty, editable };
+  useEffect(() => {
+    if (!editable || !dirty || guardando || fallido.current === JSON.stringify(anotaciones)) return;
+    const t = setTimeout(() => { void guardar().then(ok => { fallido.current = ok ? null : JSON.stringify(ultimo.current.anotaciones); }); }, 1000);
+    return () => clearTimeout(t);
+  }, [anotaciones, dirty, guardando, editable]);
+  useEffect(() => () => {
+    const u = ultimo.current;
+    if (!u.editable || !u.dirty) return;
+    void guardarAnotaciones(proyectoId, evaluacionId, meta.id, u.anotaciones, u.revision)
+      .then(nuevaMeta => qc.setQueryData(['flujo-evidencia', proyectoId, evaluacionId, meta.id, userId], { meta: nuevaMeta, blob }))
+      .catch(() => {});
+  }, []);
   async function recuperar() {
     if (!window.confirm('Se reemplazarán tus anotaciones pendientes por las guardadas. ¿Continuar?')) return;
     setGuardando(true);
@@ -182,6 +201,7 @@ function Lienzo({ proyectoId, evaluacionId, meta, blob, editable, onPendingChang
         {seleccionada && <Tiradores anotacion={seleccionada} />}
       </svg>}
     </div>
+    <p className="evidencia-autoria">{autoriaCaptura(meta)}</p>
     <ol className="evidencia-lista" aria-label="Anotaciones de la captura">{anotaciones.map((a, i) => <li key={a.id} className="evidencia-tarjeta" tabIndex={0} aria-label={`Anotación ${i + 1}`}
       onMouseEnter={() => setResaltada(a.id)} onMouseLeave={() => setResaltada(null)} onFocus={() => { setResaltada(a.id); if (editable && a.tipo !== 'texto') setSeleccion(a.id); }}
       onKeyDown={e => {

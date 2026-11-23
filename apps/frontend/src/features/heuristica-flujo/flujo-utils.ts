@@ -1,5 +1,5 @@
 import { acuerdoDifiere, escalaDe, normalizarUrlProducto, redactorDe } from '@observatorio-ux/shared-types';
-import type { AporteEquipo, ConfiguracionFlujo, CriterioFlujo, CumplimientoGrupo, DecisionCriterio, DecisionHallazgo, EscalaFlujo, HallazgoFlujo, InformeFlujo, RespuestaCriterio, TrabajoFlujo } from '@observatorio-ux/shared-types';
+import type { AporteEquipo, ConfiguracionFlujo, EvidenciaFlujo, CriterioFlujo, CumplimientoGrupo, DecisionCriterio, DecisionHallazgo, EscalaFlujo, HallazgoFlujo, InformeFlujo, RespuestaCriterio, TrabajoFlujo } from '@observatorio-ux/shared-types';
 
 export function pendientesTrabajo(config: ConfiguracionFlujo, respuestas: RespuestaCriterio[], hallazgos: HallazgoFlujo[]) {
   const pendientes = config.metodologia.criterios.flatMap((c, i) => {
@@ -118,4 +118,12 @@ export function precargarConsenso(config: ConfiguracionFlujo, trabajos: TrabajoF
   if (!nuevos.length) return criterios;
   const ids = new Set(nuevos.map(n => n.criterioId));
   return [...criterios.filter(x => !ids.has(x.criterioId)), ...nuevos];
+}
+
+/** Pie de una captura: quién la subió (solo su autor puede anotarla) y cuándo guardó sus marcas. */
+export function autoriaCaptura(meta: Pick<EvidenciaFlujo, 'autorNombre' | 'anotaciones' | 'anotadoEn' | 'createdAt'>): string {
+  const autor = meta.autorNombre?.trim() || 'autor no registrado';
+  if (meta.anotaciones.length && meta.anotadoEn) return `Captura y marcas de ${autor} · anotada el ${fechaChile(meta.anotadoEn)}`;
+  if (meta.anotaciones.length) return `Captura y marcas de ${autor} · subida el ${fechaChile(meta.createdAt)}`;
+  return `Captura de ${autor} · subida el ${fechaChile(meta.createdAt)}`;
 }

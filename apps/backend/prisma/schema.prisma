@@ -334,6 +334,8 @@ model EvidenciaHeuristicaCompleta {
   datos Bytes
   anotaciones Json
   createdAt DateTime @default(now())
+  /// Última vez que su autor guardó las anotaciones (null: sin anotar).
+  anotadoEn DateTime?
 
   @@index([evaluacionId, autorId])
   @@map("evidencias_heuristicas_completas")
