@@ -3,6 +3,7 @@ import type { CardSortingAnalytics } from './api/card-sorting.api';
 import { clusterPromedio, fusiones } from './card-sorting-cluster';
 import type { CeldaCsv } from './card-sorting-csv';
 import { fichasCategorias, filasTarjetas, type EstadoTarjeta } from './card-sorting-views';
+import type { MatrizCalor } from './card-sorting-pdf-graficos';
 
 export type VistaExportable = 'cards' | 'categories' | 'results' | 'popular' | 'similarity' | 'dendrogram' | 'participants' | 'answers';
 
@@ -21,6 +22,8 @@ export interface TablaVista {
   ancha?: boolean;
   // Barras apiladas por fila (vista Tarjetas); el PDF las dibuja como última columna.
   barras?: SegmentoBarra[][];
+  // Gráfico que el PDF dibuja en lugar de la tabla (el CSV sigue usando columnas y filas).
+  grafico?: { tipo: 'calor'; matriz: MatrizCalor } | { tipo: 'dendrograma'; tarjetas: string[]; similitud: number[][] };
 }
 
 export const TITULOS_VISTA: Record<VistaExportable, string> = {
@@ -46,8 +49,10 @@ function matriz(
   encabezado: string,
   categorias: string[],
   filas: Array<{ tarjeta: string; valores: number[] }>,
+  calor: Pick<MatrizCalor, 'maximo' | 'diagonal' | 'unidad'>,
 ): TablaVista {
   return {
+    grafico: { tipo: 'calor', matriz: { encabezado: encabezado.replace(/ \(.*\)$/, ''), filas: filas.map(f => f.tarjeta), columnas: categorias, valores: filas.map(f => f.valores), ...calor } },
     vista,
     titulo: TITULOS_VISTA[vista],
     descripcion,
@@ -93,9 +98,11 @@ export function tablaDeVista(vista: VistaExportable, data: CardSortingAnalytics)
         }),
       };
     case 'results':
-      return matriz(vista, 'Cuántas veces cada tarjeta se ubicó en cada categoría.', 'Tarjeta (cantidad)', data.resultsMatrix.categorias, data.resultsMatrix.filas);
+      return matriz(vista, 'Cuántas veces cada tarjeta se ubicó en cada categoría.', 'Tarjeta (cantidad)', data.resultsMatrix.categorias, data.resultsMatrix.filas,
+        { maximo: Math.max(1, ...data.resultsMatrix.filas.flatMap(f => f.valores)), unidad: '' });
     case 'popular':
-      return matriz(vista, 'Porcentaje de participantes que ubicó cada tarjeta en cada categoría.', 'Tarjeta (% participantes)', data.popularPlacementsMatrix.categorias, data.popularPlacementsMatrix.filas);
+      return matriz(vista, 'Porcentaje de participantes que ubicó cada tarjeta en cada categoría.', 'Tarjeta (% participantes)', data.popularPlacementsMatrix.categorias, data.popularPlacementsMatrix.filas,
+        { maximo: 100, unidad: '%' });
     case 'similarity':
       return matriz(
         vista,
@@ -103,6 +110,7 @@ export function tablaDeVista(vista: VistaExportable, data: CardSortingAnalytics)
         'Tarjeta (% similitud)',
         data.tarjetas,
         data.tarjetas.map((tarjeta, i) => ({ tarjeta, valores: data.matrizSimilitud[i] })),
+        { maximo: 100, diagonal: true, unidad: '%' },
       );
     case 'dendrogram': {
       const nombres = (indices: number[]) => indices.map((i) => data.tarjetas[i]).join(', ');
@@ -111,6 +119,7 @@ export function tablaDeVista(vista: VistaExportable, data: CardSortingAnalytics)
         titulo: TITULOS_VISTA[vista],
         descripcion: 'Uniones sucesivas de grupos de tarjetas (enlace promedio), de la más similar a la menos similar.',
         columnas: ['Paso', 'Grupo A', 'Grupo B', 'Similitud al unirse (%)'],
+        grafico: { tipo: 'dendrograma', tarjetas: data.tarjetas, similitud: data.matrizSimilitud },
         filas: fusiones(clusterPromedio(data.matrizSimilitud)).map((nodo) => [
           nodo.paso,
           nombres(nodo.izq!.tarjetas),

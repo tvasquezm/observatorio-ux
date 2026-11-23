@@ -38,22 +38,42 @@ function details(rows: Array<[string, unknown]>): Content {
   };
 }
 
-// Mismas vistas que la pantalla de resultados: Tarjetas (con barras), sin consenso y Categorías.
-function detalleCardSorting(analytics: Parameters<typeof tablaDeVista>[1]): Content[] {
-  const sinConsenso = tablaSinConsenso(analytics);
-  return [
-    title('Tarjetas'),
-    paragraph(tablaDeVista('cards', analytics).descripcion),
-    ...cuerpoVista(tablaDeVista('cards', analytics)),
-    ...(sinConsenso ? [title('Tarjetas sin consenso'), paragraph(sinConsenso.descripcion), ...cuerpoVista(sinConsenso)] : []),
-    title('Categorías'),
-    paragraph(tablaDeVista('categories', analytics).descripcion),
-    ...cuerpoVista(tablaDeVista('categories', analytics)),
-  ];
+/** Apartado del informe -> vista de resultados de card sorting (las mismas del PDF del estudio). */
+const VISTAS_CARD_SORTING: Array<[string, Parameters<typeof tablaDeVista>[0]]> = [
+  ['tarjetas', 'cards'], ['categorias', 'categories'], ['matriz', 'results'], ['populares', 'popular'],
+  ['similitud', 'similarity'], ['dendrograma', 'dendrogram'], ['participantes', 'participants'],
+];
+
+/**
+ * Vistas de resultados elegidas, con sus gráficos. Las matrices anchas van en página apaisada;
+ * `orientacion` lleva la página actual para saltar solo cuando cambia.
+ */
+function detalleCardSorting(analytics: Parameters<typeof tablaDeVista>[1], incluye: (parte: string) => boolean, orientacion: { actual: 'portrait' | 'landscape' }): Content[] {
+  return VISTAS_CARD_SORTING.filter(([parte]) => incluye(parte)).flatMap(([, vista]) => {
+    const tabla = tablaDeVista(vista, analytics);
+    const sinConsenso = vista === 'cards' ? tablaSinConsenso(analytics) : null;
+    const pagina = tabla.ancha ? 'landscape' : 'portrait';
+    const salto = pagina !== orientacion.actual;
+    orientacion.actual = pagina;
+    return [
+      { stack: [title(tabla.titulo)], ...(salto ? { pageBreak: 'before' as const, pageOrientation: pagina } : {}) },
+      paragraph(tabla.descripcion),
+      ...cuerpoVista(tabla),
+      ...(sinConsenso ? [title(sinConsenso.titulo), paragraph(sinConsenso.descripcion), ...cuerpoVista(sinConsenso)] : []),
+    ];
+  });
 }
 
 function sections(report: ReportConImagenes): Record<ReportMethod, Content[]> {
   const incluye = (metodo: ReportMethod, parte: string) => report.partes?.[metodo]?.includes(parte) ?? true;
+  const incluyeCards = (parte: string) => incluye('cards', parte);
+  const orientacionCards: { actual: 'portrait' | 'landscape' } = { actual: 'portrait' };
+  /** Tras una matriz apaisada, el siguiente bloque abre página vertical. */
+  const volverAVertical = (): { pageBreak?: 'before'; pageOrientation?: 'portrait' } => {
+    if (orientacionCards.actual !== 'landscape') return {};
+    orientacionCards.actual = 'portrait';
+    return { pageBreak: 'before', pageOrientation: 'portrait' };
+  };
   return {
     personas: report.personas?.flatMap(({ contenido: person, version }, i) => [
       title(`${i + 1}. ${person.nombreCompleto}`),
@@ -110,19 +130,21 @@ function sections(report: ReportConImagenes): Record<ReportMethod, Content[]> {
       ]) : []),
     ]) ?? [],
     cards: report.cards?.flatMap(({ study, analytics }, i) => [
-      title(`${i + 1}. ${study.nombre}`),
+      // Si el estudio anterior terminó en una matriz apaisada, este vuelve a página vertical.
+      { stack: [title(`${i + 1}. ${study.nombre}`)], ...volverAVertical() },
       paragraph(`Modalidad: ${study.tipoCardSorting ?? 'Sin modalidad'} · Estudio ${study.cerrado ? 'cerrado' : 'abierto'} · Creado el ${date(study.createdAt)}`),
       ...(incluye('cards', 'resumen') ? [
         table(['Respuestas completas', 'Tarjetas', 'Acuerdo global'], [[analytics.participantesCount, analytics.cardsCount, analytics.participantesCount ? `${analytics.acuerdoGlobal}%` : 'Sin respuestas']]),
         paragraph('Los resultados agregados consideran únicamente sesiones completadas. El acuerdo global representa similitud entre pares de tarjetas, no una puntuación de usabilidad.'),
         details([['Tarjetas definidas', study.cardsDefinidas.map((card) => card.etiqueta)], ['Categorías predefinidas', study.categoriasDefinidas.map((category) => category.nombre)]]),
       ] : []),
-      ...(incluye('cards', 'resultados') || incluye('cards', 'agrupaciones') ? (analytics.participantesCount ? [{
-        stack: [
-          ...(incluye('cards', 'resultados') ? detalleCardSorting(analytics) : []),
-          ...(incluye('cards', 'agrupaciones') && analytics.clusters.length ? [title('Agrupaciones sugeridas'), table(['Grupo', 'Tarjetas', 'Acuerdo'], analytics.clusters.map((cluster) => [cluster.nombre, cluster.tarjetas, `${cluster.acuerdo}%`]), [100, '*', 60])] : []),
-        ],
-      } as Content] : [paragraph('Aún no hay respuestas completadas para calcular resultados.')]) : []),
+      ...(VISTAS_CARD_SORTING.some(([parte]) => incluyeCards(parte)) || incluyeCards('agrupaciones') ? (analytics.participantesCount ? [
+        ...detalleCardSorting(analytics, incluyeCards, orientacionCards),
+        ...(incluyeCards('agrupaciones') && analytics.clusters.length ? [
+          { stack: [title('Agrupaciones sugeridas')], ...volverAVertical() } as Content,
+          table(['Grupo', 'Tarjetas', 'Acuerdo'], analytics.clusters.map((cluster) => [cluster.nombre, cluster.tarjetas, `${cluster.acuerdo}%`]), [100, '*', 60]),
+        ] : []),
+      ] : [paragraph('Aún no hay respuestas completadas para calcular resultados.')]) : []),
     ]) ?? [],
     heuristica: report.heuristics?.flatMap((evaluacion, i): Content[] => {
       const { configuracion: config, informe } = evaluacion;
@@ -211,7 +233,7 @@ export function buildReportDefinition(report: ReportConImagenes, brand?: ReportB
             { type: 'line', x1: 0, y1: 0, x2: id === 'journey' ? 733 : 487, y2: 0, lineWidth: .5, lineColor: '#b4bbc5' },
           ], margin: [0, 0, 0, 12] },
           ...(blocks[id].length ? [] : [empty()]),
-        ], unbreakable: true, pageBreak: counts[id] || id === 'journey' || report.methods[index - 1]?.id === 'journey' ? 'before' : undefined, pageOrientation: id === 'journey' ? 'landscape' : 'portrait' },
+        ], unbreakable: true, pageBreak: counts[id] || id === 'journey' || report.methods[index - 1]?.id === 'journey' || (report.methods[index - 1]?.id === 'cards' && counts.cards) ? 'before' : undefined, pageOrientation: id === 'journey' ? 'landscape' : 'portrait' },
         ...blocks[id],
       ]),
     ],

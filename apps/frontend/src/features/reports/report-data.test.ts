@@ -141,3 +141,46 @@ describe('informes por técnicas', () => {
     expect(content).not.toContain('Problema antiguo');
   });
 });
+
+describe('card sorting en el informe del proyecto', () => {
+  const tarjetas = ['Becas', 'Matrícula', 'Horario', 'Notas', 'Biblioteca', 'Casino', 'Deportes', 'Salud'];
+  const categorias = ['Trámites', 'Académico', 'Vida', 'Servicios', 'Pagos', 'Ayuda', 'Otros'];
+  const analytics = {
+    estudio: { id: 'e1', proyectoId: 'p1', nombre: 'Menú del portal', cerrado: true, createdAt: '2026-10-01' },
+    participantesCount: 5, cardsCount: 8, acuerdoGlobal: 62, tarjetas,
+    matrizSimilitud: tarjetas.map((_, i) => tarjetas.map((__, j) => (i === j ? 100 : 20 + ((i + j) % 5) * 15))),
+    frecuenciaPorCategoria: [], clusters: [{ nombre: 'Grupo 1', tarjetas: 'Becas, Matrícula', acuerdo: 80 }], sinConsenso: [],
+    muestra: 'baja', umbrales: { consenso: 50, muestraMinima: 15, muestraEstable: 30 }, categorias,
+    resultsMatrix: { categorias, filas: tarjetas.map((tarjeta, i) => ({ tarjeta, valores: categorias.map((_, j) => (i + j) % 4) })) },
+    popularPlacementsMatrix: { categorias, filas: tarjetas.map((tarjeta, i) => ({ tarjeta, valores: categorias.map((_, j) => ((i + j) % 5) * 20) })) },
+    porCarta: [], porCategoria: [], participantes: [], preguntas: [],
+  };
+  beforeEach(() => {
+    vi.mocked(getCardSortingEstudiosByProyecto).mockResolvedValue([{ id: 'e1', nombre: 'Menú del portal', evaluadorId: 'owner', cerrado: true, createdAt: '2026-10-01', tipoCardSorting: 'ABIERTO', cardsDefinidas: [], categoriasDefinidas: [] }] as never);
+    vi.mocked(getCardSortingAnalytics).mockResolvedValue(analytics as never);
+  });
+
+  it('incluye los mapas de calor y el dendrograma, y las matrices anchas van apaisadas', async () => {
+    const report = await loadProjectReport('p1', ['cards', 'heuristica'], { cards: ['matriz', 'similitud', 'dendrograma', 'agrupaciones'] });
+    const nodos = buildReportDefinition(report).content as Array<{ stack?: Array<{ stack?: Array<{ text?: string }>; text?: string }>; pageBreak?: string; pageOrientation?: string }>;
+    const titulo = (texto: string) => nodos.find(n => n.stack?.[0]?.stack?.[0]?.text === texto);
+    expect(titulo('Matriz de ubicaciones')).toMatchObject({ pageBreak: 'before', pageOrientation: 'landscape' });
+    expect(titulo('Similitud entre tarjetas')?.pageBreak).toBeUndefined();
+    expect(titulo('Dendrograma')).toMatchObject({ pageBreak: 'before', pageOrientation: 'portrait' });
+    const pdf = JSON.stringify(nodos);
+    expect(pdf).toContain('"svg"');
+    expect(pdf).toContain('#253ff6');
+    expect(pdf).toContain('Agrupaciones sugeridas');
+    expect(pdf).not.toContain('Tarjetas populares');
+    const secciones = nodos.filter(n => n.stack?.[0]?.text?.startsWith('SECCIÓN'));
+    expect(secciones[1]).toMatchObject({ pageBreak: 'before', pageOrientation: 'portrait' });
+  });
+
+  it('una elección guardada con "Resultados detallados" sigue trayendo Tarjetas y Categorías', async () => {
+    const report = await loadProjectReport('p1', ['cards'], { cards: ['resultados'] });
+    const pdf = JSON.stringify(buildReportDefinition(report).content);
+    expect(pdf).toContain('"Tarjetas"');
+    expect(pdf).toContain('"Categorías"');
+    expect(pdf).not.toContain('Dendrograma');
+  });
+});

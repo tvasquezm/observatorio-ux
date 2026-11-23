@@ -26,7 +26,13 @@ export const REPORT_METHODS = [
   ] },
   { id: 'cards', label: 'Card Sorting', detail: 'Estudios, categorías y resultados agregados', partes: [
     { id: 'resumen', label: 'Resumen del estudio' },
-    { id: 'resultados', label: 'Resultados detallados' },
+    { id: 'tarjetas', label: 'Tarjetas (con distribución)' },
+    { id: 'categorias', label: 'Categorías' },
+    { id: 'matriz', label: 'Matriz de ubicaciones (mapa de calor)' },
+    { id: 'populares', label: 'Tarjetas populares (mapa de calor)' },
+    { id: 'similitud', label: 'Similitud entre tarjetas (mapa de calor)' },
+    { id: 'dendrograma', label: 'Dendrograma' },
+    { id: 'participantes', label: 'Clasificación de cada participante' },
     { id: 'agrupaciones', label: 'Agrupaciones sugeridas' },
   ] },
   { id: 'heuristica', label: 'Evaluación Heurística', detail: 'Problemas acordados, severidad y recomendaciones', partes: [
@@ -71,11 +77,21 @@ async function loadCards(projectId: string, elegidos?: string[]) {
   return results;
 }
 
+/** Apartados que ya no existen -> sus reemplazos, para que una elección guardada siga valiendo. */
+const PARTES_ANTIGUAS: Partial<Record<ReportMethod, Record<string, string[]>>> = {
+  cards: { resultados: ['tarjetas', 'categorias'] },
+};
+export function normalizarPartes(metodo: ReportMethod, partes?: string[]): string[] | undefined {
+  const antiguas = PARTES_ANTIGUAS[metodo];
+  return partes && antiguas ? [...new Set(partes.flatMap(p => antiguas[p] ?? [p]))] : partes;
+}
+
 export async function loadProjectReport(projectId: string, selection: readonly ReportMethod[], partes: ReportParts = {}, lienzos: ReportLienzos = {}) {
   const partesIncluidas: ReportParts = {};
   for (const { id, partes: opciones } of REPORT_METHODS) {
     if (!selection.includes(id)) continue;
-    const elegidas = opciones.map(parte => parte.id).filter(parte => partes[id]?.includes(parte) ?? true);
+    const pedidas = normalizarPartes(id, partes[id]);
+    const elegidas = opciones.map(parte => parte.id).filter(parte => pedidas?.includes(parte) ?? true);
     if (elegidas.length) partesIncluidas[id] = elegidas;
   }
   const methods = REPORT_METHODS.filter(({ id }) => partesIncluidas[id] !== undefined);

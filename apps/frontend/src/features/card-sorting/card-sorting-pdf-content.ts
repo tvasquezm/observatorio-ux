@@ -3,6 +3,10 @@
 import type { Content } from 'pdfmake/interfaces';
 import { MUTED, paragraph, table } from '../../shared/utils/pdf-base';
 import type { SegmentoBarra, TablaVista } from './card-sorting-export';
+import { dendrogramaPdf, mapaCalor } from './card-sorting-pdf-graficos';
+
+/** Ancho y alto útiles de A4 con los márgenes del informe (54 a los lados, 72 arriba, 54 abajo), menos el título. */
+const UTIL = { vertical: { ancho: 595 - 108 - 2, alto: 842 - 126 - 90 }, apaisada: { ancho: 842 - 108 - 2, alto: 595 - 126 - 90 } };
 
 // Mismos colores que --c1..--c8 del tema claro (el PDF siempre es claro).
 const PALETA_HEX = ['#3049b2', '#0f8b7a', '#c2571a', '#8a3fb3', '#a98300', '#c0305a', '#4f7a28', '#6b7a90'];
@@ -25,6 +29,9 @@ const abreviar = (texto: string) => (texto.length > 14 ? `${texto.slice(0, 13)}�
 
 export function cuerpoVista(tabla: TablaVista): Content[] {
   if (tabla.filas.length === 0) return [paragraph('Sin datos para esta vista.')];
+  const util = tabla.ancha ? UTIL.apaisada : UTIL.vertical;
+  if (tabla.grafico?.tipo === 'calor') return mapaCalor(tabla.grafico.matriz, util.ancho);
+  if (tabla.grafico?.tipo === 'dendrograma') return dendrogramaPdf(tabla.grafico.tarjetas, tabla.grafico.similitud, util.ancho, util.alto);
   if (tabla.ancha && tabla.columnas.length > MAX_COLUMNAS_ANCHAS) {
     return [paragraph(`Esta matriz tiene ${tabla.columnas.length - 1} columnas y no cabe en una página. Descárgala como CSV para verla completa.`)];
   }
