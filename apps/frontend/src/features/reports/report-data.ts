@@ -77,6 +77,17 @@ async function loadCards(projectId: string, elegidos?: string[]) {
   return results;
 }
 
+/** Plantillas de un clic del diálogo de exportación. `partes` ausente = todos los apartados de esa técnica. */
+export const PLANTILLAS_INFORME: ReadonlyArray<{ id: string; label: string; descripcion: string; selection: ReportMethod[]; partes: ReportParts }> = [
+  { id: 'completo', label: 'Informe completo', descripcion: 'Todas las técnicas con todos sus apartados.', selection: ['personas', 'journey', 'momentos', 'cards', 'heuristica'], partes: {} },
+  {
+    id: 'ejecutivo', label: 'Resumen ejecutivo', descripcion: 'Gráficos, resúmenes y hallazgos por severidad, sin el detalle.',
+    selection: ['personas', 'journey', 'momentos', 'cards', 'heuristica'],
+    partes: { personas: ['visual'], journey: ['visual', 'resumen'], momentos: ['tabla'], cards: ['resumen', 'tarjetas', 'similitud', 'dendrograma', 'agrupaciones'], heuristica: ['severidad'] },
+  },
+  { id: 'hallazgos', label: 'Solo hallazgos', descripcion: 'Problemas de la evaluación heurística e incidentes críticos.', selection: ['momentos', 'heuristica'], partes: {} },
+];
+
 /** Apartados que ya no existen -> sus reemplazos, para que una elección guardada siga valiendo. */
 const PARTES_ANTIGUAS: Partial<Record<ReportMethod, Record<string, string[]>>> = {
   cards: { resultados: ['tarjetas', 'categorias'] },
