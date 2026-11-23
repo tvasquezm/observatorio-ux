@@ -5,6 +5,11 @@ import { INK, MUTED, TEAL, paragraph, table, textValue, title } from './pdf-base
 import { PDF_DEFAULT_STYLE, PDF_PAGE_MARGINS, PDF_STYLES, keepHeadingsWithContent } from './pdf-base';
 import { cuerpoVista } from '../../features/card-sorting/card-sorting-pdf-content';
 import { journeyVisual, personaVisual } from './pdf-visual';
+import { cargarEvidencia } from '../../features/heuristica-flujo/evidencia.api';
+
+/** Imágenes ya convertidas a PNG para incrustar (fotos de personas y capturas de la heurística). */
+export type ReportConImagenes = ProjectReport & { imagenes?: Record<string, string> };
+const claveCaptura = (evaluacionId: string, evidenciaId: string) => `captura-${evaluacionId}-${evidenciaId}`;
 import { tablaDeVista, tablaSinConsenso } from '../../features/card-sorting/card-sorting-export';
 
 export { INK, MUTED, TEAL, paragraph, table, title };
@@ -47,7 +52,7 @@ function detalleCardSorting(analytics: Parameters<typeof tablaDeVista>[1]): Cont
   ];
 }
 
-function sections(report: ProjectReport): Record<ReportMethod, Content[]> {
+function sections(report: ReportConImagenes): Record<ReportMethod, Content[]> {
   const incluye = (metodo: ReportMethod, parte: string) => report.partes?.[metodo]?.includes(parte) ?? true;
   return {
     personas: report.personas?.flatMap(({ contenido: person, version }, i) => [
@@ -55,6 +60,8 @@ function sections(report: ProjectReport): Record<ReportMethod, Content[]> {
       { text: `PERSONA · VERSIÓN ${version}`, style: 'eyebrow', margin: [0, 0, 0, 8] },
       // F40: la tarjeta tal como se ve en la página; el desglose sigue debajo.
       ...(incluye('personas', 'visual') ? personaVisual(person) : []),
+      // Sin la tarjeta, la foto va igual junto al perfil.
+      ...(!incluye('personas', 'visual') && incluye('personas', 'perfil') && person.fotografiaUrl && /^data:image\/(png|jpeg);base64,/.test(person.fotografiaUrl) ? [{ image: person.fotografiaUrl, fit: [110, 110], margin: [0, 0, 0, 8] } as Content] : []),
       details([
         ...(incluye('personas', 'perfil') ? [
           ['Edad', person.edad], ['Ocupación', person.ocupacion], ['Acerca de', person.acercaDe],
@@ -137,6 +144,10 @@ function sections(report: ProjectReport): Record<ReportMethod, Content[]> {
               title(`Problema ${index + 1} · ${problema.titulo}`),
               { text: `SEVERIDAD ${problema.severidad} · ${severityLabels[problema.severidad] ?? 'Sin clasificar'} · PRIORIDAD ${problema.prioridad}`, bold: true, color: severityColors[problema.severidad] ?? INK, margin: [0, 0, 0, 8] },
               details([['Pantalla o tarea', problema.pantalla], ['Criterios', problema.criterioIds.map(nombreCriterio)], ['Problema', problema.descripcion], ['Recomendación', problema.recomendacion]]),
+              // Capturas del problema, con sus anotaciones, en su lugar.
+              ...problema.evidenciaIds.map((id): Content => report.imagenes?.[claveCaptura(evaluacion.id, id)]
+                ? { image: claveCaptura(evaluacion.id, id), fit: [440, 300], margin: [0, 4, 0, 8] }
+                : { text: 'Captura disponible en la aplicación (no se pudo incluir en este PDF).', italics: true, color: MUTED, margin: [0, 2, 0, 6] }),
             ], unbreakable: JSON.stringify(problema).length < 1600,
           })) : []),
         ] : [paragraph('La revisión acordada no identificó problemas de usabilidad.')]),
@@ -165,7 +176,7 @@ export function brandChrome(brand: ReportBrand | undefined, scope: string, gener
   };
 }
 
-export function buildReportDefinition(report: ProjectReport, brand?: ReportBrand): TDocumentDefinitions {
+export function buildReportDefinition(report: ReportConImagenes, brand?: ReportBrand): TDocumentDefinitions {
   const blocks = sections(report);
   const counts: Record<ReportMethod, number> = {
     personas: report.personas?.length ?? 0, journey: report.journeys?.length ?? 0,
@@ -176,7 +187,7 @@ export function buildReportDefinition(report: ProjectReport, brand?: ReportBrand
     info: { title: `Informe UX · ${report.project.nombre}`, subject: report.methods.map(({ label }) => label).join(', '), creator: 'UXLab Observatorio' },
     pageSize: 'A4', pageMargins: PDF_PAGE_MARGINS,
     defaultStyle: PDF_DEFAULT_STYLE,
-    images: brand ? { brandLogo: brand.logo, brandLogoWhite: brand.logoWhite } : {},
+    images: { ...(brand ? { brandLogo: brand.logo, brandLogoWhite: brand.logoWhite } : {}), ...(report.imagenes ?? {}) },
     ...brandChrome(brand, scope, report.generatedAt),
     content: [
       { text: 'INFORME DE INVESTIGACIÓN UX', style: 'eyebrow', alignment: 'center', margin: [0, 36, 0, 18] },
@@ -252,7 +263,41 @@ async function cargarPdfMakeSinCache() {
   return { pdfMake, brand: { logo, logoWhite } as ReportBrand };
 }
 
-export async function exportarReportePdf(report: ProjectReport): Promise<void> {
+/** Convierte cualquier imagen (WebP, URL o data URL) a PNG para pdfmake; null si el navegador no puede leerla. */
+export async function imagenAPng(src: string): Promise<string | null> {
+  if (/^data:image\/(png|jpeg);base64,/.test(src)) return src;
+  try {
+    const blob = await (await fetch(src)).blob();
+    const bitmap = await createImageBitmap(blob);
+    try {
+      const factor = Math.min(1, 1200 / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement('canvas'); canvas.width = Math.max(1, Math.round(bitmap.width * factor)); canvas.height = Math.max(1, Math.round(bitmap.height * factor));
+      const ctx = canvas.getContext('2d'); if (!ctx) return null;
+      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL('image/png');
+    } finally { bitmap.close(); }
+  } catch { return null; }
+}
+
+/** Prepara las imágenes del informe: fotos de personas y capturas (con anotaciones) de los problemas aceptados. */
+export async function prepararImagenesReporte(report: ProjectReport): Promise<ReportConImagenes> {
+  const imagenes: Record<string, string> = {};
+  const personas = report.personas ? await Promise.all(report.personas.map(async p => {
+    const foto = p.contenido.fotografiaUrl ? await imagenAPng(p.contenido.fotografiaUrl) : null;
+    return { ...p, contenido: { ...p.contenido, fotografiaUrl: foto ?? undefined } };
+  })) : undefined;
+  const incluyeProblemas = report.partes?.heuristica?.includes('problemas') ?? true;
+  if (report.heuristics && incluyeProblemas) {
+    const { rasterizarEvidencia } = await import('../../features/heuristica-flujo/informe-pdf');
+    for (const e of report.heuristics) for (const h of e.informe?.consenso.hallazgos.filter(x => x.decision === 'ACEPTADO') ?? []) for (const id of h.evidenciaIds) {
+      try { const { meta, blob } = await cargarEvidencia(e.proyectoId, e.id, id); imagenes[claveCaptura(e.id, id)] = await rasterizarEvidencia(blob, meta.anotaciones); } catch { /* queda el aviso en el PDF */ }
+    }
+  }
+  return { ...report, personas, imagenes };
+}
+
+export async function exportarReportePdf(reporte: ProjectReport): Promise<void> {
+  const report = await prepararImagenesReporte(reporte);
   const { pdfMake, brand } = await cargarPdfMake();
   const slug = report.project.nombre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'proyecto';
   const scope = report.methods.length === 5 ? 'completo' : report.methods.map(({ id }) => id).join('-');
