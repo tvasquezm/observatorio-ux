@@ -15,6 +15,9 @@ import { useCriticalMoments } from '../features/momentos-criticos/hooks/useMomen
 import { useCardSortingEstudiosByProyecto } from '../features/card-sorting/hooks/useCardSortingQueries';
 import { PanelTecnicas, useEvaluacionesProyecto } from '../features/analitica-proyecto/AnaliticaDecision';
 import { Skeleton } from '../shared/components/ui/Skeleton';
+import { useAuthStore } from '../features/auth/store/useAuthStore';
+import { PanelAlertas, PanelAporte, PanelAvance, PanelHallazgos, PanelNovedades, desdeVisita, useDatosDocente, useVisitaAnterior } from '../features/analitica-proyecto/ResumenDocente';
+import { alertasRevision, aporteIntegrantes, avanceTecnicas, hallazgosClave, novedadesDesde, type DatosDocente } from '../features/analitica-proyecto/resumen-docente';
 
 export function AnalyticsPage() {
   const { proyectoId } = useOutletContext<ProjectOutletContext>();
@@ -25,7 +28,10 @@ export function AnalyticsPage() {
   const cardSortingQuery = useCardSortingEstudiosByProyecto(proyectoId);
   const evaluacionesQuery = useEvaluacionesProyecto(proyectoId);
   const evaluaciones = evaluacionesQuery.data ?? [];
-  const isLoadingAll = isLoading || personasQuery.isLoading || journeysQuery.isLoading || momentsQuery.isLoading || cardSortingQuery.isLoading;
+  const usuarioId = useAuthStore((s) => s.user?.id ?? '');
+  const docente = useDatosDocente(proyectoId);
+  const visitaAnterior = useVisitaAnterior(usuarioId, proyectoId);
+  const isLoadingAll = isLoading || docente.isLoading || personasQuery.isLoading || journeysQuery.isLoading || momentsQuery.isLoading || cardSortingQuery.isLoading;
   const aggregateError = error ?? personasQuery.error ?? journeysQuery.error ?? momentsQuery.error ?? cardSortingQuery.error;
 
   const evidence = [
@@ -41,13 +47,20 @@ export function AnalyticsPage() {
     0,
   ) ?? 0;
 
+  const datosDocente: DatosDocente = {
+    personas: personasQuery.data ?? [], journeys: journeysQuery.data ?? [], momentos: momentsQuery.data ?? [],
+    estudios: cardSortingQuery.data ?? [], evaluaciones,
+    versiones: docente.versiones, miembros: docente.miembros, comentarios: docente.comentarios,
+  };
+  const aportes = aporteIntegrantes(datosDocente);
+
   return (
     <div className="fade">
       <div className="page-head">
         <div>
           <span className="kicker">LECTURA TRANSVERSAL</span>
           <h2>Analítica general</h2>
-          <p>Lectura conjunta de artefactos, card sorting, participantes y hallazgos registrados en este proyecto.</p>
+          <p>Resumen para revisar el proyecto: avance del equipo, alertas, aportes, hallazgos clave y novedades.</p>
         </div>
       </div>
 
@@ -78,6 +91,13 @@ export function AnalyticsPage() {
               <small>{(data.porSeveridad[3]?.count ?? 0) + (data.porSeveridad[4]?.count ?? 0)} de prioridad alta</small>
             </article>
           </section>
+          <div className="docente-grid">
+            <PanelAvance proyectoId={proyectoId} avance={avanceTecnicas(datosDocente)} />
+            <PanelHallazgos proyectoId={proyectoId} hallazgos={hallazgosClave(datosDocente)} />
+          </div>
+          <PanelAlertas proyectoId={proyectoId} alertas={alertasRevision(datosDocente, aportes)} />
+          <PanelAporte aportes={aportes} />
+          <PanelNovedades proyectoId={proyectoId} novedades={novedadesDesde(datosDocente, desdeVisita(visitaAnterior), usuarioId)} primeraVisita={!visitaAnterior} datos={datosDocente} usuarioId={usuarioId} />
           <PanelTecnicas proyectoId={proyectoId} datos={{
             personas: personasQuery.data ?? [], journeys: journeysQuery.data ?? [], momentos: momentsQuery.data ?? [],
             estudios: cardSortingQuery.data ?? [], evaluaciones,

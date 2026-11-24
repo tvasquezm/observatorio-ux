@@ -3521,3 +3521,40 @@ button.evidencia-numero:hover .evidencia-nota, button.evidencia-numero:focus .ev
 .evidencia-lista--edicion .evidencia-tarjeta { display: flex; border-radius: 10px; padding: 6px 8px; }
 .evidencia-lista--edicion .evidencia-nota-input { flex: 1 1 200px; min-width: 0; width: auto !important; }
 @media (max-width: 600px) { .evidencia-lista--edicion .evidencia-tarjeta { flex-wrap: wrap; } .evidencia-lista--edicion .evidencia-nota-input { flex-basis: 100%; } }
+
+/* Analítica para el profesor (features/analitica-proyecto/ResumenDocente.tsx) */
+.docente-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.docente-grid > .panel, .docente-alertas, .docente-aporte, .docente-novedades { margin-bottom: 16px; }
+.docente-semaforo { list-style: none; display: grid; gap: 6px; margin: 0; padding: 0; }
+.docente-semaforo li { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--line-soft); border-radius: 10px; background: var(--surface-alt); }
+.docente-semaforo a { color: var(--ink); font-weight: 700; text-decoration: none; }
+.docente-semaforo a:hover { color: var(--teal); text-decoration: underline; }
+.docente-semaforo small { display: block; color: var(--muted); font-size: var(--fs-sm); }
+.docente-luz { width: 12px; height: 12px; border-radius: 50%; background: var(--line); box-shadow: 0 0 0 3px color-mix(in srgb, var(--line) 35%, transparent); }
+.docente-semaforo [data-estado='completa'] .docente-luz { background: var(--positive-text); box-shadow: 0 0 0 3px color-mix(in srgb, var(--positive-text) 20%, transparent); }
+.docente-semaforo [data-estado='en-curso'] .docente-luz { background: var(--heat-media-line); box-shadow: 0 0 0 3px color-mix(in srgb, var(--heat-media-line) 22%, transparent); }
+.docente-semaforo [data-estado='sin-empezar'] .docente-luz { background: var(--danger-text); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger-text) 18%, transparent); }
+.docente-estado { text-align: right; font-size: var(--fs-sm); font-weight: 700; color: var(--ink-soft); }
+.docente-estado small { font-weight: 500; }
+.docente-hallazgos-lista { display: grid; gap: 10px; margin: 0; padding-left: 22px; }
+.docente-hallazgos-lista li::marker { color: var(--teal); font-weight: 800; }
+.docente-hallazgos-lista small { display: block; color: var(--muted); font-size: var(--fs-xs); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.docente-hallazgos-lista a { color: var(--ink); font-weight: 600; line-height: 1.4; }
+.docente-alertas > .ghost { margin-top: 10px; }
+.docente-aporte-scroll { overflow-x: auto; margin-bottom: 8px; }
+.docente-aporte-tabla { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.docente-aporte-tabla th, .docente-aporte-tabla td { padding: 9px 10px; border-bottom: 1px solid var(--line-soft); text-align: center; white-space: nowrap; }
+.docente-aporte-tabla thead th { color: var(--muted); font-size: var(--fs-xs); font-weight: 700; }
+.docente-aporte-tabla th[scope='row'], .docente-aporte-tabla thead th:first-child { text-align: left; color: var(--ink); }
+.docente-aporte-tabla td:nth-last-child(2) { display: flex; align-items: center; gap: 8px; min-width: 120px; }
+.docente-aporte-tabla tr[data-sin-aporte] th, .docente-aporte-tabla tr[data-sin-aporte] td { color: var(--danger-text); }
+.docente-barra { flex: 1; height: 8px; border-radius: 999px; background: var(--surface-alt); overflow: hidden; }
+.docente-barra i { display: block; height: 100%; border-radius: inherit; background: var(--teal); }
+.docente-novedades-lista { list-style: none; display: grid; margin: 0; padding: 0; }
+.docente-novedades-lista li { display: grid; grid-template-columns: 150px 1fr; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line-soft); font-size: var(--fs-sm); }
+.docente-novedades-lista time { color: var(--muted); }
+.docente-novedades-lista a { color: var(--ink); }
+@media (max-width: 900px) {
+  .docente-grid { grid-template-columns: 1fr; }
+  .docente-novedades-lista li { grid-template-columns: 1fr; gap: 2px; }
+}
