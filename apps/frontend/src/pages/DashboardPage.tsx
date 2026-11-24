@@ -14,6 +14,8 @@ import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { Icon } from '../shared/components/ui/Icon';
 import { PanelContinuar } from '../features/analitica-proyecto/PanelContinuar';
 import { VideoTutorial } from '../shared/components/VideoTutorial';
+import { SelectorProyecto } from '../features/projects/components/SelectorProyecto';
+import { Skeleton } from '../shared/components/ui/Skeleton';
 
 const TECHNIQUES = [
   { to: 'personas', label: 'Personas', icon: 'personas', cls: 'c2' },
@@ -22,8 +24,6 @@ const TECHNIQUES = [
   { to: 'card-sorting', label: 'Card Sorting', icon: 'card-sorting', cls: 'c1' },
   { to: 'evaluacion-heuristica', label: 'Evaluación heurística', icon: 'heuristica', cls: 'c3' },
 ] as const;
-
-const SIN_SALA = '__sin-sala__';
 
 function fechaHoy() {
   const f = new Date();
@@ -38,14 +38,7 @@ export function DashboardPage() {
   const total = proyectos?.length ?? 0;
   const projectKey = `observatorio-ux-project:${user?.id ?? 'anonymous'}`;
   const [selectedId, setSelectedId] = useState(() => sessionStorage.getItem(projectKey) ?? '');
-  // Filtro por sala: solo aparece cuando los proyectos están repartidos en más de una sala.
-  const [salaFiltro, setSalaFiltro] = useState('');
-  const gruposSala = new Set((proyectos ?? []).map(p => p.salaId ?? SIN_SALA));
-  const mostrarFiltroSala = gruposSala.size > 1;
-  const opcionesSala = [...gruposSala].map(id => ({ id, nombre: id === SIN_SALA ? 'Sin sala' : salas?.find(s => s.id === id)?.nombre ?? 'Sala sin nombre' }))
-    .sort((a, b) => (a.id === SIN_SALA ? 1 : b.id === SIN_SALA ? -1 : a.nombre.localeCompare(b.nombre, 'es')));
-  const visibles = (proyectos ?? []).filter(p => !salaFiltro || (p.salaId ?? SIN_SALA) === salaFiltro);
-  const activo = visibles.find(p => p.id === selectedId) ?? (visibles.length === 1 ? visibles[0] : null);
+  const activo = proyectos?.find(p => p.id === selectedId) ?? (proyectos?.length === 1 ? proyectos[0] : null);
   useEffect(() => {
     if (isLoading || isError || !proyectos) return;
     if (activo) sessionStorage.setItem(projectKey, activo.id);
@@ -71,13 +64,12 @@ export function DashboardPage() {
 
       <section className="panel active-project" aria-labelledby="paso-proyecto">
         <h2 id="paso-proyecto" className="step-title"><span className="step-num" aria-hidden="true">1</span> Proyecto</h2>
-        {isError ? <div role="alert"><p>No pudimos cargar tus proyectos. Comprueba tu conexión y vuelve a intentarlo.</p><button type="button" className="secondary" onClick={() => void refetch()}>Reintentar</button></div> : isLoading ? <p role="status">Cargando proyectos…</p> : total > 0 ? <>
-          <div className="step-project-row">
-            {mostrarFiltroSala && <div className="field field-sala"><label htmlFor="filtro-sala">Sala</label><select id="filtro-sala" value={salaFiltro} onChange={e => setSalaFiltro(e.target.value)}><option value="">Todas las salas</option>{opcionesSala.map(o => <option key={o.id} value={o.id}>{o.nombre}</option>)}</select></div>}
-            <div className="field"><label htmlFor="active-project">Proyecto activo</label><select id="active-project" value={activo?.id ?? ''} onChange={e => chooseProject(e.target.value)}><option value="">{visibles.length ? 'Selecciona un proyecto…' : 'No hay proyectos en esta sala'}</option>{visibles.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}</select></div>
+        {isError ? <div role="alert"><p>No pudimos cargar tus proyectos. Comprueba tu conexión y vuelve a intentarlo.</p><button type="button" className="secondary" onClick={() => void refetch()}>Reintentar</button></div> : isLoading ? <Skeleton etiqueta="Cargando proyectos…" variante="tarjetas" /> : total > 0 ? <>
+          <SelectorProyecto proyectos={proyectos ?? []} salas={salas ?? []} activoId={activo?.id ?? ''} onElegir={chooseProject} usuarioId={user?.id ?? ''} />
+          <div className="inicio-proyectos-pie">
+            <p className="text-muted">{activo ? <>Trabajarás en <strong>{activo.nombre}</strong>.</> : 'Selecciona un proyecto para abrir sus técnicas.'}</p>
             <Link to="/proyectos" className="ghost">Todos los proyectos</Link>
           </div>
-          {!activo && <p className="text-muted">Selecciona un proyecto para abrir sus técnicas.</p>}
         </> : <><p>Todavía no tienes proyectos.</p><Link to="/proyectos" className="primary">Crear tu primer proyecto</Link></>}
       </section>
 
@@ -107,7 +99,7 @@ export function DashboardPage() {
               <h2>Salas en las que estás inscrito</h2>
             </div>
           </div>
-          {isLoadingSalas && <p>Cargando…</p>}
+          {isLoadingSalas && <Skeleton etiqueta="Cargando…" variante="lista" cantidad={2} />}
           {!isLoadingSalas && (salas?.length ?? 0) === 0 && (
             <p>No estás inscrito en ninguna sala todavía.</p>
           )}

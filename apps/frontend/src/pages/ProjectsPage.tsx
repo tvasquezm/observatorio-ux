@@ -12,6 +12,7 @@ import { useActivePerspective } from '../shared/auth/useActivePerspective';
 import { ProjectCreateForm } from '../features/projects/components/ProjectCreateForm';
 import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { useUnsavedChanges } from '../shared/hooks/useUnsavedChanges';
+import { Skeleton } from '../shared/components/ui/Skeleton';
 
 export function ProjectsPage() {
   const { data: proyectos, isLoading, isError, refetch } = useProjects();
@@ -101,7 +102,14 @@ export function ProjectsPage() {
     actualizar({ id: editando, data: { nombre: edicion.nombre.trim(), descripcion: edicion.descripcion.trim() } }, { onSuccess: resetEditor });
   }
 
-  const filtrados = useMemo(() => (proyectos ?? []).filter((p) => `${p.nombre} ${p.descripcion ?? ''}`.toLowerCase().includes(busqueda.toLowerCase())), [proyectos, busqueda]);
+  // Filtro de sala en la URL (?sala=ID o ?sala=sin-sala), para poder enlazarlo desde una sala.
+  const salaFiltro = searchParams.get('sala') ?? '';
+  const idsSala = new Set((proyectos ?? []).map(p => p.salaId ?? 'sin-sala'));
+  const variasSalas = idsSala.size > 1;
+  const nombreSala = (id?: string | null) => (id ? salas?.find(x => x.id === id)?.nombre ?? 'Sala sin nombre' : 'Sin sala');
+  const opcionesSala = [...idsSala].map(id => ({ id, nombre: id === 'sin-sala' ? 'Sin sala' : nombreSala(id), cantidad: (proyectos ?? []).filter(p => (p.salaId ?? 'sin-sala') === id).length }))
+    .sort((a, b) => (a.id === 'sin-sala' ? 1 : b.id === 'sin-sala' ? -1 : a.nombre.localeCompare(b.nombre, 'es')));
+  const filtrados = useMemo(() => (proyectos ?? []).filter((p) => (!salaFiltro || (p.salaId ?? 'sin-sala') === salaFiltro) && `${p.nombre} ${p.descripcion ?? ''}`.toLowerCase().includes(busqueda.toLowerCase())), [proyectos, busqueda, salaFiltro]);
 
   return (
     <div>
@@ -132,9 +140,9 @@ export function ProjectsPage() {
         salas={salasElegibles} isPending={isPending} error={createError?.message} validationError={validationError}
         onSubmit={handleSubmit} onCancel={() => void cancelarCreacion()} />}
 
-      <div className="toolbar"><div><h2>Todos tus proyectos</h2><span className="muted">Selecciona uno para ver sus técnicas.</span></div><div><label className="sr-only" htmlFor="buscar-proyecto">Buscar proyecto</label><input id="buscar-proyecto" className="search-input" value={busqueda} onChange={(e) => { const next = new URLSearchParams(searchParams); if (e.target.value) next.set('q', e.target.value); else next.delete('q'); setSearchParams(next, { replace: true }); }} placeholder="Buscar proyecto…" /></div></div>
+      <div className="toolbar"><div><h2>Todos tus proyectos</h2><span className="muted">Selecciona uno para ver sus técnicas.</span></div><div className="toolbar-filtros">{variasSalas && <><label className="sr-only" htmlFor="filtro-sala-proyectos">Filtrar por sala</label><select id="filtro-sala-proyectos" className="text-input" value={salaFiltro} onChange={(e) => { const next = new URLSearchParams(searchParams); if (e.target.value) next.set('sala', e.target.value); else next.delete('sala'); setSearchParams(next, { replace: true }); }}><option value="">Todas las salas ({proyectos?.length ?? 0})</option>{opcionesSala.map(o => <option key={o.id} value={o.id}>{o.nombre} ({o.cantidad})</option>)}</select></>}<label className="sr-only" htmlFor="buscar-proyecto">Buscar proyecto</label><input id="buscar-proyecto" className="search-input" value={busqueda} onChange={(e) => { const next = new URLSearchParams(searchParams); if (e.target.value) next.set('q', e.target.value); else next.delete('q'); setSearchParams(next, { replace: true }); }} placeholder="Buscar proyecto…" /></div></div>
 
-      {isLoading && <div className="panel" role="status"><p>Cargando proyectos…</p></div>}
+      {isLoading && <Skeleton etiqueta="Cargando proyectos…" variante="tarjetas" cantidad={6} />}
       {isError && <div className="inline-state inline-state--error" role="alert"><p>No pudimos cargar tus proyectos. Comprueba tu conexión y vuelve a intentarlo.</p><button type="button" className="secondary" onClick={() => void refetch()}>Reintentar</button></div>}
 
       <div className="project-grid">
@@ -145,7 +153,7 @@ export function ProjectsPage() {
               <div><span className="project-kicker">{(p._count?.sesiones ?? 0) > 0 ? 'CON SESIONES REGISTRADAS' : 'LISTO PARA INICIAR'}</span><h3>{p.nombre}</h3>{p.descripcion && <p>{p.descripcion}</p>}</div>
               <span className="arrow">→</span>
             </Link>
-            <div className="project-card-foot">{!p.salaId && <span>Sin sala</span>}<span>{p._count?.sesiones ?? 0} sesiones · {p._count?.artefactos ?? 0} artefactos</span><button type="button" className="text-button" disabled={isPending || isUpdating} onClick={(event) => void iniciarEdicion(p, event.currentTarget)}>Editar</button></div>
+            <div className="project-card-foot">{(!p.salaId || variasSalas) && <span>{nombreSala(p.salaId)}</span>}<span>{p._count?.sesiones ?? 0} sesiones · {p._count?.artefactos ?? 0} artefactos</span><button type="button" className="text-button" disabled={isPending || isUpdating} onClick={(event) => void iniciarEdicion(p, event.currentTarget)}>Editar</button></div>
             {editando === p.id && <form onSubmit={guardarEdicion} className="inline-edit project-form-fields">
               <div className="field"><label htmlFor={`editar-proyecto-nombre-${p.id}`}>Nombre del proyecto</label><input id={`editar-proyecto-nombre-${p.id}`} className="text-input" value={edicion.nombre} onChange={(e) => { setEdicion({ ...edicion, nombre: e.target.value }); setValidationError(''); }} required autoFocus aria-invalid={Boolean(validationError)} aria-describedby={validationError ? 'project-edit-error' : undefined} />{validationError && <p id="project-edit-error" role="alert" className="error-text">{validationError}</p>}</div>
               <div className="field"><label htmlFor={`editar-proyecto-descripcion-${p.id}`}>Descripción del proyecto<OptionalTag /></label><input id={`editar-proyecto-descripcion-${p.id}`} className="text-input" value={edicion.descripcion} onChange={(e) => setEdicion({ ...edicion, descripcion: e.target.value })} /></div>
@@ -167,7 +175,7 @@ export function ProjectsPage() {
             {canCreate && <button type="button" className="secondary" disabled={isPending || isUpdating} onClick={() => void abrirCreacion()}>Crear otro proyecto</button>}
           </aside>
         )}
-        {!isLoading && !isError && proyectos && filtrados.length === 0 && <div className="panel empty-state"><span aria-hidden="true">⌕</span><p>{busqueda ? 'No hay proyectos que coincidan con la búsqueda.' : 'No hay proyectos todavía.'}</p>{busqueda ? <button type="button" className="secondary" onClick={() => { const next = new URLSearchParams(searchParams); next.delete('q'); setSearchParams(next, { replace: true }); }}>Limpiar búsqueda</button> : canCreate && <button type="button" className="secondary" onClick={() => void abrirCreacion()}>Crear tu primer proyecto</button>}</div>}
+        {!isLoading && !isError && proyectos && filtrados.length === 0 && <div className="panel empty-state"><span aria-hidden="true">⌕</span><p>{busqueda || salaFiltro ? 'No hay proyectos que coincidan con la búsqueda.' : 'No hay proyectos todavía.'}</p>{busqueda ? <button type="button" className="secondary" onClick={() => { const next = new URLSearchParams(searchParams); next.delete('q'); setSearchParams(next, { replace: true }); }}>Limpiar búsqueda</button> : canCreate && <button type="button" className="secondary" onClick={() => void abrirCreacion()}>Crear tu primer proyecto</button>}</div>}
       </div>
     </div>
   );

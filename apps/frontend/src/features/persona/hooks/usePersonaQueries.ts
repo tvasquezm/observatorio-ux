@@ -4,10 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createPersona,
   deletePersona,
-  getPersona,
   listPersonas,
-  lockPersona,
-  unlockPersona,
   updatePersona,
   type PersonaContenido,
 } from '../api/persona.api';
@@ -23,14 +20,6 @@ export function usePersonas(proyectoId: string | null) {
     queryKey: personaKeys.all(proyectoId ?? ''),
     queryFn: () => listPersonas(proyectoId as string),
     enabled: !!proyectoId,
-  });
-}
-
-export function usePersona(proyectoId: string | null, artefactoId: string | null) {
-  return useQuery({
-    queryKey: personaKeys.detail(proyectoId ?? '', artefactoId ?? ''),
-    queryFn: () => getPersona(proyectoId as string, artefactoId as string),
-    enabled: !!proyectoId && !!artefactoId,
   });
 }
 
@@ -78,20 +67,3 @@ export function useDeletePersona(proyectoId: string) {
   });
 }
 
-export function useLockPersona(proyectoId: string) {
-  return useMutation({
-    mutationFn: ({
-      artefactoId,
-      ttlSegundos,
-    }: {
-      artefactoId: string;
-      ttlSegundos?: number;
-    }) => lockPersona(proyectoId, artefactoId, ttlSegundos),
-  });
-}
-
-export function useUnlockPersona(proyectoId: string) {
-  return useMutation({
-    mutationFn: (artefactoId: string) => unlockPersona(proyectoId, artefactoId),
-  });
-}

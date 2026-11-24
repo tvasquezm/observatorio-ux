@@ -8,6 +8,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, Outlet, useLocation, useParams } from 'react-router-dom';
 import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { useProject } from '../features/projects/hooks/useProjectsQueries';
+import { useSalas } from '../features/salas/hooks/useSalasQueries';
+import { CambiarProyecto } from '../features/projects/components/CambiarProyecto';
+import { guardarReciente } from '../features/projects/components/SelectorProyecto';
 import { canViewAnalytics, resolvePerspective } from '../shared/auth/perspectivas';
 import { ProjectMenu } from './ProjectMenu';
 import { agruparSecciones, SECCIONES_PROYECTO } from './project-sections';
@@ -22,6 +25,8 @@ export function ProjectDetailLayout() {
   const sectionRef = useRef<HTMLDivElement>(null);
   const [compact, setCompact] = useState(() => window.matchMedia?.('(max-width: 768px)').matches ?? true);
   const { data: proyecto } = useProject(proyectoId ?? null);
+  const { data: salas } = useSalas();
+  const sala = proyecto?.salaId ? salas?.find(s => s.id === proyecto.salaId) : undefined;
   const { user, perspectiveRole } = useAuthStore();
   const activeRole = user ? resolvePerspective(user.rol, perspectiveRole) : null;
   const visibleItems = SECCIONES_PROYECTO.filter((item) => {
@@ -40,7 +45,11 @@ export function ProjectDetailLayout() {
   }, []);
   useEffect(() => {
     document.title = `${pathname.endsWith('/resultados') ? 'Resultados · ' : ''}${currentSection} · ${proyecto?.nombre ?? 'Proyecto'} · Observatorio UX`;
-    if (proyecto && user) sessionStorage.setItem(`observatorio-ux-project:${user.id}`, proyectoId ?? '');
+    if (proyecto && user) {
+      // Abrir un proyecto lo deja como activo en Inicio y entre los últimos usados del selector.
+      sessionStorage.setItem(`observatorio-ux-project:${user.id}`, proyectoId ?? '');
+      if (proyectoId) guardarReciente(user.id, proyectoId);
+    }
   }, [currentSection, proyecto?.nombre, proyectoId, user?.id, pathname]);
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
@@ -55,7 +64,9 @@ export function ProjectDetailLayout() {
   return (
     <div>
       <nav className="project-breadcrumb" aria-label="Ubicación del proyecto">
-        <Link to="/proyectos">Proyectos</Link><span aria-hidden="true">›</span>
+        {proyecto?.salaId
+          ? <><Link to="/salas">Salas</Link><span aria-hidden="true">›</span><Link to={`/salas/${proyecto.salaId}`}>{sala?.nombre ?? 'Sala'}</Link></>
+          : <Link to="/proyectos">Proyectos</Link>}<span aria-hidden="true">›</span>
         {currentSection === 'Resumen' ? <span aria-current="page">{proyecto?.nombre ?? 'Proyecto'}</span> : <><Link to={`/proyectos/${proyectoId}`}>{proyecto?.nombre ?? 'Proyecto'}</Link><span aria-hidden="true">›</span><span aria-current="page">{currentSection}</span></>}
       </nav>
       <div className="page-head project-heading">
@@ -63,9 +74,14 @@ export function ProjectDetailLayout() {
           <span className="kicker">PROYECTO DE INVESTIGACIÓN</span>
           <h1 id="project-title" tabIndex={-1}>{proyecto?.nombre ?? 'Proyecto'}</h1>
           {proyecto?.descripcion && <p>{proyecto.descripcion}</p>}
-          {proyecto && !proyecto.salaId && <p>Sin sala</p>}
+          {proyecto && (proyecto.salaId
+            ? <p>Sala: <Link to={`/salas/${proyecto.salaId}`}>{sala?.nombre ?? 'Ver sala'}</Link></p>
+            : <p>Sin sala</p>)}
         </div>
-        <Link className="secondary" to={`/proyectos/${proyectoId}/miembros`}>Miembros</Link>
+        <div className="project-heading-acciones">
+          {user && <CambiarProyecto proyectoId={proyectoId} salaId={proyecto?.salaId} usuarioId={user.id} seccion={pathname.split('/')[3] ?? ''} />}
+          <Link className="secondary" to={`/proyectos/${proyectoId}/miembros`}>Miembros</Link>
+        </div>
       </div>
 
       <ProjectMenu groups={groups} current={currentItem} currentLabel={currentSection} compact={compact} />

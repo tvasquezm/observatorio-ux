@@ -6,14 +6,10 @@ import type {
   UserProfile,
 } from '@observatorio-ux/shared-types';
 import {
-  acquireLock,
   createArtifact,
-  createArtifactVersion,
   dedupeLatestVersions,
-  deleteArtifact,
   getArtifact,
   listArtifacts,
-  releaseLock,
   type UxArtifact,
 } from '../../../shared/api/artifacts.api';
 
@@ -58,64 +54,3 @@ export function createJourney(
   return createArtifact<JourneyMapContenido>(proyectoId, 'JOURNEY_MAP', contenido);
 }
 
-export function updateJourney(
-  proyectoId: string,
-  artefactoId: string,
-  contenido: JourneyMapContenido,
-  expectedVersion?: number,
-): Promise<JourneyMapArtifact> {
-  return createArtifactVersion<JourneyMapContenido>(proyectoId, artefactoId, contenido, expectedVersion);
-}
-
-export function lockJourney(
-  proyectoId: string,
-  artefactoId: string,
-  ttlSegundos?: number,
-): Promise<JourneyMapArtifact> {
-  return acquireLock<JourneyMapContenido>(proyectoId, artefactoId, ttlSegundos);
-}
-
-export function unlockJourney(
-  proyectoId: string,
-  artefactoId: string,
-): Promise<JourneyMapArtifact> {
-  return releaseLock<JourneyMapContenido>(proyectoId, artefactoId);
-}
-
-/** Soft delete — ver nota en persona.api.ts. */
-export function deleteJourney(
-  proyectoId: string,
-  artefactoId: string,
-): Promise<void> {
-  return deleteArtifact(proyectoId, artefactoId);
-}
-
-// --- Helpers de "etapa" (no existen como entidad propia en el backend: ---
-// --- son elementos de fases[] dentro de un mismo artefacto). Editar una ---
-// --- etapa = mutar el array en memoria y llamar updateJourney con todo. ---
-
-export function replacePhase(
-  contenido: JourneyMapContenido,
-  index: number,
-  phase: Phase,
-): JourneyMapContenido {
-  const fases = [...contenido.fases];
-  fases[index] = phase;
-  return { ...contenido, fases };
-}
-
-export function addPhase(
-  contenido: JourneyMapContenido,
-  phase: Phase,
-): JourneyMapContenido {
-  return { ...contenido, fases: [...contenido.fases, phase] };
-}
-
-export function removePhase(
-  contenido: JourneyMapContenido,
-  index: number,
-): JourneyMapContenido {
-  // OJO: JourneyMapSchema exige mínimo 3 fases — validar en el cliente
-  // antes de llamar updateJourney, o el backend responderá 400.
-  return { ...contenido, fases: contenido.fases.filter((_, i) => i !== index) };
-}

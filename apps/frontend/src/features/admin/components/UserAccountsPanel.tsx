@@ -3,6 +3,7 @@ import { useAccounts, useSetCuentaActiva, useUpdateUserRole } from '../hooks/use
 import type { EvaluatorRole } from '../../auth/api/auth.api';
 import { useAuthStore } from '../../auth/store/useAuthStore';
 import { useConfirm } from '../../../shared/api/confirm';
+import { Skeleton } from '../../../shared/components/ui/Skeleton';
 
 const ROLE_LABELS: Record<EvaluatorRole, string> = {
   ESTUDIANTE: 'Estudiante',
@@ -44,7 +45,7 @@ export function UserAccountsPanel() {
         <span className="count">{accounts?.length ?? 0}</span>
       </div>
 
-      {isLoading && <div className="loading-block" aria-label="Cargando cuentas" />}
+      {isLoading && <Skeleton etiqueta="Cargando cuentas" variante="lista" />}
       {isError && (
         <div className="inline-state inline-state--error" role="alert">
           <p>{error instanceof Error ? error.message : 'No se pudieron cargar las cuentas.'}</p>

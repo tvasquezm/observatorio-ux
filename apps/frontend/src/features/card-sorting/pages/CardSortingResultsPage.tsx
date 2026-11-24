@@ -17,6 +17,7 @@ import { nombreArchivo, tablaDeVista } from '../card-sorting-export';
 import { aplicarUmbralConsenso } from '../card-sorting-views';
 import { Icon } from '../../../shared/components/ui/Icon';
 import { InfoTip } from '../../../shared/components/ui/InfoTip';
+import { Skeleton } from '../../../shared/components/ui/Skeleton';
 
 type ResultsTab = 'cards' | 'categories' | 'results' | 'popular' | 'similarity' | 'dendrogram' | 'participants' | 'answers';
 
@@ -146,7 +147,7 @@ export function CardSortingResultsPage() {
     setSearchParams(next, { replace: true });
   };
 
-  if (analyticsQuery.isLoading) return <div className="panel">Calculando resultados…</div>;
+  if (analyticsQuery.isLoading) return <Skeleton etiqueta="Calculando resultados…" cantidad={6} />;
 
   if (analyticsQuery.error || !data) {
     return (

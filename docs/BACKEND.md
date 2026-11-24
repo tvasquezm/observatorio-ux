@@ -35,6 +35,12 @@ y 10 segundos de espera por defecto; producción conserva los 20/20 de
 `env.production.example`. `pool_timeout=0` deshabilita la espera máxima de forma
 explícita. El driver `pg` usa el mismo timeout para adquirir una conexión y
 conectarse al servidor. Configuraciones inválidas abortan sin imprimir la URL.
+Dimensionado para ~200 usuarios simultáneos: con 2 instancias del backend y `connection_limit=20`
+se usan hasta 40 conexiones; si el Postgres del servicio externo tiene un tope menor, conviene un pooler
+(PgBouncer o el pooler del proveedor) y bajar `connection_limit`. El límite global de peticiones por IP
+se ajusta con `THROTTLE_LIMIT` y `THROTTLE_TTL_MS` (60 por minuto por defecto): detrás de una red
+institucional los usuarios comparten IP, así que se sube (p. ej. 1500) y se fija `TRUST_PROXY_HOPS` según
+los saltos reales. Los intentos de login mantienen su límite propio.
 El backend ejecuta `SELECT 1` al iniciar para comprobar PostgreSQL: el pool de
 `pg` conecta de forma diferida y `$connect()` por sí solo no valida el servidor.
 

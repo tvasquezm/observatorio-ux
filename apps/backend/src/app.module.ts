@@ -28,11 +28,12 @@ import { UsersModule } from './modules/users/users.module.js';
       validationSchema: envValidationSchema,
       cache: true,
     }),
-    // Límite global por defecto: 60 requests / 60s por IP. Endpoints
-    // puntuales (como /auth/login) sobreescriben esto con @Throttle a algo
-    // más estricto — ver auth.controller.ts.
+    // Límite global por defecto por IP (THROTTLE_LIMIT cada THROTTLE_TTL_MS; 60 por minuto si no se
+    // configuran). Endpoints puntuales (como /auth/login) lo sobreescriben con @Throttle a algo más
+    // estricto — ver auth.controller.ts. Con muchos usuarios tras una misma IP (una red institucional)
+    // hay que subirlo; ver docs/BACKEND.md.
     ThrottlerModule.forRoot({
-      throttlers: [{ name: 'default', ttl: 60_000, limit: 60 }],
+      throttlers: [{ name: 'default', ttl: Number(process.env.THROTTLE_TTL_MS ?? 60_000), limit: Number(process.env.THROTTLE_LIMIT ?? 60) }],
     }),
     DatabaseModule,
     ProjectAccessModule,

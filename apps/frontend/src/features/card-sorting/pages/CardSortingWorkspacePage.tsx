@@ -7,6 +7,7 @@ import {
 } from '../hooks/useCardSortingQueries';
 import { notify } from '../../../shared/api/toast';
 import { useAuthStore } from '../../auth/store/useAuthStore';
+import { Skeleton } from '../../../shared/components/ui/Skeleton';
 
 export function CardSortingWorkspacePage() {
   const { estudioId } = useParams<{ estudioId: string }>();
@@ -49,7 +50,7 @@ export function CardSortingWorkspacePage() {
     );
   }
 
-  if (sessionQuery.isLoading) return <div className="panel">Cargando card sorting…</div>;
+  if (sessionQuery.isLoading) return <Skeleton etiqueta="Cargando card sorting…" variante="tarjetas" cantidad={4} />;
 
   if (sessionQuery.error || !session) {
     return (

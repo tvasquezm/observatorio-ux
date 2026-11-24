@@ -35,6 +35,7 @@ const proyecto = {
 
 beforeEach(() => {
   sessionStorage.clear();
+  localStorage.clear();
   mocks.auth.user = { id: 'u1', nombre: 'Administración', email: 'admin@test.com', rol: 'ADMIN' };
   mocks.useProjects.mockReturnValue({
     isLoading: false,
@@ -63,7 +64,7 @@ describe('Inicio en dos pasos', () => {
   it('con un proyecto elegido, las cinco técnicas abren dentro de él y existe el enlace a todos los proyectos', async () => {
     mocks.useProjects.mockReturnValue({ isLoading: false, data: [proyecto] });
     montar();
-    expect(screen.getByLabelText('Proyecto activo')).toHaveValue('p1');
+    expect(screen.getByRole('combobox', { name: 'Proyecto activo' })).toHaveValue('Proyecto Uno');
     const tecnicas = screen.getByRole('region', { name: 'Técnica' });
     const tarjetas = within(tecnicas).getAllByRole('link');
     expect(tarjetas).toHaveLength(5);
@@ -80,17 +81,18 @@ describe('Inicio en dos pasos', () => {
 
   it('conserva el proyecto elegido al volver a Inicio y lo limpia si deja de estar disponible', async () => {
     const primero = montar();
-    await userEvent.selectOptions(screen.getByLabelText('Proyecto activo'), 'p2');
+    await userEvent.click(screen.getByRole('combobox', { name: 'Proyecto activo' }));
+    await userEvent.click(screen.getByRole('option', { name: /^Proyecto Dos/ }));
     expect(screen.getByRole('link', { name: /^Personas/ })).toHaveAttribute('href', '/proyectos/p2/personas');
     primero.unmount();
     montar();
-    expect(screen.getByLabelText('Proyecto activo')).toHaveValue('p2');
+    expect(screen.getByRole('combobox', { name: 'Proyecto activo' })).toHaveValue('Proyecto Dos');
   });
 
   it('pide elegir un proyecto cuando hay varios y ninguno está seleccionado', () => {
     sessionStorage.setItem('observatorio-ux-project:u1', 'removed');
     montar();
-    expect(screen.getByLabelText('Proyecto activo')).toHaveValue('');
+    expect(screen.getByRole('combobox', { name: 'Proyecto activo' })).toHaveValue('');
     expect(screen.getByText('Selecciona un proyecto para abrir sus técnicas.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /^Personas/ })).toHaveAttribute('href', '/proyectos');
   });
@@ -135,10 +137,10 @@ function nombreTecnica(id: string) {
 describe('Filtro por sala', () => {
   it('no aparece si todos los proyectos están en la misma sala', () => {
     montar();
-    expect(screen.queryByLabelText('Sala')).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Sala' })).not.toBeInTheDocument();
   });
 
-  it('filtra los proyectos del selector según la sala elegida', async () => {
+  it('filtra por sala con el selector de salas y agrupa los proyectos', async () => {
     mocks.useSalas.mockReturnValue({ isLoading: false, data: [{ id: 's1', nombre: 'Taller UX A', periodo: '2026-2' }, { id: 's2', nombre: 'Taller UX B', periodo: '2026-2' }] });
     mocks.useProjects.mockReturnValue({ isLoading: false, data: [
       { ...proyecto, salaId: 's1' },
@@ -146,13 +148,31 @@ describe('Filtro por sala', () => {
       { ...proyecto, id: 'p3', nombre: 'Proyecto Tres', salaId: null },
     ] });
     montar();
-    const sala = screen.getByLabelText('Sala');
-    expect(within(sala).getAllByRole('option').map(o => o.textContent)).toEqual(['Todas las salas', 'Taller UX A', 'Taller UX B', 'Sin sala']);
-    const proyectos = () => within(screen.getByLabelText('Proyecto activo')).getAllByRole('option').map(o => o.textContent);
-    expect(proyectos()).toHaveLength(4);
+    const sala = screen.getByRole('combobox', { name: 'Sala' });
+    expect(within(sala).getAllByRole('option').map(o => o.textContent)).toEqual(['Todas las salas (3)', 'Taller UX A (1)', 'Taller UX B (1)', 'Sin sala (1)']);
+    await userEvent.click(screen.getByRole('combobox', { name: 'Proyecto activo' }));
+    const nombres = () => within(screen.getByRole('listbox', { name: 'Proyectos' })).getAllByRole('option').map(o => o.querySelector('.selector-nombre')?.textContent);
+    expect(nombres()).toEqual(['Proyecto Uno', 'Proyecto Dos', 'Proyecto Tres']);
     await userEvent.selectOptions(sala, 's2');
-    expect(proyectos()).toEqual(['Selecciona un proyecto…', 'Proyecto Dos']);
-    await userEvent.selectOptions(sala, '__sin-sala__');
-    expect(proyectos()).toEqual(['Selecciona un proyecto…', 'Proyecto Tres']);
+    await userEvent.click(screen.getByRole('combobox', { name: 'Proyecto activo' }));
+    expect(nombres()).toEqual(['Proyecto Dos']);
+  });
+
+  it('con muchos proyectos se busca por nombre y se elige con el teclado; los últimos usados salen primero', async () => {
+    mocks.useProjects.mockReturnValue({ isLoading: false, data: Array.from({ length: 25 }, (_, i) => ({ ...proyecto, id: 'p' + i, nombre: i === 17 ? 'Banco digital' : 'Proyecto ' + String(i).padStart(2, '0') })) });
+    montar();
+    const caja = screen.getByRole('combobox', { name: 'Proyecto activo' });
+    await userEvent.click(caja);
+    expect(screen.getAllByRole('option')).toHaveLength(25);
+    await userEvent.type(caja, 'banco');
+    expect(screen.getAllByRole('option')).toHaveLength(1);
+    await userEvent.keyboard('{Enter}');
+    expect(caja).toHaveValue('Banco digital');
+    expect(screen.getByRole('link', { name: /^Personas/ })).toHaveAttribute('href', '/proyectos/p17/personas');
+    await userEvent.click(caja);
+    expect(screen.getAllByRole('option')[0]).toHaveTextContent('Banco digital');
+    expect(screen.getByText('Recientes')).toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('listbox')).toBeNull();
   });
 });

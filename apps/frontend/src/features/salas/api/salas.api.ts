@@ -137,17 +137,6 @@ export function addEstudiantesBulk(
   );
 }
 
-export function updateEstudiante(
-  salaId: string,
-  estudianteId: string,
-  data: Partial<SalaEstudianteInput>,
-): Promise<SalaEstudiante> {
-  return request<SalaEstudiante>(`/salas/${salaId}/estudiantes/${estudianteId}`, {
-    method: 'PATCH',
-    body: JSON.stringify(data),
-  });
-}
-
 export function removeEstudiante(
   salaId: string,
   estudianteId: string,
@@ -166,6 +155,9 @@ export interface ProyectoEnSala {
   creadoPorId: string;
   salaId: string | null;
   createdAt: string;
+  _count?: { sesiones: number; artefactos: number; miembros: number };
+  /** Cambio más reciente en artefactos o evaluaciones del proyecto (null si no hay). */
+  ultimaActividad?: string | null;
 }
 
 export function listProyectosDeSala(salaId: string): Promise<ProyectoEnSala[]> {

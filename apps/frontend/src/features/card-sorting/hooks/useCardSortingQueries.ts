@@ -8,7 +8,6 @@ import {
   createCardSortingSession,
   getCardSortingAnalytics,
   getCardSortingSession,
-  getCardSortingSessionByProyecto,
   getCardSortingEstudiosByProyecto,
   cerrarCardSortingEstudio,
   type CreateCardSortingSessionPayload,
@@ -24,17 +23,6 @@ export const cardSortingKeys = {
   analytics: (id: string) => ['card-sorting', 'analytics', id] as const,
 };
 
-/**
- * Estudio maestro ya existente para el proyecto actual (si lo hay).
- * Se usa para restaurar CardSortingPage al recargar/reentrar.
- */
-export function useCardSortingSessionByProyecto(proyectoId: string | null) {
-  return useQuery({
-    queryKey: cardSortingKeys.byProyecto(proyectoId ?? ''),
-    queryFn: () => getCardSortingSessionByProyecto(proyectoId as string),
-    enabled: !!proyectoId,
-  });
-}
 /**
  * Todos los estudios maestros ya creados para el proyecto actual (no
  * solo el más reciente). El proyecto puede tener varios estudios de

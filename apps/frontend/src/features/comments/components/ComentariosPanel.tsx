@@ -10,6 +10,7 @@ import { useAuthStore } from '../../auth/store/useAuthStore';
 import { useActivePerspective } from '../../../shared/auth/useActivePerspective';
 import { useConfirm } from '../../../shared/api/confirm';
 import { useDiscardChanges } from '../../../shared/hooks/useDiscardChanges';
+import { Skeleton } from '../../../shared/components/ui/Skeleton';
 
 interface ComentariosPanelProps {
   proyectoId: string;
@@ -96,7 +97,7 @@ export function ComentariosPanel({ proyectoId, filtro, publicarEn, mostrarOrigen
         </div>
       </form>
 
-      {isLoading && <div className="loading-block" aria-label="Cargando comentarios" />}
+      {isLoading && <Skeleton etiqueta="Cargando comentarios" variante="lista" cantidad={2} />}
       {isError && (
         <div className="inline-state inline-state--error" role="alert">
           <p>{(error as Error).message}</p>

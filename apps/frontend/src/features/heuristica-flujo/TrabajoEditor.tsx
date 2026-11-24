@@ -1,6 +1,5 @@
-import { useEffect, useId, useState } from 'react';
-import { escalaDe } from '@observatorio-ux/shared-types';
-import type { ConfiguracionFlujo, EvaluacionFlujo, HallazgoFlujo, RespuestaCriterio, TrabajoFlujo } from '@observatorio-ux/shared-types';
+import { useEffect, useState } from 'react';
+import type { ConfiguracionFlujo, EvaluacionFlujo, HallazgoFlujo, TrabajoFlujo } from '@observatorio-ux/shared-types';
 import { AnilloAvance } from '../../shared/components/AnilloAvance';
 import { Field } from './campos';
 import { NavegadorPreguntas } from './NavegadorPreguntas';
@@ -11,16 +10,6 @@ import { notify } from '../../shared/api/toast';
 import { useConfirm } from '../../shared/api/confirm';
 import { compararTrabajo, criterioRespondido, guardarSesion, leerSesion, pendientesTrabajo } from './flujo-utils';
 import type { ComparacionTrabajo } from './flujo-utils';
-
-export function ValoracionEditor({ config, respuesta, onChange }: { config: ConfiguracionFlujo; respuesta: RespuestaCriterio; onChange: (r: RespuestaCriterio) => void }) {
-  const criterio = config.metodologia.criterios.find(c => c.id === respuesta.criterioId);
-  const niveles = (criterio ? escalaDe(config.metodologia, criterio) : config.metodologia.escala).niveles;
-  const id = useId();
-  return <><div className="hf-opciones" role="radiogroup" aria-label="Valoración">
-    {niveles.map(n => <label key={n.id} className="hf-opcion"><input type="radio" name={id} aria-label={n.etiqueta} aria-describedby={`${id}-${n.id}`} checked={!respuesta.noAplica && respuesta.valor === n.id} onChange={() => onChange({ ...respuesta, noAplica: false, valor: n.id })} /><span><strong>{n.etiqueta}</strong><small id={`${id}-${n.id}`}>{n.significado}</small></span></label>)}
-    <label className="hf-opcion"><input type="radio" name={id} aria-label="No aplica" checked={respuesta.noAplica} onChange={() => onChange({ ...respuesta, noAplica: true, valor: null })} /><span><strong>No aplica</strong><small>Esta pregunta no corresponde al producto.</small></span></label>
-    </div><details><summary>Agregar notas (opcional)</summary><Field label="Notas de la valoración"><textarea maxLength={10000} value={respuesta.notas} onChange={e => onChange({ ...respuesta, notas: e.target.value })} /></Field>{respuesta.motivo && <p className="hf-ayuda">Nota anterior: {respuesta.motivo}</p>}</details></>;
-}
 
 /** `conCriterios`: el selector de preguntas relacionadas solo se muestra en el trabajo individual; al preparar el informe no se ofrece. */
 export function HallazgoEditor({ value, config, onChange, conCriterios = true }: { value: HallazgoFlujo; config: ConfiguracionFlujo; onChange: (h: HallazgoFlujo) => void; conCriterios?: boolean }) {

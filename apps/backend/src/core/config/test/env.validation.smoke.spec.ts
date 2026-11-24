@@ -54,3 +54,15 @@ describe('envValidationSchema (A4 fix smoke test)', () => {
     expect(sharedResult.error?.message).toMatch(/distinto de JWT_SECRET/);
   });
 });
+
+describe('límite global de peticiones', () => {
+  it('THROTTLE_LIMIT y THROTTLE_TTL_MS: defaults 60 por minuto y rechaza valores fuera de rango', () => {
+    const base = { NODE_ENV: 'test', DATABASE_URL: 'postgresql://u:p@localhost:5432/db', JWT_SECRET: 'x'.repeat(32), JWT_PARTICIPANTE_SECRET: 'y'.repeat(32) };
+    const ok = envValidationSchema.validate(base);
+    expect(ok.value.THROTTLE_LIMIT).toBe(60);
+    expect(ok.value.THROTTLE_TTL_MS).toBe(60000);
+    expect(envValidationSchema.validate({ ...base, THROTTLE_LIMIT: 1500 }).error).toBeUndefined();
+    expect(envValidationSchema.validate({ ...base, THROTTLE_LIMIT: 0 }).error).toBeDefined();
+    expect(envValidationSchema.validate({ ...base, THROTTLE_TTL_MS: 10 }).error).toBeDefined();
+  });
+});

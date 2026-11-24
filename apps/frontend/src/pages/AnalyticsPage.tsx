@@ -13,22 +13,11 @@ import { usePersonas } from '../features/persona/hooks/usePersonaQueries';
 import { useJourneys } from '../features/journey-map/hooks/useJourneyMapQueries';
 import { useCriticalMoments } from '../features/momentos-criticos/hooks/useMomentosCriticosQueries';
 import { useCardSortingEstudiosByProyecto } from '../features/card-sorting/hooks/useCardSortingQueries';
-import { PanelCalidadHeuristica, PanelPrioridad, PanelTecnicas, useEvaluacionesProyecto } from '../features/analitica-proyecto/AnaliticaDecision';
-
-const SEVERIDAD_LABEL: Record<number, string> = {
-  0: 'No es un problema',
-  1: 'Cosmético',
-  2: 'Menor',
-  3: 'Mayor',
-  4: 'Catastrófico',
-};
-const SEVERIDAD_CLASS: Record<number, string> = {
-  0: 'sev-cosmetic',
-  1: 'sev-cosmetic',
-  2: 'sev-minor',
-  3: 'sev-major',
-  4: 'sev-critical',
-};
+import { PanelTecnicas, useEvaluacionesProyecto } from '../features/analitica-proyecto/AnaliticaDecision';
+import { Skeleton } from '../shared/components/ui/Skeleton';
+import { useAuthStore } from '../features/auth/store/useAuthStore';
+import { PanelAlertas, PanelAporte, PanelAvance, PanelHallazgos, PanelNovedades, desdeVisita, useDatosDocente, useVisitaAnterior } from '../features/analitica-proyecto/ResumenDocente';
+import { alertasRevision, aporteIntegrantes, avanceTecnicas, hallazgosClave, novedadesDesde, type DatosDocente } from '../features/analitica-proyecto/resumen-docente';
 
 export function AnalyticsPage() {
   const { proyectoId } = useOutletContext<ProjectOutletContext>();
@@ -39,7 +28,10 @@ export function AnalyticsPage() {
   const cardSortingQuery = useCardSortingEstudiosByProyecto(proyectoId);
   const evaluacionesQuery = useEvaluacionesProyecto(proyectoId);
   const evaluaciones = evaluacionesQuery.data ?? [];
-  const isLoadingAll = isLoading || personasQuery.isLoading || journeysQuery.isLoading || momentsQuery.isLoading || cardSortingQuery.isLoading;
+  const usuarioId = useAuthStore((s) => s.user?.id ?? '');
+  const docente = useDatosDocente(proyectoId);
+  const visitaAnterior = useVisitaAnterior(usuarioId, proyectoId);
+  const isLoadingAll = isLoading || docente.isLoading || personasQuery.isLoading || journeysQuery.isLoading || momentsQuery.isLoading || cardSortingQuery.isLoading;
   const aggregateError = error ?? personasQuery.error ?? journeysQuery.error ?? momentsQuery.error ?? cardSortingQuery.error;
 
   const evidence = [
@@ -50,11 +42,17 @@ export function AnalyticsPage() {
     { label: 'Evaluación heurística', count: data?.sesionesTotal ?? 0 },
   ];
   const methodsWithEvidence = evidence.filter((item) => item.count > 0).length;
-  const maxEvidenceCount = Math.max(1, ...evidence.map((item) => item.count));
   const participantResponses = cardSortingQuery.data?.reduce(
     (total, study) => total + (study.respuestasCount ?? 0),
     0,
   ) ?? 0;
+
+  const datosDocente: DatosDocente = {
+    personas: personasQuery.data ?? [], journeys: journeysQuery.data ?? [], momentos: momentsQuery.data ?? [],
+    estudios: cardSortingQuery.data ?? [], evaluaciones,
+    versiones: docente.versiones, miembros: docente.miembros, comentarios: docente.comentarios,
+  };
+  const aportes = aporteIntegrantes(datosDocente);
 
   return (
     <div className="fade">
@@ -62,11 +60,11 @@ export function AnalyticsPage() {
         <div>
           <span className="kicker">LECTURA TRANSVERSAL</span>
           <h2>Analítica general</h2>
-          <p>Lectura conjunta de artefactos, card sorting, participantes y hallazgos registrados en este proyecto.</p>
+          <p>Resumen para revisar el proyecto: avance del equipo, alertas, aportes, hallazgos clave y novedades.</p>
         </div>
       </div>
 
-      {isLoadingAll && <p role="status">Calculando evidencia del proyecto…</p>}
+      {isLoadingAll && <Skeleton etiqueta="Calculando evidencia del proyecto…" variante="tarjetas" cantidad={4} />}
       {aggregateError && <p className="error-text" role="alert">{(aggregateError as Error).message}</p>}
 
       {data && !isLoadingAll && !aggregateError && (
@@ -93,55 +91,17 @@ export function AnalyticsPage() {
               <small>{(data.porSeveridad[3]?.count ?? 0) + (data.porSeveridad[4]?.count ?? 0)} de prioridad alta</small>
             </article>
           </section>
+          <div className="docente-grid">
+            <PanelAvance proyectoId={proyectoId} avance={avanceTecnicas(datosDocente)} />
+            <PanelHallazgos proyectoId={proyectoId} hallazgos={hallazgosClave(datosDocente)} />
+          </div>
+          <PanelAlertas proyectoId={proyectoId} alertas={alertasRevision(datosDocente, aportes)} />
+          <PanelAporte aportes={aportes} />
+          <PanelNovedades proyectoId={proyectoId} novedades={novedadesDesde(datosDocente, desdeVisita(visitaAnterior), usuarioId)} primeraVisita={!visitaAnterior} datos={datosDocente} usuarioId={usuarioId} />
           <PanelTecnicas proyectoId={proyectoId} datos={{
             personas: personasQuery.data ?? [], journeys: journeysQuery.data ?? [], momentos: momentsQuery.data ?? [],
             estudios: cardSortingQuery.data ?? [], evaluaciones,
           }} />
-          <div className="analitica-decision">
-            <PanelPrioridad evaluaciones={evaluaciones} />
-            <PanelCalidadHeuristica evaluaciones={evaluaciones} />
-          </div>
-
-          <article className="panel analytics-coverage">
-            <div className="panel-head">
-              <div><span className="kicker">COBERTURA</span><h3>Evidencia por método</h3></div>
-              <span className="count">{methodsWithEvidence} de 5 activos</span>
-            </div>
-            {evidence.map((item) => (
-              <div className="coverage-row" key={item.label}>
-                <span>{item.label}</span>
-                <div aria-hidden="true"><i style={{ width: `${item.count / maxEvidenceCount * 100}%` }} /></div>
-                <strong>{item.count}</strong>
-              </div>
-            ))}
-          </article>
-
-          <article className="panel">
-            <div className="panel-head">
-              <div>
-                <span className="kicker">HALLAZGOS</span>
-                <h3>Distribución por severidad</h3>
-              </div>
-              <span className="count">{data.hallazgosTotal} en total</span>
-            </div>
-            {data.porSeveridad
-              .slice()
-              .reverse()
-              .map((s) => (
-                <div key={s.severidad} className={`severity-row ${SEVERIDAD_CLASS[s.severidad]}`}>
-                  <header>
-                    <b>Nivel {s.severidad} · {SEVERIDAD_LABEL[s.severidad]}</b>
-                    <span>{s.porcentaje}% ({s.count})</span>
-                  </header>
-                  <span><i style={{ width: `${s.porcentaje}%` }} /></span>
-                </div>
-              ))}
-            {data.hallazgosTotal === 0 && (
-              <p className="text-muted-sm">
-                Todavía no hay hallazgos registrados en este proyecto.
-              </p>
-            )}
-          </article>
         </>
       )}
     </div>

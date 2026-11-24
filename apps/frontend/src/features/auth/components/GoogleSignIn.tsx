@@ -40,14 +40,14 @@ export function GoogleSignIn() {
       if (!active || !button.current || !window.google) return;
       window.google.accounts.id.initialize({ client_id: clientId, nonce, auto_select: false, callback: result => { if (active) mutate(result.credential); } });
       button.current.replaceChildren();
-      window.google.accounts.id.renderButton(button.current, { theme: 'outline', size: 'large', text: 'continue_with', locale: 'es', width: Math.min(340, button.current.clientWidth) });
+      window.google.accounts.id.renderButton(button.current, { theme: 'outline', size: 'large', text: 'continue_with', locale: 'es', width: Math.min(340, button.current.clientWidth || 340) });
     }).catch(error => { if (active) setLoadError(error.message); });
     return () => { active = false; };
   }, [config.data, mutate]);
 
   if (!config.data?.enabled) return null;
   return <section className="google-sign-in" aria-label="Acceso con Google" aria-busy={isPending}>
-    <div ref={button} inert={isPending} />
+    <div ref={button} className="google-sign-in-boton" inert={isPending} />
     {isPending && <p role="status">Verificando tu acceso…</p>}
     {(loadError || error) && <p role="alert">{loadError || (error instanceof Error ? error.message : 'No se pudo ingresar.')}</p>}
     {(loadError || error) && <button type="button" className="secondary" onClick={() => config.refetch()}>Reintentar Google</button>}

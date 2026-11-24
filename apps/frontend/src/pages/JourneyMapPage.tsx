@@ -32,6 +32,7 @@ import {
 } from '../features/journey-map/components/JourneyVisual';
 import { procesoJourney } from '../features/journey-map/journey-visual';
 import { ComentariosTecnica } from '../features/comments/components/ComentariosTecnica';
+import { Skeleton } from '../shared/components/ui/Skeleton';
 
 const CAMPOS_LISTA: (keyof Phase)[] = [
   'actividades',
@@ -567,7 +568,7 @@ export function JourneyMapPage() {
             <TechniqueListHead titulo="Journey Maps del proyecto" cantidad={journeyMaps.length} />
           )}
 
-          {isLoading && <p>Cargando…</p>}
+          {isLoading && <Skeleton etiqueta="Cargando…" variante="lista" />}
 
           {error && (
             <p className="error-text">

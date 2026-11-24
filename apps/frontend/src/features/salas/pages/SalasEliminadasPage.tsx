@@ -14,6 +14,7 @@ import {
 import { useAuthStore } from '../../auth/store/useAuthStore';
 import { resolvePerspective } from '../../../shared/auth/perspectivas';
 import { useConfirm } from '../../../shared/api/confirm';
+import { Skeleton } from '../../../shared/components/ui/Skeleton';
 
 const DIAS_VENTANA_RECUPERACION = 20;
 
@@ -61,7 +62,7 @@ export function SalasEliminadasPage() {
         <span>Restaurar una sala recupera también sus proyectos, sesiones y evidencia asociada.</span>
       </div>
 
-      {isLoading && <div className="loading-block" aria-label="Cargando salas eliminadas" />}
+      {isLoading && <Skeleton etiqueta="Cargando salas eliminadas" variante="lista" />}
       {!isLoading && salas?.length === 0 && (
         <div className="empty-state"><strong>No hay salas eliminadas</strong><p>Cuando elimines una sala, aparecerá temporalmente en este espacio.</p><Link to="/salas" className="secondary button-like">Volver a salas</Link></div>
       )}

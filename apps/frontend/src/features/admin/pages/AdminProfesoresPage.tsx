@@ -10,6 +10,7 @@ import { useConfirm } from '../../../shared/api/confirm';
 import { UserAccountsPanel } from '../components/UserAccountsPanel';
 import { AdminProjectsPanel } from '../components/AdminProjectsPanel';
 import './admin.css';
+import { Skeleton } from '../../../shared/components/ui/Skeleton';
 
 export function CrearDocenteForm() {
   const { mutate: crear, isPending } = useCreateDocente();
@@ -117,7 +118,7 @@ function DocentesList() {
     if (await confirm(`¿Eliminar al docente "${nombre}"?`, { requireText: nombre })) eliminar(id);
   }
 
-  if (isLoading) return <div className="loading-block" aria-label="Cargando docentes" />;
+  if (isLoading) return <Skeleton etiqueta="Cargando docentes" variante="lista" />;
   if (isError) {
     return (
       <div className="inline-state inline-state--error" role="alert">
@@ -153,7 +154,7 @@ function DocentesList() {
 function EstudiantesList() {
   const { data: estudiantes, isLoading, isError, error, refetch } = useEstudiantesAdmin();
 
-  if (isLoading) return <div className="loading-block" aria-label="Cargando estudiantes" />;
+  if (isLoading) return <Skeleton etiqueta="Cargando estudiantes" variante="lista" />;
   if (isError) {
     return (
       <div className="inline-state inline-state--error" role="alert">

@@ -6,6 +6,7 @@ import { ProtectedRoute } from './shared/routing/ProtectedRoute';
 import { PerspectiveRoute } from './shared/routing/PerspectiveRoute';
 import { AppLayout } from './layouts/AppLayout';
 import { ProjectDetailLayout } from './layouts/ProjectDetailLayout';
+import { Skeleton } from './shared/components/ui/Skeleton';
 const LoginPage = lazy(() => import('./features/auth/pages/LoginPage').then((m) => ({ default: m.LoginPage })));
 const OnboardingPage = lazy(() => import('./features/onboarding/pages/OnboardingPage').then((m) => ({ default: m.OnboardingPage })));
 const ParticipantCardSortingPage = lazy(() => import('./features/onboarding/pages/ParticipantCardSortingPage').then((m) => ({ default: m.ParticipantCardSortingPage })));
@@ -31,7 +32,7 @@ const NotFoundPage = lazy(() => import('./pages/NotFoundPage').then((m) => ({ de
 
 export default function App() {
   return (
-    <Suspense fallback={<div className="route-loading" role="status">Cargando pantalla…</div>}>
+    <Suspense fallback={<Skeleton etiqueta="Cargando pantalla…" variante="pantalla" />}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/privacidad" element={<PrivacyPage />} />

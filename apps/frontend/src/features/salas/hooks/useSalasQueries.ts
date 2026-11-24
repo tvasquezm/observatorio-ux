@@ -6,12 +6,10 @@ import {
   listEstudiantes,
   addEstudiante,
   addEstudiantesBulk,
-  updateEstudiante,
   removeEstudiante,
   listProyectosDeSala,
   getSala,
   updateSala,
-  softDeleteSala,
   getSalasEliminadas,
   restoreSala,
   hardDeleteSala,
@@ -61,20 +59,6 @@ export function useUpdateSala(salaId: string) {
     onError: (err) => {
       notify.error(err instanceof SalasApiError ? err.message : 'No se pudo actualizar la sala.');
     },
-  });
-}
-
-// --- Fase 2: soft delete / restore / hard delete ---
-
-export function useSoftDeleteSala() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (salaId: string) => softDeleteSala(salaId),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: salasKeys.all });
-      notify.success('Sala eliminada (recuperable por 20 días).');
-    },
-    onError: (err) => notify.error(mensajeError(err, 'No se pudo eliminar la sala.')),
   });
 }
 
@@ -142,19 +126,6 @@ export function useAddEstudiantesBulk(salaId: string) {
       );
     },
     onError: (err) => notify.error(mensajeError(err, 'No se pudo agregar a los estudiantes.')),
-  });
-}
-
-export function useUpdateEstudiante(salaId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<SalaEstudianteInput> }) =>
-      updateEstudiante(salaId, id, data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: salasKeys.estudiantes(salaId) });
-      notify.success('Estudiante actualizado.');
-    },
-    onError: (err) => notify.error(mensajeError(err, 'No se pudo actualizar al estudiante.')),
   });
 }
 

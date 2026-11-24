@@ -5,14 +5,11 @@
 import type { Persona as PersonaContenido } from '@observatorio-ux/shared-types';
 
 import {
-  acquireLock,
   createArtifact,
   createArtifactVersion,
   dedupeLatestVersions,
   deleteArtifact,
-  getArtifact,
   listArtifacts,
-  releaseLock,
   type UxArtifact,
 } from '../../../shared/api/artifacts.api';
 
@@ -40,13 +37,6 @@ export async function listPersonas(proyectoId: string): Promise<PersonaArtifact[
   return dedupeLatestVersions(items).map(normalizePersona);
 }
 
-export async function getPersona(
-  proyectoId: string,
-  artefactoId: string,
-): Promise<PersonaArtifact> {
-  return normalizePersona(await getArtifact<PersonaContenido>(proyectoId, artefactoId));
-}
-
 export function createPersona(
   proyectoId: string,
   contenido: PersonaContenido,
@@ -61,21 +51,6 @@ export function updatePersona(
   expectedVersion?: number,
 ): Promise<PersonaArtifact> {
   return createArtifactVersion<PersonaContenido>(proyectoId, artefactoId, contenido, expectedVersion);
-}
-
-export function lockPersona(
-  proyectoId: string,
-  artefactoId: string,
-  ttlSegundos?: number,
-): Promise<PersonaArtifact> {
-  return acquireLock<PersonaContenido>(proyectoId, artefactoId, ttlSegundos);
-}
-
-export function unlockPersona(
-  proyectoId: string,
-  artefactoId: string,
-): Promise<PersonaArtifact> {
-  return releaseLock<PersonaContenido>(proyectoId, artefactoId);
 }
 
 /**

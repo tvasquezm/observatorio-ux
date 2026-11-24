@@ -39,6 +39,8 @@ import { useUnsavedChanges } from '../../../shared/hooks/useUnsavedChanges';
 import { useDiscardChanges } from '../../../shared/hooks/useDiscardChanges';
 import { useAuthStore } from '../../auth/store/useAuthStore';
 import { resolvePerspective } from '../../../shared/auth/perspectivas';
+import { Skeleton } from '../../../shared/components/ui/Skeleton';
+import { TablaProyectosSala } from '../components/TablaProyectosSala';
 
 type DirtyNotice = (dirty: boolean) => void;
 function useDirtyNotice(dirty: boolean, onDirtyChange: DirtyNotice) {
@@ -83,7 +85,7 @@ export function SalaDetallePage() {
     <div className="sala-detail-page">
       <Link to="/salas" className="sala-back-link">← Volver a mis salas</Link>
 
-      {isLoading && <p className="text-muted">Cargando sala…</p>}
+      {isLoading && <Skeleton etiqueta="Cargando sala…" />}
       {isError && (
         <div className="panel sala-access-error" role="alert">
           <h1>{error instanceof SalasApiError && error.status === 403 ? 'No tienes acceso a esta sala' : 'No se pudo abrir la sala'}</h1>
@@ -224,7 +226,7 @@ function ProyectosDeSalaLectura({ salaId }: { salaId: string }) {
       </div>
       <p className="text-muted-sm">Puedes consultar los proyectos asignados por tu docente. La gestión de la sala es solo de lectura para estudiantes.</p>
 
-      {isLoading && <p>Cargando proyectos…</p>}
+      {isLoading && <Skeleton etiqueta="Cargando proyectos…" variante="lista" />}
       {isError && (
         <div className="error-text" role="alert">
           <p>{(error as Error).message}</p>
@@ -264,6 +266,10 @@ function ProyectosDeSala({ salaId, sala, actualizacionPermiso }: { salaId: strin
   const { mutate: actualizarSala, isPending: guardandoToggle, isSuccess: guardado, error: saveError, variables } = actualizacionPermiso;
 
   const [proyectoAVincular, setProyectoAVincular] = useState('');
+  const [busqueda, setBusqueda] = useState('');
+  const [proyectoADesvincular, setProyectoADesvincular] = useState('');
+  const termino = busqueda.trim().toLocaleLowerCase('es');
+  const visibles = termino ? proyectosSala?.filter((p) => `${p.nombre} ${p.descripcion ?? ''}`.toLocaleLowerCase('es').includes(termino)) : proyectosSala;
   const permiteCreacionProyectos = (guardandoToggle ? variables?.permiteCreacionProyectos : undefined) ?? sala.permiteCreacionProyectos;
 
   // Solo se pueden vincular proyectos que todavía no están en ninguna sala.
@@ -285,6 +291,44 @@ function ProyectosDeSala({ salaId, sala, actualizacionPermiso }: { salaId: strin
 
   return (
     <div>
+      <section aria-labelledby="proyectos-sala-titulo">
+        <div className="sala-proyectos-cabecera">
+          <h3 id="proyectos-sala-titulo">Proyectos de la sala <span className="count">{proyectosSala?.length ?? 0}</span></h3>
+          <Link to={`/proyectos?sala=${salaId}`} className="secondary">Ver en Proyectos <span aria-hidden="true">→</span></Link>
+        </div>
+        {(proyectosSala?.length ?? 0) > 6 && (
+          <div className="field sala-proyectos-buscar">
+            <label htmlFor="buscar-proyecto-sala">Buscar proyecto en esta sala</label>
+            <input id="buscar-proyecto-sala" type="search" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Nombre o descripción…" />
+          </div>
+        )}
+      {isLoading && <Skeleton etiqueta="Cargando proyectos…" variante="lista" />}
+      {isError && (
+        <div className="error-text" role="alert">
+          <p>{(error as Error).message}</p>
+          <button type="button" className="secondary" onClick={() => refetch()}>Reintentar</button>
+        </div>
+      )}
+
+      {visibles && visibles.length > 0 && <TablaProyectosSala proyectos={visibles} />}
+      {proyectosSala && proyectosSala.length === 0 && <p>Todavía no hay proyectos alojados en esta sala.</p>}
+      {proyectosSala && proyectosSala.length > 0 && visibles?.length === 0 && <p className="text-muted">Ningún proyecto coincide con la búsqueda.</p>}
+      </section>
+
+      <details className="sala-gestion">
+        <summary>Gestionar proyectos de la sala</summary>
+        {(proyectosSala?.length ?? 0) > 0 && (
+          <div className="form-row-inline sala-desvincular">
+            <label className="field">
+              Quitar un proyecto de la sala
+              <select value={proyectoADesvincular} onChange={(e) => setProyectoADesvincular(e.target.value)}>
+                <option value="">Selecciona un proyecto…</option>
+                {proyectosSala?.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+              </select>
+            </label>
+            <button type="button" className="secondary" disabled={!proyectoADesvincular} onClick={() => { const p = proyectosSala?.find((x) => x.id === proyectoADesvincular); if (p) void handleDesvincular(p.id, p.nombre).then(() => setProyectoADesvincular('')); }}>Desvincular</button>
+          </div>
+        )}
       <div className="form-row-inline sala-configuracion">
         <label>
           <input
@@ -327,37 +371,7 @@ function ProyectosDeSala({ salaId, sala, actualizacionPermiso }: { salaId: strin
         )}
       </div>
 
-      {isLoading && <p>Cargando proyectos…</p>}
-      {isError && (
-        <div className="error-text" role="alert">
-          <p>{(error as Error).message}</p>
-          <button type="button" className="secondary" onClick={() => refetch()}>Reintentar</button>
-        </div>
-      )}
-
-      <div className="list-stack">
-        {proyectosSala?.map((p) => (
-          <div key={p.id} className="entity-card row-between">
-            <div>
-              <b>{p.nombre}</b>
-              {p.descripcion && <div className="text-muted-sm">{p.descripcion}</div>}
-            </div>
-            <div className="form-row-inline sala-proyecto-acciones">
-              <Link to={`/proyectos/${p.id}`} className="secondary">Ver proyecto →</Link>
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => handleDesvincular(p.id, p.nombre)}
-              >
-                Desvincular
-              </button>
-            </div>
-          </div>
-        ))}
-        {proyectosSala && proyectosSala.length === 0 && (
-          <p>Todavía no hay proyectos alojados en esta sala.</p>
-        )}
-      </div>
+      </details>
     </div>
   );
 }
@@ -472,7 +486,7 @@ function EstudiantesDeSala({ salaId, onDirtyChange }: { salaId: string; onDirtyC
         </form>
       )}
 
-      {isLoading && <p>Cargando…</p>}
+      {isLoading && <Skeleton etiqueta="Cargando…" variante="lista" />}
       {isError && (
         <div className="error-text" role="alert">
           <p>{(error as Error).message}</p>
@@ -637,7 +651,7 @@ function EquiposDeSalaDocente({ salaId, sala, onDirtyChange }: { salaId: string;
         </button>
       </form>
 
-      {isLoading && <p>Cargando equipos…</p>}
+      {isLoading && <Skeleton etiqueta="Cargando equipos…" variante="lista" />}
       {isError && (
         <div className="error-text" role="alert">
           <p>{(error as Error).message}</p>
@@ -789,7 +803,7 @@ function EquiposDeSalaEstudiante({ salaId, sala, onDirtyChange }: { salaId: stri
         <p className="text-muted-sm">Tu docente todavía no habilitó la creación de equipos por estudiantes.</p>
       )}
 
-      {isLoading && <p>Cargando equipos…</p>}
+      {isLoading && <Skeleton etiqueta="Cargando equipos…" variante="lista" />}
       {isError && (
         <div className="error-text" role="alert">
           <p>{(error as Error).message}</p>

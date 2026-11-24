@@ -13,6 +13,13 @@ const campo = (text: string, value: string): Content => ({ stack: [
   { text: value || 'No registrado' },
 ], unbreakable: value.length < 600, margin: [0, 4, 0, 9] });
 
+// Estimación del alto (pt) del texto en la hoja vertical, para decidir si la captura cabe
+// junto a él: ancho útil 487 pt a 11 pt ≈ 80 caracteres por línea de 15 pt.
+const ALTO_UTIL = 842 - 72 - 54;
+const ALTO_TITULO = 48;
+const altoTexto = (texto: string) => texto.split('\n').reduce((total, linea) => total + Math.max(1, Math.ceil(linea.length / 80)) * 15, 0);
+const altoCampos = (campos: Array<[string, string]>) => campos.reduce((total, [, valor]) => total + 26 + altoTexto(valor || 'No registrado'), 0);
+
 /** `pies`: texto bajo cada captura (quién la subió y anotó, y cuándo), por id. */
 type OpcionesInformePdf = { partes?: readonly string[]; pies?: ReadonlyMap<string, string> };
 
@@ -54,24 +61,53 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
   const conclusion = (consenso.conclusion ?? '').trim();
   const finalizado = informe.finalizadoEn !== null;
   const pieCaptura = (id: string): Content[] => { const pie = opciones.pies?.get(id); return pie ? [{ text: pie, fontSize: 8, color: MUTED, margin: [0, -2, 0, 8] }] : []; };
-  const imagenEvidencia = (id: string): Content => capturas.get(id)
-    ? { stack: [{ image: `evidencia-${id}`, fit: [460, 310], margin: [0, 6, 0, 6] }, ...pieCaptura(id)], unbreakable: true }
+  const imagenEvidencia = (id: string, alto = 310): Content => capturas.get(id)
+    ? { stack: [{ image: `evidencia-${id}`, fit: [460, alto], margin: [0, 6, 0, 6] }, ...pieCaptura(id)], unbreakable: true }
     : { text: `Captura ${id} disponible en la aplicación (no incluida en este PDF).`, color: MUTED, italics: true };
-  const detalleHallazgos: Content[] = hallazgos.flatMap((h, i) => [
-    titulo(`${i + 1}. ${h.titulo}`),
-    campo('Severidad', `${h.severidad} · ${SEVERIDADES[h.severidad].etiqueta}`),
-    campo('Prioridad', h.prioridad), campo('Pantalla o tarea', h.pantalla), campo('Criterios', h.criterioIds.map(nombreCriterio).join('; ')),
-    campo('Problema', h.descripcion), campo('Recomendación', h.recomendacion), campo('Justificación del acuerdo', h.justificacion),
-    ...(h.notas ? [campo('Notas', h.notas)] : []),
-    campo(origenHallazgo(h) === 'equipo' ? 'Origen' : 'Hallazgos individuales de origen', origenHallazgo(h) === 'equipo' ? 'Nuevo del equipo' : h.origenIds.join(', ')),
-    ...h.evidenciaIds.map(imagenEvidencia),
-  ]);
+  /**
+   * Texto con su primera captura en un bloque que no se parte (la captura se achica para
+   * caber con el texto); las demás capturas siguen, cada una entera. Con texto muy largo
+   * el bloque puede partirse y la captura va aparte.
+   */
+  const conCapturas = (texto: Content[], ids: string[], altoTexto: number, extra: Partial<Record<'pageBreak', 'before'>> = {}): Content[] => {
+    const alto = Math.min(310, Math.floor(ALTO_UTIL - altoTexto - 40));
+    const juntas = alto >= 150;
+    const [primera, ...resto] = juntas ? ids : [];
+    return [
+      { stack: [...texto, ...(primera ? [imagenEvidencia(primera, alto)] : [])], unbreakable: altoTexto < ALTO_UTIL - 20, ...extra },
+      ...(juntas ? resto : ids).map(id => imagenEvidencia(id)),
+    ];
+  };
+  // Un problema por hoja; la sección abre hoja nueva con el primero.
+  const detalleHallazgos: Content[] = hallazgos.flatMap((h, i) => {
+    const campos: Array<[string, string]> = [
+      ['Severidad', `${h.severidad} · ${SEVERIDADES[h.severidad].etiqueta}`],
+      ['Prioridad', h.prioridad], ['Pantalla o tarea', h.pantalla], ['Criterios', h.criterioIds.map(nombreCriterio).join('; ')],
+      ['Problema', h.descripcion], ['Recomendación', h.recomendacion], ['Justificación del acuerdo', h.justificacion],
+      ...(h.notas ? [['Notas', h.notas] as [string, string]] : []),
+      [origenHallazgo(h) === 'equipo' ? 'Origen' : 'Hallazgos individuales de origen', origenHallazgo(h) === 'equipo' ? 'Nuevo del equipo' : h.origenIds.join(', ')],
+    ];
+    const titulos = [...(i === 0 ? ['Problemas y recomendaciones'] : []), `${i + 1}. ${h.titulo}`];
+    return conCapturas(
+      [...titulos.map(t => titulo(t)), ...campos.map(([etiqueta, valor]) => campo(etiqueta, valor))],
+      h.evidenciaIds, altoCampos(campos) + titulos.length * ALTO_TITULO, { pageBreak: 'before' },
+    );
+  });
+  const sinCapturas: Content = { text: 'Sin capturas.', color: MUTED, margin: [0, 0, 0, 6] };
+  // Cada mejora en hoja propia; «Antes» y «Después» van junto a su primera captura.
   const detalleMejoras: Content[] = mejoras.flatMap((m, i): Content[] => [
-    titulo(`${i + 1}. ${m.titulo}`),
-    ...(m.descripcion ? [{ text: m.descripcion, margin: [0, 2, 0, 4] } as Content] : []),
-    { text: 'Antes', bold: true, margin: [0, 4, 0, 2] }, ...(m.antesIds.length ? m.antesIds.map(imagenEvidencia) : [{ text: 'Sin capturas.', color: MUTED } as Content]),
-    { text: 'Después', bold: true, margin: [0, 4, 0, 2] }, ...(m.despuesIds.length ? m.despuesIds.map(imagenEvidencia) : [{ text: 'Sin capturas.', color: MUTED } as Content]),
+    { stack: [...(i === 0 ? [titulo('Mejoras antes/después')] : []), titulo(`${i + 1}. ${m.titulo}`), ...(m.descripcion ? [{ text: m.descripcion, margin: [0, 2, 0, 4] } as Content] : [])], pageBreak: 'before' },
+    ...(['Antes', 'Después'] as const).flatMap((etiqueta): Content[] => {
+      const ids = etiqueta === 'Antes' ? m.antesIds : m.despuesIds;
+      const rotulo: Content = { text: etiqueta, bold: true, margin: [0, 4, 0, 2] };
+      return ids.length ? conCapturas([rotulo], ids, 20) : [{ stack: [rotulo, sinCapturas], unbreakable: true }];
+    }),
   ]);
+  const detallePositivos: Content[] = positivos.flatMap((p, i) => conCapturas([
+    ...(i === 0 ? [titulo('Aspectos positivos')] : []),
+    { text: p.titulo, bold: true, margin: [0, 6, 0, 2] },
+    ...(p.descripcion ? [{ text: p.descripcion, margin: [0, 0, 0, 4] } as Content] : []),
+  ], p.evidenciaIds ?? [], (i === 0 ? ALTO_TITULO : 0) + 24 + altoTexto(p.descripcion ?? ''), i === 0 ? { pageBreak: 'before' } : {}));
   return {
     info: { title: `Evaluación heurística · ${config.nombre} · v${informe.version}`, creator: 'UXLab Observatorio', subject: 'Informe consolidado de evaluación heurística' },
     pageSize: 'A4', pageMargins: PDF_PAGE_MARGINS, defaultStyle: PDF_DEFAULT_STYLE,
@@ -111,9 +147,9 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
         titulo('Criterios y decisiones acordadas'),
         table(['Criterio', 'Valoración final', 'Justificación'], consenso.criterios.map(r => [nombreCriterio(r.criterioId), valorCriterio(r), r.justificacion]), ['*', 100, '*']),
       ] : []),
-      ...(incluye('positivos') && positivos.length ? [titulo('Aspectos positivos'), ...positivos.flatMap((p): Content[] => [{ text: p.titulo, bold: true, margin: [0, 6, 0, 2] }, ...(p.descripcion ? [{ text: p.descripcion, margin: [0, 0, 0, 4] } as Content] : []), ...(p.evidenciaIds ?? []).map(imagenEvidencia)])] : []),
-      ...(incluye('hallazgos') ? [titulo('Problemas y recomendaciones'), ...(detalleHallazgos.length ? detalleHallazgos : [{ text: 'La revisión acordada no identificó problemas de usabilidad.' } as Content])] : []),
-      ...(incluye('mejoras') && mejoras.length ? [titulo('Mejoras antes/después'), ...detalleMejoras] : []),
+      ...(incluye('positivos') ? detallePositivos : []),
+      ...(incluye('hallazgos') ? (detalleHallazgos.length ? detalleHallazgos : [titulo('Problemas y recomendaciones'), { text: 'La revisión acordada no identificó problemas de usabilidad.' } as Content]) : []),
+      ...(incluye('mejoras') ? detalleMejoras : []),
       ...(incluye('conclusion') && conclusion ? [titulo('Conclusión y recomendaciones finales'), { text: conclusion } as Content] : []),
       ...(incluye('resumen') ? [
         titulo('Decisiones de revisión'),

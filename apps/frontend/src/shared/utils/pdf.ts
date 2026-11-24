@@ -65,12 +65,36 @@ function detalleCardSorting(analytics: Parameters<typeof tablaDeVista>[1], inclu
 
 /** Ancho útil de la hoja apaisada (A4 horizontal menos márgenes laterales). */
 const ANCHO_UTIL = 842 - 108;
+/** Alto útil de la hoja apaisada (A4 horizontal menos márgenes superior e inferior). */
+const ALTO_UTIL = 595 - 72 - 54;
+/**
+ * Alto estimado (pt) de un texto: en la tabla de detalle el valor tiene ~600 pt de ancho a
+ * 9,5 pt (≈ 110 caracteres por línea de 13 pt); en párrafo, ~734 pt a 11 pt (≈ 120 por línea de 15 pt).
+ */
+const altoTexto = (valor: unknown, porLinea = 110, linea = 13) => textValue(valor).split('\n').reduce((total, l) => total + Math.max(1, Math.ceil(l.length / porLinea)) * linea, 0);
 
 function sections(report: ReportConImagenes): Record<ReportMethod, Content[]> {
   /** Captura con su pie: quién la subió y anotó, y cuándo. */
-  const capturaConPie = (evaluacionId: string, id: string): Content => {
+  const capturaConPie = (evaluacionId: string, id: string, alto = 340): Content => {
     const pie = report.piesCapturas?.[claveCaptura(evaluacionId, id)];
-    return { stack: [{ image: claveCaptura(evaluacionId, id), fit: [ANCHO_UTIL, 340], alignment: 'center', margin: [0, 4, 0, pie ? 2 : 8] }, ...(pie ? [{ text: pie, fontSize: 8, color: MUTED, margin: [0, 0, 0, 8] } as Content] : [])], unbreakable: true };
+    return { stack: [{ image: claveCaptura(evaluacionId, id), fit: [ANCHO_UTIL, alto], alignment: 'center', margin: [0, 4, 0, pie ? 2 : 8] }, ...(pie ? [{ text: pie, fontSize: 8, color: MUTED, margin: [0, 0, 0, 8] } as Content] : [])], unbreakable: true };
+  };
+  const capturaOAviso = (evaluacionId: string, id: string, alto?: number): Content => report.imagenes?.[claveCaptura(evaluacionId, id)]
+    ? capturaConPie(evaluacionId, id, alto)
+    : { text: 'Captura disponible en la aplicación (no se pudo incluir en este PDF).', italics: true, color: MUTED, margin: [0, 2, 0, 6] };
+  /**
+   * Texto con su primera captura en un mismo bloque que no se parte (la captura se achica
+   * para caber con el texto en la hoja); las demás capturas siguen, cada una entera.
+   * Con texto muy largo el bloque sí puede partirse y la captura va aparte.
+   */
+  const conCapturas = (evaluacionId: string, texto: Content[], ids: string[], altoTextoBloque: number, hojaNueva: boolean): Content[] => {
+    const alto = Math.min(340, Math.floor(ALTO_UTIL - altoTextoBloque - 40));
+    const juntas = alto >= 150;
+    const [primera, ...resto] = juntas ? ids : [];
+    return [
+      { stack: [...texto, ...(primera ? [capturaOAviso(evaluacionId, primera, alto)] : [])], unbreakable: altoTextoBloque < ALTO_UTIL - 20, ...(hojaNueva ? { pageBreak: 'before' as const } : {}) },
+      ...(juntas ? resto : ids).map(id => capturaOAviso(evaluacionId, id)),
+    ];
   };
   const incluye = (metodo: ReportMethod, parte: string) => report.partes?.[metodo]?.includes(parte) ?? true;
   const incluyeCards = (parte: string) => incluye('cards', parte);
@@ -122,13 +146,14 @@ function sections(report: ReportConImagenes): Record<ReportMethod, Content[]> {
       ] : []),
     ]) ?? [],
     momentos: report.moments?.flatMap(({ contenido: moment, version }, i) => [
-      title(`${i + 1}. Incidentes de ${moment.perfilUsuario.nombre}`),
+      { stack: [title(`${i + 1}. Incidentes de ${moment.perfilUsuario.nombre}`)], ...(i > 0 ? { pageBreak: 'before' as const } : {}) },
       paragraph(`${moment.perfilUsuario.rol} · Versión ${version} · ${moment.incidentes.length} incidentes`),
       ...(incluye('momentos', 'tabla') ? [table(['Incidente', 'Tipo', 'Impacto', 'Frecuencia'], moment.incidentes.map((incident) => [incident.nombre, incident.tipo, incident.impacto, incident.frecuencia]), ['*', 65, 60, 68])] : []),
-      ...(incluye('momentos', 'detalle') ? moment.incidentes.flatMap((incident, index) => [
+      // Cada incidente va entero: título y detalle no quedan en hojas distintas.
+      ...(incluye('momentos', 'detalle') ? moment.incidentes.map((incident, index): Content => ({ stack: [
         title(`${index + 1}. ${incident.nombre}`),
         details([['Descripción', incident.descripcion], ['Causa', incident.causa], ['Acciones sugeridas', incident.accionesSugeridas]]),
-      ]) : []),
+      ], unbreakable: JSON.stringify(incident).length < 2400 })) : []),
     ]) ?? [],
     cards: report.cards?.flatMap(({ study, analytics }, i) => [
       // Si el estudio anterior terminó en una matriz apaisada, este vuelve a página vertical.
@@ -149,8 +174,9 @@ function sections(report: ReportConImagenes): Record<ReportMethod, Content[]> {
     ]) ?? [],
     heuristica: report.heuristics?.flatMap((evaluacion, i): Content[] => {
       const { configuracion: config, informe } = evaluacion;
-      const cabecera = [
-        title(`${i + 1}. ${config.nombre || config.producto.nombre}`),
+      // Cada evaluación abre hoja propia (salvo la primera, que sigue a la portada de sección).
+      const cabecera: Content[] = [
+        { stack: [title(`${i + 1}. ${config.nombre || config.producto.nombre}`)], ...(i > 0 ? { pageBreak: 'before' as const } : {}) },
         paragraph(`${config.producto.nombre} · ${config.metodologia.nombre} · Versión ${evaluacion.version} · ${fases[evaluacion.fase]}`),
       ];
       if (!informe) return [...cabecera, paragraph('Esta evaluación todavía no está consolidada: aún no hay hallazgos aceptados.')];
@@ -162,31 +188,22 @@ function sections(report: ReportConImagenes): Record<ReportMethod, Content[]> {
         ...(incluye('heuristica', 'severidad') ? [paragraph(`${problemas.length} hallazgos aceptados · ${informe.finalizadoEn ? `Finalizada el ${date(informe.finalizadoEn)}` : 'Informe preliminar, pendiente de cierre'}`)] : []),
         ...(problemas.length ? [
           ...(incluye('heuristica', 'severidad') ? [table(['Severidad', 'Problemas'], severityLabels.map((label, level) => [`${level} · ${label}`, resumen.porSeveridad[level] ?? 0]), ['*', 90])] : []),
-          // Texto del problema en un bloque que no se parte; cada captura (con su pie) va entera
-          // a continuación, en la misma hoja si cabe o en la siguiente, sin quedar cortada.
-          ...(incluye('heuristica', 'problemas') ? problemas.flatMap((problema, index): Content[] => [
-            { stack: [
-              title(`Problema ${index + 1} · ${problema.titulo}`),
-              { text: `SEVERIDAD ${problema.severidad} · ${severityLabels[problema.severidad] ?? 'Sin clasificar'} · PRIORIDAD ${problema.prioridad}`, bold: true, color: severityColors[problema.severidad] ?? INK, margin: [0, 0, 0, 8] },
-              details([['Pantalla o tarea', problema.pantalla], ['Criterios', problema.criterioIds.map(nombreCriterio)], ['Problema', problema.descripcion], ['Recomendación', problema.recomendacion]]),
-            ], unbreakable: JSON.stringify(problema).length < 1600 },
-            ...problema.evidenciaIds.map((id): Content => report.imagenes?.[claveCaptura(evaluacion.id, id)]
-              ? capturaConPie(evaluacion.id, id)
-              : { text: 'Captura disponible en la aplicación (no se pudo incluir en este PDF).', italics: true, color: MUTED, margin: [0, 2, 0, 6] }),
-          ]) : []),
+          // Un problema por hoja: su texto y su primera captura juntos; las demás capturas
+          // (con su pie) siguen enteras, en la misma hoja si caben o en la siguiente.
+          ...(incluye('heuristica', 'problemas') ? problemas.flatMap((problema, index): Content[] => conCapturas(evaluacion.id, [
+            title(`Problema ${index + 1} · ${problema.titulo}`),
+            { text: `SEVERIDAD ${problema.severidad} · ${severityLabels[problema.severidad] ?? 'Sin clasificar'} · PRIORIDAD ${problema.prioridad}`, bold: true, color: severityColors[problema.severidad] ?? INK, margin: [0, 0, 0, 8] },
+            details([['Pantalla o tarea', problema.pantalla], ['Criterios', problema.criterioIds.map(nombreCriterio)], ['Problema', problema.descripcion], ['Recomendación', problema.recomendacion]]),
+          ], problema.evidenciaIds, 80 + [problema.pantalla, problema.criterioIds.map(nombreCriterio), problema.descripcion, problema.recomendacion].reduce((t: number, v) => t + 6 + altoTexto(v), 0), index > 0 || incluye('heuristica', 'severidad'))) : []),
         ] : [paragraph('La revisión acordada no identificó problemas de usabilidad.')]),
         // Lo que funciona bien: también es evidencia del informe, con sus capturas.
+        // En hoja nueva; cada aspecto con capturas va junto a la primera de ellas.
         ...(incluye('heuristica', 'positivos') && informe.consenso.positivos?.length ? [
-          title('Lo que funciona bien'),
-          ...informe.consenso.positivos.flatMap((positivo): Content[] => [
-            { stack: [
-              { text: positivo.titulo, bold: true, margin: [0, 2, 0, 3] },
-              ...(positivo.descripcion ? [paragraph(positivo.descripcion)] : []),
-            ], unbreakable: JSON.stringify(positivo).length < 1600 },
-            ...(positivo.evidenciaIds ?? []).map((id): Content => report.imagenes?.[claveCaptura(evaluacion.id, id)]
-              ? capturaConPie(evaluacion.id, id)
-              : { text: 'Captura disponible en la aplicación (no se pudo incluir en este PDF).', italics: true, color: MUTED, margin: [0, 2, 0, 6] }),
-          ]),
+          { stack: [title('Lo que funciona bien')], pageBreak: 'before' } as Content,
+          ...informe.consenso.positivos.flatMap((positivo): Content[] => conCapturas(evaluacion.id, [
+            { text: positivo.titulo, bold: true, margin: [0, 2, 0, 3] },
+            ...(positivo.descripcion ? [paragraph(positivo.descripcion)] : []),
+          ], positivo.evidenciaIds ?? [], 24 + altoTexto(positivo.descripcion ?? '', 120, 15), false)),
         ] : []),
       ];
     }) ?? [],
