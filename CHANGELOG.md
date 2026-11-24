@@ -12,6 +12,22 @@ All notable changes to this project will be documented in this file. See [commit
 
 ### Features
 
+* **analítica:** resumen para el profesor con avance por técnica, hallazgos clave, alertas con enlace, aporte de cada integrante y novedades desde la última visita; se quitan la matriz de prioridad, los principios incumplidos, la cobertura y la distribución por severidad.
+
+* **inicio:** el filtro de salas y la selección de proyecto pasan a botones y tarjetas, con buscador desde seis proyectos.
+
+* **pdf:** un problema por hoja con su captura; evaluaciones, momentos críticos y aspectos positivos en hoja propia; el dendrograma que no cabe remite al CSV.
+
+* **carga:** esqueletos animados en lugar de los textos «Cargando…».
+
+* **login:** se quita el video tutorial y el botón de Google reserva su espacio para que su logo no aparezca gigante al cargar.
+
+* **rendimiento:** el contrato compartido se empaqueta desde su código fuente (el chunk de Zod baja de 601 a 181 kB) y se eliminan estilos y código sin uso.
+
+* **backend:** el límite global de peticiones por IP es configurable con `THROTTLE_LIMIT` y `THROTTLE_TTL_MS` (60 por minuto por defecto).
+
+* **dependencias:** nginx 1.31.9, jsdom 31 y el grupo minor/patch.
+
 * **admin:** ordena el alta de docentes, incorpora búsqueda y filtro de cuentas y permite
   preautorizar accesos con Google; la integración permanece desactivada sin `GOOGLE_CLIENT_ID`.
 * **pdf:** aplica tipografía Latin Modern, composición académica y tablas sobrias a los informes,
