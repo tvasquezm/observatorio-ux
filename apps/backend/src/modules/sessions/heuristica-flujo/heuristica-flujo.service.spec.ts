@@ -38,11 +38,13 @@ function preparar() {
       fila.updatedAt = new Date(); return structuredClone(fila);
     }),
   };
-  const prisma = {
+  // Doble de prueba que se referencia a sí mismo en $transaction: tipado amplio a propósito.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const prisma: any = {
     evaluacionHeuristicaCompleta: delegate,
     $queryRaw: jest.fn(async () => []),
     $transaction: jest.fn(<T>(fn: (tx: unknown) => Promise<T>) => {
-      const tarea = cola.then(() => fn(prisma)); cola = tarea.then(() => undefined, () => undefined); return tarea;
+      const tarea: Promise<T> = cola.then(() => fn(prisma)); cola = tarea.then(() => undefined, () => undefined); return tarea;
     }),
     proyecto: { findUniqueOrThrow: jest.fn(async () => ({ creadoPorId: coordinador.id, miembros: ['e1','e2','e3','e4','e5',lector.id].map(usuarioId => ({ usuarioId })), sala: null })) },
     usuario: { findMany: jest.fn(async () => [coordinador, experto, usuario('e2'), usuario('e3'), usuario('e4'), usuario('e5'), lector].map(u => ({ id: u.id, nombre: u.id, rol: u.rol }))), findUniqueOrThrow: jest.fn(async () => ({ nombre: 'Nombre servidor' })) },

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { EvaluacionFlujo } from '@observatorio-ux/shared-types';
-import { coincidenciaEquipo, matrizPrioridad, pendientesProyecto, principiosIncumplidos, zona } from './analitica-proyecto';
+import { coincidenciaEquipo, pendientesProyecto, principiosIncumplidos } from './analitica-proyecto';
 
 const criterios = [{ id: 'c1', nombre: 'Visibilidad del estado', categoria: 'Nielsen' }, { id: 'c2', nombre: 'Prevención de errores', categoria: 'Nielsen' }];
 const hallazgo = (id: string, severidad: number, prioridad: string, criterioIds: string[], decision = 'ACEPTADO') => ({ id, titulo: `Problema ${id}`, severidad, prioridad, criterioIds, decision });
@@ -19,22 +19,6 @@ function evaluacion(parcial: Partial<Record<string, unknown>> = {}): EvaluacionF
 }
 
 describe('analítica del proyecto', () => {
-  it('clasifica por zona: grave y urgente, grave o urgente, o el resto', () => {
-    expect(zona(4, 'ALTA')).toBe('ya');
-    expect(zona(3, 'BAJA')).toBe('planificar');
-    expect(zona(1, 'URGENTE')).toBe('planificar');
-    expect(zona(2, 'MEDIA')).toBe('vigilar');
-  });
-
-  it('la matriz solo cuenta problemas aceptados con severidad mayor a 0 y prioriza lo urgente', () => {
-    const m = matrizPrioridad([evaluacion()]);
-    expect(m.total).toBe(3);
-    expect(m.porZona).toEqual({ ya: 1, planificar: 1, vigilar: 1 });
-    expect(m.arreglarYa.map(p => p.titulo)).toEqual(['Problema a']);
-    expect(m.filas[0].celdas[0]).toMatchObject({ prioridad: 'URGENTE', zona: 'ya' });
-    expect(m.filas[0].celdas[0].problemas).toHaveLength(1);
-  });
-
   it('ordena los principios por cantidad de problemas, con su nombre', () => {
     expect(principiosIncumplidos([evaluacion()])).toEqual([
       { nombre: 'Prevención de errores', categoria: 'Nielsen', problemas: 2 },

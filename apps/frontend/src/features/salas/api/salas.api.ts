@@ -137,17 +137,6 @@ export function addEstudiantesBulk(
   );
 }
 
-export function updateEstudiante(
-  salaId: string,
-  estudianteId: string,
-  data: Partial<SalaEstudianteInput>,
-): Promise<SalaEstudiante> {
-  return request<SalaEstudiante>(`/salas/${salaId}/estudiantes/${estudianteId}`, {
-    method: 'PATCH',
-    body: JSON.stringify(data),
-  });
-}
-
 export function removeEstudiante(
   salaId: string,
   estudianteId: string,

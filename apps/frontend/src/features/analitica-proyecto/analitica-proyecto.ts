@@ -1,39 +1,12 @@
 // Analítica del proyecto que ayuda a decidir: prioridad de los problemas, calidad de la
 // evaluación heurística y lo que falta por hacer. Funciones puras sobre los datos ya cargados.
-import type { EvaluacionFlujo, HallazgoFlujo } from '@observatorio-ux/shared-types';
+import type { EvaluacionFlujo } from '@observatorio-ux/shared-types';
 import { evaluacionesVigentes } from '../heuristica-flujo/analitica';
 
-export const PRIORIDADES = ['URGENTE', 'ALTA', 'MEDIA', 'BAJA'] as const;
-export const SEVERIDADES = [4, 3, 2, 1] as const;
-export type Zona = 'ya' | 'planificar' | 'vigilar';
-
-/** Arreglar ya: grave y urgente. Planificar: grave o urgente. Vigilar: el resto. */
-export function zona(severidad: number, prioridad: HallazgoFlujo['prioridad']): Zona {
-  const urgente = prioridad === 'URGENTE' || prioridad === 'ALTA';
-  if (severidad >= 3 && urgente) return 'ya';
-  if (severidad >= 3 || urgente) return 'planificar';
-  return 'vigilar';
-}
-
-export interface ProblemaPriorizado { id: string; titulo: string; evaluacion: string; severidad: number; prioridad: HallazgoFlujo['prioridad']; zona: Zona }
 
 const nombreEvaluacion = (e: EvaluacionFlujo) => e.configuracion.nombre || e.configuracion.producto.nombre;
 /** Problemas acordados que sí son problemas (severidad 0 = "no es un problema"). */
 const aceptados = (e: EvaluacionFlujo) => (e.informe?.consenso.hallazgos ?? []).filter(h => h.decision === 'ACEPTADO' && h.severidad > 0);
-
-/** Problemas acordados (severidad 1 a 4) ubicados en la matriz severidad × prioridad. */
-export function matrizPrioridad(evaluaciones: EvaluacionFlujo[]) {
-  const problemas: ProblemaPriorizado[] = evaluacionesVigentes(evaluaciones).flatMap(e => aceptados(e)
-    .map(h => ({ id: h.id, titulo: h.titulo, evaluacion: nombreEvaluacion(e), severidad: h.severidad, prioridad: h.prioridad, zona: zona(h.severidad, h.prioridad) })));
-  const celda = (severidad: number, prioridad: string) => problemas.filter(p => p.severidad === severidad && p.prioridad === prioridad);
-  const orden = (p: ProblemaPriorizado) => p.severidad * 10 + (3 - PRIORIDADES.indexOf(p.prioridad));
-  return {
-    total: problemas.length,
-    filas: SEVERIDADES.map(severidad => ({ severidad, celdas: PRIORIDADES.map(prioridad => ({ prioridad, problemas: celda(severidad, prioridad), zona: zona(severidad, prioridad) })) })),
-    porZona: { ya: problemas.filter(p => p.zona === 'ya').length, planificar: problemas.filter(p => p.zona === 'planificar').length, vigilar: problemas.filter(p => p.zona === 'vigilar').length },
-    arreglarYa: problemas.filter(p => p.zona === 'ya').sort((a, b) => orden(b) - orden(a)),
-  };
-}
 
 /** Principios con más problemas acordados, con el nombre de la metodología usada. */
 export function principiosIncumplidos(evaluaciones: EvaluacionFlujo[], maximo = 5) {

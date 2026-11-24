@@ -138,20 +138,6 @@ export function getCardSortingSession(
 }
 
 /**
- * Estudio maestro ya existente para un proyecto (si lo hay). Permite
- * restaurar la pantalla del evaluador al recargar o volver a entrar,
- * sin depender solo del resultado en memoria de createSession.
- */
-export function getCardSortingSessionByProyecto(
-  proyectoId: string,
-): Promise<CardSortingSession | null> {
-  return request<CardSortingSession | null>(
-    `/card-sorting/sessions?proyectoId=${proyectoId}`,
-    { method: 'GET' },
-  );
-}
-
-/**
  * Todos los estudios maestros ya creados para un proyecto (no solo el
  * más reciente) — permite al evaluador tener varios estudios de Card
  * Sorting en paralelo para el mismo proyecto.

@@ -9,7 +9,6 @@ export const MAX_RECOMENDADAS = 40;
 export const MIN_CATEGORIAS_CERRADO = 2;
 export const MAX_PREGUNTAS = 5;
 export const MAX_PREGUNTA = 300;
-export const MAX_RESPUESTA = 1000;
 
 // Misma normalización que el backend: sin tildes ni mayúsculas.
 export function normalizarTexto(valor: string): string {

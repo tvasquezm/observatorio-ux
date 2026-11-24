@@ -44,6 +44,9 @@ export const envValidationSchema = Joi.object({
   CORS_ORIGIN: Joi.string().default('http://localhost:5173'),
   // Saltos de proxy de confianza (req.ip para throttling). 1 = un solo proxy.
   TRUST_PROXY_HOPS: Joi.number().integer().min(1).max(5).default(1),
+  // Límite global de peticiones por IP: THROTTLE_LIMIT cada THROTTLE_TTL_MS.
+  THROTTLE_LIMIT: Joi.number().integer().min(1).max(100000).default(60),
+  THROTTLE_TTL_MS: Joi.number().integer().min(1000).max(3600000).default(60000),
   // Solo para migraciones (prisma.config.ts): conexión directa, sin pooler.
   DIRECT_URL: Joi.string().allow('').optional(),
 });
