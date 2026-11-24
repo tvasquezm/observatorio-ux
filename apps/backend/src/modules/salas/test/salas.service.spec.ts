@@ -31,7 +31,8 @@ describe('SalasService', () => {
     };
     equipoMiembro: { findMany: jest.Mock };
     proyectoMiembro: { deleteMany: jest.Mock; createMany: jest.Mock };
-    uxArtifact: { deleteMany: jest.Mock };
+    uxArtifact: { deleteMany: jest.Mock; groupBy: jest.Mock };
+    evaluacionHeuristicaCompleta: { groupBy: jest.Mock };
     researchSession: { deleteMany: jest.Mock };
     category: { deleteMany: jest.Mock };
     card: { deleteMany: jest.Mock };
@@ -76,7 +77,8 @@ describe('SalasService', () => {
         deleteMany: jest.fn(),
         createMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
-      uxArtifact: { deleteMany: jest.fn() },
+      uxArtifact: { deleteMany: jest.fn(), groupBy: jest.fn().mockResolvedValue([]) },
+      evaluacionHeuristicaCompleta: { groupBy: jest.fn().mockResolvedValue([]) },
       researchSession: { deleteMany: jest.fn() },
       category: { deleteMany: jest.fn() },
       card: { deleteMany: jest.fn() },
@@ -479,4 +481,34 @@ describe('SalasService', () => {
     expect(prisma.sala.update).toHaveBeenCalledWith({ where: { id: 'sala-1' }, data: { limiteIntegrantesEquipo: null } });
   });
 
+  it('lista los proyectos de la sala con integrantes y última actividad, sin una consulta por proyecto', async () => {
+    prisma.sala.findUnique.mockResolvedValue({ id: 'sala-1', profesorId: docente.id, deletedAt: null });
+    prisma.proyecto.findMany.mockResolvedValue([
+      { id: 'p1', nombre: 'Portal', _count: { sesiones: 1, artefactos: 4, miembros: 3 } },
+      { id: 'p2', nombre: 'Biblioteca', _count: { sesiones: 0, artefactos: 0, miembros: 1 } },
+      { id: 'p3', nombre: 'Becas', _count: { sesiones: 0, artefactos: 2, miembros: 2 } },
+    ]);
+    prisma.uxArtifact.groupBy.mockResolvedValue([
+      { proyectoId: 'p1', _max: { createdAt: new Date('2026-11-10T10:00:00Z') } },
+      { proyectoId: 'p3', _max: { createdAt: new Date('2026-11-01T10:00:00Z') } },
+    ]);
+    prisma.evaluacionHeuristicaCompleta.groupBy.mockResolvedValue([
+      { proyectoId: 'p1', _max: { updatedAt: new Date('2026-11-12T10:00:00Z') } },
+      { proyectoId: 'p3', _max: { updatedAt: new Date('2026-10-01T10:00:00Z') } },
+    ]);
+    const lista = await service.listProyectos('sala-1', docente);
+    expect(prisma.proyecto.findMany.mock.calls[0][0].include._count.select).toEqual({ sesiones: true, artefactos: true, miembros: true });
+    expect(lista.map((p: { id: string; ultimaActividad: Date | null }) => [p.id, p.ultimaActividad?.toISOString() ?? null])).toEqual([
+      ['p1', '2026-11-12T10:00:00.000Z'], ['p2', null], ['p3', '2026-11-01T10:00:00.000Z'],
+    ]);
+    expect(prisma.uxArtifact.groupBy).toHaveBeenCalledTimes(1);
+    expect(prisma.evaluacionHeuristicaCompleta.groupBy).toHaveBeenCalledTimes(1);
+  });
+
+  it('una sala sin proyectos devuelve una lista vacía sin consultar actividad', async () => {
+    prisma.sala.findUnique.mockResolvedValue({ id: 'sala-1', profesorId: docente.id, deletedAt: null });
+    prisma.proyecto.findMany.mockResolvedValue([]);
+    expect(await service.listProyectos('sala-1', docente)).toEqual([]);
+    expect(prisma.uxArtifact.groupBy).not.toHaveBeenCalled();
+  });
 });

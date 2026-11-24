@@ -77,11 +77,10 @@ describe('ProfesorSalasPage — edición de sala', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: 'Editar sala Sala 4' }));
 
-    expect(screen.getByRole('link', { name: /administrar sala/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /ver proyectos/i })).toHaveAttribute(
       'href',
       '/salas/sala-1',
     );
-    expect(screen.queryByRole('link', { name: /entrar a la sala/i })).not.toBeInTheDocument();
 
     expect(screen.getByRole('heading', { name: 'Editar sala' })).toBeInTheDocument();
     expect(screen.getByLabelText('Nombre de la sala')).toHaveValue('Sala 4');
@@ -171,10 +170,9 @@ describe('ProfesorSalasPage — edición de sala', () => {
     expect(await screen.findByRole('heading', { name: 'Mis salas' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /crear sala/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /editar sala/i })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /entrar a la sala/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /ver proyectos/i })).toHaveAttribute(
       'href',
       '/salas/sala-1',
     );
-    expect(screen.queryByRole('link', { name: /administrar sala/i })).not.toBeInTheDocument();
   });
 });

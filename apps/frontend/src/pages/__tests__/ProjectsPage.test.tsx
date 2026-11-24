@@ -106,4 +106,16 @@ describe('ProjectsPage — creación centralizada', () => {
       expect.objectContaining({ onSuccess: expect.any(Function) }),
     );
   });
+
+  it('filtra por sala (también desde la URL) y muestra la sala de cada proyecto', async () => {
+    mocks.salas = [{ id: 's1', nombre: 'Taller UX A', profesor: { id: 'u1' }, permiteCreacionProyectos: true }, { id: 's2', nombre: 'Taller UX B', profesor: { id: 'u1' }, permiteCreacionProyectos: true }];
+    mocks.query.data = [{ id: 'p1', nombre: 'Portal', salaId: 's1' }, { id: 'p2', nombre: 'Biblioteca', salaId: 's2' }, { id: 'p3', nombre: 'Becas', salaId: 's2' }];
+    const { container } = render(<RouterProvider router={createMemoryRouter([{ path: '*', element: <ProjectsPage /> }], { initialEntries: ['/proyectos?sala=s2'] })} />);
+    const tarjetas = () => [...container.querySelectorAll('.project-card h3')].map(h => h.textContent);
+    expect(screen.getByRole('combobox', { name: 'Filtrar por sala' })).toHaveValue('s2');
+    expect(tarjetas()).toEqual(['Biblioteca', 'Becas']);
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Filtrar por sala' }), '');
+    expect(tarjetas()).toHaveLength(3);
+    expect(screen.getAllByText('Taller UX A')).not.toHaveLength(0);
+  });
 });

@@ -4,12 +4,20 @@ import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { ProjectDetailLayout } from './ProjectDetailLayout';
 
-const state = vi.hoisted(() => ({ role: 'ADMIN', owner: 'reviewer' }));
+const state = vi.hoisted(() => ({ role: 'ADMIN', owner: 'reviewer', salaId: null as string | null }));
 vi.mock('../features/auth/store/useAuthStore', () => ({
   useAuthStore: () => ({ user: { id: 'reviewer', rol: state.role }, perspectiveRole: state.role }),
 }));
 vi.mock('../features/projects/hooks/useProjectsQueries', () => ({
-  useProject: () => ({ data: { nombre: 'Proyecto UX', creadoPorId: state.owner } }),
+  useProject: () => ({ data: { nombre: 'Proyecto UX', creadoPorId: state.owner, salaId: state.salaId } }),
+  useProjects: () => ({ data: [
+    { id: 'p1', nombre: 'Proyecto UX', salaId: state.salaId },
+    { id: 'p2', nombre: 'Otro proyecto', salaId: state.salaId },
+    { id: 'p3', nombre: 'Proyecto de otra sala', salaId: 's9' },
+  ] }),
+}));
+vi.mock('../features/salas/hooks/useSalasQueries', () => ({
+  useSalas: () => ({ data: [{ id: 's1', nombre: 'Taller UX A' }, { id: 's9', nombre: 'Taller UX B' }] }),
 }));
 function mount(section = 'card-sorting/study/resultados') {
   const router = createMemoryRouter([{
@@ -19,13 +27,33 @@ function mount(section = 'card-sorting/study/resultados') {
   render(<RouterProvider router={router} />);
   return router;
 }
-beforeEach(() => { vi.unstubAllGlobals(); state.role = 'ADMIN'; state.owner = 'reviewer'; });
+beforeEach(() => { localStorage.clear(); vi.unstubAllGlobals(); state.role = 'ADMIN'; state.owner = 'reviewer'; state.salaId = null; });
 
 describe('Menú de secciones del proyecto', () => {
   it('muestra el estado de un proyecto sin ofrecer un vínculo a una sala', () => {
     mount();
     expect(screen.getByText('Sin sala', { exact: true })).toBeVisible();
     expect(screen.queryByRole('link', { name: 'Vincular a una sala' })).toBeNull();
+  });
+  it('muestra la sala del proyecto como enlace, en la ruta y en la cabecera', () => {
+    state.salaId = 's1';
+    mount();
+    const ruta = screen.getByRole('navigation', { name: 'Ubicación del proyecto' });
+    expect(within(ruta).getByRole('link', { name: 'Salas' })).toHaveAttribute('href', '/salas');
+    expect(within(ruta).getByRole('link', { name: 'Taller UX A' })).toHaveAttribute('href', '/salas/s1');
+    const header = screen.getByRole('heading', { name: 'Proyecto UX' }).closest('.page-head') as HTMLElement;
+    expect(within(header).getByRole('link', { name: 'Taller UX A' })).toHaveAttribute('href', '/salas/s1');
+  });
+  it('cambia de proyecto sin salir, en la misma sección y acotado a la sala', async () => {
+    state.salaId = 's1';
+    const router = mount('card-sorting');
+    // El layout enfoca el título al montar; se espera para que no le quite el foco al selector.
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Proyecto UX' })).toHaveFocus());
+    await userEvent.click(screen.getByRole('button', { name: 'Cambiar proyecto' }));
+    const lista = screen.getByRole('listbox', { name: 'Proyectos' });
+    expect(within(lista).getAllByRole('option').map(o => o.textContent)).toEqual(['Proyecto UX', 'Otro proyecto']);
+    await userEvent.click(within(lista).getByRole('option', { name: 'Otro proyecto' }));
+    expect(router.state.location.pathname).toBe('/proyectos/p2/card-sorting');
   });
   it('ofrece Miembros en la cabecera sin abrir el menú', () => {
     mount();

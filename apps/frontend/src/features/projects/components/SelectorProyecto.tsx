@@ -11,6 +11,10 @@ interface Props {
   activoId: string;
   onElegir: (id: string) => void;
   usuarioId: string;
+  /** Sala con la que arranca el filtro (p. ej. la del proyecto abierto); vacío = todas. */
+  salaInicial?: string;
+  /** Enfoca el campo al montarse (abre la lista). */
+  autoEnfocar?: boolean;
 }
 
 const SIN_SALA = '__sin-sala__';
@@ -22,21 +26,24 @@ function leerRecientes(usuarioId: string): string[] {
     return Array.isArray(valor) ? valor.filter((x): x is string => typeof x === 'string') : [];
   } catch { return []; }
 }
-function guardarReciente(usuarioId: string, id: string): string[] {
+/** Marca un proyecto como usado hace poco (los últimos 3 salen arriba en el selector). */
+export function guardarReciente(usuarioId: string, id: string): string[] {
   const nuevos = [id, ...leerRecientes(usuarioId).filter(x => x !== id)].slice(0, MAX_RECIENTES);
   try { localStorage.setItem(claveRecientes(usuarioId), JSON.stringify(nuevos)); } catch { /* sin almacenamiento */ }
   return nuevos;
 }
 const minusculas = (t: string) => t.toLocaleLowerCase('es');
 
-export function SelectorProyecto({ proyectos, salas, activoId, onElegir, usuarioId }: Props) {
-  const [salaFiltro, setSalaFiltro] = useState('');
+export function SelectorProyecto({ proyectos, salas, activoId, onElegir, usuarioId, salaInicial = '', autoEnfocar = false }: Props) {
+  const [salaFiltro, setSalaFiltro] = useState(salaInicial);
   const [abierto, setAbierto] = useState(false);
   const [consulta, setConsulta] = useState('');
   const [resaltado, setResaltado] = useState(0);
   const [recientes, setRecientes] = useState(() => leerRecientes(usuarioId));
   const id = useId();
   const caja = useRef<HTMLDivElement>(null);
+  const entrada = useRef<HTMLInputElement>(null);
+  useEffect(() => { if (autoEnfocar) entrada.current?.focus(); }, [autoEnfocar]);
 
   const nombreSala = (salaId?: string | null) => (salaId ? salas.find(s => s.id === salaId)?.nombre ?? 'Sala sin nombre' : 'Sin sala');
   const grupos = new Map<string, number>();
@@ -94,7 +101,7 @@ export function SelectorProyecto({ proyectos, salas, activoId, onElegir, usuario
         <div className="selector-entrada">
           <Icon name="search" />
           <input
-            id={`${id}-entrada`} type="text" role="combobox" autoComplete="off" spellCheck={false}
+            ref={entrada} id={`${id}-entrada`} type="text" role="combobox" autoComplete="off" spellCheck={false}
             aria-expanded={abierto} aria-controls={`${id}-lista`} aria-autocomplete="list"
             aria-activedescendant={abierto && items.length ? `${id}-op-${indice}` : undefined}
             placeholder="Busca o elige un proyecto…"
@@ -116,7 +123,7 @@ export function SelectorProyecto({ proyectos, salas, activoId, onElegir, usuario
                   className="selector-opcion" onMouseDown={e => e.preventDefault()} onClick={() => elegir(p.id)} onMouseMove={() => setResaltado(i)}
                 >
                   <span className="selector-nombre">{p.nombre}</span>
-                  {variasSalas && grupo !== nombreSala(p.salaId) && <small>{nombreSala(p.salaId)}</small>}
+                  {variasSalas && !salaFiltro && grupo !== nombreSala(p.salaId) && <small>{nombreSala(p.salaId)}</small>}
                 </div>
               </li>
             ))}

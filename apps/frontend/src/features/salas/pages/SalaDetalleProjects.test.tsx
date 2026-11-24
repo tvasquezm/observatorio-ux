@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -6,10 +6,11 @@ import { SalaDetallePage } from './SalaDetallePage';
 import { useAuthStore } from '../../auth/store/useAuthStore';
 
 const mocks = vi.hoisted(() => ({ create: vi.fn(), update: vi.fn(), reset: vi.fn(), error: null as Error | null, saved: false, pending: false, equipos: [] as unknown[], sala: { id: 's1', nombre: 'Sala de Ana', periodo: '2026', profesor: { id: 'u1' }, permiteCreacionProyectos: true, permiteCreacionEquipos: true, limiteIntegrantesEquipo: 4 as number | null } }));
+const lista = vi.hoisted(() => ({ proyectos: [] as unknown[] }));
 vi.mock('../../projects/hooks/useProjectsQueries', () => ({ useProjects: () => ({ data: [] }), useCreateProject: () => ({ mutate: mocks.create, isPending: false }) }));
 vi.mock('../hooks/useSalasQueries', () => ({
   useEstudiantes: () => ({ data: [] }), useAddEstudiante: () => ({ mutate: vi.fn() }), useAddEstudiantesBulk: () => ({ mutate: vi.fn() }), useRemoveEstudiante: () => ({ mutate: vi.fn() }),
-  useSala: () => ({ data: mocks.sala }), useProyectosDeSala: () => ({ data: [] }),
+  useSala: () => ({ data: mocks.sala }), useProyectosDeSala: () => ({ data: lista.proyectos }),
   useUpdateSala: () => ({ mutate: mocks.update, reset: mocks.reset, error: mocks.error, isSuccess: mocks.saved, isPending: mocks.pending }), useVincularProyecto: () => ({ mutate: vi.fn() }), useDesvincularProyecto: () => ({ mutate: vi.fn() }),
 }));
 vi.mock('../../equipos/hooks/useEquiposQueries', () => ({
@@ -22,10 +23,11 @@ beforeEach(() => {
   mocks.error = null; mocks.saved = false; mocks.pending = false; mocks.update.mockReset();
   mocks.sala.permiteCreacionProyectos = true; mocks.sala.limiteIntegrantesEquipo = 4; mocks.equipos = [];
   mocks.sala.profesor.id = 'u1';
+  lista.proyectos = [];
   useAuthStore.setState({ user: { id: 'u1', nombre: 'Ana', email: 'ana@utem.cl', rol: 'DOCENTE' }, perspectiveRole: 'DOCENTE' });
 });
 function mount() {
-  const router = createMemoryRouter([{ path: '/salas/:salaId', element: <SalaDetallePage /> }, { path: '/salas', element: <p>Mis salas</p> }], { initialEntries: ['/salas/s1'] });
+  const router = createMemoryRouter([{ path: '/salas/:salaId', element: <SalaDetallePage /> }, { path: '/salas', element: <p>Mis salas</p> }, { path: '/proyectos/:id', element: <p>Proyecto abierto</p> }], { initialEntries: ['/salas/s1'] });
   return { ...render(<RouterProvider router={router} />), router };
 }
 describe('creación de proyectos desde la sala', () => {
@@ -139,5 +141,71 @@ describe('borradores de estudiantes y equipos', () => {
     await userEvent.clear(screen.getByLabelText(/Límite de integrantes/));
     await userEvent.click(screen.getByRole('button', { name: 'Guardar configuración' }));
     expect(mocks.update).toHaveBeenCalledWith({ permiteCreacionEquipos: true, limiteIntegrantesEquipo: null }, expect.any(Object));
+  });
+});
+
+const proyecto = (i: number, extra: Record<string, unknown> = {}) => ({ id: 'p' + i, nombre: 'Proyecto ' + String(i).padStart(2, '0'), descripcion: null, _count: { sesiones: 0, artefactos: 0, miembros: 1 }, ultimaActividad: null, ...extra });
+const nombres = () => screen.getAllByRole('row').slice(1).map(r => r.querySelector('th a')?.textContent);
+
+describe('proyectos dentro de la sala', () => {
+  it('muestra primero una tabla compacta con indicadores y enlace a Proyectos filtrado; la gestión queda plegada', () => {
+    lista.proyectos = [
+      proyecto(1, { nombre: 'Portal', _count: { sesiones: 2, artefactos: 4, miembros: 3 }, ultimaActividad: '2026-11-12T15:00:00Z' }),
+      proyecto(2, { nombre: 'Biblioteca', descripcion: 'App' }),
+    ];
+    mount();
+    expect(screen.getByRole('heading', { name: /Proyectos de la sala/ })).toHaveTextContent('2');
+    expect(screen.getByRole('link', { name: 'Portal' })).toHaveAttribute('href', '/proyectos/p1');
+    const fila = screen.getByRole('link', { name: 'Portal' }).closest('tr')!;
+    expect([...fila.querySelectorAll('td')].map(td => td.textContent)).toEqual(['3', '2', '4', expect.stringMatching(/2026/)]);
+    expect(screen.getByText('Sin actividad')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Ver en Proyectos/ })).toHaveAttribute('href', '/proyectos?sala=s1');
+    expect(screen.getByText('Gestionar proyectos de la sala').closest('details')).not.toHaveAttribute('open');
+    expect(screen.queryByRole('searchbox')).toBeNull();
+  });
+  it('ordena por última actividad (lo vacío al final) y por cualquier columna al hacer clic', async () => {
+    lista.proyectos = [
+      proyecto(1, { nombre: 'Alfa', ultimaActividad: '2026-10-01T10:00:00Z', _count: { sesiones: 5, artefactos: 0, miembros: 1 } }),
+      proyecto(2, { nombre: 'Beta', ultimaActividad: '2026-11-01T10:00:00Z' }),
+      proyecto(3, { nombre: 'Gamma' }),
+    ];
+    mount();
+    expect(nombres()).toEqual(['Beta', 'Alfa', 'Gamma']);
+    const tabla = within(screen.getByRole('table'));
+    await userEvent.click(tabla.getByRole('button', { name: /^Proyecto/ }));
+    expect(nombres()).toEqual(['Alfa', 'Beta', 'Gamma']);
+    expect(tabla.getByRole('columnheader', { name: /^Proyecto/ })).toHaveAttribute('aria-sort', 'ascending');
+    await userEvent.click(tabla.getByRole('button', { name: /Sesiones/ }));
+    expect(nombres()).toEqual(['Alfa', 'Beta', 'Gamma']);
+    await userEvent.click(tabla.getByRole('button', { name: /Última actividad/ }));
+    await userEvent.click(tabla.getByRole('button', { name: /Última actividad/ }));
+    expect(nombres()).toEqual(['Alfa', 'Beta', 'Gamma']);
+  });
+  it('abre el proyecto al hacer clic en cualquier parte de la fila', async () => {
+    lista.proyectos = [proyecto(1, { nombre: 'Portal' })];
+    const { router } = mount();
+    await userEvent.click(screen.getByRole('link', { name: 'Portal' }).closest('tr')!.querySelectorAll('td')[1]);
+    await waitFor(() => expect(router.state.location.pathname).toBe('/proyectos/p1'));
+  });
+  it('con muchos proyectos busca dentro de la sala y pagina con «Mostrar más»', async () => {
+    lista.proyectos = Array.from({ length: 30 }, (_, i) => proyecto(i, i === 5 ? { nombre: 'Banco digital' } : {}));
+    mount();
+    expect(nombres()).toHaveLength(25);
+    expect(screen.getByText('Mostrando 25 de 30')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Mostrar 5 más' }));
+    expect(nombres()).toHaveLength(30);
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Buscar proyecto en esta sala' }), 'banco');
+    expect(nombres()).toEqual(['Banco digital']);
+    await userEvent.clear(screen.getByRole('searchbox'));
+    await userEvent.type(screen.getByRole('searchbox'), 'zzz');
+    expect(screen.getByText('Ningún proyecto coincide con la búsqueda.')).toBeInTheDocument();
+  });
+  it('Desvincular solo está en la gestión y pide confirmar', async () => {
+    lista.proyectos = [proyecto(1, { nombre: 'Portal' }), proyecto(2, { nombre: 'Biblioteca' })];
+    mount();
+    expect(screen.queryByRole('button', { name: 'Desvincular' })).toBeInTheDocument();
+    const gestion = screen.getByText('Gestionar proyectos de la sala').closest('details')!;
+    expect(gestion).toContainElement(screen.getByRole('button', { name: 'Desvincular' }));
+    expect(screen.getByRole('button', { name: 'Desvincular' })).toBeDisabled();
   });
 });

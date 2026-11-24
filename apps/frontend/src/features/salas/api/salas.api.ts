@@ -155,6 +155,9 @@ export interface ProyectoEnSala {
   creadoPorId: string;
   salaId: string | null;
   createdAt: string;
+  _count?: { sesiones: number; artefactos: number; miembros: number };
+  /** Cambio más reciente en artefactos o evaluaciones del proyecto (null si no hay). */
+  ultimaActividad?: string | null;
 }
 
 export function listProyectosDeSala(salaId: string): Promise<ProyectoEnSala[]> {

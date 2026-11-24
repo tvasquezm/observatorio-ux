@@ -304,11 +304,27 @@ export class SalasService {
   async listProyectos(salaId: string, user: AuthenticatedUser) {
     await this.assertCanViewSala(salaId, user);
 
-    return this.prisma.proyecto.findMany({
+    const proyectos = await this.prisma.proyecto.findMany({
       where: { salaId, deletedAt: null },
       orderBy: { createdAt: 'desc' },
-      include: { _count: { select: { sesiones: true, artefactos: true } } },
+      include: { _count: { select: { sesiones: true, artefactos: true, miembros: true } } },
     });
+    if (!proyectos.length) return [];
+
+    // Última actividad = el cambio más reciente en artefactos o evaluaciones heurísticas.
+    // Dos consultas agrupadas para toda la sala (no una por proyecto).
+    const ids = proyectos.map((p) => p.id);
+    const [artefactos, evaluaciones] = await Promise.all([
+      this.prisma.uxArtifact.groupBy({ by: ['proyectoId'], where: { proyectoId: { in: ids } }, _max: { createdAt: true } }),
+      this.prisma.evaluacionHeuristicaCompleta.groupBy({ by: ['proyectoId'], where: { proyectoId: { in: ids } }, _max: { updatedAt: true } }),
+    ]);
+    const ultima = new Map<string, Date>();
+    for (const fila of artefactos) if (fila._max.createdAt) ultima.set(fila.proyectoId, fila._max.createdAt);
+    for (const fila of evaluaciones) {
+      const fecha = fila._max.updatedAt;
+      if (fecha && (!ultima.has(fila.proyectoId) || fecha > ultima.get(fila.proyectoId)!)) ultima.set(fila.proyectoId, fecha);
+    }
+    return proyectos.map((p) => ({ ...p, ultimaActividad: ultima.get(p.id) ?? null }));
   }
 
   // ---------------------------------------------------------------
