@@ -35,6 +35,7 @@ import { TechniqueListHead, TechniqueEmpty } from '../shared/components/Techniqu
 import { Icon } from '../shared/components/ui/Icon';
 import { PasosTecnica, type PasoTecnica } from '../shared/components/PasosTecnica';
 import { TechniqueProcess, type ProcessStep } from '../shared/components/TechniqueProcess';
+import { Skeleton } from '../shared/components/ui/Skeleton';
 
 // Instrucciones aprobadas por el usuario (F2): 6 pasos, con la línea "En la
 // herramienta:" y la indicación de la tarjeta que podría ir en varios lugares.
@@ -424,7 +425,7 @@ export function CardSortingPage() {
           )}
 
           {loadingStudies ? (
-            <p className="text-muted-sm">Cargando card sorting…</p>
+            <Skeleton etiqueta="Cargando card sorting…" variante="lista" cantidad={2} />
           ) : studies.length === 0 ? (
             <TechniqueEmpty
               icono={<Icon name="card-sorting" size={28} />}

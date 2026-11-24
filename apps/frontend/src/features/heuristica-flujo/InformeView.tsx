@@ -14,6 +14,7 @@ import { fechaChile, participacionInforme, textoCumplimiento, textoEscala } from
 import { useFlujoDraft } from './useFlujoDraft';
 import { ResumenCriterios } from './ResumenCriterios';
 import { InformePdfDialog } from './InformePdfDialog';
+import { Skeleton } from '../../shared/components/ui/Skeleton';
 
 function Dato({ etiqueta, valor }: { etiqueta: string; valor: ReactNode }) {
   return <div><dt>{etiqueta}</dt><dd className="hx-dato">{valor || 'No indicado'}</dd></div>;
@@ -148,7 +149,7 @@ export function InformeView({ evaluacion, historial, usuarioId, onSaved, onBack 
     </section>
     {/* (9) Comparación con la versión anterior. */}
     {evaluacion.fase === 'FINALIZADA' && <section className="panel" id="inf-comparacion" aria-labelledby="inf-comparacion-t"><div className="panel-head"><h2 id="inf-comparacion-t">Comparación</h2></div><details><summary>Comparar con una revisión anterior</summary><Field label="Comparar con evaluación finalizada del mismo producto"><select value={previaId} onChange={async e => { const id = e.target.value; if (!leaveGuard.current || await leaveGuard.current()) setPreviaId(id); }}><option value="">Seleccionar evaluación anterior</option>{opciones.map(e => <option key={e.id} value={e.id}>{e.configuracion.nombre} · {e.configuracion.producto.version} · {new Date(e.finalizadoEn ?? e.updatedAt).toLocaleDateString()}</option>)}</select></Field>
-      {compare.isLoading && <p role="status">Comprobando compatibilidad…</p>}{compare.error && <p role="alert" className="hf-error">{compare.error.message}</p>}
+      {compare.isLoading && <Skeleton etiqueta="Comprobando compatibilidad…" variante="texto" cantidad={2} />}{compare.error && <p role="alert" className="hf-error">{compare.error.message}</p>}
       {compare.data && opciones.find(e => e.id === previaId) && <ComparacionEditor key={previaId} actual={evaluacion} anterior={opciones.find(e => e.id === previaId)!} comparacion={compare.data} usuarioId={usuarioId} onSaved={onSaved} registerGuard={guard => { leaveGuard.current = guard; }} />}</details></section>}
     {pdfOpen && <InformePdfDialog informe={informe} busy={busy} error={pdfError} onClose={() => setPdfOpen(false)} onGenerate={async partes => {
       setBusy(true);

@@ -13,6 +13,7 @@ import { useMembers, useAddMember, useRemoveMember } from '../features/projects/
 import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { useConfirm } from '../shared/api/confirm';
 import { useActivePerspective } from '../shared/auth/useActivePerspective';
+import { Skeleton } from '../shared/components/ui/Skeleton';
 
 export function ProjectMembersPage() {
   const { proyectoId } = useOutletContext<ProjectOutletContext>();
@@ -71,7 +72,7 @@ export function ProjectMembersPage() {
         </p>
       )}
 
-      {isLoading && <p>Cargando…</p>}
+      {isLoading && <Skeleton etiqueta="Cargando…" variante="lista" />}
       {isError && <p className="error-text">{(error as Error).message}</p>}
 
       <div className="list-stack">

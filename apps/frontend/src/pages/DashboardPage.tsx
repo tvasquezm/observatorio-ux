@@ -14,6 +14,7 @@ import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { Icon } from '../shared/components/ui/Icon';
 import { PanelContinuar } from '../features/analitica-proyecto/PanelContinuar';
 import { VideoTutorial } from '../shared/components/VideoTutorial';
+import { Skeleton } from '../shared/components/ui/Skeleton';
 
 const TECHNIQUES = [
   { to: 'personas', label: 'Personas', icon: 'personas', cls: 'c2' },
@@ -44,7 +45,13 @@ export function DashboardPage() {
   const mostrarFiltroSala = gruposSala.size > 1;
   const opcionesSala = [...gruposSala].map(id => ({ id, nombre: id === SIN_SALA ? 'Sin sala' : salas?.find(s => s.id === id)?.nombre ?? 'Sala sin nombre' }))
     .sort((a, b) => (a.id === SIN_SALA ? 1 : b.id === SIN_SALA ? -1 : a.nombre.localeCompare(b.nombre, 'es')));
-  const visibles = (proyectos ?? []).filter(p => !salaFiltro || (p.salaId ?? SIN_SALA) === salaFiltro);
+  const enSala = (id: string) => (proyectos ?? []).filter(p => !id || (p.salaId ?? SIN_SALA) === id);
+  const conteoSala = (id: string) => enSala(id).length;
+  const nombreSala = (id?: string | null) => opcionesSala.find(o => o.id === (id ?? SIN_SALA))?.nombre ?? 'Sin sala';
+  const visibles = enSala(salaFiltro);
+  const [busqueda, setBusqueda] = useState('');
+  const termino = busqueda.trim().toLocaleLowerCase('es');
+  const mostrados = termino ? visibles.filter(p => p.nombre.toLocaleLowerCase('es').includes(termino)) : visibles;
   const activo = visibles.find(p => p.id === selectedId) ?? (visibles.length === 1 ? visibles[0] : null);
   useEffect(() => {
     if (isLoading || isError || !proyectos) return;
@@ -71,13 +78,37 @@ export function DashboardPage() {
 
       <section className="panel active-project" aria-labelledby="paso-proyecto">
         <h2 id="paso-proyecto" className="step-title"><span className="step-num" aria-hidden="true">1</span> Proyecto</h2>
-        {isError ? <div role="alert"><p>No pudimos cargar tus proyectos. Comprueba tu conexión y vuelve a intentarlo.</p><button type="button" className="secondary" onClick={() => void refetch()}>Reintentar</button></div> : isLoading ? <p role="status">Cargando proyectos…</p> : total > 0 ? <>
-          <div className="step-project-row">
-            {mostrarFiltroSala && <div className="field field-sala"><label htmlFor="filtro-sala">Sala</label><select id="filtro-sala" value={salaFiltro} onChange={e => setSalaFiltro(e.target.value)}><option value="">Todas las salas</option>{opcionesSala.map(o => <option key={o.id} value={o.id}>{o.nombre}</option>)}</select></div>}
-            <div className="field"><label htmlFor="active-project">Proyecto activo</label><select id="active-project" value={activo?.id ?? ''} onChange={e => chooseProject(e.target.value)}><option value="">{visibles.length ? 'Selecciona un proyecto…' : 'No hay proyectos en esta sala'}</option>{visibles.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}</select></div>
+        {isError ? <div role="alert"><p>No pudimos cargar tus proyectos. Comprueba tu conexión y vuelve a intentarlo.</p><button type="button" className="secondary" onClick={() => void refetch()}>Reintentar</button></div> : isLoading ? <Skeleton etiqueta="Cargando proyectos…" variante="tarjetas" /> : total > 0 ? <>
+          {mostrarFiltroSala && (
+            <div className="inicio-salas" role="group" aria-label="Sala">
+              {[{ id: '', nombre: 'Todas las salas' }, ...opcionesSala].map(o => (
+                <button key={o.id || 'todas'} type="button" className="inicio-sala" aria-pressed={salaFiltro === o.id} onClick={() => setSalaFiltro(o.id)}>
+                  {o.nombre}{' '}<span className="inicio-sala-cuenta">{conteoSala(o.id)}<span className="sr-only"> proyecto{conteoSala(o.id) === 1 ? '' : 's'}</span></span>
+                </button>
+              ))}
+            </div>
+          )}
+          {(proyectos?.length ?? 0) > 6 && (
+            <label className="inicio-buscar">
+              <span className="sr-only">Buscar proyecto</span>
+              <Icon name="search" />
+              <input type="search" value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar proyecto…" />
+            </label>
+          )}
+          <div className="inicio-proyectos" role="radiogroup" aria-label="Proyecto activo">
+            {mostrados.map(p => (
+              <button key={p.id} type="button" role="radio" aria-checked={activo?.id === p.id} className="inicio-proyecto" onClick={() => chooseProject(activo?.id === p.id ? '' : p.id)}>
+                <strong>{p.nombre}</strong>
+                {mostrarFiltroSala && <small>{nombreSala(p.salaId)}</small>}
+                {p.descripcion && <span>{p.descripcion}</span>}
+              </button>
+            ))}
+            {mostrados.length === 0 && <p className="text-muted">{busqueda ? 'Ningún proyecto coincide con la búsqueda.' : 'No hay proyectos en esta sala.'}</p>}
+          </div>
+          <div className="inicio-proyectos-pie">
+            <p className="text-muted">{activo ? <>Trabajarás en <strong>{activo.nombre}</strong>.</> : 'Selecciona un proyecto para abrir sus técnicas.'}</p>
             <Link to="/proyectos" className="ghost">Todos los proyectos</Link>
           </div>
-          {!activo && <p className="text-muted">Selecciona un proyecto para abrir sus técnicas.</p>}
         </> : <><p>Todavía no tienes proyectos.</p><Link to="/proyectos" className="primary">Crear tu primer proyecto</Link></>}
       </section>
 
@@ -107,7 +138,7 @@ export function DashboardPage() {
               <h2>Salas en las que estás inscrito</h2>
             </div>
           </div>
-          {isLoadingSalas && <p>Cargando…</p>}
+          {isLoadingSalas && <Skeleton etiqueta="Cargando…" variante="lista" cantidad={2} />}
           {!isLoadingSalas && (salas?.length ?? 0) === 0 && (
             <p>No estás inscrito en ninguna sala todavía.</p>
           )}

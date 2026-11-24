@@ -17,6 +17,7 @@ import { SesionExpiradaError } from '../../../shared/api/api-client';
 import { notify } from '../../../shared/api/toast';
 import { CardSortingWorkspace } from '../../card-sorting/components/CardSortingWorkspace';
 import { resumeProject } from '../api/onboarding.api';
+import { Skeleton } from '../../../shared/components/ui/Skeleton';
 import {
   guardarSesionParticipante,
   leerSesionParticipante,
@@ -173,7 +174,7 @@ export function ParticipantCardSortingPage() {
         <section className="participant-card participant-state">
           <div className="participant-loader" aria-hidden="true" />
           <h1>Preparando el card sorting</h1>
-          <p>Cargando tarjetas y categorías…</p>
+          <Skeleton etiqueta="Cargando tarjetas y categorías…" variante="texto" cantidad={3} />
         </section>
       </main>
     );

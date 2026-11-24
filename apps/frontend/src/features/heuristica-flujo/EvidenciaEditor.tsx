@@ -12,6 +12,7 @@ import { normalizarTipoEvidencia, validarImagenEvidencia } from './evidencia-val
 import { FLECHAS, Marca, NumerosMarcas, Tiradores, ajustarConTeclado, avanzarGesto, iniciarGesto, puntoEnSvg, terminarGesto } from './anotaciones-interaccion';
 import { autoriaCaptura } from './flujo-utils';
 import type { Gesto } from './anotaciones-interaccion';
+import { Skeleton } from '../../shared/components/ui/Skeleton';
 
 interface Props {
   proyectoId: string; evaluacionId: string; evidenciaIds: string[]; editable: boolean;
@@ -239,7 +240,7 @@ function Captura({ id, onPendingChange, ...props }: Omit<Props, 'evidenciaIds' |
   const userId = useAuthStore(s => s.user?.id);
   const q = useQuery({ queryKey: ['flujo-evidencia', props.proyectoId, props.evaluacionId, id, userId], queryFn: () => cargarEvidencia(props.proyectoId, props.evaluacionId, id), retry: false });
   if (q.isError) return <p role="alert">No se pudo cargar esta evidencia. <button type="button" className="text-button" onClick={() => void q.refetch()}>Reintentar captura</button></p>;
-  if (!q.data) return <p role="status">Cargando captura…</p>;
+  if (!q.data) return <Skeleton etiqueta="Cargando captura…" cantidad={6} />;
   return <Lienzo key={`${id}:${userId}`} {...props} meta={q.data.meta} blob={q.data.blob} onPendingChange={onPendingChange} />;
 }
 

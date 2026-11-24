@@ -7,6 +7,7 @@ import { resolvePerspective } from '../../../shared/auth/perspectivas';
 import { useConfirm } from '../../../shared/api/confirm';
 import { useUnsavedChanges } from '../../../shared/hooks/useUnsavedChanges';
 import { SalaFormDialog } from '../components/SalaFormDialog';
+import { Skeleton } from '../../../shared/components/ui/Skeleton';
 
 export const ProfesorSalasPage: React.FC = () => {
   const { user, perspectiveRole } = useAuthStore();
@@ -150,7 +151,7 @@ export const ProfesorSalasPage: React.FC = () => {
           <button type="button" className="secondary" onClick={cargarSalas}>Reintentar</button>
         </div>
       ) : loading ? (
-        <div className="loading-block" aria-label="Cargando salas" />
+        <Skeleton etiqueta="Cargando salas" variante="tarjetas" />
       ) : salasFiltradas.length > 0 ? (
         <div className="salas-list">
           {salasFiltradas.map((sala) => {

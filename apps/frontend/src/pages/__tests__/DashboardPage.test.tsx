@@ -63,7 +63,7 @@ describe('Inicio en dos pasos', () => {
   it('con un proyecto elegido, las cinco técnicas abren dentro de él y existe el enlace a todos los proyectos', async () => {
     mocks.useProjects.mockReturnValue({ isLoading: false, data: [proyecto] });
     montar();
-    expect(screen.getByLabelText('Proyecto activo')).toHaveValue('p1');
+    expect(screen.getByRole('radio', { name: /^Proyecto Uno/ })).toBeChecked();
     const tecnicas = screen.getByRole('region', { name: 'Técnica' });
     const tarjetas = within(tecnicas).getAllByRole('link');
     expect(tarjetas).toHaveLength(5);
@@ -80,17 +80,17 @@ describe('Inicio en dos pasos', () => {
 
   it('conserva el proyecto elegido al volver a Inicio y lo limpia si deja de estar disponible', async () => {
     const primero = montar();
-    await userEvent.selectOptions(screen.getByLabelText('Proyecto activo'), 'p2');
+    await userEvent.click(screen.getByRole('radio', { name: /^Proyecto Dos/ }));
     expect(screen.getByRole('link', { name: /^Personas/ })).toHaveAttribute('href', '/proyectos/p2/personas');
     primero.unmount();
     montar();
-    expect(screen.getByLabelText('Proyecto activo')).toHaveValue('p2');
+    expect(screen.getByRole('radio', { name: /^Proyecto Dos/ })).toBeChecked();
   });
 
   it('pide elegir un proyecto cuando hay varios y ninguno está seleccionado', () => {
     sessionStorage.setItem('observatorio-ux-project:u1', 'removed');
     montar();
-    expect(screen.getByLabelText('Proyecto activo')).toHaveValue('');
+    expect(screen.queryByRole('radio', { checked: true })).toBeNull();
     expect(screen.getByText('Selecciona un proyecto para abrir sus técnicas.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /^Personas/ })).toHaveAttribute('href', '/proyectos');
   });
@@ -135,7 +135,7 @@ function nombreTecnica(id: string) {
 describe('Filtro por sala', () => {
   it('no aparece si todos los proyectos están en la misma sala', () => {
     montar();
-    expect(screen.queryByLabelText('Sala')).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Sala' })).not.toBeInTheDocument();
   });
 
   it('filtra los proyectos del selector según la sala elegida', async () => {
@@ -146,13 +146,22 @@ describe('Filtro por sala', () => {
       { ...proyecto, id: 'p3', nombre: 'Proyecto Tres', salaId: null },
     ] });
     montar();
-    const sala = screen.getByLabelText('Sala');
-    expect(within(sala).getAllByRole('option').map(o => o.textContent)).toEqual(['Todas las salas', 'Taller UX A', 'Taller UX B', 'Sin sala']);
-    const proyectos = () => within(screen.getByLabelText('Proyecto activo')).getAllByRole('option').map(o => o.textContent);
-    expect(proyectos()).toHaveLength(4);
-    await userEvent.selectOptions(sala, 's2');
-    expect(proyectos()).toEqual(['Selecciona un proyecto…', 'Proyecto Dos']);
-    await userEvent.selectOptions(sala, '__sin-sala__');
-    expect(proyectos()).toEqual(['Selecciona un proyecto…', 'Proyecto Tres']);
+    const sala = screen.getByRole('group', { name: 'Sala' });
+    expect(within(sala).getAllByRole('button').map(b => b.textContent)).toEqual(['Todas las salas 3 proyectos', 'Taller UX A 1 proyecto', 'Taller UX B 1 proyecto', 'Sin sala 1 proyecto']);
+    expect(within(sala).getByRole('button', { name: /^Todas las salas/ })).toHaveAttribute('aria-pressed', 'true');
+    const proyectos = () => within(screen.getByRole('radiogroup', { name: 'Proyecto activo' })).getAllByRole('radio').map(o => o.querySelector('strong')?.textContent);
+    expect(proyectos()).toHaveLength(3);
+    await userEvent.click(within(sala).getByRole('button', { name: /^Taller UX B/ }));
+    expect(proyectos()).toEqual(['Proyecto Dos']);
+    await userEvent.click(within(sala).getByRole('button', { name: /^Sin sala/ }));
+    expect(proyectos()).toEqual(['Proyecto Tres']);
+  });
+
+  it('busca proyectos por nombre cuando hay más de seis', async () => {
+    mocks.useProjects.mockReturnValue({ isLoading: false, data: Array.from({ length: 7 }, (_, i) => ({ ...proyecto, id: 'p' + i, nombre: i === 3 ? 'Banco digital' : 'Proyecto ' + i })) });
+    montar();
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Buscar proyecto' }), 'banco');
+    expect(screen.getAllByRole('radio')).toHaveLength(1);
+    expect(screen.getByRole('radio', { name: /^Banco digital/ })).toBeInTheDocument();
   });
 });

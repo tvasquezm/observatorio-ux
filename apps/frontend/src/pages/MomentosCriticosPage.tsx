@@ -42,6 +42,7 @@ import {
 } from '../features/momentos-criticos/components/MomentosVisual';
 import { prioridad, procesoMomentos } from '../features/momentos-criticos/momentos-visual';
 import { ComentariosTecnica } from '../features/comments/components/ComentariosTecnica';
+import { Skeleton } from '../shared/components/ui/Skeleton';
 
 const incidenteVacio = (): IncidenteCritico => ({
   nombre: '',
@@ -524,7 +525,7 @@ export function MomentosCriticosPage() {
       }
       lista={
         <>
-          {isLoading && <p role="status">Cargando momentos críticos…</p>}
+          {isLoading && <Skeleton etiqueta="Cargando momentos críticos…" variante="lista" />}
           {error && (
             <p role="alert" className="error-text">
               {isListError ? 'No se pudieron cargar los momentos críticos. ' : ''}

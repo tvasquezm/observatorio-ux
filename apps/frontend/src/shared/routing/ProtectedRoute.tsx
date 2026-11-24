@@ -24,6 +24,10 @@ function ConectandoServidor() {
   }, []);
   return (
     <div className="route-loading route-loading--pantalla" role="status" aria-live="polite">
+      <div className="skeleton skeleton-pantalla" aria-hidden="true">
+        <span className="skeleton-forma skeleton-titulo" />
+        <div className="skeleton-tarjetas">{[0, 1, 2].map(i => <div key={i} className="skeleton-tarjeta"><span className="skeleton-forma skeleton-linea" style={{ width: '60%' }} /><span className="skeleton-forma skeleton-linea" style={{ width: '90%' }} /></div>)}</div>
+      </div>
       <p>
         {lento
           ? 'El servidor se está iniciando. Puede tardar hasta un minuto…'

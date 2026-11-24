@@ -97,7 +97,9 @@ function tablero(fases: FasePdf[], desde: number): Content {
   const fila = (titulo: TableCell, celdas: TableCell[]): TableCell[] => [titulo, ...celdas];
   return {
     table: {
-      headerRows: 1, dontBreakRows: true, widths: [etiqueta, ...fases.map(() => anchoFase)], body: [
+      // Filas enteras salvo que alguna celda sea tan larga que la fila no quepa en una hoja
+      // (pdfmake la cortaría): entonces la fila puede seguir en la hoja siguiente.
+      headerRows: 1, dontBreakRows: fases.every(f => CARRILES.every(({ campo }) => lista(f[campo]).length < 600)), widths: [etiqueta, ...fases.map(() => anchoFase)], body: [
         fila(rotulo('Fase', INK, '#ffffff'), fases.map((f, i) => ({ text: `${desde + i + 1}. ${f.nombre}`, bold: true, fontSize: 10, color: '#ffffff', fillColor: INK }))),
         [{ stack: [{ text: 'Emoción', bold: true, fontSize: 8.5 }, { text: 'Arriba: positiva\nAbajo: negativa', fontSize: 7, color: MUTED, margin: [0, 2, 0, 0] }], fillColor: '#ffffff' },
           { colSpan: n, svg: svgCurvaColumnas(fases.map(f => f.emocion), anchoCurva), width: anchoCurva } as TableCell, ...Array.from({ length: n - 1 }, () => ({}) as TableCell)],

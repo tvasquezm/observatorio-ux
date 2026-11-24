@@ -22,6 +22,7 @@ import { useFlujoDraft } from './useFlujoDraft';
 import { flujoRequest } from './flujo.api';
 import { claveDeNombre, faltantesParaIniciar, guardarSesion, leerSesion } from './flujo-utils';
 import { procesoHeuristica } from './heuristica-visual';
+import { Skeleton } from '../../shared/components/ui/Skeleton';
 
 function nuevaConfiguracion(m: MetodologiaFlujo, usuarioId: string): ConfiguracionFlujo {
   return { nombre: '', producto: { clave: '', nombre: '', version: '', url: '', dispositivo: '' }, objetivo: '', tareas: '', pantallas: '', exclusiones: '', metodologia: copiarMetodologia(m), evaluadorIds: [usuarioId], lectorIds: [] };
@@ -111,7 +112,7 @@ export function FlujoHeuristicaPage() {
   const etapaPendiente = { BORRADOR: 'por preparar', EN_EVALUACION: 'en revisión', PENDIENTE_CONSENSO: 'en acuerdo del equipo', CONSOLIDADA: 'con informe por finalizar', FINALIZADA: 'terminada' } as const;
   const back = () => setSelected(null);
   let content;
-  if (selected && active.isLoading) content = <p role="status">Cargando evaluación…</p>;
+  if (selected && active.isLoading) content = <Skeleton etiqueta="Cargando evaluación…" cantidad={5} />;
   else if (selected && active.error) content = <><button type="button" className="secondary hf-volver" onClick={back}><span aria-hidden="true">←</span> Volver</button><p role="alert" className="hf-error">{active.error.message}</p><button type="button" className="secondary" onClick={() => void active.refetch()}>Reintentar</button></>;
   else if (evaluacion && selected) {
     const common = { evaluacion, usuarioId, onSaved: saved, onBack: back };
@@ -122,7 +123,7 @@ export function FlujoHeuristicaPage() {
   } else content = null;
   const avisos = <>
     {[history.error, library.error, team.error].filter(Boolean).map((e, i) => <p role="alert" className="hf-error" key={i}>{e?.message}</p>)}
-    {(library.isLoading || team.isLoading) && <p role="status">Cargando preguntas y personas…</p>}
+    {(library.isLoading || team.isLoading) && <Skeleton etiqueta="Cargando preguntas y personas…" variante="lista" cantidad={2} />}
   </>;
   const revisiones = (history.data ?? []).filter(e => `${e.configuracion.producto.nombre} ${e.configuracion.nombre}`.toLocaleLowerCase().includes(producto.toLocaleLowerCase()));
   const etapa = { BORRADOR: 'Por preparar', EN_EVALUACION: 'En revisión', PENDIENTE_CONSENSO: 'Acuerdo del equipo', CONSOLIDADA: 'Informe preparado', FINALIZADA: 'Terminada' } as const;

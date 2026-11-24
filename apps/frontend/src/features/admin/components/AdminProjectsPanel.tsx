@@ -9,6 +9,7 @@ import {
 import type { AdminProjectOverview } from '../../projects/api/projects.api';
 import { useConfirm } from '../../../shared/api/confirm';
 import { useDiscardChanges } from '../../../shared/hooks/useDiscardChanges';
+import { Skeleton } from '../../../shared/components/ui/Skeleton';
 
 function ProjectProgress({ project }: { project: AdminProjectOverview }) {
   const total = project.sesiones.length;
@@ -125,7 +126,7 @@ export function AdminProjectsPanel() {
         </form>
       )}
 
-      {isLoading && <div className="loading-block" aria-label="Cargando proyectos" />}
+      {isLoading && <Skeleton etiqueta="Cargando proyectos" variante="lista" />}
       {isError && (
         <div className="inline-state inline-state--error" role="alert">
           <p>{error instanceof Error ? error.message : 'No se pudieron cargar los proyectos.'}</p>

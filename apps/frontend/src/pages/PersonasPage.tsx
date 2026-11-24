@@ -34,6 +34,7 @@ import { PersonaCard } from '../features/persona/components/PersonaCard';
 import { ETIQUETAS_CAMPOS, procesoPersona } from '../features/persona/persona-visual';
 import { ComentariosTecnica } from '../features/comments/components/ComentariosTecnica';
 import { comprimirImagen } from '../shared/utils/comprimir-imagen';
+import { Skeleton } from '../shared/components/ui/Skeleton';
 
 const CAMPOS_LISTA: (keyof PersonaContenido)[] = [
   'hobbies',
@@ -401,7 +402,7 @@ export function PersonasPage() {
         </form>
       )}
       lista={<>
-      {isLoading && <p role="status">Cargando perfiles…</p>}
+      {isLoading && <Skeleton etiqueta="Cargando perfiles…" variante="tarjetas" />}
       {error && <p className="inline-state inline-state--error" role="alert">
         {isListError ? 'No se pudo cargar las personas. ' : ''}{(error as Error).message}
       </p>}

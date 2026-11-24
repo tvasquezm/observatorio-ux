@@ -39,6 +39,7 @@ import { useUnsavedChanges } from '../../../shared/hooks/useUnsavedChanges';
 import { useDiscardChanges } from '../../../shared/hooks/useDiscardChanges';
 import { useAuthStore } from '../../auth/store/useAuthStore';
 import { resolvePerspective } from '../../../shared/auth/perspectivas';
+import { Skeleton } from '../../../shared/components/ui/Skeleton';
 
 type DirtyNotice = (dirty: boolean) => void;
 function useDirtyNotice(dirty: boolean, onDirtyChange: DirtyNotice) {
@@ -83,7 +84,7 @@ export function SalaDetallePage() {
     <div className="sala-detail-page">
       <Link to="/salas" className="sala-back-link">← Volver a mis salas</Link>
 
-      {isLoading && <p className="text-muted">Cargando sala…</p>}
+      {isLoading && <Skeleton etiqueta="Cargando sala…" />}
       {isError && (
         <div className="panel sala-access-error" role="alert">
           <h1>{error instanceof SalasApiError && error.status === 403 ? 'No tienes acceso a esta sala' : 'No se pudo abrir la sala'}</h1>
@@ -224,7 +225,7 @@ function ProyectosDeSalaLectura({ salaId }: { salaId: string }) {
       </div>
       <p className="text-muted-sm">Puedes consultar los proyectos asignados por tu docente. La gestión de la sala es solo de lectura para estudiantes.</p>
 
-      {isLoading && <p>Cargando proyectos…</p>}
+      {isLoading && <Skeleton etiqueta="Cargando proyectos…" variante="lista" />}
       {isError && (
         <div className="error-text" role="alert">
           <p>{(error as Error).message}</p>
@@ -327,7 +328,7 @@ function ProyectosDeSala({ salaId, sala, actualizacionPermiso }: { salaId: strin
         )}
       </div>
 
-      {isLoading && <p>Cargando proyectos…</p>}
+      {isLoading && <Skeleton etiqueta="Cargando proyectos…" variante="lista" />}
       {isError && (
         <div className="error-text" role="alert">
           <p>{(error as Error).message}</p>
@@ -472,7 +473,7 @@ function EstudiantesDeSala({ salaId, onDirtyChange }: { salaId: string; onDirtyC
         </form>
       )}
 
-      {isLoading && <p>Cargando…</p>}
+      {isLoading && <Skeleton etiqueta="Cargando…" variante="lista" />}
       {isError && (
         <div className="error-text" role="alert">
           <p>{(error as Error).message}</p>
@@ -637,7 +638,7 @@ function EquiposDeSalaDocente({ salaId, sala, onDirtyChange }: { salaId: string;
         </button>
       </form>
 
-      {isLoading && <p>Cargando equipos…</p>}
+      {isLoading && <Skeleton etiqueta="Cargando equipos…" variante="lista" />}
       {isError && (
         <div className="error-text" role="alert">
           <p>{(error as Error).message}</p>
@@ -789,7 +790,7 @@ function EquiposDeSalaEstudiante({ salaId, sala, onDirtyChange }: { salaId: stri
         <p className="text-muted-sm">Tu docente todavía no habilitó la creación de equipos por estudiantes.</p>
       )}
 
-      {isLoading && <p>Cargando equipos…</p>}
+      {isLoading && <Skeleton etiqueta="Cargando equipos…" variante="lista" />}
       {isError && (
         <div className="error-text" role="alert">
           <p>{(error as Error).message}</p>

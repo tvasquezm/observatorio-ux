@@ -1,4 +1,9 @@
 .google-sign-in { display: grid; gap: 10px; margin: 18px 0; padding-top: 18px; border-top: 1px solid var(--line); }
-.google-sign-in > div { min-height: 44px; }
+/* Botón de Google: Google pinta su marcado (con el logo en SVG) antes de que cargue su hoja
+   de estilos; sin límites el logo aparece gigante un instante. Se reserva el alto del botón,
+   se recorta lo que sobre y el logo no pasa de 18 px. */
+.google-sign-in-boton { display: flex; justify-content: center; height: 44px; overflow: hidden; }
+.google-sign-in-boton svg, .google-sign-in-boton img { max-width: 18px; max-height: 18px; }
+.google-sign-in-boton iframe { max-width: 100%; }
 .google-sign-in p { margin: 0; color: var(--muted); font-size: 0.75rem; line-height: 1.5; }
 .google-sign-in [role='alert'] { color: var(--danger-text); }

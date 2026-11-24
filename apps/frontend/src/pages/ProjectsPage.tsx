@@ -12,6 +12,7 @@ import { useActivePerspective } from '../shared/auth/useActivePerspective';
 import { ProjectCreateForm } from '../features/projects/components/ProjectCreateForm';
 import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { useUnsavedChanges } from '../shared/hooks/useUnsavedChanges';
+import { Skeleton } from '../shared/components/ui/Skeleton';
 
 export function ProjectsPage() {
   const { data: proyectos, isLoading, isError, refetch } = useProjects();
@@ -134,7 +135,7 @@ export function ProjectsPage() {
 
       <div className="toolbar"><div><h2>Todos tus proyectos</h2><span className="muted">Selecciona uno para ver sus técnicas.</span></div><div><label className="sr-only" htmlFor="buscar-proyecto">Buscar proyecto</label><input id="buscar-proyecto" className="search-input" value={busqueda} onChange={(e) => { const next = new URLSearchParams(searchParams); if (e.target.value) next.set('q', e.target.value); else next.delete('q'); setSearchParams(next, { replace: true }); }} placeholder="Buscar proyecto…" /></div></div>
 
-      {isLoading && <div className="panel" role="status"><p>Cargando proyectos…</p></div>}
+      {isLoading && <Skeleton etiqueta="Cargando proyectos…" variante="tarjetas" cantidad={6} />}
       {isError && <div className="inline-state inline-state--error" role="alert"><p>No pudimos cargar tus proyectos. Comprueba tu conexión y vuelve a intentarlo.</p><button type="button" className="secondary" onClick={() => void refetch()}>Reintentar</button></div>}
 
       <div className="project-grid">

@@ -13,22 +13,8 @@ import { usePersonas } from '../features/persona/hooks/usePersonaQueries';
 import { useJourneys } from '../features/journey-map/hooks/useJourneyMapQueries';
 import { useCriticalMoments } from '../features/momentos-criticos/hooks/useMomentosCriticosQueries';
 import { useCardSortingEstudiosByProyecto } from '../features/card-sorting/hooks/useCardSortingQueries';
-import { PanelCalidadHeuristica, PanelPrioridad, PanelTecnicas, useEvaluacionesProyecto } from '../features/analitica-proyecto/AnaliticaDecision';
-
-const SEVERIDAD_LABEL: Record<number, string> = {
-  0: 'No es un problema',
-  1: 'Cosmético',
-  2: 'Menor',
-  3: 'Mayor',
-  4: 'Catastrófico',
-};
-const SEVERIDAD_CLASS: Record<number, string> = {
-  0: 'sev-cosmetic',
-  1: 'sev-cosmetic',
-  2: 'sev-minor',
-  3: 'sev-major',
-  4: 'sev-critical',
-};
+import { PanelTecnicas, useEvaluacionesProyecto } from '../features/analitica-proyecto/AnaliticaDecision';
+import { Skeleton } from '../shared/components/ui/Skeleton';
 
 export function AnalyticsPage() {
   const { proyectoId } = useOutletContext<ProjectOutletContext>();
@@ -50,7 +36,6 @@ export function AnalyticsPage() {
     { label: 'Evaluación heurística', count: data?.sesionesTotal ?? 0 },
   ];
   const methodsWithEvidence = evidence.filter((item) => item.count > 0).length;
-  const maxEvidenceCount = Math.max(1, ...evidence.map((item) => item.count));
   const participantResponses = cardSortingQuery.data?.reduce(
     (total, study) => total + (study.respuestasCount ?? 0),
     0,
@@ -66,7 +51,7 @@ export function AnalyticsPage() {
         </div>
       </div>
 
-      {isLoadingAll && <p role="status">Calculando evidencia del proyecto…</p>}
+      {isLoadingAll && <Skeleton etiqueta="Calculando evidencia del proyecto…" variante="tarjetas" cantidad={4} />}
       {aggregateError && <p className="error-text" role="alert">{(aggregateError as Error).message}</p>}
 
       {data && !isLoadingAll && !aggregateError && (
@@ -97,51 +82,6 @@ export function AnalyticsPage() {
             personas: personasQuery.data ?? [], journeys: journeysQuery.data ?? [], momentos: momentsQuery.data ?? [],
             estudios: cardSortingQuery.data ?? [], evaluaciones,
           }} />
-          <div className="analitica-decision">
-            <PanelPrioridad evaluaciones={evaluaciones} />
-            <PanelCalidadHeuristica evaluaciones={evaluaciones} />
-          </div>
-
-          <article className="panel analytics-coverage">
-            <div className="panel-head">
-              <div><span className="kicker">COBERTURA</span><h3>Evidencia por método</h3></div>
-              <span className="count">{methodsWithEvidence} de 5 activos</span>
-            </div>
-            {evidence.map((item) => (
-              <div className="coverage-row" key={item.label}>
-                <span>{item.label}</span>
-                <div aria-hidden="true"><i style={{ width: `${item.count / maxEvidenceCount * 100}%` }} /></div>
-                <strong>{item.count}</strong>
-              </div>
-            ))}
-          </article>
-
-          <article className="panel">
-            <div className="panel-head">
-              <div>
-                <span className="kicker">HALLAZGOS</span>
-                <h3>Distribución por severidad</h3>
-              </div>
-              <span className="count">{data.hallazgosTotal} en total</span>
-            </div>
-            {data.porSeveridad
-              .slice()
-              .reverse()
-              .map((s) => (
-                <div key={s.severidad} className={`severity-row ${SEVERIDAD_CLASS[s.severidad]}`}>
-                  <header>
-                    <b>Nivel {s.severidad} · {SEVERIDAD_LABEL[s.severidad]}</b>
-                    <span>{s.porcentaje}% ({s.count})</span>
-                  </header>
-                  <span><i style={{ width: `${s.porcentaje}%` }} /></span>
-                </div>
-              ))}
-            {data.hallazgosTotal === 0 && (
-              <p className="text-muted-sm">
-                Todavía no hay hallazgos registrados en este proyecto.
-              </p>
-            )}
-          </article>
         </>
       )}
     </div>

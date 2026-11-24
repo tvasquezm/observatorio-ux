@@ -100,7 +100,11 @@ export function dendrogramaPdf(tarjetas: string[], similitud: number[][], anchoU
   const orden = raiz.tarjetas;
   const etiquetaW = 150;
   const graficoW = anchoUtil - etiquetaW - 8;
-  const fila = Math.max(7, Math.min(16, Math.floor((altoUtil - 40) / orden.length)));
+  // Bajo 7 pt por fila no se lee y el árbol no cabe entero en la hoja: se remite al CSV.
+  if (orden.length > Math.floor((altoUtil - 40) / 7)) {
+    return [{ text: `Este dendrograma tiene ${orden.length} tarjetas y no cabe legible en una hoja. Revísalo en la aplicación o descarga la matriz de similitud como CSV.`, margin: [0, 0, 0, 8] }];
+  }
+  const fila = Math.min(16, Math.floor((altoUtil - 40) / orden.length));
   const fuente = Math.min(8, fila - 2.5);
   const alto = orden.length * fila;
   const yHoja = new Map(orden.map((t, k) => [t, k * fila + fila / 2]));
