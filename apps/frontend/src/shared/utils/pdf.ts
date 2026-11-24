@@ -45,43 +45,39 @@ const VISTAS_CARD_SORTING: Array<[string, Parameters<typeof tablaDeVista>[0]]> =
 ];
 
 /**
- * Vistas de resultados elegidas, con sus gráficos. Las matrices anchas van en página apaisada;
- * `orientacion` lleva la página actual para saltar solo cuando cambia.
+ * Vistas de resultados elegidas, con sus gráficos. Todo el informe va apaisado, así que
+ * las matrices anchas caben sin cambiar de orientación; los gráficos (mapa de calor y
+ * dendrograma) abren hoja propia para verse completos.
  */
-function detalleCardSorting(analytics: Parameters<typeof tablaDeVista>[1], incluye: (parte: string) => boolean, orientacion: { actual: 'portrait' | 'landscape' }): Content[] {
-  return VISTAS_CARD_SORTING.filter(([parte]) => incluye(parte)).flatMap(([, vista]) => {
+function detalleCardSorting(analytics: Parameters<typeof tablaDeVista>[1], incluye: (parte: string) => boolean): Content[] {
+  return VISTAS_CARD_SORTING.filter(([parte]) => incluye(parte)).flatMap(([, vista], index) => {
     const tabla = tablaDeVista(vista, analytics);
     const sinConsenso = vista === 'cards' ? tablaSinConsenso(analytics) : null;
-    const pagina = tabla.ancha ? 'landscape' : 'portrait';
-    const salto = pagina !== orientacion.actual;
-    orientacion.actual = pagina;
+    const hojaPropia = index > 0 && !!tabla.grafico;
     return [
-      { stack: [title(tabla.titulo)], ...(salto ? { pageBreak: 'before' as const, pageOrientation: pagina } : {}) },
+      { stack: [title(tabla.titulo)], ...(hojaPropia ? { pageBreak: 'before' as const } : {}) },
       paragraph(tabla.descripcion),
-      ...cuerpoVista(tabla),
-      ...(sinConsenso ? [title(sinConsenso.titulo), paragraph(sinConsenso.descripcion), ...cuerpoVista(sinConsenso)] : []),
+      ...cuerpoVista(tabla, true),
+      ...(sinConsenso ? [title(sinConsenso.titulo), paragraph(sinConsenso.descripcion), ...cuerpoVista(sinConsenso, true)] : []),
     ];
   });
 }
+
+/** Ancho útil de la hoja apaisada (A4 horizontal menos márgenes laterales). */
+const ANCHO_UTIL = 842 - 108;
 
 function sections(report: ReportConImagenes): Record<ReportMethod, Content[]> {
   /** Captura con su pie: quién la subió y anotó, y cuándo. */
   const capturaConPie = (evaluacionId: string, id: string): Content => {
     const pie = report.piesCapturas?.[claveCaptura(evaluacionId, id)];
-    return { stack: [{ image: claveCaptura(evaluacionId, id), fit: [440, 300], margin: [0, 4, 0, pie ? 2 : 8] }, ...(pie ? [{ text: pie, fontSize: 8, color: MUTED, margin: [0, 0, 0, 8] } as Content] : [])], unbreakable: true };
+    return { stack: [{ image: claveCaptura(evaluacionId, id), fit: [ANCHO_UTIL, 340], alignment: 'center', margin: [0, 4, 0, pie ? 2 : 8] }, ...(pie ? [{ text: pie, fontSize: 8, color: MUTED, margin: [0, 0, 0, 8] } as Content] : [])], unbreakable: true };
   };
   const incluye = (metodo: ReportMethod, parte: string) => report.partes?.[metodo]?.includes(parte) ?? true;
   const incluyeCards = (parte: string) => incluye('cards', parte);
-  const orientacionCards: { actual: 'portrait' | 'landscape' } = { actual: 'portrait' };
-  /** Tras una matriz apaisada, el siguiente bloque abre página vertical. */
-  const volverAVertical = (): { pageBreak?: 'before'; pageOrientation?: 'portrait' } => {
-    if (orientacionCards.actual !== 'landscape') return {};
-    orientacionCards.actual = 'portrait';
-    return { pageBreak: 'before', pageOrientation: 'portrait' };
-  };
   return {
+    // Cada persona, recorrido y estudio abre hoja propia (salvo el primero, que sigue a la portada de sección).
     personas: report.personas?.flatMap(({ contenido: person, version }, i) => [
-      title(`${i + 1}. ${person.nombreCompleto}`),
+      { stack: [title(`${i + 1}. ${person.nombreCompleto}`)], ...(i > 0 ? { pageBreak: 'before' as const } : {}) },
       { text: `PERSONA · VERSIÓN ${version}`, style: 'eyebrow', margin: [0, 0, 0, 8] },
       // F40: la tarjeta tal como se ve en la página; el desglose sigue debajo.
       ...(incluye('personas', 'visual') ? personaVisual(person) : []),
@@ -107,7 +103,7 @@ function sections(report: ReportConImagenes): Record<ReportMethod, Content[]> {
       ]),
     ]) ?? [],
     journey: report.journeys?.flatMap(({ contenido: journey, version }, i) => [
-      title(`${i + 1}. Recorrido de ${journey.perfilUsuario.nombre}`),
+      { stack: [title(`${i + 1}. Recorrido de ${journey.perfilUsuario.nombre}`)], ...(i > 0 ? { pageBreak: 'before' as const } : {}) },
       paragraph(`${journey.perfilUsuario.rol} · Versión ${version} · ${journey.fases.length} fases`),
       // F40: el tablero con la curva de emociones, como en la página; el desglose sigue debajo.
       ...(incluye('journey', 'visual') ? journeyVisual(journey) : []),
@@ -136,7 +132,7 @@ function sections(report: ReportConImagenes): Record<ReportMethod, Content[]> {
     ]) ?? [],
     cards: report.cards?.flatMap(({ study, analytics }, i) => [
       // Si el estudio anterior terminó en una matriz apaisada, este vuelve a página vertical.
-      { stack: [title(`${i + 1}. ${study.nombre}`)], ...volverAVertical() },
+      { stack: [title(`${i + 1}. ${study.nombre}`)], ...(i > 0 ? { pageBreak: 'before' as const } : {}) },
       paragraph(`Modalidad: ${study.tipoCardSorting ?? 'Sin modalidad'} · Estudio ${study.cerrado ? 'cerrado' : 'abierto'} · Creado el ${date(study.createdAt)}`),
       ...(incluye('cards', 'resumen') ? [
         table(['Respuestas completas', 'Tarjetas', 'Acuerdo global'], [[analytics.participantesCount, analytics.cardsCount, analytics.participantesCount ? `${analytics.acuerdoGlobal}%` : 'Sin respuestas']]),
@@ -144,9 +140,9 @@ function sections(report: ReportConImagenes): Record<ReportMethod, Content[]> {
         details([['Tarjetas definidas', study.cardsDefinidas.map((card) => card.etiqueta)], ['Categorías predefinidas', study.categoriasDefinidas.map((category) => category.nombre)]]),
       ] : []),
       ...(VISTAS_CARD_SORTING.some(([parte]) => incluyeCards(parte)) || incluyeCards('agrupaciones') ? (analytics.participantesCount ? [
-        ...detalleCardSorting(analytics, incluyeCards, orientacionCards),
+        ...detalleCardSorting(analytics, incluyeCards),
         ...(incluyeCards('agrupaciones') && analytics.clusters.length ? [
-          { stack: [title('Agrupaciones sugeridas')], ...volverAVertical() } as Content,
+          title('Agrupaciones sugeridas'),
           table(['Grupo', 'Tarjetas', 'Acuerdo'], analytics.clusters.map((cluster) => [cluster.nombre, cluster.tarjetas, `${cluster.acuerdo}%`]), [100, '*', 60]),
         ] : []),
       ] : [paragraph('Aún no hay respuestas completadas para calcular resultados.')]) : []),
@@ -166,30 +162,31 @@ function sections(report: ReportConImagenes): Record<ReportMethod, Content[]> {
         ...(incluye('heuristica', 'severidad') ? [paragraph(`${problemas.length} hallazgos aceptados · ${informe.finalizadoEn ? `Finalizada el ${date(informe.finalizadoEn)}` : 'Informe preliminar, pendiente de cierre'}`)] : []),
         ...(problemas.length ? [
           ...(incluye('heuristica', 'severidad') ? [table(['Severidad', 'Problemas'], severityLabels.map((label, level) => [`${level} · ${label}`, resumen.porSeveridad[level] ?? 0]), ['*', 90])] : []),
-          ...(incluye('heuristica', 'problemas') ? problemas.map((problema, index): Content => ({
-            stack: [
+          // Texto del problema en un bloque que no se parte; cada captura (con su pie) va entera
+          // a continuación, en la misma hoja si cabe o en la siguiente, sin quedar cortada.
+          ...(incluye('heuristica', 'problemas') ? problemas.flatMap((problema, index): Content[] => [
+            { stack: [
               title(`Problema ${index + 1} · ${problema.titulo}`),
               { text: `SEVERIDAD ${problema.severidad} · ${severityLabels[problema.severidad] ?? 'Sin clasificar'} · PRIORIDAD ${problema.prioridad}`, bold: true, color: severityColors[problema.severidad] ?? INK, margin: [0, 0, 0, 8] },
               details([['Pantalla o tarea', problema.pantalla], ['Criterios', problema.criterioIds.map(nombreCriterio)], ['Problema', problema.descripcion], ['Recomendación', problema.recomendacion]]),
-              // Capturas del problema, con sus anotaciones, en su lugar.
-              ...problema.evidenciaIds.map((id): Content => report.imagenes?.[claveCaptura(evaluacion.id, id)]
-                ? capturaConPie(evaluacion.id, id)
-                : { text: 'Captura disponible en la aplicación (no se pudo incluir en este PDF).', italics: true, color: MUTED, margin: [0, 2, 0, 6] }),
-            ], unbreakable: JSON.stringify(problema).length < 1600,
-          })) : []),
+            ], unbreakable: JSON.stringify(problema).length < 1600 },
+            ...problema.evidenciaIds.map((id): Content => report.imagenes?.[claveCaptura(evaluacion.id, id)]
+              ? capturaConPie(evaluacion.id, id)
+              : { text: 'Captura disponible en la aplicación (no se pudo incluir en este PDF).', italics: true, color: MUTED, margin: [0, 2, 0, 6] }),
+          ]) : []),
         ] : [paragraph('La revisión acordada no identificó problemas de usabilidad.')]),
         // Lo que funciona bien: también es evidencia del informe, con sus capturas.
         ...(incluye('heuristica', 'positivos') && informe.consenso.positivos?.length ? [
           title('Lo que funciona bien'),
-          ...informe.consenso.positivos.map((positivo): Content => ({
-            stack: [
+          ...informe.consenso.positivos.flatMap((positivo): Content[] => [
+            { stack: [
               { text: positivo.titulo, bold: true, margin: [0, 2, 0, 3] },
               ...(positivo.descripcion ? [paragraph(positivo.descripcion)] : []),
-              ...(positivo.evidenciaIds ?? []).map((id): Content => report.imagenes?.[claveCaptura(evaluacion.id, id)]
-                ? capturaConPie(evaluacion.id, id)
-                : { text: 'Captura disponible en la aplicación (no se pudo incluir en este PDF).', italics: true, color: MUTED, margin: [0, 2, 0, 6] }),
-            ], unbreakable: JSON.stringify(positivo).length < 1600,
-          })),
+            ], unbreakable: JSON.stringify(positivo).length < 1600 },
+            ...(positivo.evidenciaIds ?? []).map((id): Content => report.imagenes?.[claveCaptura(evaluacion.id, id)]
+              ? capturaConPie(evaluacion.id, id)
+              : { text: 'Captura disponible en la aplicación (no se pudo incluir en este PDF).', italics: true, color: MUTED, margin: [0, 2, 0, 6] }),
+          ]),
         ] : []),
       ];
     }) ?? [],
@@ -225,7 +222,8 @@ export function buildReportDefinition(report: ReportConImagenes, brand?: ReportB
   const scope = report.methods.length === 5 ? 'INFORME COMPLETO' : 'INFORME POR TÉCNICAS';
   return {
     info: { title: `Informe UX · ${report.project.nombre}`, subject: report.methods.map(({ label }) => label).join(', '), creator: 'UXLab Observatorio' },
-    pageSize: 'A4', pageMargins: PDF_PAGE_MARGINS,
+    // Todas las hojas iguales: A4 apaisado, el formato que necesitan journey maps y matrices.
+    pageSize: 'A4', pageOrientation: 'landscape', pageMargins: PDF_PAGE_MARGINS,
     defaultStyle: PDF_DEFAULT_STYLE,
     images: { ...(brand ? { brandLogo: brand.logo, brandLogoWhite: brand.logoWhite } : {}), ...(report.imagenes ?? {}) },
     ...brandChrome(brand, scope, report.generatedAt),
@@ -248,10 +246,11 @@ export function buildReportDefinition(report: ReportConImagenes, brand?: ReportB
           { text: label, style: 'sectionTitle' },
           { text: detail, color: MUTED, margin: [0, 0, 0, 18] },
           { canvas: [
-            { type: 'line', x1: 0, y1: 0, x2: id === 'journey' ? 733 : 487, y2: 0, lineWidth: .5, lineColor: '#b4bbc5' },
+            { type: 'line', x1: 0, y1: 0, x2: ANCHO_UTIL - 1, y2: 0, lineWidth: .5, lineColor: '#b4bbc5' },
           ], margin: [0, 0, 0, 12] },
           ...(blocks[id].length ? [] : [empty()]),
-        ], unbreakable: true, pageBreak: counts[id] || id === 'journey' || report.methods[index - 1]?.id === 'journey' || (report.methods[index - 1]?.id === 'cards' && counts.cards) ? 'before' : undefined, pageOrientation: id === 'journey' ? 'landscape' : 'portrait' },
+        // Cada sección empieza en hoja nueva: se lee completa y no queda pegada a la anterior.
+        ], unbreakable: true, pageBreak: 'before' },
         ...blocks[id],
       ]),
     ],

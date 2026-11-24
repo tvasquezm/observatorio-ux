@@ -1,7 +1,6 @@
 // apps/frontend/src/pages/ProjectOverviewPage.tsx
 
-import { Link, useOutletContext } from 'react-router-dom';
-import type { ProjectOutletContext } from '../layouts/ProjectDetailLayout';
+import { Link } from 'react-router-dom';
 import { TECNICAS_INFO } from '../shared/content/tecnicas-info';
 import { Icon } from '../shared/components/ui/Icon';
 
@@ -14,7 +13,6 @@ const TECHNIQUES = [
 ] as const;
 
 export function ProjectOverviewPage() {
-  const { proyectoId } = useOutletContext<ProjectOutletContext>();
   return (
     <div>
       <div className="section-title"><div><h2>Tu espacio de investigación</h2><p className="muted">Elige una técnica para comenzar a construir evidencia.</p></div><span className="count">5 técnicas</span></div>
@@ -27,7 +25,6 @@ export function ProjectOverviewPage() {
           </Link>
         ))}
       </div>
-      <div className="panel overview-note"><span className="note-icon" aria-hidden="true">i</span><div><b>Proyecto listo para trabajar</b><p>Los cambios se guardan en versiones. Puedes revisar cómo avanzó tu investigación.</p><details><summary>Información para soporte</summary><small>ID: {proyectoId}</small></details></div></div>
     </div>
   );
 }

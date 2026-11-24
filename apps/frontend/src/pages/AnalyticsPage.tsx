@@ -13,7 +13,7 @@ import { usePersonas } from '../features/persona/hooks/usePersonaQueries';
 import { useJourneys } from '../features/journey-map/hooks/useJourneyMapQueries';
 import { useCriticalMoments } from '../features/momentos-criticos/hooks/useMomentosCriticosQueries';
 import { useCardSortingEstudiosByProyecto } from '../features/card-sorting/hooks/useCardSortingQueries';
-import { PanelCalidadHeuristica, PanelPendientes, PanelPrioridad, PanelTecnicas, useEvaluacionesProyecto } from '../features/analitica-proyecto/AnaliticaDecision';
+import { PanelCalidadHeuristica, PanelPrioridad, PanelTecnicas, useEvaluacionesProyecto } from '../features/analitica-proyecto/AnaliticaDecision';
 
 const SEVERIDAD_LABEL: Record<number, string> = {
   0: 'No es un problema',
@@ -95,10 +95,6 @@ export function AnalyticsPage() {
           </section>
           <PanelTecnicas proyectoId={proyectoId} datos={{
             personas: personasQuery.data ?? [], journeys: journeysQuery.data ?? [], momentos: momentsQuery.data ?? [],
-            estudios: cardSortingQuery.data ?? [], evaluaciones,
-          }} />
-          <PanelPendientes proyectoId={proyectoId} datos={{
-            personas: personasQuery.data?.length ?? 0, journeys: journeysQuery.data?.length ?? 0, momentos: momentsQuery.data?.length ?? 0,
             estudios: cardSortingQuery.data ?? [], evaluaciones,
           }} />
           <div className="analitica-decision">

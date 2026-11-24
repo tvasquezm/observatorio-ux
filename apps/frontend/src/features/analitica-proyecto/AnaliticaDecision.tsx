@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { EvaluacionFlujo } from '@observatorio-ux/shared-types';
 import { useAuthStore } from '../auth/store/useAuthStore';
 import { listarEvaluaciones } from '../heuristica-flujo/flujo.api';
-import { coincidenciaEquipo, matrizPrioridad, pendientesProyecto, principiosIncumplidos, PRIORIDADES, resumenTecnicas, type DatosTecnicas, type Zona } from './analitica-proyecto';
+import { coincidenciaEquipo, matrizPrioridad, principiosIncumplidos, PRIORIDADES, resumenTecnicas, type DatosTecnicas, type Zona } from './analitica-proyecto';
 
 /** Lo más importante de cada técnica, para leer el proyecto completo de un vistazo. */
 export function PanelTecnicas({ proyectoId, datos }: { proyectoId: string; datos: DatosTecnicas }) {
@@ -48,29 +48,6 @@ const PRIORIDAD: Record<string, string> = { URGENTE: 'Urgente', ALTA: 'Alta', ME
 export function useEvaluacionesProyecto(proyectoId: string) {
   const usuarioId = useAuthStore((s) => s.user?.id ?? '');
   return useQuery({ queryKey: ['heuristica-flujo', proyectoId, usuarioId, 'evaluaciones'], queryFn: () => listarEvaluaciones(proyectoId), enabled: !!proyectoId });
-}
-
-export function PanelPendientes({ proyectoId, datos }: { proyectoId: string; datos: Parameters<typeof pendientesProyecto>[0] }) {
-  const lista = pendientesProyecto(datos);
-  return (
-    <article className="panel analitica-pendientes" aria-labelledby="analitica-pendientes-titulo">
-      <div className="panel-head">
-        <div><span className="kicker">AVANCE</span><h3 id="analitica-pendientes-titulo">Qué falta por hacer</h3></div>
-        <span className="count">{lista.length ? `${lista.length} pendiente${lista.length === 1 ? '' : 's'}` : 'Al día'}</span>
-      </div>
-      {lista.length ? (
-        <ul className="analitica-lista">
-          {lista.map((p) => (
-            <li key={p.texto} data-tipo={p.tipo}>
-              <span className="analitica-marca" aria-hidden="true" />
-              <span>{p.tipo === 'falta' ? <strong>Falta: </strong> : null}{p.texto}</span>
-              <Link to={`/proyectos/${proyectoId}/${p.ruta}`}>Ir{' '}<span className="sr-only">a resolverlo</span></Link>
-            </li>
-          ))}
-        </ul>
-      ) : <p className="text-muted-sm">Todas las técnicas tienen evidencia y las evaluaciones están finalizadas.</p>}
-    </article>
-  );
 }
 
 export function PanelPrioridad({ evaluaciones }: { evaluaciones: EvaluacionFlujo[] }) {
