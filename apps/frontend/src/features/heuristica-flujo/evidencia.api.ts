@@ -10,6 +10,15 @@ export async function cargarEvidencia(proyectoId: string, evaluacionId: string, 
   return { meta, blob };
 }
 
+/** Para el PDF: la imagen es lo importante; si faltan sus datos (autor, marcas) igual se incluye. Reintenta una vez ante un fallo de red. */
+export async function cargarEvidenciaParaInforme(proyectoId: string, evaluacionId: string, id: string) {
+  const ruta = `${rutaEvidencias(proyectoId, evaluacionId)}/${encodeURIComponent(id)}`;
+  const intentar = async <T,>(f: () => Promise<T>): Promise<T> => { try { return await f(); } catch { return await f(); } };
+  const [meta, blob] = await Promise.allSettled([intentar(() => evaluatorRequest<EvidenciaFlujo>(`${ruta}/meta`)), intentar(() => evaluatorBlob(ruta))]);
+  if (blob.status === 'rejected') throw blob.reason;
+  return { meta: meta.status === 'fulfilled' ? meta.value : null, blob: blob.value };
+}
+
 export function subirEvidenciaFlujo(proyectoId: string, evaluacionId: string, archivo: File) {
   const body = new FormData();
   body.append('archivo', archivo);

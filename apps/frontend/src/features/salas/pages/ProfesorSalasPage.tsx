@@ -189,7 +189,7 @@ export const ProfesorSalasPage: React.FC = () => {
                           Editar
                         </button>
                       )}
-                      {puedeGestionar && (
+                      {activeRole === 'ADMIN' && (
                         <button
                           type="button"
                           className="danger sala-delete-button"

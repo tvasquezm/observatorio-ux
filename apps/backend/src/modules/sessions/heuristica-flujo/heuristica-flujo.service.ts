@@ -8,7 +8,7 @@ import { PrismaService } from '../../../core/database/prisma.service.js';
 import { ProjectAccessService } from '../../../core/access/project-access.service.js';
 import type { AuthenticatedUser } from '../../auth/types/authenticated-user.interface.js';
 import { detectarMimeImagen, type ArchivoSubido } from './evidencia.util.js';
-import { anotacionesSchema, comparacionSchema, configuracionBodySchema, configuracionSchema, consensoSchema, metodologiaSchema, revisionSchema, trabajoSchema, validar, votoRedactorSchema, decidirRedactorSchema, pedirCambiosSchema, aporteSchema } from './heuristica-flujo.schemas.js';
+import { anotacionesSchema, comparacionSchema, configuracionBodySchema, configuracionSchema, consensoSchema, metodologiaSchema, revisionSchema, trabajoSchema, validar, votoRedactorSchema, decidirRedactorSchema, pedirCambiosSchema, aporteSchema, aportePositivoSchema } from './heuristica-flujo.schemas.js';
 
 const json = (v: unknown) => JSON.parse(JSON.stringify(v)) as Prisma.InputJsonValue;
 const consensoVacio = (): ConsensoFlujo => ({ criterios: [], hallazgos: [], aprobadoPor: [] });
@@ -36,7 +36,7 @@ export function filtrarEvaluacion(e: EvaluacionFlujo, user: AuthenticatedUser): 
   if (!participante) {
     delete copia.avanceEquipo;
     copia.trabajos = [];
-    copia.consenso = { ...copia.consenso, hallazgos: copia.consenso.hallazgos.filter(h => h.decision === 'ACEPTADO'), aportes: [] };
+    copia.consenso = { ...copia.consenso, hallazgos: copia.consenso.hallazgos.filter(h => h.decision === 'ACEPTADO'), aportes: [], aportesPositivos: [], historialCambios: [], pedidosCambios: [] };
     if (copia.informe) copia.informe.consenso.hallazgos = copia.informe.consenso.hallazgos.filter(h => h.decision === 'ACEPTADO');
   } else if (['BORRADOR', 'EN_EVALUACION'].includes(e.fase)) {
     copia.trabajos = copia.trabajos.filter(t => t.evaluadorId === user.id);
@@ -247,8 +247,10 @@ export class HeuristicaFlujoService {
 
   async guardarTrabajo(proyectoId: string, id: string, body: unknown, user: AuthenticatedUser) {
     const b = validar(trabajoSchema, body);
-    return this.bloqueada(proyectoId, id, user, b.revision, async (e, tx) => {
+    // El trabajo individual es propio de cada persona: lo que guarden las demás no lo invalida (la fila está bloqueada y solo se toca su trabajo).
+    return this.bloqueada(proyectoId, id, user, undefined, async (e, tx) => {
       const t = this.editable(e, user);
+      if (b.baseGuardadoEn === undefined ? e.revision !== b.revision : (t.guardadoEn ?? null) !== b.baseGuardadoEn) throw new ConflictException('Tu trabajo cambió en otra pestaña. Conserva tu borrador y vuelve a cargar antes de guardar.');
       this.validarRespuestas(e, b.respuestas, false);
       await this.validarEvidenciasRespuestas(e, b.respuestas, tx, user.id);
       if (b.hallazgos.some(h => e.trabajos.some(otro => otro.evaluadorId !== user.id && otro.hallazgos.some(o => o.id === h.id)))) throw new BadRequestException('El identificador del hallazgo ya pertenece a otro trabajo.');
@@ -259,8 +261,8 @@ export class HeuristicaFlujoService {
   }
 
   async entregar(proyectoId: string, id: string, body: unknown, user: AuthenticatedUser) {
-    const b = validar(revisionSchema, body);
-    return this.bloqueada(proyectoId, id, user, b.revision, async (e, tx) => {
+    validar(revisionSchema, body);
+    return this.bloqueada(proyectoId, id, user, undefined, async (e, tx) => {
       const t = this.editable(e, user);
       this.validarRespuestas(e, t.respuestas, true);
       await this.validarEvidenciasRespuestas(e, t.respuestas, tx, user.id);
@@ -291,8 +293,12 @@ export class HeuristicaFlujoService {
       this.fase(e, 'PENDIENTE_CONSENSO');
       if (redactorDe(e.consenso, e.coordinadorId) !== user.id) throw new ForbiddenException('Solo quien redacta el acuerdo puede guardarlo.');
       const cambioDecision = firmaDecisiones(e.consenso) !== firmaDecisiones(b);
+      // Un aporte positivo del equipo queda pendiente hasta que el borrador lo incorpore; si ya estuvo en el acuerdo y se quitó, no vuelve.
+      const enBorrador = new Set((b.positivos ?? []).map(p => p.id)); const previos = new Set((e.consenso.positivos ?? []).map(p => p.id));
+      const pendientesPositivos = (e.consenso.aportesPositivos ?? []).filter(a => !enBorrador.has(a.id) && !previos.has(a.id));
       e.consenso = { criterios: b.criterios, hallazgos: b.hallazgos, aprobadoPor: cambioDecision ? [] : e.consenso.aprobadoPor, positivos: b.positivos ?? [], conclusion: b.conclusion ?? '', mejoras: b.mejoras ?? [],
-        ...(e.consenso.aportes?.length ? { aportes: e.consenso.aportes } : {}), ...(e.consenso.redactorId ? { redactorId: e.consenso.redactorId } : {}), ...(e.consenso.votosRedactor ? { votosRedactor: e.consenso.votosRedactor } : {}), ...(e.consenso.pedidosCambios ? { pedidosCambios: e.consenso.pedidosCambios } : {}),
+        ...(e.consenso.aportes?.length ? { aportes: e.consenso.aportes } : {}), ...(e.consenso.redactorId ? { redactorId: e.consenso.redactorId } : {}), ...(e.consenso.votosRedactor ? { votosRedactor: e.consenso.votosRedactor } : {}), ...(e.consenso.pedidosCambios ? { pedidosCambios: e.consenso.pedidosCambios } : {}), ...(e.consenso.historialCambios ? { historialCambios: e.consenso.historialCambios } : {}),
+        ...(pendientesPositivos.length ? { aportesPositivos: pendientesPositivos } : {}),
         guardadoPor: user.id, guardadoEn: new Date().toISOString() };
       await this.validarConsenso(e, tx, false);
       return this.persistir(e, tx, user);
@@ -316,6 +322,33 @@ export class HeuristicaFlujoService {
     });
   }
 
+  /** Cualquiera del equipo agrega un aspecto positivo; queda con autor y fecha y se incorpora al borrador de quien redacta. */
+  async agregarAportePositivo(proyectoId: string, id: string, body: unknown, user: AuthenticatedUser) {
+    const b = validar(aportePositivoSchema, body);
+    return this.bloqueada(proyectoId, id, user, undefined, async (e, tx) => {
+      this.fase(e, 'PENDIENTE_CONSENSO');
+      if (e.coordinadorId !== user.id && !e.configuracion.evaluadorIds.includes(user.id)) throw new ForbiddenException('Solo el equipo de la evaluación puede agregar aspectos positivos.');
+      const aportes = e.consenso.aportesPositivos ?? [];
+      if (aportes.length + (e.consenso.positivos?.length ?? 0) >= 200) throw new BadRequestException('Máximo 200 aspectos positivos.');
+      if ([...aportes, ...(e.consenso.positivos ?? [])].some(p => p.id === b.positivo.id)) throw new BadRequestException('El identificador del aspecto positivo ya existe.');
+      const capturas = b.positivo.evidenciaIds;
+      if (capturas.length && (await tx.evidenciaHeuristicaCompleta.findMany({ where: { id: { in: capturas }, evaluacionId: e.id }, select: { id: true } })).length !== capturas.length) throw new BadRequestException('Las capturas deben pertenecer a esta evaluación.');
+      e.consenso = { ...e.consenso, aportesPositivos: [...aportes, { ...b.positivo, autorId: user.id, creadoEn: new Date().toISOString() }], aprobadoPor: [] };
+      return this.persistir(e, tx, user);
+    });
+  }
+
+  async quitarAportePositivo(proyectoId: string, id: string, aporteId: string, user: AuthenticatedUser) {
+    return this.bloqueada(proyectoId, id, user, undefined, async (e, tx) => {
+      this.fase(e, 'PENDIENTE_CONSENSO');
+      const aporte = (e.consenso.aportesPositivos ?? []).find(a => a.id === aporteId);
+      if (!aporte) throw new NotFoundException('El aspecto positivo no existe o ya está en el acuerdo.');
+      if (aporte.autorId !== user.id) throw new ForbiddenException('Solo quien agregó el aspecto positivo puede quitarlo.');
+      e.consenso = { ...e.consenso, aportesPositivos: (e.consenso.aportesPositivos ?? []).filter(a => a.id !== aporteId) };
+      return this.persistir(e, tx, user);
+    });
+  }
+
   /** Quien agregó un problema puede retirarlo mientras nadie lo haya decidido. */
   async quitarAporte(proyectoId: string, id: string, aporteId: string, user: AuthenticatedUser) {
     return this.bloqueada(proyectoId, id, user, undefined, async (e, tx) => {
@@ -335,9 +368,11 @@ export class HeuristicaFlujoService {
 
   async votarRedactor(proyectoId: string, id: string, body: unknown, user: AuthenticatedUser) {
     const b = validar(votoRedactorSchema, body);
-    return this.bloqueada(proyectoId, id, user, b.revision, async (e, tx) => {
+    return this.bloqueada(proyectoId, id, user, undefined, async (e, tx) => {
       this.fase(e, 'PENDIENTE_CONSENSO'); this.trabajo(e, user);
       this.candidatoRedactor(e, b.candidatoId);
+      // Al primer consenso (mayoría) la votación se cierra: ya no se puede cambiar el resultado.
+      if (ganadorVotoRedactor(e.consenso.votosRedactor ?? {}, e.configuracion.evaluadorIds)) throw new ConflictException('La votación ya se cerró: el equipo llegó a consenso.');
       const votos = { ...(e.consenso.votosRedactor ?? {}), [user.id]: b.candidatoId };
       const ganador = ganadorVotoRedactor(votos, e.configuracion.evaluadorIds);
       e.consenso = { ...e.consenso, votosRedactor: votos, ...(ganador ? { redactorId: ganador } : {}) };
@@ -358,11 +393,13 @@ export class HeuristicaFlujoService {
 
   async pedirCambios(proyectoId: string, id: string, body: unknown, user: AuthenticatedUser) {
     const b = validar(pedirCambiosSchema, body);
-    return this.bloqueada(proyectoId, id, user, b.revision, async (e, tx) => {
+    return this.bloqueada(proyectoId, id, user, undefined, async (e, tx) => {
       this.fase(e, 'PENDIENTE_CONSENSO'); this.trabajo(e, user);
       if (redactorDe(e.consenso, e.coordinadorId) === user.id) throw new ConflictException('Quien redacta edita el acuerdo directamente.');
+      const pedido = { evaluadorId: user.id, comentario: b.comentario, creadoEn: new Date().toISOString() };
       e.consenso = { ...e.consenso, aprobadoPor: e.consenso.aprobadoPor.filter(x => x !== user.id),
-        pedidosCambios: [...(e.consenso.pedidosCambios ?? []).filter(p => p.evaluadorId !== user.id), { evaluadorId: user.id, comentario: b.comentario, creadoEn: new Date().toISOString() }] };
+        pedidosCambios: [...(e.consenso.pedidosCambios ?? []).filter(p => p.evaluadorId !== user.id), pedido],
+        historialCambios: [...(e.consenso.historialCambios ?? []), { ...pedido, id: randomUUID() }].slice(-200) };
       return this.persistir(e, tx, user);
     });
   }
@@ -375,6 +412,8 @@ export class HeuristicaFlujoService {
       if (redactorDe(e.consenso, e.coordinadorId) !== user.id) throw new ForbiddenException('Solo quien redacta el acuerdo puede entregarlo.');
       await this.validarConsenso(e, tx, true);
       e.consenso.aprobadoPor = [...new Set([...e.consenso.aprobadoPor, user.id])];
+      const ahora = new Date().toISOString();
+      if (e.consenso.historialCambios) e.consenso.historialCambios = e.consenso.historialCambios.map(h => h.atendidoEn ? h : { ...h, atendidoEn: ahora });
       return this.persistir(e, tx, user);
     });
   }

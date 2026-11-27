@@ -144,7 +144,7 @@ export function SalaDetallePage() {
               {tabEstudiante === 'proyectos'
                 ? <>
                     {!sala.permiteCreacionProyectos && <p role="note" className="text-muted">Esta sala no permite que los estudiantes creen proyectos. Pídele a tu docente que lo habilite.</p>}
-                    <ProyectosDeSalaLectura salaId={salaId} />
+                    <ProyectosDeSalaLectura salaId={salaId} soloLectura={!sala.permiteCreacionProyectos} />
                   </>
                 : <EquiposDeSalaEstudiante key={salaId} salaId={salaId} sala={sala} onDirtyChange={setTeamsDirty} />}
             </section>
@@ -212,7 +212,7 @@ function formatearFechaDetalle(fechaRaw?: string | null) {
   });
 }
 
-function ProyectosDeSalaLectura({ salaId }: { salaId: string }) {
+function ProyectosDeSalaLectura({ salaId, soloLectura }: { salaId: string; soloLectura: boolean }) {
   const { data: proyectos, isLoading, isError, error, refetch } = useProyectosDeSala(salaId);
 
   return (
@@ -224,7 +224,7 @@ function ProyectosDeSalaLectura({ salaId }: { salaId: string }) {
         </div>
         <span className="count">{proyectos?.length ?? 0} en total</span>
       </div>
-      <p className="text-muted-sm">Puedes consultar los proyectos asignados por tu docente. La gestión de la sala es solo de lectura para estudiantes.</p>
+      <p className="text-muted-sm">Puedes consultar los proyectos asignados por tu docente. La gestión de la sala la hace tu docente.</p>
 
       {isLoading && <Skeleton etiqueta="Cargando proyectos…" variante="lista" />}
       {isError && (
@@ -240,7 +240,7 @@ function ProyectosDeSalaLectura({ salaId }: { salaId: string }) {
               <h3>{proyecto.nombre}</h3>
               <p>{proyecto.descripcion || 'Sin descripción.'}</p>
             </div>
-            <span className="sala-readonly-badge">Solo lectura</span>
+            {soloLectura && <span className="sala-readonly-badge">Solo lectura</span>}
           </article>
         ))}
         {proyectos && proyectos.length === 0 && (

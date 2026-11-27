@@ -3121,3 +3121,12 @@ button.evidencia-numero:hover .evidencia-nota, button.evidencia-numero:focus .ev
 .tabla-proyectos-sala .sin-actividad { color: var(--muted); }
 .tabla-proyectos-pie { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding-top: 12px; }
 .sala-desvincular { align-items: end; margin-bottom: 16px; }
+.hf .hf-filtro-barra { justify-content: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-alt); }
+.hf .hf-filtro-etiqueta { color: var(--ink); font-weight: 600; }
+.hf .hf-filtro { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid var(--primary); border-radius: 999px; background: var(--surface); }
+.hf .hf-filtro button { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 6px 16px; border: 0; border-radius: 999px; background: transparent; color: var(--ink); font-weight: 600; }
+.hf .hf-filtro button[aria-pressed=true] { background: var(--primary); color: var(--on-primary); }
+.hf .hf-filtro .hf-filtro-n { min-width: 22px; padding: 0 6px; border-radius: 999px; background: color-mix(in srgb, currentColor 18%, transparent); font-size: var(--fs-xs); text-align: center; }
+.hf .hf-historial-cambios { display: grid; gap: 6px; padding-left: 18px; }
+.hf .hf-historial-cambios em { color: var(--muted); }
+.hf .hf-aviso-entrega { padding: 12px 14px; border: 1px solid var(--warning, #d9a400); border-left-width: 5px; border-radius: 8px; background: color-mix(in srgb, var(--warning, #d9a400) 12%, var(--surface)); }

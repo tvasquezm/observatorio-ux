@@ -132,7 +132,14 @@ describe('ProfesorSalasPage — edición de sala', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('actualizada');
   });
 
+  it('el botón Eliminar sala solo aparece para el administrador', async () => {
+    render(<TestRouter><ProfesorSalasPage /></TestRouter>);
+    expect(await screen.findByRole('button', { name: 'Editar sala Sala 4' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Eliminar sala Sala 4' })).not.toBeInTheDocument();
+  });
+
   it('no elimina la sala hasta escribir su nombre, y la elimina cuando coincide', async () => {
+    auth.state.user.rol = 'ADMIN';
     render(
       <TestRouter>
         <><ProfesorSalasPage /><ConfirmDialog /></>

@@ -153,7 +153,7 @@ describe('flujo individual', () => {
       await entregar(e => entregada(e));
       expect(await screen.findByText('Entregaste tu evaluación')).toBeInTheDocument();
       expect(screen.getByText('Falta que entreguen: Beto.')).toBeInTheDocument();
-      expect(toasts).toEqual(['Entregaste tu evaluación. Tus respuestas quedaron cerradas; falta que entregue el resto del equipo.']);
+      expect(toasts).toEqual(['Entregaste tu evaluación. Tus respuestas quedaron cerradas. Aún falta que entregue: Beto.']);
     });
     it('si fue la última entrega el aviso emergente habla del acuerdo del equipo', async () => {
       await entregar(e => entregada(e, { fase: 'PENDIENTE_CONSENSO' }));
@@ -684,6 +684,39 @@ describe('consenso en equipo sobre la tabla', () => {
     renderFlow(<ConsensoEditor evaluacion={mayoria} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
     expect(screen.queryByRole('button', { name: 'Decidir redactor' })).toBeNull();
     expect(screen.getByText(/El equipo ya eligió por mayoría/)).toBeInTheDocument();
+  });
+  it('muestra «votó por ti» y avisa que sin mayoría decide el coordinador o se vuelve a votar', async () => {
+    const e = equipoEval('no_cumple');
+    e.consenso.votosRedactor = { u1: 'u2', u2: 'u1' };
+    renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u2" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.getByText('Ana: votó por ti')).toBeInTheDocument();
+    expect(screen.getByText('Beto: votó por Ana')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(/No hay mayoría.*coordinador debe elegir a alguien.*volver a votar/);
+    expect(screen.getByRole('button', { name: 'Actualizar votos' })).toBeEnabled();
+  });
+  it('al llegar al primer consenso la votación se cierra y se dice «votó por ti»', () => {
+    const e = equipoEval('no_cumple');
+    e.consenso.votosRedactor = { u1: 'u2', u2: 'u2' };
+    e.consenso.redactorId = 'u2';
+    renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u2" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.getByText('Beto: votó por ti')).toBeInTheDocument();
+    expect(screen.getByText('Ana: votó por ti')).toBeInTheDocument();
+    expect(screen.getByText(/Votación cerrada/)).toBeInTheDocument();
+    expect(screen.queryByLabelText('Mi voto')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Votar por este redactor' })).toBeNull();
+  });
+  it('quien no redacta puede agregar un aspecto positivo y ve los cambios pedidos con su estado', async () => {
+    const e = equipoEval('no_cumple');
+    e.consenso.historialCambios = [{ id: 'h1', evaluadorId: 'u2', comentario: 'Revisar el criterio 1', creadoEn: '2026-10-27T12:00:00Z', atendidoEn: '2026-10-28T12:00:00Z' }];
+    api.mockResolvedValue({ ...e, revision: 2 });
+    renderFlow(<ConsensoEditor evaluacion={e} usuarioId="u2" onSaved={vi.fn()} onBack={vi.fn()} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Preparar el informe' }));
+    expect(screen.getByText(/Beto pidió cambios: Revisar el criterio 1/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Actualizar cambios pedidos' })).toBeEnabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Agregar aspecto positivo' }));
+    await userEvent.type(screen.getByLabelText('Título del aspecto positivo'), 'Menú claro');
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar aspecto positivo' }));
+    await waitFor(() => expect(api).toHaveBeenCalledWith('p1', '/evaluaciones/e1/consenso/aportes-positivos', 'POST', expect.objectContaining({ positivo: expect.objectContaining({ titulo: 'Menú claro' }) })));
   });
   it('avisa cuando cambia quien redacta tras actualizar', async () => {
     const e = equipoEval('no_cumple');

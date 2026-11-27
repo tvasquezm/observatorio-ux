@@ -37,6 +37,8 @@ export const hallazgoSchema = z.strictObject({
 export const revisionSchema = z.strictObject({ revision: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER) });
 export const configuracionBodySchema = revisionSchema.extend({ configuracion: configuracionSchema });
 export const trabajoSchema = revisionSchema.extend({
+  /** `guardadoEn` del trabajo que el cliente tenía al editar. Si viene, el conflicto es solo por cambios del propio trabajo (no por lo que guarden las demás personas). */
+  baseGuardadoEn: z.iso.datetime().nullable().optional(),
   respuestas: z.array(respuestaSchema).max(500).refine(v => unico(v.map(r => r.criterioId)), 'Respuestas repetidas'),
   hallazgos: z.array(hallazgoSchema).max(1000).refine(v => unico(v.map(h => h.id)), 'Hallazgos repetidos'),
 });
@@ -44,15 +46,17 @@ export const consensoSchema = revisionSchema.extend({
   criterios: z.array(respuestaSchema.extend({ justificacion: texto })).max(500).refine(v => unico(v.map(c => c.criterioId)), 'Criterios repetidos'),
   hallazgos: z.array(hallazgoSchema.extend({ origenIds: ids(5000), decision: z.enum(['PENDIENTE', 'ACEPTADO', 'DESCARTADO']), justificacion: texto, autorId: identificador.optional(), creadoEn: z.iso.datetime().optional() })).max(5000).refine(v => unico(v.map(h => h.id)), 'Hallazgos repetidos')
     .refine(v => v.filter(h => !h.origenIds.length).length <= MAX_HALLAZGOS_NUEVOS_EQUIPO, `Máximo ${MAX_HALLAZGOS_NUEVOS_EQUIPO} hallazgos nuevos del equipo.`),
-  positivos: z.array(z.strictObject({ id: identificador, titulo: z.string().max(300), descripcion: texto, evidenciaIds: ids(10).optional() })).max(200).refine(v => unico(v.map(p => p.id)), 'Aspectos positivos repetidos').optional(),
+  positivos: z.array(z.strictObject({ id: identificador, titulo: z.string().max(300), descripcion: texto, evidenciaIds: ids(10).optional(), autorId: identificador.optional(), creadoEn: z.iso.datetime().optional() })).max(200).refine(v => unico(v.map(p => p.id)), 'Aspectos positivos repetidos').optional(),
   conclusion: texto.optional(),
   mejoras: z.array(z.strictObject({ id: identificador, titulo: z.string().max(300), descripcion: texto, antesIds: ids(10), despuesIds: ids(10) })).max(100).refine(v => unico(v.map(m => m.id)), 'Mejoras repetidas').optional(),
 });
 /** F31: problema que agrega al acuerdo alguien del equipo. Sin revisión: se agrega de forma atómica sin pisar el borrador de quien redacta. */
 export const aporteSchema = z.strictObject({ hallazgo: hallazgoSchema });
-export const votoRedactorSchema = revisionSchema.extend({ candidatoId: identificador });
+export const aportePositivoSchema = z.strictObject({ positivo: z.strictObject({ id: identificador, titulo: z.string().trim().min(1, 'Escribe un título.').max(300), descripcion: texto, evidenciaIds: ids(10) }) });
+/** El voto y el pedido de cambios son de cada persona: no dependen de la revisión global (se ignora la que envíen). */
+export const votoRedactorSchema = z.object({ candidatoId: identificador });
 export const decidirRedactorSchema = revisionSchema.extend({ redactorId: identificador });
-export const pedirCambiosSchema = revisionSchema.extend({ comentario: z.string().trim().min(1, 'Escribe qué cambios pides.').max(2000) });
+export const pedirCambiosSchema = z.object({ comentario: z.string().trim().min(1, 'Escribe qué cambios pides.').max(2000) });
 export const anotacionesSchema = revisionSchema.extend({ anotaciones: z.array(z.strictObject({
   id: identificador, tipo: z.enum(['rectangulo', 'circulo', 'flecha', 'destacado', 'texto']),
   x: z.number().finite().min(0).max(1), y: z.number().finite().min(0).max(1), x2: z.number().finite().min(0).max(1), y2: z.number().finite().min(0).max(1),

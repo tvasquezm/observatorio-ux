@@ -200,7 +200,7 @@ export function MatrizItem({ criterios, config, respuestas, modo, individuales =
 
   if (!criterios.length) return null;
   return <div className="hf-matrices">
-    {esEquipo && <div className="hf-matriz-barra"><div className="hf-vistas" role="group" aria-label="Qué preguntas ver"><button type="button" aria-pressed={soloDif} onClick={() => setSoloDif(true)}>Solo diferencias</button><button type="button" aria-pressed={!soloDif} onClick={() => setSoloDif(false)}>Ver todo</button></div></div>}
+    {esEquipo && <div className="hf-matriz-barra hf-filtro-barra"><span className="hf-filtro-etiqueta" id="hf-filtro-etiqueta">Qué preguntas ver:</span><div className="hf-filtro" role="group" aria-labelledby="hf-filtro-etiqueta"><button type="button" aria-pressed={soloDif} onClick={() => setSoloDif(true)}>Solo diferencias<span className="hf-filtro-n" aria-hidden="true">{criterios.filter(c => !coincidenDe(c.id)).length}</span></button><button type="button" aria-pressed={!soloDif} onClick={() => setSoloDif(false)}>Ver todo<span className="hf-filtro-n" aria-hidden="true">{criterios.length}</span></button></div></div>}
     {!grupos.length && <p className="hf-ayuda" role="status">Las respuestas individuales coinciden en todas las preguntas.</p>}
     {unaTabla ? (() => { const g = { categoria: 'Preguntas', criterios: grupos.flatMap(x => x.criterios), subgrupos: [] as Subgrupo[] };
       for (const x of grupos) for (const s of x.subgrupos) { const e = g.subgrupos.find(y => firmaEscala(y.escala) === firmaEscala(s.escala)); if (e) e.criterios.push(...s.criterios); else g.subgrupos.push({ escala: s.escala, criterios: [...s.criterios] }); }

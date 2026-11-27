@@ -46,7 +46,8 @@ export interface DecisionHallazgo extends HallazgoFlujo, AutoriaProblema { orige
 /** Problema que agrega al acuerdo una persona del equipo que no redacta (F31). Quien redacta lo decide como cualquier problema de origen. */
 export interface AporteEquipo extends HallazgoFlujo { autorId: string; creadoEn: string }
 /** Las capturas son opcionales: los aspectos guardados antes no las tienen. */
-export interface AspectoPositivo { id: string; titulo: string; descripcion: string; evidenciaIds?: string[] }
+/** `autorId` y `creadoEn` quedan cuando el aspecto lo agregó alguien del equipo; si faltan, lo redactó quien escribe el acuerdo. */
+export interface AspectoPositivo { id: string; titulo: string; descripcion: string; evidenciaIds?: string[]; autorId?: string; creadoEn?: string }
 export interface MejoraAntesDespues { id: string; titulo: string; descripcion: string; antesIds: string[]; despuesIds: string[] }
 export interface ConsensoFlujo {
   criterios: DecisionCriterio[]; hallazgos: DecisionHallazgo[]; aprobadoPor: string[]; positivos?: AspectoPositivo[]; conclusion?: string; mejoras?: MejoraAntesDespues[];
@@ -58,10 +59,15 @@ export interface ConsensoFlujo {
   votosRedactor?: Record<string, string>;
   /** Último pedido de cambios de cada experto (uno por persona). Se retira al confirmar. */
   pedidosCambios?: PedidoCambios[];
+  /** Aspectos positivos agregados por el equipo que quien redacta aún no incorporó al acuerdo. */
+  aportesPositivos?: AspectoPositivo[];
+  /** Traza de todos los cambios pedidos (no se borra al confirmar): quién, qué y si ya se atendió. */
+  historialCambios?: HistorialCambios[];
   /** Quién guardó el acuerdo por última vez y cuándo (ISO). No son decisiones: no reinician confirmaciones. */
   guardadoPor?: string; guardadoEn?: string;
 }
 export interface PedidoCambios { evaluadorId: string; comentario: string; creadoEn: string }
+export interface HistorialCambios extends PedidoCambios { id: string; atendidoEn?: string }
 export type SeccionAcuerdo = 'criterios' | 'hallazgos' | 'positivos' | 'mejoras';
 /** Un elemento del acuerdo al que le falta algo para poder entregarse o confirmarse. `id` es el del criterio, hallazgo (propio u original sin resolver), aspecto positivo o mejora. */
 export interface PendienteAcuerdo { seccion: SeccionAcuerdo; id: string; nombre: string; faltas: string[] }

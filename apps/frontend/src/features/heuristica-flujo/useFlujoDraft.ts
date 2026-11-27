@@ -27,6 +27,9 @@ export function useFlujoDraft<T>(evaluacion: EvaluacionFlujo, usuarioId: string,
   const latest = useRef(draft);
   const savedRef = useRef(saved);
   const revision = useRef(restored.current?.revision ?? evaluacion.revision);
+  // El trabajo individual solo entra en conflicto con cambios propios, no con lo que guarden las demás personas.
+  const guardadoDe = (e: EvaluacionFlujo) => e.trabajos.find(t => t.evaluadorId === usuarioId)?.guardadoEn ?? null;
+  const baseTrabajo = useRef<string | null>(guardadoDe(evaluacion));
   const running = useRef<Promise<void> | null>(null);
   const failed = useRef(false);
   const failedDraft = useRef('');
@@ -37,6 +40,7 @@ export function useFlujoDraft<T>(evaluacion: EvaluacionFlujo, usuarioId: string,
   useEffect(() => {
     if (dirty || saving) return;
     revision.current = evaluacion.revision;
+    baseTrabajo.current = guardadoDe(evaluacion);
     const snapshot = JSON.stringify(initial);
     latest.current = initial;
     savedRef.current = snapshot;
@@ -76,9 +80,10 @@ export function useFlujoDraft<T>(evaluacion: EvaluacionFlujo, usuarioId: string,
           const snapshot = JSON.stringify(latest.current);
           const body = JSON.parse(snapshot);
           const result = await flujoRequest<EvaluacionFlujo>(evaluacion.proyectoId, `/evaluaciones/${evaluacion.id}/${path}`, 'PATCH', {
-            revision: revision.current, ...(path === 'configuracion' ? { configuracion: body } : body),
+            revision: revision.current, ...(path === 'trabajo' ? { baseGuardadoEn: baseTrabajo.current } : {}), ...(path === 'configuracion' ? { configuracion: body } : body),
           });
           revision.current = result.revision;
+          baseTrabajo.current = guardadoDe(result);
           savedRef.current = snapshot;
           if (mounted.current) { setSaved(snapshot); setLastSaved(result.updatedAt); onSaved(result); }
         }
@@ -105,6 +110,7 @@ export function useFlujoDraft<T>(evaluacion: EvaluacionFlujo, usuarioId: string,
       const result = await flujoRequest<EvaluacionFlujo>(evaluacion.proyectoId, `/evaluaciones/${evaluacion.id}`);
       setRemote(path === 'configuracion' ? result.configuracion : path === 'trabajo' ? result.trabajos.find(t => t.evaluadorId === usuarioId) : path === 'consenso' ? result.consenso : result.comparacion);
       revision.current = result.revision;
+      baseTrabajo.current = guardadoDe(result);
       failed.current = false;
       setError('');
       setConflict(false);

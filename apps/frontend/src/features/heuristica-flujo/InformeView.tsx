@@ -4,13 +4,13 @@ import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { escalaDe, origenHallazgo, resumirCumplimiento, resumirEvaluacion } from '@observatorio-ux/shared-types';
-import type { ComparacionFlujo, EstadoComparacion, EvaluacionFlujo, VinculoComparacion } from '@observatorio-ux/shared-types';
+import type { ComparacionFlujo, EstadoComparacion, EvaluacionFlujo, MiembroEquipoFlujo, VinculoComparacion } from '@observatorio-ux/shared-types';
 import { notify } from '../../shared/api/toast';
 import { Field, Fuente } from './ConfiguracionEditor';
 import { EvidenciaEditor } from './EvidenciaEditor';
 import { SaveStatus } from './TrabajoEditor';
 import { flujoRequest } from './flujo.api';
-import { fechaChile, participacionInforme, textoCumplimiento, textoEscala } from './flujo-utils';
+import { autoriaHallazgo, fechaChile, nombresInforme, participacionInforme, revisionInforme, textoCumplimiento, textoEscala } from './flujo-utils';
 import { useFlujoDraft } from './useFlujoDraft';
 import { ResumenCriterios } from './ResumenCriterios';
 import { InformePdfDialog } from './InformePdfDialog';
@@ -41,7 +41,7 @@ function ComparacionEditor({ actual, anterior, comparacion, usuarioId, onSaved, 
     {editable && <><button type="button" className="secondary" onClick={() => state.setDraft({ ...state.draft, vinculos: [...state.draft.vinculos, { anteriorId: null, actualId: null, estado: 'NO_VERIFICADO', justificacion: '' }] })}>Agregar correspondencia</button><SaveStatus {...state} /></>}
   </section>;
 }
-export function InformeView({ evaluacion, historial, usuarioId, onSaved, onBack }: { evaluacion: EvaluacionFlujo; historial: EvaluacionFlujo[]; usuarioId: string; onSaved: (e: EvaluacionFlujo) => void; onBack: () => void }) {
+export function InformeView({ evaluacion, historial, usuarioId, onSaved, onBack, equipo }: { evaluacion: EvaluacionFlujo; historial: EvaluacionFlujo[]; usuarioId: string; onSaved: (e: EvaluacionFlujo) => void; onBack: () => void; equipo?: MiembroEquipoFlujo[] }) {
   const [previaId, setPreviaId] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -58,6 +58,8 @@ export function InformeView({ evaluacion, historial, usuarioId, onSaved, onBack 
   const mejoras = informe.consenso.mejoras ?? [];
   const participacion = participacionInforme(informe, evaluacion.coordinadorId);
   const conclusion = (informe.consenso.conclusion ?? '').trim();
+  const nombres = nombresInforme(evaluacion, equipo);
+  const revision = revisionInforme(evaluacion, nombres);
   const opciones = historial.filter(e => e.id !== evaluacion.id && e.fase === 'FINALIZADA' && e.configuracion.producto.clave === config.producto.clave);
   async function action(action: 'finalizar' | 'version') {
     setBusy(true); setError('');
@@ -103,7 +105,7 @@ export function InformeView({ evaluacion, historial, usuarioId, onSaved, onBack 
         <h3>{h.titulo}</h3>
         <p className="hf-hallazgo-meta"><span className={`badge hf-severidad hf-severidad-${h.severidad}`}>Severidad {h.severidad} · {NIVEL_SEVERIDAD[h.severidad]}</span> <span>Prioridad {h.prioridad}</span> <span>{h.decision === 'ACEPTADO' ? 'Mejorar' : h.decision === 'DESCARTADO' ? 'Descartado' : 'Por revisar'}</span></p>
         {h.decision === 'ACEPTADO' && <>{h.recomendacion && <p><strong>Recomendación:</strong> {h.recomendacion}</p>}<p>{h.pantalla ? `${h.pantalla}: ` : ''}{h.descripcion}</p></>}
-        <details><summary>Evidencia y notas</summary><p>Origen: {origenHallazgo(h) === 'equipo' ? 'Nuevo del equipo' : h.origenIds.join(', ')} · {h.justificacion}</p>{h.notas && <p>{h.notas}</p>}{h.decision === 'ACEPTADO' && <EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={h.evidenciaIds} editable={false} />}</details>
+        <details><summary>Evidencia y notas</summary><p>Origen: {origenHallazgo(h) === 'equipo' ? 'Nuevo del equipo' : 'Hallazgo individual'}{autoriaHallazgo(evaluacion, h, nombres) ? ` · ${autoriaHallazgo(evaluacion, h, nombres)}` : ''} · Revisado por {revision.redactor}{revision.confirmaron.length ? ` · Acuerdo confirmado por ${revision.confirmaron.join(', ')}` : ''}{h.justificacion ? ` · ${h.justificacion}` : ''}</p>{h.notas && <p>{h.notas}</p>}{h.decision === 'ACEPTADO' && <EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={h.evidenciaIds} editable={false} />}</details>
       </article>)}
     </section>
     {/* (4) Cumplimiento y criterios con problema o cumplidos. */}
@@ -111,7 +113,7 @@ export function InformeView({ evaluacion, historial, usuarioId, onSaved, onBack 
       <div className="hf-table"><table><thead><tr><th>Categoría</th><th>Cumplimiento</th></tr></thead><tbody>{cumplimiento.porCategoria.map(c => <tr key={c.categoria}><td>{c.categoria}</td><td>{textoCumplimiento(c)}</td></tr>)}<tr><th scope="row">Total</th><td>{textoCumplimiento(cumplimiento.total)}</td></tr></tbody></table></div></section>}
     <ResumenCriterios configuracion={config} consenso={informe.consenso} />
     {/* (5) Lo que funciona bien. */}
-    {positivos.length > 0 && <section className="panel" id="inf-positivos" aria-labelledby="inf-positivos-t"><div className="panel-head"><h2 id="inf-positivos-t">Lo que funciona bien</h2></div>{positivos.map(p => <article className="finding" key={p.id}><h3>{p.titulo}</h3>{p.descripcion && <p>{p.descripcion}</p>}{!!p.evidenciaIds?.length && <EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={p.evidenciaIds} editable={false} />}</article>)}</section>}
+    {positivos.length > 0 && <section className="panel" id="inf-positivos" aria-labelledby="inf-positivos-t"><div className="panel-head"><h2 id="inf-positivos-t">Lo que funciona bien</h2></div>{positivos.map(p => <article className="finding" key={p.id}><h3>{p.titulo}</h3>{p.descripcion && <p>{p.descripcion}</p>}<p className="hf-hallazgo-meta">{p.autorId ? `Agregado por ${nombres[p.autorId] ?? 'una persona del equipo'}${p.creadoEn ? ` · ${fechaChile(p.creadoEn)}` : ''}` : `Redactado por ${revision.redactor}`} · Revisado por {revision.redactor}</p>{!!p.evidenciaIds?.length && <EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={p.evidenciaIds} editable={false} />}</article>)}</section>}
     {/* (6) Antes y después. */}
     {mejoras.length > 0 && <section className="panel" id="inf-antes-despues" aria-labelledby="inf-antes-despues-t"><div className="panel-head"><h2 id="inf-antes-despues-t">Antes y después</h2></div>{mejoras.map((m, i) => <article className="finding" key={m.id}><h3>{i + 1}. {m.titulo}</h3>{m.descripcion && <p className="hf-texto-multilinea">{m.descripcion}</p>}
       <h4>Antes</h4>{m.antesIds.length ? <EvidenciaEditor proyectoId={evaluacion.proyectoId} evaluacionId={evaluacion.id} evidenciaIds={m.antesIds} editable={false} /> : <p>Sin capturas.</p>}
@@ -156,8 +158,9 @@ export function InformeView({ evaluacion, historial, usuarioId, onSaved, onBack 
       setPdfError('');
       try {
         const { exportarInformeFlujoPdf } = await import('./informe-pdf');
-        await exportarInformeFlujoPdf(evaluacion.proyectoId, evaluacion, { partes });
+        const { capturasFallidas } = await exportarInformeFlujoPdf(evaluacion.proyectoId, evaluacion, { partes, nombres });
         setPdfOpen(false);
+        if (capturasFallidas) notify.error(`${capturasFallidas} captura${capturasFallidas === 1 ? '' : 's'} no se pudo cargar y quedó indicada en el PDF. Vuelve a generar el informe para reintentarlo.`);
       } catch (cause) {
         setPdfError(cause instanceof Error ? cause.message : 'No se pudo generar PDF');
       } finally {

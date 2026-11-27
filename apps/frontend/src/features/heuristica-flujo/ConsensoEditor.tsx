@@ -8,6 +8,7 @@ import { AspectosPositivos } from './AspectosPositivos';
 import { MatrizItem } from './MatrizItem';
 import { RedactorPanel } from './RedactorPanel';
 import { AporteEquipo } from './AporteEquipo';
+import { AportePositivoEquipo } from './AportePositivoEquipo';
 import { HallazgoEditor, SaveStatus } from './TrabajoEditor';
 import { notify } from '../../shared/api/toast';
 import { flujoRequest } from './flujo.api';
@@ -36,6 +37,14 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
   // Los problemas agregados por el equipo (F31) llegan igual, con su autor.
   const aportes = evaluacion.consenso.aportes;
   useEffect(() => { if (soloLectura || !precargarDecisiones(evaluacion.trabajos, state.draft.hallazgos, aportes).length) return; state.setDraft(prev => ({ ...prev, hallazgos: [...prev.hallazgos, ...precargarDecisiones(evaluacion.trabajos, prev.hallazgos, aportes)] })); }, [evaluacion.trabajos, aportes, state.draft.hallazgos, soloLectura]);
+  // Los aspectos positivos que agregó el resto del equipo llegan al borrador con su autor; los que quien redacta quitó no vuelven.
+  const aportesPositivos = evaluacion.consenso.aportesPositivos;
+  const positivosQuitados = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (soloLectura || !aportesPositivos?.length) return;
+    const nuevos = aportesPositivos.filter(a => !positivosQuitados.current.has(a.id) && !(state.draft.positivos ?? []).some(p => p.id === a.id));
+    if (nuevos.length) state.setDraft(prev => ({ ...prev, positivos: [...prev.positivos, ...nuevos.filter(a => !prev.positivos.some(p => p.id === a.id))] }));
+  }, [aportesPositivos, state.draft.positivos, soloLectura]);
   const criterios = evaluacion.configuracion.metodologia.criterios;
   const acordadas = criterios.filter(c => { const r = state.draft.criterios.find(x => x.criterioId === c.id); return !!r && (r.noAplica || r.valor !== null); }).length;
   const confirmaron = evaluacion.trabajos.filter(t => evaluacion.consenso.aprobadoPor.includes(t.evaluadorId) && !state.dirty);
@@ -155,6 +164,10 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
     }
     catch (e) { setError(e instanceof Error ? e.message : 'No se pudo completar la acción'); } finally { setBusy(false); }
   }
+  async function actualizar() {
+    if (!(await state.confirmLeave())) return;
+    try { await state.reloadRevision(); setError(''); } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo actualizar'); }
+  }
   async function pedirCambios() {
     setBusy(true); setError('');
     try { await state.save(); onSaved(await flujoRequest<EvaluacionFlujo>(evaluacion.proyectoId, `/evaluaciones/${evaluacion.id}/pedir-cambios`, 'POST', { revision: state.getRevision(), comentario: comentario.trim() })); setPidiendo(false); setComentario(''); }
@@ -170,7 +183,7 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
       {faltan.length > 0 && <p>Falta confirmar: {faltan.map(t => t.nombre).join(', ')}.</p>}
       <p>{soloLectura ? `Redacta el acuerdo: ${nombreDe(redactorId)}. Solo esa persona puede editarlo; tú puedes leerlo y confirmarlo.` : 'Tú redactas el acuerdo.'}</p>
       {evaluacion.consenso.guardadoPor && evaluacion.consenso.guardadoEn && <p>{`Última edición por ${nombreDe(evaluacion.consenso.guardadoPor)} · ${fechaChile(evaluacion.consenso.guardadoEn)}`}</p>}</section>
-    <RedactorPanel evaluacion={evaluacion} usuarioId={usuarioId} nombreDe={nombreDe} guardar={state.save} getRevision={state.getRevision} onSaved={onSaved} />
+    <RedactorPanel evaluacion={evaluacion} usuarioId={usuarioId} nombreDe={nombreDe} guardar={state.save} getRevision={state.getRevision} onSaved={onSaved} onActualizar={state.reloadRevision} />
     <p role="status" className="hf-llevado">{llevadoA}</p>
     <RecorridoSencillo paso={paso} onPaso={setPaso} pasos={[{ titulo: 'Acordar las respuestas', ayuda: 'Lean las respuestas de cada persona y elijan una respuesta común. Expliquen por qué están de acuerdo.', contenido: (<>
     <fieldset disabled={bloqueo}><legend>Acuerdo por pregunta</legend>
@@ -197,9 +210,10 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
       {soloLectura && (esExperto || usuarioId === evaluacion.coordinadorId) && <AporteEquipo evaluacion={evaluacion} usuarioId={usuarioId} nombreDe={nombreDe} onSaved={onSaved} />}
     </section>
     <section className="panel hf-form-seccion" aria-labelledby="hf-positivos-titulo"><div className="panel-head"><div><h2 id="hf-positivos-titulo">Lo que funciona bien</h2><p className="hf-ayuda">Opcional. Registra los aciertos del producto, con capturas si ayudan a mostrarlos.</p></div></div>
-      <AspectosPositivos evaluacion={evaluacion} positivos={state.draft.positivos} bloqueo={bloqueo} destacadoId={destacado?.id}
-        onChange={positivos => state.setDraft(prev => ({ ...prev, positivos }))}
+      <AspectosPositivos evaluacion={evaluacion} positivos={state.draft.positivos} bloqueo={bloqueo} destacadoId={destacado?.id} usuarioId={usuarioId} nombreDe={nombreDe} ocultarAgregar={soloLectura}
+        onChange={positivos => { state.draft.positivos.filter(p => !positivos.some(x => x.id === p.id)).forEach(p => positivosQuitados.current.add(p.id)); state.setDraft(prev => ({ ...prev, positivos })); }}
         onPendingChange={(id, v) => setSubiendo(p => p[id] === v ? p : { ...p, [id]: v })} />
+      {soloLectura && (esExperto || usuarioId === evaluacion.coordinadorId) && <AportePositivoEquipo evaluacion={evaluacion} usuarioId={usuarioId} nombreDe={nombreDe} onSaved={onSaved} />}
     </section>
     <section className="panel"><div className="panel-head"><h2>Conclusión y recomendaciones finales</h2></div>
       <Field label="Conclusión y recomendaciones finales"><textarea maxLength={10000} disabled={bloqueo} value={state.draft.conclusion} onChange={e => state.setDraft({ ...state.draft, conclusion: e.target.value })} /></Field>
@@ -213,7 +227,15 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
     </section>
     <section className="panel" ref={confirmacion} tabIndex={-1}><div className="panel-head"><h2>Confirmación de todos los expertos</h2></div>{yaConfirmo && <p role="status"><strong>Ya confirmaste el acuerdo</strong></p>}<p>Editar el consenso revoca las confirmaciones previas. {state.dirty ? 'Hay cambios pendientes: las aprobaciones visibles corresponden a la versión guardada.' : ''}</p>
       <ul>{evaluacion.trabajos.map(t => <li key={t.evaluadorId}>{t.nombre}: {evaluacion.consenso.aprobadoPor.includes(t.evaluadorId) && !state.dirty ? 'Confirmado' : 'Confirmación pendiente'}</li>)}</ul>
-      {!!evaluacion.consenso.pedidosCambios?.length && <><h3>Cambios pedidos</h3><ul>{evaluacion.consenso.pedidosCambios.map(p => <li key={p.evaluadorId}>{nombreDe(p.evaluadorId)} pidió cambios: {p.comentario}</li>)}</ul></>}
+      <div className="hf-cambios-pedidos"><h3>Cambios pedidos</h3>
+        {(() => {
+          // Traza completa: cada pedido queda con quién, cuándo y si ya se atendió. Los acuerdos anteriores a la traza muestran solo el pedido vigente.
+          const traza = evaluacion.consenso.historialCambios ?? [];
+          const vigentes = (evaluacion.consenso.pedidosCambios ?? []).filter(p => !traza.some(h => h.evaluadorId === p.evaluadorId && h.creadoEn === p.creadoEn));
+          const filas = [...traza.map(h => ({ clave: h.id, ...h })), ...vigentes.map(p => ({ clave: `${p.evaluadorId}:${p.creadoEn}`, id: p.evaluadorId, ...p, atendidoEn: undefined as string | undefined }))].sort((a, b) => Date.parse(b.creadoEn) - Date.parse(a.creadoEn));
+          return filas.length ? <ul className="hf-historial-cambios">{filas.map(f => <li key={f.clave}>{nombreDe(f.evaluadorId)} pidió cambios: {f.comentario} <em>· {fechaChile(f.creadoEn)} · {f.atendidoEn ? `atendido el ${fechaChile(f.atendidoEn)}` : 'pendiente'}</em></li>)}</ul> : <p className="hf-ayuda">Nadie ha pedido cambios.</p>;
+        })()}
+        <button type="button" className="ghost" disabled={state.saving || busy} onClick={() => void actualizar()}>Actualizar cambios pedidos</button></div>
       {!soloLectura && <p className="hf-ayuda">Al entregar el acuerdo quedas confirmado automáticamente. Los demás expertos podrán confirmarlo o pedir cambios.</p>}
       <div className="hf-actions">{!soloLectura && <button type="button" className={!yaEntregado && !todosConfirmaron ? 'primary' : 'secondary'} disabled={busy || state.saving} onClick={() => {
         // Si falta algo, en vez de un botón inactivo se lleva a la persona a lo primero que falta.

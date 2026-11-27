@@ -1,5 +1,5 @@
 import { acuerdoDifiere, escalaDe, normalizarUrlProducto, redactorDe } from '@observatorio-ux/shared-types';
-import type { AporteEquipo, ConfiguracionFlujo, EvidenciaFlujo, CriterioFlujo, CumplimientoGrupo, DecisionCriterio, DecisionHallazgo, EscalaFlujo, HallazgoFlujo, InformeFlujo, RespuestaCriterio, TrabajoFlujo } from '@observatorio-ux/shared-types';
+import type { AporteEquipo, ConfiguracionFlujo, EvidenciaFlujo, CriterioFlujo, CumplimientoGrupo, DecisionCriterio, DecisionHallazgo, EscalaFlujo, EvaluacionFlujo, HallazgoFlujo, InformeFlujo, RespuestaCriterio, TrabajoFlujo } from '@observatorio-ux/shared-types';
 
 export function pendientesTrabajo(config: ConfiguracionFlujo, respuestas: RespuestaCriterio[], hallazgos: HallazgoFlujo[]) {
   const pendientes = config.metodologia.criterios.flatMap((c, i) => {
@@ -131,4 +131,31 @@ export function autoriaCaptura(meta: Pick<EvidenciaFlujo, 'autorNombre' | 'anota
 /** Notas de las marcas numeradas, para el pie de la captura en el PDF ("1. … · 3. …"). */
 export function notasCaptura(anotaciones: EvidenciaFlujo['anotaciones']): string {
   return anotaciones.map((a, i) => a.tipo !== 'texto' && a.texto.trim() ? `${i + 1}. ${a.texto.trim()}` : '').filter(Boolean).join(' · ');
+}
+
+/** Nombre de cada persona del equipo, para mostrar quién hizo qué en el informe. */
+export function nombresInforme(ev: EvaluacionFlujo, equipo?: Array<{ id: string; nombre: string }>): Record<string, string> {
+  const nombres: Record<string, string> = {};
+  for (const m of equipo ?? []) nombres[m.id] = m.nombre;
+  for (const t of ev.trabajos) nombres[t.evaluadorId] ??= t.nombre;
+  for (const e of ev.informe?.evaluadores ?? []) nombres[e.id] ??= e.nombre;
+  return nombres;
+}
+
+/** Quién registró un problema del informe: su dueño individual, quien lo agregó al acuerdo o, si no consta, nadie (null). */
+export function autoriaHallazgo(ev: EvaluacionFlujo, h: { origenIds: string[]; autorId?: string }, nombres: Record<string, string>): string | null {
+  const nombre = (id: string) => nombres[id] ?? 'una persona del equipo';
+  const aporte = ev.informe?.consenso.aportes?.find(a => h.origenIds.includes(a.id));
+  if (aporte) return `Agregado por ${nombre(aporte.autorId)}`;
+  const trabajo = ev.trabajos.find(t => t.hallazgos.some(o => h.origenIds.includes(o.id)));
+  if (trabajo) return `Detectado por ${nombre(trabajo.evaluadorId)}`;
+  if (h.autorId) return `Agregado por ${nombre(h.autorId)}`;
+  return null;
+}
+
+/** Quién decidió y quién confirmó el acuerdo del que sale el informe. */
+export function revisionInforme(ev: EvaluacionFlujo, nombres: Record<string, string>): { redactor: string; confirmaron: string[] } {
+  const informe = ev.informe!;
+  const redactor = nombres[redactorDe(informe.consenso, ev.coordinadorId)] ?? 'El coordinador';
+  return { redactor, confirmaron: informe.evaluadores.filter(e => informe.consenso.aprobadoPor.includes(e.id)).map(e => e.nombre) };
 }

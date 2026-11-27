@@ -2,12 +2,18 @@ import type { AnotacionEvidencia, EvaluacionFlujo } from '@observatorio-ux/share
 import { clasificarCriterios, escalaDe, origenHallazgo, resumirCumplimiento, resumirEvaluacion, SEVERIDADES } from '@observatorio-ux/shared-types';
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces';
 import { brandChrome, cargarPdfMake, date, MUTED, table, type ReportBrand } from '../../shared/utils/pdf';
-import { PDF_DEFAULT_STYLE, PDF_PAGE_MARGINS, PDF_STYLES, keepHeadingsWithContent, title } from '../../shared/utils/pdf-base';
-import { cargarEvidencia } from './evidencia.api';
-import { autoriaCaptura, notasCaptura, textoCumplimiento } from './flujo-utils';
+import { PDF_DEFAULT_STYLE, PDF_PAGE_MARGINS, PDF_STYLES, keepHeadingsWithContent, title, titleAccent } from '../../shared/utils/pdf-base';
+import { cargarEvidenciaParaInforme } from './evidencia.api';
+import { autoriaCaptura, autoriaHallazgo, notasCaptura, revisionInforme, textoCumplimiento } from './flujo-utils';
 import { anclaMarca } from './anotaciones-interaccion';
 
 const titulo = title;
+/**
+ * Título para bloques que ya abren hoja con `pageBreak: 'before'`: sin `headlineLevel`, porque
+ * `keepHeadingsWithContent` lo toma por título huérfano dentro del bloque que no se parte y
+ * agrega otro salto de página (una hoja en blanco).
+ */
+const tituloEnHoja = (text: string): Content => ({ stack: [{ text, style: 'subheading' }, titleAccent()], margin: [0, 16, 0, 8] });
 const campo = (text: string, value: string): Content => ({ stack: [
   { text, fontSize: 8.5, bold: true, color: MUTED, margin: [0, 0, 0, 3] },
   { text: value || 'No registrado' },
@@ -17,11 +23,13 @@ const campo = (text: string, value: string): Content => ({ stack: [
 // junto a él: ancho útil 487 pt a 11 pt ≈ 80 caracteres por línea de 15 pt.
 const ALTO_UTIL = 842 - 72 - 54;
 const ALTO_TITULO = 48;
-const altoTexto = (texto: string) => texto.split('\n').reduce((total, linea) => total + Math.max(1, Math.ceil(linea.length / 80)) * 15, 0);
+const altoTexto = (texto: string) => texto.split('\n').reduce((total, linea) => total + Math.max(1, Math.ceil(linea.length / 68)) * 16, 0);
+/** Un bloque solo se declara indivisible si sobra holgura: si no cupiera en una hoja, pdfmake deja la anterior en blanco. */
+const cabeEnUnaHoja = (alto: number) => alto < ALTO_UTIL - 140;
 const altoCampos = (campos: Array<[string, string]>) => campos.reduce((total, [, valor]) => total + 26 + altoTexto(valor || 'No registrado'), 0);
 
 /** `pies`: texto bajo cada captura (quién la subió y anotó, y cuándo), por id. */
-type OpcionesInformePdf = { partes?: readonly string[]; pies?: ReadonlyMap<string, string> };
+type OpcionesInformePdf = { partes?: readonly string[]; pies?: ReadonlyMap<string, string>; /** Nombre de cada persona por id, para indicar quién hizo y quién revisó cada punto. */ nombres?: Readonly<Record<string, string>> };
 
 function idsEvidencia(consenso: EvaluacionFlujo['consenso'] | undefined, { partes }: OpcionesInformePdf) {
   return new Set([
@@ -56,6 +64,8 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
   const imagenes: Record<string, string> = {};
   const evidenciaIncluida = idsEvidencia(consenso, opciones);
   for (const [id, img] of capturas) if (img && evidenciaIncluida.has(id)) imagenes[`evidencia-${id}`] = img;
+  const nombres = opciones.nombres ?? {};
+  const revision = revisionInforme(evaluacion, nombres);
   const positivos = consenso.positivos ?? [];
   const mejoras = consenso.mejoras ?? [];
   const conclusion = (consenso.conclusion ?? '').trim();
@@ -63,40 +73,42 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
   const pieCaptura = (id: string): Content[] => { const pie = opciones.pies?.get(id); return pie ? [{ text: pie, fontSize: 8, color: MUTED, margin: [0, -2, 0, 8] }] : []; };
   const imagenEvidencia = (id: string, alto = 310): Content => capturas.get(id)
     ? { stack: [{ image: `evidencia-${id}`, fit: [460, alto], margin: [0, 6, 0, 6] }, ...pieCaptura(id)], unbreakable: true }
-    : { text: `Captura ${id} disponible en la aplicación (no incluida en este PDF).`, color: MUTED, italics: true };
+    : { text: `Captura ${id} disponible en la aplicación (no se pudo cargar al generar este PDF; vuelve a generarlo para reintentar).`, color: MUTED, italics: true, margin: [0, 6, 0, 6] };
   /**
    * Texto con su primera captura en un bloque que no se parte (la captura se achica para
    * caber con el texto); las demás capturas siguen, cada una entera. Con texto muy largo
    * el bloque puede partirse y la captura va aparte.
    */
   const conCapturas = (texto: Content[], ids: string[], altoTexto: number, extra: Partial<Record<'pageBreak', 'before'>> = {}): Content[] => {
-    const alto = Math.min(310, Math.floor(ALTO_UTIL - altoTexto - 40));
+    const alto = Math.min(310, Math.floor(ALTO_UTIL - altoTexto - 90));
     const juntas = alto >= 150;
     const [primera, ...resto] = juntas ? ids : [];
     return [
-      { stack: [...texto, ...(primera ? [imagenEvidencia(primera, alto)] : [])], unbreakable: altoTexto < ALTO_UTIL - 20, ...extra },
+      { stack: [...texto, ...(primera ? [imagenEvidencia(primera, alto)] : [])], unbreakable: cabeEnUnaHoja(altoTexto + (primera ? alto + 40 : 0)), ...extra },
       ...(juntas ? resto : ids).map(id => imagenEvidencia(id)),
     ];
   };
   // Un problema por hoja; la sección abre hoja nueva con el primero.
   const detalleHallazgos: Content[] = hallazgos.flatMap((h, i) => {
+    const autor = autoriaHallazgo(evaluacion, h, nombres);
     const campos: Array<[string, string]> = [
       ['Severidad', `${h.severidad} · ${SEVERIDADES[h.severidad].etiqueta}`],
       ['Prioridad', h.prioridad], ['Pantalla o tarea', h.pantalla], ['Criterios', h.criterioIds.map(nombreCriterio).join('; ')],
       ['Problema', h.descripcion], ['Recomendación', h.recomendacion], ['Justificación del acuerdo', h.justificacion],
       ...(h.notas ? [['Notas', h.notas] as [string, string]] : []),
-      [origenHallazgo(h) === 'equipo' ? 'Origen' : 'Hallazgos individuales de origen', origenHallazgo(h) === 'equipo' ? 'Nuevo del equipo' : h.origenIds.join(', ')],
+      ['Origen', `${origenHallazgo(h) === 'equipo' ? 'Nuevo del equipo' : 'Hallazgo individual'}${autor ? ` · ${autor}` : ''}`],
+      ['Revisión', `Decidido por ${revision.redactor}${revision.confirmaron.length ? ` · Acuerdo confirmado por ${revision.confirmaron.join(', ')}` : ''}`],
     ];
     const titulos = [...(i === 0 ? ['Problemas y recomendaciones'] : []), `${i + 1}. ${h.titulo}`];
     return conCapturas(
-      [...titulos.map(t => titulo(t)), ...campos.map(([etiqueta, valor]) => campo(etiqueta, valor))],
+      [...titulos.map(t => tituloEnHoja(t)), ...campos.map(([etiqueta, valor]) => campo(etiqueta, valor))],
       h.evidenciaIds, altoCampos(campos) + titulos.length * ALTO_TITULO, { pageBreak: 'before' },
     );
   });
   const sinCapturas: Content = { text: 'Sin capturas.', color: MUTED, margin: [0, 0, 0, 6] };
   // Cada mejora en hoja propia; «Antes» y «Después» van junto a su primera captura.
   const detalleMejoras: Content[] = mejoras.flatMap((m, i): Content[] => [
-    { stack: [...(i === 0 ? [titulo('Mejoras antes/después')] : []), titulo(`${i + 1}. ${m.titulo}`), ...(m.descripcion ? [{ text: m.descripcion, margin: [0, 2, 0, 4] } as Content] : [])], pageBreak: 'before' },
+    { stack: [...(i === 0 ? [tituloEnHoja('Mejoras antes/después')] : []), tituloEnHoja(`${i + 1}. ${m.titulo}`), ...(m.descripcion ? [{ text: m.descripcion, margin: [0, 2, 0, 4] } as Content] : [])], pageBreak: 'before' },
     ...(['Antes', 'Después'] as const).flatMap((etiqueta): Content[] => {
       const ids = etiqueta === 'Antes' ? m.antesIds : m.despuesIds;
       const rotulo: Content = { text: etiqueta, bold: true, margin: [0, 4, 0, 2] };
@@ -104,9 +116,10 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
     }),
   ]);
   const detallePositivos: Content[] = positivos.flatMap((p, i) => conCapturas([
-    ...(i === 0 ? [titulo('Aspectos positivos')] : []),
+    ...(i === 0 ? [tituloEnHoja('Aspectos positivos')] : []),
     { text: p.titulo, bold: true, margin: [0, 6, 0, 2] },
     ...(p.descripcion ? [{ text: p.descripcion, margin: [0, 0, 0, 4] } as Content] : []),
+    { text: `${p.autorId ? `Agregado por ${nombres[p.autorId] ?? 'una persona del equipo'}` : `Redactado por ${revision.redactor}`} · Revisado por ${revision.redactor}`, fontSize: 8.5, color: MUTED, margin: [0, 0, 0, 4] },
   ], p.evidenciaIds ?? [], (i === 0 ? ALTO_TITULO : 0) + 24 + altoTexto(p.descripcion ?? ''), i === 0 ? { pageBreak: 'before' } : {}));
   return {
     info: { title: `Evaluación heurística · ${config.nombre} · v${informe.version}`, creator: 'UXLab Observatorio', subject: 'Informe consolidado de evaluación heurística' },
@@ -124,7 +137,7 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
       ...(incluye('resumen') ? [campo('Evaluadores', informe.evaluadores.map(e => e.nombre).join(', '))] : []),
       { columns: [campo('Inicio', informe.iniciadoEn ? date(informe.iniciadoEn) : 'No registrado'), campo('Consolidación', date(informe.consolidadoEn)), campo('Cierre', informe.finalizadoEn ? date(informe.finalizadoEn) : 'Pendiente de cierre'), campo('Exportación', date(generadoEn))], columnGap: 16 },
       ...(incluye('criterios') ? [
-        { stack: [titulo('Escala de valoración')], pageBreak: 'before' } as Content,
+        { stack: [tituloEnHoja('Escala de valoración')], pageBreak: 'before' } as Content,
         campo('Tipo y sentido', `${config.metodologia.escala.tipo} · ${config.metodologia.escala.sentido}`), 
         table(['Respuesta', 'Significado', 'Valor'], config.metodologia.escala.niveles.map(n => [n.etiqueta, n.significado, n.valor ?? 'Sin puntaje']), [100, '*', 70]),
         ...escalasPropias.flatMap((e): Content[] => [
@@ -153,7 +166,7 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
       ...(incluye('conclusion') && conclusion ? [titulo('Conclusión y recomendaciones finales'), { text: conclusion } as Content] : []),
       ...(incluye('resumen') ? [
         titulo('Decisiones de revisión'),
-        table(['Problema', 'Decisión', 'Orígenes', 'Motivo'], consenso.hallazgos.map(h => [h.titulo, h.decision === 'ACEPTADO' ? 'Aceptado / fusionado' : 'Descartado', origenHallazgo(h) === 'equipo' ? 'Nuevo del equipo' : h.origenIds.join(', '), h.justificacion]), ['*', 90, 90, '*']),
+        table(['Problema', 'Decisión', 'Origen y autoría', 'Motivo'], consenso.hallazgos.map(h => [h.titulo, h.decision === 'ACEPTADO' ? 'Aceptado / fusionado' : 'Descartado', [origenHallazgo(h) === 'equipo' ? 'Nuevo del equipo' : 'Hallazgo individual', autoriaHallazgo(evaluacion, h, nombres)].filter(Boolean).join(' · '), h.justificacion]), ['*', 90, 110, '*']),
         campo('Aprobación explícita', informe.evaluadores.filter(e => consenso.aprobadoPor.includes(e.id)).map(e => e.nombre).join(', ')),
       ] : []),
       // Una sola referencia al final: de ahí provienen las preguntas (no se repite en cada criterio).
@@ -189,30 +202,56 @@ export function dibujarAnotacion(ctx: CanvasRenderingContext2D, a: AnotacionEvid
   ctx.restore();
 }
 
-export async function rasterizarEvidencia(blob: Blob, anotaciones: AnotacionEvidencia[]): Promise<string> {
-  const bitmap = await createImageBitmap(blob);
+/** Lado máximo de la captura en el PDF: más grande solo pesa (y puede agotar la memoria del navegador) sin verse mejor en A4. */
+const LADO_MAX_CAPTURA = 2400;
+
+/** Decodifica la imagen con `createImageBitmap` y, si el navegador no puede, con un `<img>` (p. ej. formatos que el primero rechaza). */
+async function decodificar(blob: Blob): Promise<{ origen: CanvasImageSource; ancho: number; alto: number; cerrar: () => void }> {
   try {
-    const factor = Math.min(1, 4096 / Math.max(bitmap.width, bitmap.height));
-    const canvas = document.createElement('canvas'); canvas.width = Math.max(1, Math.round(bitmap.width * factor)); canvas.height = Math.max(1, Math.round(bitmap.height * factor));
+    const bitmap = await createImageBitmap(blob);
+    return { origen: bitmap, ancho: bitmap.width, alto: bitmap.height, cerrar: () => bitmap.close() };
+  } catch {
+    const url = URL.createObjectURL(blob);
+    try {
+      const img = new Image();
+      await new Promise<void>((ok, fallo) => { img.onload = () => ok(); img.onerror = () => fallo(new Error('No se pudo leer la captura.')); img.src = url; });
+      return { origen: img, ancho: img.naturalWidth, alto: img.naturalHeight, cerrar: () => URL.revokeObjectURL(url) };
+    } catch (e) { URL.revokeObjectURL(url); throw e; }
+  }
+}
+
+export async function rasterizarEvidencia(blob: Blob, anotaciones: AnotacionEvidencia[]): Promise<string> {
+  const img = await decodificar(blob);
+  try {
+    if (!img.ancho || !img.alto) throw new Error('La captura está vacía.');
+    const factor = Math.min(1, LADO_MAX_CAPTURA / Math.max(img.ancho, img.alto));
+    const canvas = document.createElement('canvas'); canvas.width = Math.max(1, Math.round(img.ancho * factor)); canvas.height = Math.max(1, Math.round(img.alto * factor));
     const ctx = canvas.getContext('2d'); if (!ctx) throw new Error('No se pudo preparar la captura para el PDF.');
-    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    // Fondo blanco: en JPEG la transparencia sería negra.
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img.origen, 0, 0, canvas.width, canvas.height);
     anotaciones.forEach(a => dibujarAnotacion(ctx, a, canvas.width, canvas.height));
     // Número de cada marca (como en la app), para leer su nota en el pie de la captura.
     anotaciones.forEach((a, i) => { if (a.tipo !== 'texto') dibujarNumero(ctx, a, i + 1, canvas.width, canvas.height); });
-    return canvas.toDataURL('image/png');
-  } finally { bitmap.close(); }
+    return canvas.toDataURL('image/jpeg', 0.88);
+  } finally { img.cerrar(); }
 }
 
-export async function exportarInformeFlujoPdf(proyectoId: string, evaluacion: EvaluacionFlujo, opciones: OpcionesInformePdf = {}): Promise<void> {
+/** Devuelve cuántas capturas no se pudieron cargar (el PDF las indica en su lugar). */
+export async function exportarInformeFlujoPdf(proyectoId: string, evaluacion: EvaluacionFlujo, opciones: OpcionesInformePdf = {}): Promise<{ capturasFallidas: number }> {
   const capturas = new Map<string, string | null>();
   const pies = new Map<string, string>();
   const ids = idsEvidencia(evaluacion.informe?.consenso, opciones);
   for (const id of ids) {
-    try { const { meta, blob } = await cargarEvidencia(proyectoId, evaluacion.id, id); capturas.set(id, await rasterizarEvidencia(blob, meta.anotaciones)); pies.set(id, [autoriaCaptura(meta), notasCaptura(meta.anotaciones)].filter(Boolean).join('\n')); }
-    catch { capturas.set(id, null); }
+    try {
+      const { meta, blob } = await cargarEvidenciaParaInforme(proyectoId, evaluacion.id, id);
+      capturas.set(id, await rasterizarEvidencia(blob, meta?.anotaciones ?? []));
+      if (meta) pies.set(id, [autoriaCaptura(meta), notasCaptura(meta.anotaciones)].filter(Boolean).join('\n'));
+    } catch { capturas.set(id, null); }
   }
   const { pdfMake, brand } = await cargarPdfMake();
   const nombre = evaluacion.informe?.configuracion.nombre ?? 'evaluacion';
   const slug = nombre.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 60);
   await pdfMake.createPdf(construirInformeFlujoPdf(evaluacion, capturas, new Date(), brand, { ...opciones, pies })).download(`heuristica-${slug}-v${evaluacion.informe?.version ?? 1}.pdf`);
+  return { capturasFallidas: [...capturas.values()].filter(c => !c).length };
 }
