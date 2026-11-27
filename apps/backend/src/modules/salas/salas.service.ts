@@ -32,7 +32,7 @@ export class SalasService {
       throw new ForbiddenException('No se pudo identificar el correo del estudiante.');
     }
 
-    return this.prisma.sala.findMany({
+    const salas = await this.prisma.sala.findMany({
       where: {
         deletedAt: null,
         ...(user.rol === 'ADMIN'
@@ -46,8 +46,13 @@ export class SalasService {
         profesor: {
           select: { id: true, nombre: true, email: true, rol: true },
         },
+        // Solo el docente y la administración deciden accesos; el estudiante no necesita el conteo.
+        ...(user.rol === 'ESTUDIANTE'
+          ? {}
+          : { _count: { select: { revisionesAcceso: { where: { resueltoEn: null } } } } }),
       },
     });
+    return salas.map(({ _count, ...sala }) => (_count ? { ...sala, accesosPendientes: _count.revisionesAcceso } : sala));
   }
 
   // Fase 2: salas soft-deleted dentro de la ventana de recuperación (20

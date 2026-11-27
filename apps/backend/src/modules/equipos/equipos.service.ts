@@ -195,6 +195,21 @@ export class EquiposService {
     });
   }
 
+  /** Decisiones ya tomadas (las 50 más recientes), con quién decidió. */
+  async historialRevisionesAcceso(salaId: string, user: AuthenticatedUser) {
+    const sala = await this.getSalaOrThrow(salaId);
+    this.assertDuenoOAdmin(sala, user);
+    const filas = await this.prisma.revisionAccesoEquipo.findMany({
+      where: { salaId, resueltoEn: { not: null } },
+      orderBy: { resueltoEn: 'desc' },
+      take: 50,
+      include: { usuario: { select: { id: true, nombre: true, email: true } } },
+    });
+    const deciden = [...new Set(filas.map(f => f.resueltoPorId).filter((id): id is string => !!id))];
+    const nombres = new Map((deciden.length ? await this.prisma.usuario.findMany({ where: { id: { in: deciden } }, select: { id: true, nombre: true } }) : []).map(u => [u.id, u.nombre]));
+    return filas.map(f => ({ ...f, resueltoPorNombre: f.resueltoPorId ? nombres.get(f.resueltoPorId) ?? null : null }));
+  }
+
   async resolverRevisionAcceso(salaId: string, revisionId: string, dto: ResolverRevisionAccesoDto, user: AuthenticatedUser) {
     const sala = await this.getSalaOrThrow(salaId);
     this.assertDuenoOAdmin(sala, user);

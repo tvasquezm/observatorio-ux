@@ -14,7 +14,7 @@ vi.mock('../hooks/useSalasQueries', () => ({
   useUpdateSala: () => ({ mutate: mocks.update, reset: mocks.reset, error: mocks.error, isSuccess: mocks.saved, isPending: mocks.pending }), useVincularProyecto: () => ({ mutate: vi.fn() }), useDesvincularProyecto: () => ({ mutate: vi.fn() }),
 }));
 vi.mock('../../equipos/hooks/useEquiposQueries', () => ({
-  useEquipos: () => ({ data: mocks.equipos }), useAccesosPendientes: () => ({ data: [] }), useResolverAcceso: () => ({ mutate: vi.fn(), isPending: false }), useCreateEquipo: () => ({ mutate: vi.fn() }), useUpdateEquipo: () => ({ mutate: vi.fn() }),
+  useEquipos: () => ({ data: mocks.equipos }), useAccesosPendientes: () => ({ data: [] }), useHistorialAccesos: () => ({ data: [] }), useResolverAcceso: () => ({ mutate: vi.fn(), isPending: false }), useCreateEquipo: () => ({ mutate: vi.fn() }), useUpdateEquipo: () => ({ mutate: vi.fn() }),
   useRemoveEquipo: () => ({ mutate: vi.fn() }), useAddMiembroEquipo: () => ({ mutate: vi.fn() }), useRemoveMiembroEquipo: () => ({ mutate: vi.fn() }),
 }));
 beforeEach(() => {

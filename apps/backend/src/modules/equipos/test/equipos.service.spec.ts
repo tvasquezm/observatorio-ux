@@ -8,7 +8,7 @@ describe('EquiposService', () => {
   let prisma: {
     sala: { findUnique: jest.Mock };
     salaEstudiante: { findUnique: jest.Mock };
-    usuario: { findUnique: jest.Mock };
+    usuario: { findUnique: jest.Mock; findMany: jest.Mock };
     equipo: {
       create: jest.Mock;
       findMany: jest.Mock;
@@ -47,7 +47,7 @@ describe('EquiposService', () => {
     prisma = {
       sala: { findUnique: jest.fn() },
       salaEstudiante: { findUnique: jest.fn() },
-      usuario: { findUnique: jest.fn() },
+      usuario: { findUnique: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
       equipo: {
         create: jest.fn(),
         findMany: jest.fn(),
@@ -387,6 +387,15 @@ describe('EquiposService', () => {
     it('un docente ajeno o un estudiante no pueden ver ni resolver revisiones', async () => {
       await expect(service.listarRevisionesAcceso('sala-1', docenteAjeno)).rejects.toThrow(ForbiddenException);
       await expect(service.resolverRevisionAcceso('sala-1', 'r1', { decision: 'QUITAR' }, estudiante)).rejects.toThrow(ForbiddenException);
+    });
+
+    it('el historial muestra quién decidió y es solo del docente dueño o la administración', async () => {
+      prisma.revisionAccesoEquipo.findMany.mockResolvedValue([{ id: 'r1', decision: 'QUITADO', resueltoPorId: docenteDueño.id, usuario: { id: 'est-2' } }]);
+      prisma.usuario.findMany.mockResolvedValue([{ id: docenteDueño.id, nombre: 'Docente Dueño' }]);
+      const historial = await service.historialRevisionesAcceso('sala-1', docenteDueño);
+      expect(historial[0]).toMatchObject({ id: 'r1', resueltoPorNombre: 'Docente Dueño' });
+      expect(prisma.revisionAccesoEquipo.findMany.mock.calls[0][0].where).toEqual({ salaId: 'sala-1', resueltoEn: { not: null } });
+      await expect(service.historialRevisionesAcceso('sala-1', docenteAjeno)).rejects.toThrow(ForbiddenException);
     });
 
     it('rechaza una revisión ya resuelta', async () => {

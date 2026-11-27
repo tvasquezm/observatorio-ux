@@ -135,6 +135,7 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
       { columns: [campo('Pantallas incluidas', config.pantallas), campo('Exclusiones', config.exclusiones || 'Ninguna declarada')], columnGap: 20 },
       { columns: [campo('Metodología', `${config.metodologia.nombre} · ${config.metodologia.version}`), campo('Autoría', config.metodologia.autor)], columnGap: 20 },
       ...(incluye('resumen') ? [campo('Evaluadores', informe.evaluadores.map(e => e.nombre).join(', '))] : []),
+      ...(incluye('resumen') && informe.evaluadores.length === 1 ? [campo('Alcance', 'Una sola persona evaluadora: no hay comparación entre evaluadores.')] : []),
       { columns: [campo('Inicio', informe.iniciadoEn ? date(informe.iniciadoEn) : 'No registrado'), campo('Consolidación', date(informe.consolidadoEn)), campo('Cierre', informe.finalizadoEn ? date(informe.finalizadoEn) : 'Pendiente de cierre'), campo('Exportación', date(generadoEn))], columnGap: 16 },
       ...(incluye('criterios') ? [
         { stack: [tituloEnHoja('Escala de valoración')], pageBreak: 'before' } as Content,

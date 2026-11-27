@@ -12,7 +12,7 @@ import { InformeView } from './InformeView';
 import { InformePdfDialog } from './InformePdfDialog';
 import { ConfiguracionEditor } from './ConfiguracionEditor';
 import { FlujoHeuristicaPage } from './FlujoHeuristicaPage';
-import { coincidenciasProblemas, participacionInforme, pendientesTrabajo, precargarConsenso, precargarDecisiones, textoCumplimiento, textoEscala } from './flujo-utils';
+import { actividadDe, coincidenciasProblemas, participacionInforme, pendientesTrabajo, precargarConsenso, precargarDecisiones, textoCumplimiento, textoEscala } from './flujo-utils';
 import { useAuthStore } from '../auth/store/useAuthStore';
 
 const api = vi.hoisted(() => vi.fn());
@@ -376,6 +376,24 @@ describe('historial e informe', () => {
     renderFlow(<InformeView evaluacion={e} historial={[]} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
     expect(screen.queryByText('Solo individual')).not.toBeInTheDocument(); expect(screen.queryByText(/promedio/i)).not.toBeInTheDocument();
     expect(screen.getByRole('list', { name: 'Distribución de severidad' })).toHaveTextContent('Severidad 4: 0');
+  });
+  it('el informe avisa cuando lo respalda una sola persona evaluadora', () => {
+    const e = final('actual');
+    const { unmount } = renderFlow(<InformeView evaluacion={e} historial={[]} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(e.informe!.evaluadores).toHaveLength(1);
+    expect(screen.getByText(/una sola persona evaluadora/)).toBeInTheDocument();
+    unmount();
+    const dos = { ...e, informe: { ...e.informe!, evaluadores: [...e.informe!.evaluadores, { id: 'u2', nombre: 'Beto' }] } };
+    renderFlow(<InformeView evaluacion={dos} historial={[]} usuarioId="u1" onSaved={vi.fn()} onBack={vi.fn()} />);
+    expect(screen.queryByText(/una sola persona evaluadora/)).toBeNull();
+  });
+  it('la actividad de cada persona indica si entregó, empezó o lleva días sin guardar', () => {
+    const ahora = new Date('2026-11-10T12:00:00Z').getTime();
+    expect(actividadDe({ entregadoEn: null, guardadoEn: null }, ahora)).toBe('Aún no empieza');
+    expect(actividadDe({ entregadoEn: null, guardadoEn: '2026-11-10T08:00:00Z' }, ahora)).toBe('Guardó hoy');
+    expect(actividadDe({ entregadoEn: null, guardadoEn: '2026-11-09T08:00:00Z' }, ahora)).toBe('Guardó hace 1 día');
+    expect(actividadDe({ entregadoEn: null, guardadoEn: '2026-11-04T08:00:00Z' }, ahora)).toBe('Sin actividad hace 6 días');
+    expect(actividadDe({ entregadoEn: '2026-11-05T08:00:00Z', guardadoEn: '2026-11-04T08:00:00Z' }, ahora)).toMatch(/^Entregó el /);
   });
   it('aísla borrador al cambiar par comparativo y conserva NO_VERIFICADO', async () => {
     const current = final('actual'); const a = final('anteriorA'); const b = final('anteriorB');

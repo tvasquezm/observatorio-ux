@@ -102,8 +102,16 @@ describe('SalasService', () => {
       orderBy: { createdAt: 'desc' },
       include: {
         profesor: { select: { id: true, nombre: true, email: true, rol: true } },
+        _count: { select: { revisionesAcceso: { where: { resueltoEn: null } } } },
       },
     });
+  });
+
+  it('el docente recibe cuántos accesos esperan su decisión; el estudiante no', async () => {
+    prisma.sala.findMany.mockResolvedValue([{ id: 's1', _count: { revisionesAcceso: 2 } }]);
+    expect(await service.findAll(docente)).toEqual([{ id: 's1', accesosPendientes: 2 }]);
+    prisma.sala.findMany.mockResolvedValue([{ id: 's1' }]);
+    expect(await service.findAll(estudiante)).toEqual([{ id: 's1' }]);
   });
 
   it('permite al administrador listar todas las salas sin exponer passwordHash', async () => {

@@ -26,11 +26,12 @@ vi.mock('../../projects/hooks/useProjectsQueries', () => ({
   useProjects: () => ({ data: [] }),
   useCreateProject: () => ({ mutate: vi.fn(), isPending: false }),
 }));
-const equipos = vi.hoisted(() => ({ lista: [] as unknown[], remove: vi.fn(), pendientes: [] as unknown[], resolver: vi.fn() }));
+const equipos = vi.hoisted(() => ({ lista: [] as unknown[], remove: vi.fn(), pendientes: [] as unknown[], historial: [] as unknown[], resolver: vi.fn() }));
 vi.mock('../../equipos/hooks/useEquiposQueries', () => ({
   useEquipos: () => ({ data: equipos.lista }),
   useAccesosPendientes: () => ({ data: equipos.pendientes }),
   useResolverAcceso: () => ({ mutate: equipos.resolver, isPending: false }),
+  useHistorialAccesos: () => ({ data: equipos.historial }),
   useCreateEquipo: () => ({ mutate: vi.fn() }),
   useUpdateEquipo: () => ({ mutate: vi.fn() }),
   useRemoveEquipo: () => ({ mutate: equipos.remove }),
@@ -48,6 +49,7 @@ beforeEach(() => {
   equipos.remove.mockReset();
   equipos.lista = [];
   equipos.pendientes = [];
+  equipos.historial = [];
   equipos.resolver.mockReset();
   proyectosSala.lista = [];
   salaQuery.data = undefined;
@@ -224,6 +226,16 @@ describe('accesos pendientes de revisión', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Quitar acceso de Eva Soto' }));
     await userEvent.click(await screen.findByRole('button', { name: 'Confirmar' }));
     await waitFor(() => expect(equipos.resolver).toHaveBeenCalledWith({ revisionId: 'r1', decision: 'QUITAR' }));
+  });
+
+  it('muestra las decisiones anteriores con quién las tomó', async () => {
+    salaDe('DOCENTE', 'u1', 'u1');
+    equipos.historial = [{ id: 'h1', usuario: { id: 'u9', nombre: 'Eva Soto', email: 'eva@utem.cl' }, equipoNombre: 'Equipo Rojo', decision: 'QUITADO', resueltoEn: '2026-11-21T12:00:00.000Z', resueltoPorNombre: 'Docente' }];
+    setup();
+    await userEvent.click(screen.getByRole('button', { name: 'Equipos' }));
+    await userEvent.click(screen.getByText('Decisiones anteriores'));
+    expect(screen.getByText(/Se quitó el acceso/)).toHaveTextContent('Eva Soto');
+    expect(screen.getByText(/Se quitó el acceso/)).toHaveTextContent('por Docente');
   });
 
   it('sin pendientes no muestra el panel', async () => {

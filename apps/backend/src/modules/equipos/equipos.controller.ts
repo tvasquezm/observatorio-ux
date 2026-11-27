@@ -50,6 +50,15 @@ export class EquiposController {
     return this.equiposService.listarRevisionesAcceso(salaId, user);
   }
 
+  @Get('accesos-pendientes/historial')
+  @Roles('DOCENTE', 'ADMIN')
+  historialAccesos(
+    @Param('salaId', ParseUUIDPipe) salaId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.equiposService.historialRevisionesAcceso(salaId, user);
+  }
+
   @Post('accesos-pendientes/:revisionId')
   @Roles('DOCENTE', 'ADMIN')
   resolverAcceso(

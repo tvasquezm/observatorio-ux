@@ -3164,3 +3164,8 @@ button.evidencia-numero:hover .evidencia-nota, button.evidencia-numero:focus .ev
 .hf .hf-integrantes-lectores .hf-integrantes-lista { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
 .hf .hf-persona-avance[data-entregado="si"] { border-left: 4px solid var(--teal); padding-left: 10px; }
 .hf .hf-persona-avance[data-entregado="no"] { border-left: 4px solid var(--warning, #d9a400); padding-left: 10px; }
+
+.sala-pendientes { display: inline-block; margin: 4px 0; padding: 3px 10px; border-radius: 999px; background: color-mix(in srgb, var(--warning, #d9a400) 18%, var(--surface)); color: var(--heading); font-size: var(--fs-sm); font-weight: 700; text-decoration: none; }
+
+.hf .hf-actividad { color: var(--muted); font-size: var(--fs-xs, .75rem); }
+.hf .hf-actividad[data-inactivo="si"] { color: var(--danger-text); font-weight: 700; }

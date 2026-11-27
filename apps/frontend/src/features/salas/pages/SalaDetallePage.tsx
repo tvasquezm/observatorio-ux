@@ -33,6 +33,7 @@ import {
   useRemoveMiembroEquipo,
   useAccesosPendientes,
   useResolverAcceso,
+  useHistorialAccesos,
 } from '../../equipos/hooks/useEquiposQueries';
 import type { Equipo } from '../../equipos/api/equipos.api';
 import { SalasApiError, type Sala } from '../api/salas.api';
@@ -529,7 +530,23 @@ function AccesosPendientes({ salaId }: { salaId: string }) {
   const { data: pendientes } = useAccesosPendientes(salaId);
   const { mutate: resolver, isPending } = useResolverAcceso(salaId);
   const confirm = useConfirm();
-  if (!pendientes?.length) return null;
+  const [verHistorial, setVerHistorial] = useState(false);
+  const { data: historial } = useHistorialAccesos(salaId, verHistorial);
+  const bloqueHistorial = (
+    <details onToggle={(e) => setVerHistorial(e.currentTarget.open)}>
+      <summary>Decisiones anteriores</summary>
+      {historial && historial.length === 0 && <p className="text-muted-sm">Aún no has resuelto ningún acceso.</p>}
+      <ul className="list-stack">
+        {historial?.map((h) => (
+          <li key={h.id} className="text-muted-sm">
+            <strong>{h.usuario.nombre}</strong> · {h.decision === 'QUITADO' ? 'Se quitó el acceso' : 'Se mantuvo el acceso'} el {new Date(h.resueltoEn).toLocaleDateString('es-CL')}
+            {h.resueltoPorNombre ? ` por ${h.resueltoPorNombre}` : ''} · salió de «{h.equipoNombre}»
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+  if (!pendientes?.length) return <section className="panel sala-accesos-pendientes sala-accesos-historial">{bloqueHistorial}</section>;
 
   async function quitar(id: string, nombre: string) {
     if (await confirm(`¿Quitar a ${nombre} el acceso a los proyectos de la sala? Dejará de verlos.`)) resolver({ revisionId: id, decision: 'QUITAR' });
@@ -560,6 +577,7 @@ function AccesosPendientes({ salaId }: { salaId: string }) {
           </li>
         ))}
       </ul>
+      {bloqueHistorial}
     </section>
   );
 }

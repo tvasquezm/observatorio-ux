@@ -22,6 +22,8 @@ export interface Sala {
   limiteIntegrantesEquipo: number | null;
   // Fase 5 — toggle de creación de proyectos por ESTUDIANTE.
   permiteCreacionProyectos: boolean;
+  /** Personas que salieron de un equipo y esperan la decisión del docente (solo docente y admin). */
+  accesosPendientes?: number;
   // Fase 2 — soft delete (20 días de ventana de recuperación).
   deletedAt?: string | null;
 }

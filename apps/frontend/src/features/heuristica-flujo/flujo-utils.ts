@@ -159,3 +159,16 @@ export function revisionInforme(ev: EvaluacionFlujo, nombres: Record<string, str
   const redactor = nombres[redactorDe(informe.consenso, ev.coordinadorId)] ?? 'El coordinador';
   return { redactor, confirmaron: informe.evaluadores.filter(e => informe.consenso.aprobadoPor.includes(e.id)).map(e => e.nombre) };
 }
+
+/** Días enteros desde una fecha (Infinity si no hay fecha). */
+export function diasSin(iso: string | null | undefined, ahora = Date.now()): number {
+  return iso ? Math.max(0, Math.floor((ahora - new Date(iso).getTime()) / 86400000)) : Infinity;
+}
+
+/** Última actividad de una persona del equipo, para saber a quién recordarle que falta su revisión. */
+export function actividadDe(t: { entregadoEn: string | null; guardadoEn: string | null }, ahora = Date.now()): string {
+  if (t.entregadoEn) return `Entregó el ${fechaChile(t.entregadoEn)}`;
+  if (!t.guardadoEn) return 'Aún no empieza';
+  const dias = diasSin(t.guardadoEn, ahora);
+  return dias === 0 ? 'Guardó hoy' : dias >= 3 ? `Sin actividad hace ${dias} días` : `Guardó hace ${dias} día${dias === 1 ? '' : 's'}`;
+}

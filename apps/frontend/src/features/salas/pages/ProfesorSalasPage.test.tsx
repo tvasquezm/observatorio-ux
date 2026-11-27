@@ -132,6 +132,12 @@ describe('ProfesorSalasPage — edición de sala', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('actualizada');
   });
 
+  it('avisa en la tarjeta cuántos accesos esperan la decisión del docente', async () => {
+    api.getSalas.mockResolvedValue([{ id: 'sala-1', nombre: 'Sala 4', periodo: '2026-2', accesosPendientes: 2, profesor: { id: 'docente-1', nombre: 'Docente' }, permiteCreacionProyectos: false }]);
+    render(<TestRouter><ProfesorSalasPage /></TestRouter>);
+    expect(await screen.findByRole('link', { name: '2 accesos por revisar' })).toHaveAttribute('href', '/salas/sala-1?tab=equipos');
+  });
+
   it('el botón Eliminar sala solo aparece para el administrador', async () => {
     render(<TestRouter><ProfesorSalasPage /></TestRouter>);
     expect(await screen.findByRole('button', { name: 'Editar sala Sala 4' })).toBeInTheDocument();

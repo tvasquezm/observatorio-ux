@@ -145,6 +145,7 @@ export function InformeView({ evaluacion, historial, usuarioId, onSaved, onBack,
         <Dato etiqueta="Acuerdo consolidado" valor={fechaChile(informe.consolidadoEn)} />
         <Dato etiqueta="Informe finalizado" valor={informe.finalizadoEn ? fechaChile(informe.finalizadoEn) : 'Pendiente'} />
       </dl>
+      {informe.evaluadores.length === 1 && <p role="note" className="hf-aviso-entrega">Este informe lo respalda una sola persona evaluadora: no hay comparación entre evaluadores, así que los problemas y la severidad reflejan un único criterio.</p>}
       <ul aria-label="Confirmación por persona">{participacion.confirmaciones.map(c => <li key={c.id}>{c.nombre}: {c.confirmo ? 'confirmó el acuerdo' : 'falta confirmar'}</li>)}</ul></section>
     </details>
     <details><summary>Ver respuestas y razones del equipo, pregunta por pregunta</summary><div className="hf-table"><table><thead><tr><th>Criterio / origen</th><th>Acuerdo</th><th>Justificación</th></tr></thead><tbody>{config.metodologia.criterios.map(c => { const r = informe.consenso.criterios.find(r => r.criterioId === c.id); return <tr key={c.id}><td>{c.nombre}<br />{c.origen.autor} · {c.origen.version}<br /><Fuente value={c.origen.fuente} /></td><td>{r?.noAplica ? `No aplica${r.motivo ? `: ${r.motivo}` : ''}` : escalaDe(config.metodologia, c).niveles.find(n => n.id === r?.valor)?.etiqueta ?? 'Pendiente'}</td><td>{r?.justificacion}<br />{r?.notas}</td></tr>; })}</tbody></table></div></details>

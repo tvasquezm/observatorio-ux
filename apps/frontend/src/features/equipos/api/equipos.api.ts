@@ -31,6 +31,13 @@ export interface AccesoPendiente {
   usuario: { id: string; nombre: string; email: string };
 }
 
+/** Decisión ya tomada sobre el acceso de alguien que salió de un equipo. */
+export interface AccesoResuelto extends AccesoPendiente {
+  resueltoEn: string;
+  decision: 'QUITADO' | 'MANTENIDO';
+  resueltoPorNombre: string | null;
+}
+
 export class EquiposApiError extends Error {
   constructor(public readonly status: number, message: string) {
     super(message);
@@ -97,4 +104,8 @@ export function resolverAccesoPendiente(salaId: string, revisionId: string, deci
     method: 'POST',
     body: JSON.stringify({ decision }),
   });
+}
+
+export function listHistorialAccesos(salaId: string): Promise<AccesoResuelto[]> {
+  return request<AccesoResuelto[]>(`/salas/${salaId}/equipos/accesos-pendientes/historial`);
 }

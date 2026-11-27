@@ -9,6 +9,7 @@ import {
   addMiembroEquipo,
   removeMiembroEquipo,
   listAccesosPendientes,
+  listHistorialAccesos,
   resolverAccesoPendiente,
   EquiposApiError,
 } from '../api/equipos.api';
@@ -17,6 +18,7 @@ import { notify } from '../../../shared/api/toast';
 export const equiposKeys = {
   list: (salaId: string) => ['salas', salaId, 'equipos'] as const,
   accesosPendientes: (salaId: string) => ['salas', salaId, 'accesos-pendientes'] as const,
+  historialAccesos: (salaId: string) => ['salas', salaId, 'accesos-pendientes', 'historial'] as const,
 };
 
 function mensajeError(err: unknown, fallback: string) {
@@ -37,6 +39,14 @@ export function useAccesosPendientes(salaId: string | null) {
     queryKey: equiposKeys.accesosPendientes(salaId ?? ''),
     queryFn: () => listAccesosPendientes(salaId as string),
     enabled: !!salaId,
+  });
+}
+
+export function useHistorialAccesos(salaId: string | null, abierto: boolean) {
+  return useQuery({
+    queryKey: equiposKeys.historialAccesos(salaId ?? ''),
+    queryFn: () => listHistorialAccesos(salaId as string),
+    enabled: !!salaId && abierto,
   });
 }
 
