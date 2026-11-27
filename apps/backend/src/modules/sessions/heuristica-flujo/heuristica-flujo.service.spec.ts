@@ -712,7 +712,64 @@ describe('Consenso: votación del redactor', () => {
     await expect(votar(service, e, 'e1', 'inventado')).rejects.toBeInstanceOf(BadRequestException);
     await expect(votar(service, e, lector.id, 'e1')).rejects.toBeInstanceOf(ForbiddenException);
     await expect(votar(service, e, coordinador.id, 'e1')).rejects.toBeInstanceOf(ForbiddenException);
-    await expect(service.votarRedactor('p', e.id, { revision: e.revision + 1, candidatoId: 'e1' }, experto)).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('al primer consenso la votación se cierra y nadie puede cambiar el resultado', async () => {
+    const { service } = preparar();
+    let e = await entregarTodos(service, 3);
+    e = await votar(service, e, 'e1', 'e2');
+    e = await votar(service, e, 'e3', 'e2');
+    expect(e.consenso.redactorId).toBe('e2');
+    await expect(votar(service, e, 'e2', 'e1')).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('el voto no depende de la revisión: lo que guarden otras personas no lo invalida', async () => {
+    const { service } = preparar();
+    const e = await entregarTodos(service, 3);
+    const r = await service.votarRedactor('p', e.id, { revision: e.revision - 1, candidatoId: 'e2' }, usuario('e1'));
+    expect(r.consenso.votosRedactor).toEqual({ e1: 'e2' });
+  });
+
+  it('cualquiera del equipo agrega un aspecto positivo con autor y quien redacta lo incorpora', async () => {
+    const { service } = preparar();
+    let e = await entregarTodos(service, 3);
+    const positivo = { id: 'pos1', titulo: 'Menú claro', descripcion: 'Se entiende', evidenciaIds: [] };
+    await expect(service.agregarAportePositivo('p', e.id, { positivo }, lector)).rejects.toBeInstanceOf(ForbiddenException);
+    e = await service.agregarAportePositivo('p', e.id, { positivo }, usuario('e1'));
+    expect(e.consenso.aportesPositivos).toEqual([expect.objectContaining({ id: 'pos1', autorId: 'e1' })]);
+    await expect(service.quitarAportePositivo('p', e.id, 'pos1', usuario('e2'))).rejects.toBeInstanceOf(ForbiddenException);
+    const borrador = decisiones(e) as { positivos?: unknown[] };
+    e = await service.guardarConsenso('p', e.id, { ...borrador, revision: e.revision, positivos: [...(e.consenso.positivos ?? []), e.consenso.aportesPositivos![0]] }, coordinador);
+    expect(e.consenso.aportesPositivos).toBeUndefined();
+    expect(e.consenso.positivos).toEqual([expect.objectContaining({ id: 'pos1', autorId: 'e1' })]);
+  });
+
+  it('pedir cambios deja traza permanente y entregar el acuerdo la marca atendida', async () => {
+    const { service } = preparar();
+    let e = await entregarTodos(service, 3, true);
+    e = await service.guardarConsenso('p', e.id, decisiones(e), coordinador);
+    e = await service.pedirCambios('p', e.id, { revision: e.revision - 3, comentario: 'Revisar el criterio 2' }, usuario('e1'));
+    expect(e.consenso.historialCambios).toEqual([expect.objectContaining({ evaluadorId: 'e1', comentario: 'Revisar el criterio 2' })]);
+    expect(e.consenso.historialCambios![0].atendidoEn).toBeUndefined();
+    e = await service.entregarAcuerdo('p', e.id, { revision: e.revision }, coordinador);
+    expect(e.consenso.historialCambios![0].atendidoEn).toBeDefined();
+    e = await service.aprobar('p', e.id, { revision: e.revision }, usuario('e1'));
+    expect(e.consenso.pedidosCambios).toEqual([]);
+    expect(e.consenso.historialCambios).toHaveLength(1);
+  });
+
+  it('el trabajo individual no entra en conflicto con lo que guardan otras personas, solo con cambios propios', async () => {
+    const { service } = preparar();
+    let e = await service.crear('p', configuracion(2), coordinador);
+    e = await service.iniciar('p', e.id, { revision: e.revision }, coordinador);
+    const base = e.revision;
+    await service.guardarTrabajo('p', e.id, { revision: base, baseGuardadoEn: null, respuestas: [], hallazgos: [] }, usuario('e1'));
+    // e2 guarda con la revisión que cargó antes de que e1 guardara: igual puede.
+    const r2 = await service.guardarTrabajo('p', e.id, { revision: base, baseGuardadoEn: null, respuestas: [], hallazgos: [] }, usuario('e2'));
+    const guardadoE2 = r2.trabajos.find(t => t.evaluadorId === 'e2')!.guardadoEn;
+    expect(guardadoE2).toBeTruthy();
+    // Pero una base vieja del propio trabajo sí es conflicto.
+    await expect(service.guardarTrabajo('p', e.id, { revision: base, baseGuardadoEn: null, respuestas: [], hallazgos: [] }, usuario('e2'))).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('guardar el acuerdo no borra redactor ni votos', async () => {

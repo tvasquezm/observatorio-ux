@@ -6,8 +6,8 @@ import { listarEvaluaciones } from '../heuristica-flujo/flujo.api';
 import { resumenTecnicas, type DatosTecnicas } from './analitica-proyecto';
 
 /** Lo más importante de cada técnica, para leer el proyecto completo de un vistazo. */
-export function PanelTecnicas({ proyectoId, datos }: { proyectoId: string; datos: DatosTecnicas }) {
-  const tecnicas = resumenTecnicas(datos);
+export function PanelTecnicas({ proyectoId, datos, habilitadas }: { proyectoId: string; datos: DatosTecnicas; habilitadas?: readonly string[] }) {
+  const tecnicas = resumenTecnicas(datos).filter(t => !habilitadas || habilitadas.includes(t.id));
   return (
     <section className="analitica-tecnicas" aria-labelledby="analitica-tecnicas-titulo">
       <h3 id="analitica-tecnicas-titulo" className="analitica-tecnicas-titulo">Lo importante de cada técnica</h3>

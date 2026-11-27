@@ -122,9 +122,14 @@ export class ProjectsService {
       }
     }
 
+    if (dto.tecnicasAnalizadas !== undefined && user.rol === 'ESTUDIANTE') {
+      throw new ForbiddenException('Solo el docente o la administración eligen las técnicas que se analizan.');
+    }
+
     return this.prisma.proyecto.update({
       where: { id },
       data: {
+        ...(dto.tecnicasAnalizadas !== undefined ? { tecnicasAnalizadas: dto.tecnicasAnalizadas } : {}),
         ...(dto.nombre !== undefined ? { nombre: dto.nombre.trim() } : {}),
         ...(dto.descripcion !== undefined
           ? { descripcion: dto.descripcion.trim() }

@@ -173,6 +173,11 @@ export const ProfesorSalasPage: React.FC = () => {
                   <div className="sala-card-heading">
                     <div>
                       <h2>{sala.nombre}</h2>
+                      {!!sala.accesosPendientes && (
+                        <Link to={`/salas/${sala.id}?tab=equipos`} className="sala-pendientes">
+                          {sala.accesosPendientes} acceso{sala.accesosPendientes === 1 ? '' : 's'} por revisar
+                        </Link>
+                      )}
                       {sala.profesor?.nombre && (
                         <p className="sala-profesor">Docente: {sala.profesor.nombre}</p>
                       )}
@@ -189,7 +194,7 @@ export const ProfesorSalasPage: React.FC = () => {
                           Editar
                         </button>
                       )}
-                      {puedeGestionar && (
+                      {activeRole === 'ADMIN' && (
                         <button
                           type="button"
                           className="danger sala-delete-button"

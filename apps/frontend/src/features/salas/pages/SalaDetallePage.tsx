@@ -31,6 +31,9 @@ import {
   useRemoveEquipo,
   useAddMiembroEquipo,
   useRemoveMiembroEquipo,
+  useAccesosPendientes,
+  useResolverAcceso,
+  useHistorialAccesos,
 } from '../../equipos/hooks/useEquiposQueries';
 import type { Equipo } from '../../equipos/api/equipos.api';
 import { SalasApiError, type Sala } from '../api/salas.api';
@@ -224,7 +227,7 @@ function ProyectosDeSalaLectura({ salaId }: { salaId: string }) {
         </div>
         <span className="count">{proyectos?.length ?? 0} en total</span>
       </div>
-      <p className="text-muted-sm">Puedes consultar los proyectos asignados por tu docente. La gestión de la sala es solo de lectura para estudiantes.</p>
+      <p className="text-muted-sm">Puedes consultar los proyectos asignados por tu docente. La gestión de la sala la hace tu docente.</p>
 
       {isLoading && <Skeleton etiqueta="Cargando proyectos…" variante="lista" />}
       {isError && (
@@ -240,7 +243,7 @@ function ProyectosDeSalaLectura({ salaId }: { salaId: string }) {
               <h3>{proyecto.nombre}</h3>
               <p>{proyecto.descripcion || 'Sin descripción.'}</p>
             </div>
-            <span className="sala-readonly-badge">Solo lectura</span>
+            {proyecto.esMiembro === false && <span className="sala-readonly-badge">Solo lectura</span>}
           </article>
         ))}
         {proyectos && proyectos.length === 0 && (
@@ -522,6 +525,63 @@ function EstudiantesDeSala({ salaId, onDirtyChange }: { salaId: string; onDirtyC
 // Tab Equipos — DOCENTE dueño / ADMIN
 // ---------------------------------------------------------------
 
+/** Personas que salieron de un equipo y aún ven los proyectos de la sala: el docente decide si conservan el acceso. */
+function AccesosPendientes({ salaId }: { salaId: string }) {
+  const { data: pendientes } = useAccesosPendientes(salaId);
+  const { mutate: resolver, isPending } = useResolverAcceso(salaId);
+  const confirm = useConfirm();
+  const [verHistorial, setVerHistorial] = useState(false);
+  const { data: historial } = useHistorialAccesos(salaId, verHistorial);
+  const bloqueHistorial = (
+    <details onToggle={(e) => setVerHistorial(e.currentTarget.open)}>
+      <summary>Decisiones anteriores</summary>
+      {historial && historial.length === 0 && <p className="text-muted-sm">Aún no has resuelto ningún acceso.</p>}
+      <ul className="list-stack">
+        {historial?.map((h) => (
+          <li key={h.id} className="text-muted-sm">
+            <strong>{h.usuario.nombre}</strong> · {h.decision === 'QUITADO' ? 'Se quitó el acceso' : 'Se mantuvo el acceso'} el {new Date(h.resueltoEn).toLocaleDateString('es-CL')}
+            {h.resueltoPorNombre ? ` por ${h.resueltoPorNombre}` : ''} · salió de «{h.equipoNombre}»
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+  if (!pendientes?.length) return <section className="panel sala-accesos-pendientes sala-accesos-historial">{bloqueHistorial}</section>;
+
+  async function quitar(id: string, nombre: string) {
+    if (await confirm(`¿Quitar a ${nombre} el acceso a los proyectos de la sala? Dejará de verlos.`)) resolver({ revisionId: id, decision: 'QUITAR' });
+  }
+
+  return (
+    <section className="panel sala-accesos-pendientes" aria-labelledby="accesos-pendientes-titulo">
+      <div className="panel-head">
+        <div><span className="kicker">REQUIERE TU DECISIÓN</span><h3 id="accesos-pendientes-titulo">Accesos pendientes de revisión</h3></div>
+        <span className="count">{pendientes.length}</span>
+      </div>
+      <p className="text-muted-sm">Salieron de un equipo y siguen viendo los proyectos de la sala hasta que decidas.</p>
+      <ul className="list-stack">
+        {pendientes.map((p) => (
+          <li key={p.id} className="entity-card">
+            <div>
+              <strong>{p.usuario.nombre}</strong>
+              <p className="text-muted-sm">{p.usuario.email} · salió de «{p.equipoNombre}» el {new Date(p.createdAt).toLocaleDateString('es-CL')}</p>
+            </div>
+            <div className="sala-accesos-acciones">
+              <button type="button" className="secondary" disabled={isPending} onClick={() => resolver({ revisionId: p.id, decision: 'MANTENER' })}>
+                Mantener acceso <span className="sr-only">de {p.usuario.nombre}</span>
+              </button>
+              <button type="button" className="danger" disabled={isPending} onClick={() => void quitar(p.id, p.usuario.nombre)}>
+                Quitar acceso <span className="sr-only">de {p.usuario.nombre}</span>
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      {bloqueHistorial}
+    </section>
+  );
+}
+
 function EquiposDeSalaDocente({ salaId, sala, onDirtyChange }: { salaId: string; sala: Sala; onDirtyChange: DirtyNotice }) {
   const confirm = useConfirm();
   const { data: equipos, isLoading, isError, error, refetch } = useEquipos(salaId);
@@ -608,6 +668,7 @@ function EquiposDeSalaDocente({ salaId, sala, onDirtyChange }: { salaId: string;
 
   return (
     <div>
+      <AccesosPendientes salaId={salaId} />
       <form onSubmit={handleGuardarToggle} className="form-row-inline sala-configuracion">
         <label>
           <input

@@ -68,8 +68,9 @@ export class SalasController {
     return this.salasService.update(id, updateSalaDto, user);
   }
 
+  // Eliminar una sala (y sus proyectos) es solo del administrador.
   @Delete(':id')
-  @Roles('DOCENTE', 'ADMIN')
+  @Roles('ADMIN')
   softDelete(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthenticatedUser,

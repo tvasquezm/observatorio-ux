@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsIn, IsString, MinLength } from 'class-validator';
 
 export class CreateEquipoDto {
   @IsString()
@@ -15,4 +15,9 @@ export class UpdateEquipoDto {
 export class AddMiembroEquipoDto {
   @IsEmail()
   email!: string;
+}
+
+export class ResolverRevisionAccesoDto {
+  @IsIn(['QUITAR', 'MANTENER'])
+  decision!: 'QUITAR' | 'MANTENER';
 }

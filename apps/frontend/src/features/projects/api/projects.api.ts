@@ -9,6 +9,8 @@ export interface Proyecto {
   creadoPorId: string;
   createdAt: string;
   salaId?: string | null;
+  /** Técnicas que se analizan en el proyecto (por defecto las cinco). */
+  tecnicasAnalizadas?: string[];
   _count?: {
     sesiones: number;
     artefactos: number;
@@ -72,7 +74,7 @@ export function createProject(
 
 export function updateProject(
   id: string,
-  data: { nombre?: string; descripcion?: string },
+  data: { nombre?: string; descripcion?: string; tecnicasAnalizadas?: string[] },
 ): Promise<Proyecto> {
   return request<Proyecto>(`/projects/${id}`, {
     method: 'PATCH',

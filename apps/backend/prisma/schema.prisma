@@ -66,6 +66,8 @@ model Proyecto {
   comentarios         Comentario[]
   participantesAcceso Participante[]
   salaId              String?
+  // Técnicas que el docente decidió analizar en este proyecto (por defecto las cinco).
+  tecnicasAnalizadas  String[] @default(["personas", "journey-map", "momentos-criticos", "card-sorting", "evaluacion-heuristica"])
   sala                Sala?                   @relation(fields: [salaId], references: [id])
 
   // Soft delete: se activa en cascada cuando su Sala se elimina (ver
@@ -110,6 +112,7 @@ model Usuario {
   equiposMiembro    EquipoMiembro[]         @relation("EquiposComoMiembro")
   salas             Sala[]
   metodologiasHeuristicas MetodologiaHeuristica[]
+  revisionesAcceso  RevisionAccesoEquipo[]  @relation("RevisionAccesoUsuario")
 
   @@map("usuarios")
 }
@@ -162,6 +165,7 @@ model Sala {
   proyectos     Proyecto[]
   estudiantes   SalaEstudiante[]
   equipos       Equipo[]
+  revisionesAcceso RevisionAccesoEquipo[]
 
   // Fase 4: toggle de creación de equipos por ESTUDIANTE (DOCENTE dueño
   // siempre puede crear equipos, use o no este toggle). limiteIntegrantesEquipo
@@ -176,6 +180,24 @@ model Sala {
   // Soft delete con ventana de recuperación de 20 días (ver SalasService).
   // Al eliminarse, cascada lógica a los Proyecto de la sala.
   deletedAt DateTime?
+}
+
+// Cuando alguien sale de un equipo creado por el docente conserva el acceso a los
+// proyectos de la sala hasta que el docente decide quitarlo o mantenerlo.
+model RevisionAccesoEquipo {
+  id            String    @id @default(uuid())
+  sala          Sala      @relation(fields: [salaId], references: [id])
+  salaId        String
+  usuario       Usuario   @relation("RevisionAccesoUsuario", fields: [usuarioId], references: [id])
+  usuarioId     String
+  equipoNombre  String
+  createdAt     DateTime  @default(now())
+  resueltoEn    DateTime?
+  resueltoPorId String?
+  decision      String?
+
+  @@index([salaId, resueltoEn])
+  @@map("revisiones_acceso_equipo")
 }
 
 // Registro liviano de estudiante inscrito en una sala. No es un Usuario

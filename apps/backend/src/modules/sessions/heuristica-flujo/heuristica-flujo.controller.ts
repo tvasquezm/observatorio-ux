@@ -84,6 +84,14 @@ export class HeuristicaFlujoController {
   quitarAporte(@Param('proyectoId', ParseUUIDPipe) proyectoId: string, @Param('id', ParseUUIDPipe) id: string, @Param('aporteId') aporteId: string, @CurrentUser() user: AuthenticatedUser) {
     return this.service.quitarAporte(proyectoId, id, aporteId.slice(0, 150), user);
   }
+  @Post('evaluaciones/:id/consenso/aportes-positivos')
+  agregarAportePositivo(@Param('proyectoId', ParseUUIDPipe) proyectoId: string, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.agregarAportePositivo(proyectoId, id, body, user);
+  }
+  @Delete('evaluaciones/:id/consenso/aportes-positivos/:aporteId')
+  quitarAportePositivo(@Param('proyectoId', ParseUUIDPipe) proyectoId: string, @Param('id', ParseUUIDPipe) id: string, @Param('aporteId') aporteId: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.quitarAportePositivo(proyectoId, id, aporteId.slice(0, 150), user);
+  }
   @Post('evaluaciones/:id/redactor/voto')
   votarRedactor(@Param('proyectoId', ParseUUIDPipe) proyectoId: string, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() user: AuthenticatedUser) {
     return this.service.votarRedactor(proyectoId, id, body, user);

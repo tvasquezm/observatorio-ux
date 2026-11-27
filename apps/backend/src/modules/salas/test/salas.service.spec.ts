@@ -30,6 +30,7 @@ describe('SalasService', () => {
       deleteMany: jest.Mock;
     };
     equipoMiembro: { findMany: jest.Mock };
+    revisionAccesoEquipo: { deleteMany: jest.Mock };
     proyectoMiembro: { deleteMany: jest.Mock; createMany: jest.Mock };
     uxArtifact: { deleteMany: jest.Mock; groupBy: jest.Mock };
     evaluacionHeuristicaCompleta: { groupBy: jest.Mock };
@@ -73,6 +74,7 @@ describe('SalasService', () => {
         deleteMany: jest.fn(),
       },
       equipoMiembro: { findMany: jest.fn().mockResolvedValue([]) },
+      revisionAccesoEquipo: { deleteMany: jest.fn() },
       proyectoMiembro: {
         deleteMany: jest.fn(),
         createMany: jest.fn().mockResolvedValue({ count: 0 }),
@@ -100,8 +102,16 @@ describe('SalasService', () => {
       orderBy: { createdAt: 'desc' },
       include: {
         profesor: { select: { id: true, nombre: true, email: true, rol: true } },
+        _count: { select: { revisionesAcceso: { where: { resueltoEn: null } } } },
       },
     });
+  });
+
+  it('el docente recibe cuántos accesos esperan su decisión; el estudiante no', async () => {
+    prisma.sala.findMany.mockResolvedValue([{ id: 's1', _count: { revisionesAcceso: 2 } }]);
+    expect(await service.findAll(docente)).toEqual([{ id: 's1', accesosPendientes: 2 }]);
+    prisma.sala.findMany.mockResolvedValue([{ id: 's1' }]);
+    expect(await service.findAll(estudiante)).toEqual([{ id: 's1' }]);
   });
 
   it('permite al administrador listar todas las salas sin exponer passwordHash', async () => {
@@ -484,9 +494,9 @@ describe('SalasService', () => {
   it('lista los proyectos de la sala con integrantes y última actividad, sin una consulta por proyecto', async () => {
     prisma.sala.findUnique.mockResolvedValue({ id: 'sala-1', profesorId: docente.id, deletedAt: null });
     prisma.proyecto.findMany.mockResolvedValue([
-      { id: 'p1', nombre: 'Portal', _count: { sesiones: 1, artefactos: 4, miembros: 3 } },
-      { id: 'p2', nombre: 'Biblioteca', _count: { sesiones: 0, artefactos: 0, miembros: 1 } },
-      { id: 'p3', nombre: 'Becas', _count: { sesiones: 0, artefactos: 2, miembros: 2 } },
+      { id: 'p1', nombre: 'Portal', creadoPorId: 'otro', miembros: [{ id: 'm1' }], _count: { sesiones: 1, artefactos: 4, miembros: 3 } },
+      { id: 'p2', nombre: 'Biblioteca', creadoPorId: docente.id, miembros: [], _count: { sesiones: 0, artefactos: 0, miembros: 1 } },
+      { id: 'p3', nombre: 'Becas', creadoPorId: 'otro', miembros: [], _count: { sesiones: 0, artefactos: 2, miembros: 2 } },
     ]);
     prisma.uxArtifact.groupBy.mockResolvedValue([
       { proyectoId: 'p1', _max: { createdAt: new Date('2026-11-10T10:00:00Z') } },
@@ -501,8 +511,21 @@ describe('SalasService', () => {
     expect(lista.map((p: { id: string; ultimaActividad: Date | null }) => [p.id, p.ultimaActividad?.toISOString() ?? null])).toEqual([
       ['p1', '2026-11-12T10:00:00.000Z'], ['p2', null], ['p3', '2026-11-01T10:00:00.000Z'],
     ]);
+    expect(lista.map((p: { id: string; esMiembro: boolean }) => [p.id, p.esMiembro])).toEqual([['p1', true], ['p2', true], ['p3', false]]);
+    expect(lista[0]).not.toHaveProperty('miembros');
     expect(prisma.uxArtifact.groupBy).toHaveBeenCalledTimes(1);
     expect(prisma.evaluacionHeuristicaCompleta.groupBy).toHaveBeenCalledTimes(1);
+  });
+
+  it('un estudiante solo ve los proyectos propios; el docente dueño ve todos', async () => {
+    prisma.sala.findUnique.mockResolvedValue({ id: 'sala-1', profesorId: docente.id, deletedAt: null });
+    prisma.salaEstudiante.findUnique.mockResolvedValue({ id: 'se-1' });
+    prisma.proyecto.findMany.mockResolvedValue([]);
+    const alumno = { id: 'est-1', rol: 'ESTUDIANTE', email: 'e@ux.cl' } as typeof docente;
+    await service.listProyectos('sala-1', alumno);
+    expect(prisma.proyecto.findMany.mock.calls[0][0].where).toEqual({ salaId: 'sala-1', deletedAt: null, OR: [{ creadoPorId: 'est-1' }, { miembros: { some: { usuarioId: 'est-1' } } }] });
+    await service.listProyectos('sala-1', docente);
+    expect(prisma.proyecto.findMany.mock.calls[1][0].where).toEqual({ salaId: 'sala-1', deletedAt: null });
   });
 
   it('una sala sin proyectos devuelve una lista vacía sin consultar actividad', async () => {

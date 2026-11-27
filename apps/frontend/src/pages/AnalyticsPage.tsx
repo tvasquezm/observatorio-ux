@@ -16,8 +16,11 @@ import { useCardSortingEstudiosByProyecto } from '../features/card-sorting/hooks
 import { PanelTecnicas, useEvaluacionesProyecto } from '../features/analitica-proyecto/AnaliticaDecision';
 import { Skeleton } from '../shared/components/ui/Skeleton';
 import { useAuthStore } from '../features/auth/store/useAuthStore';
+import { useActivePerspective } from '../shared/auth/useActivePerspective';
+import { useProject } from '../features/projects/hooks/useProjectsQueries';
+import { ConfigTecnicas, nombresTecnicas } from '../features/analitica-proyecto/ConfigTecnicas';
 import { PanelAlertas, PanelAporte, PanelAvance, PanelHallazgos, PanelNovedades, desdeVisita, useDatosDocente, useVisitaAnterior } from '../features/analitica-proyecto/ResumenDocente';
-import { alertasRevision, aporteIntegrantes, avanceTecnicas, hallazgosClave, novedadesDesde, type DatosDocente } from '../features/analitica-proyecto/resumen-docente';
+import { acotarATecnicas, alertasRevision, aporteIntegrantes, avanceTecnicas, hallazgosClave, novedadesDesde, tecnicasHabilitadas, type DatosDocente } from '../features/analitica-proyecto/resumen-docente';
 
 export function AnalyticsPage() {
   const { proyectoId } = useOutletContext<ProjectOutletContext>();
@@ -27,6 +30,10 @@ export function AnalyticsPage() {
   const momentsQuery = useCriticalMoments(proyectoId);
   const cardSortingQuery = useCardSortingEstudiosByProyecto(proyectoId);
   const evaluacionesQuery = useEvaluacionesProyecto(proyectoId);
+  const proyecto = useProject(proyectoId);
+  const rol = useActivePerspective();
+  const habilitadas = tecnicasHabilitadas(proyecto.data?.tecnicasAnalizadas);
+  const puedeConfigurar = rol === 'DOCENTE' || rol === 'ADMIN';
   const evaluaciones = evaluacionesQuery.data ?? [];
   const usuarioId = useAuthStore((s) => s.user?.id ?? '');
   const docente = useDatosDocente(proyectoId);
@@ -35,23 +42,23 @@ export function AnalyticsPage() {
   const aggregateError = error ?? personasQuery.error ?? journeysQuery.error ?? momentsQuery.error ?? cardSortingQuery.error;
 
   const evidence = [
-    { label: 'Personas', count: personasQuery.data?.length ?? 0 },
-    { label: 'Journey maps', count: journeysQuery.data?.length ?? 0 },
-    { label: 'Momentos críticos', count: momentsQuery.data?.length ?? 0 },
-    { label: 'Card sorting', count: cardSortingQuery.data?.length ?? 0 },
-    { label: 'Evaluación heurística', count: data?.sesionesTotal ?? 0 },
-  ];
+    { id: 'personas', label: 'Personas', count: personasQuery.data?.length ?? 0 },
+    { id: 'journey-map', label: 'Journey maps', count: journeysQuery.data?.length ?? 0 },
+    { id: 'momentos-criticos', label: 'Momentos críticos', count: momentsQuery.data?.length ?? 0 },
+    { id: 'card-sorting', label: 'Card sorting', count: cardSortingQuery.data?.length ?? 0 },
+    { id: 'evaluacion-heuristica', label: 'Evaluación heurística', count: data?.sesionesTotal ?? 0 },
+  ].filter((item) => (habilitadas as string[]).includes(item.id));
   const methodsWithEvidence = evidence.filter((item) => item.count > 0).length;
   const participantResponses = cardSortingQuery.data?.reduce(
     (total, study) => total + (study.respuestasCount ?? 0),
     0,
   ) ?? 0;
 
-  const datosDocente: DatosDocente = {
+  const datosDocente: DatosDocente = acotarATecnicas({
     personas: personasQuery.data ?? [], journeys: journeysQuery.data ?? [], momentos: momentsQuery.data ?? [],
     estudios: cardSortingQuery.data ?? [], evaluaciones,
     versiones: docente.versiones, miembros: docente.miembros, comentarios: docente.comentarios,
-  };
+  }, habilitadas);
   const aportes = aporteIntegrantes(datosDocente);
 
   return (
@@ -61,8 +68,10 @@ export function AnalyticsPage() {
           <span className="kicker">LECTURA TRANSVERSAL</span>
           <h2>Analítica general</h2>
           <p>Resumen para revisar el proyecto: avance del equipo, alertas, aportes, hallazgos clave y novedades.</p>
+          {habilitadas.length < 5 && <p role="note" className="text-muted-sm">Se analizan {habilitadas.length} técnicas: {nombresTecnicas(habilitadas)}.</p>}
         </div>
       </div>
+      {puedeConfigurar && proyecto.data && <ConfigTecnicas key={habilitadas.join()} proyectoId={proyectoId} habilitadas={habilitadas} />}
 
       {isLoadingAll && <Skeleton etiqueta="Calculando evidencia del proyecto…" variante="tarjetas" cantidad={4} />}
       {aggregateError && <p className="error-text" role="alert">{(aggregateError as Error).message}</p>}
@@ -72,7 +81,7 @@ export function AnalyticsPage() {
           <section className="analytics-kpis">
             <article className="analytics-kpi">
               <span>MÉTODOS CON EVIDENCIA</span>
-              <strong>{methodsWithEvidence}/5</strong>
+              <strong>{methodsWithEvidence}/{habilitadas.length}</strong>
               <small>cobertura metodológica</small>
             </article>
             <article className="analytics-kpi">
@@ -85,20 +94,20 @@ export function AnalyticsPage() {
               <strong>{participantResponses}</strong>
               <small>{cardSortingQuery.data?.length ?? 0} card sorting creados</small>
             </article>
-            <article className="analytics-kpi">
+            {habilitadas.includes('evaluacion-heuristica') && <article className="analytics-kpi">
               <span>HALLAZGOS HEURÍSTICOS</span>
               <strong>{data.hallazgosTotal}</strong>
               <small>{(data.porSeveridad[3]?.count ?? 0) + (data.porSeveridad[4]?.count ?? 0)} de prioridad alta</small>
-            </article>
+            </article>}
           </section>
           <div className="docente-grid">
             <PanelAvance proyectoId={proyectoId} avance={avanceTecnicas(datosDocente)} />
-            <PanelHallazgos proyectoId={proyectoId} hallazgos={hallazgosClave(datosDocente)} />
+            <PanelHallazgos proyectoId={proyectoId} hallazgos={hallazgosClave(datosDocente).filter(h => habilitadas.includes(h.ruta))} />
           </div>
-          <PanelAlertas proyectoId={proyectoId} alertas={alertasRevision(datosDocente, aportes)} />
+          <PanelAlertas proyectoId={proyectoId} alertas={alertasRevision(datosDocente, aportes).filter(a => a.ruta === 'miembros' || (habilitadas as string[]).includes(a.ruta))} />
           <PanelAporte aportes={aportes} />
           <PanelNovedades proyectoId={proyectoId} novedades={novedadesDesde(datosDocente, desdeVisita(visitaAnterior), usuarioId)} primeraVisita={!visitaAnterior} datos={datosDocente} usuarioId={usuarioId} />
-          <PanelTecnicas proyectoId={proyectoId} datos={{
+          <PanelTecnicas proyectoId={proyectoId} habilitadas={habilitadas} datos={{
             personas: personasQuery.data ?? [], journeys: journeysQuery.data ?? [], momentos: momentsQuery.data ?? [],
             estudios: cardSortingQuery.data ?? [], evaluaciones,
           }} />

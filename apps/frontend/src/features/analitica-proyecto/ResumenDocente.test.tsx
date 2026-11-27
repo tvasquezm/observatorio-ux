@@ -16,7 +16,7 @@ describe('paneles de la analítica para el profesor', () => {
       { id: 'card-sorting', titulo: 'Card Sorting', estado: 'sin-empezar', detalle: 'Sin estudios', ultima: null },
     ]} />);
     expect(screen.getByRole('link', { name: 'Personas' })).toHaveAttribute('href', '/proyectos/p1/personas');
-    expect(screen.getByText('1 de 5 completas')).toBeInTheDocument();
+    expect(screen.getByText('1 de 2 completas')).toBeInTheDocument();
     expect(screen.getByText('Sin empezar')).toBeInTheDocument();
   });
 

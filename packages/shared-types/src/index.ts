@@ -12,3 +12,4 @@ export * from './domains/persona';
 export * from './domains/url-segura';
 export * from './domains/journey-map';
 export * from './domains/momentos-criticos';
+export * from './domains/tecnicas-proyecto';

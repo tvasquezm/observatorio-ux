@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { EvaluacionFlujo } from '@observatorio-ux/shared-types';
-import { alertasRevision, aporteIntegrantes, avanceTecnicas, comentariosSinRespuesta, hallazgosClave, novedadesDesde, type DatosDocente } from './resumen-docente';
+import { acotarATecnicas, alertasRevision, aporteIntegrantes, avanceTecnicas, comentariosSinRespuesta, hallazgosClave, novedadesDesde, tecnicasHabilitadas, type DatosDocente } from './resumen-docente';
 
 const criterios = [{ id: 'c1', nombre: 'Visibilidad', categoria: 'Nielsen' }];
 function evaluacion(parcial: Partial<Record<string, unknown>> = {}): EvaluacionFlujo {
@@ -99,5 +99,26 @@ describe('resumen para el profesor', () => {
 
   it('comentarios del docente sin respuesta del equipo en la misma técnica', () => {
     expect(comentariosSinRespuesta(datos().comentarios, 'doc').map(c => c.id)).toEqual(['k1']);
+  });
+});
+
+describe('técnicas elegidas para analizar', () => {
+  it('sin configuración o con valores desconocidos valen las cinco', () => {
+    expect(tecnicasHabilitadas(undefined)).toHaveLength(5);
+    expect(tecnicasHabilitadas(['otra'])).toHaveLength(5);
+    expect(tecnicasHabilitadas(['card-sorting', 'personas'])).toEqual(['personas', 'card-sorting']);
+  });
+
+  it('las técnicas no elegidas no cuentan, no avisan y no aportan', () => {
+    const elegidas = tecnicasHabilitadas(['personas', 'evaluacion-heuristica', 'card-sorting']);
+    const d = acotarATecnicas(datos(), elegidas);
+    expect(d.journeys).toEqual([]);
+    expect(d.momentos).toEqual([]);
+    expect(d.versiones.every(v => v.tipo === 'PERSONA')).toBe(true);
+    const avance = avanceTecnicas(d).filter(a => elegidas.includes(a.id));
+    expect(avance.map(a => a.id)).toEqual(['personas', 'card-sorting', 'evaluacion-heuristica']);
+    const alertas = alertasRevision(d).filter(a => a.ruta === 'miembros' || (elegidas as string[]).includes(a.ruta));
+    expect(alertas.some(a => a.ruta === 'journey-map' || a.ruta === 'momentos-criticos')).toBe(false);
+    expect(Object.values(aporteIntegrantes(d)).every(a => a.porTecnica['journey-map'] === 0)).toBe(true);
   });
 });

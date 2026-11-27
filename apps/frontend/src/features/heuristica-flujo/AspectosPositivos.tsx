@@ -2,18 +2,24 @@ import { useState } from 'react';
 import type { AspectoPositivo, EvaluacionFlujo } from '@observatorio-ux/shared-types';
 import { EvidenciaEditor } from './EvidenciaEditor';
 import { Field } from './campos';
+import { fechaChile } from './flujo-utils';
 
 /**
  * Lo que funciona bien en el producto: cada aspecto es una tarjeta con título, descripción
  * y capturas (con anotaciones), igual que un problema. Guardado, se pliega a un resumen.
  */
-export function AspectosPositivos({ evaluacion, positivos, bloqueo, onChange, onPendingChange, destacadoId }: {
+export function AspectosPositivos({ evaluacion, positivos, bloqueo, onChange, onPendingChange, destacadoId, usuarioId, nombreDe, ocultarAgregar }: {
   evaluacion: EvaluacionFlujo; positivos: AspectoPositivo[]; bloqueo: boolean; destacadoId?: string | null;
+  /** Quién redacta (para registrar la autoría) y cómo mostrar el nombre de cada persona. */
+  usuarioId?: string; nombreDe?: (id: string) => string;
+  /** Quien no redacta agrega sus aspectos desde otro formulario: aquí el botón sobra. */
+  ocultarAgregar?: boolean;
   onChange: (positivos: AspectoPositivo[]) => void; onPendingChange: (id: string, subiendo: boolean) => void;
 }) {
   const [plegados, setPlegados] = useState<ReadonlySet<string>>(() => new Set(positivos.filter(p => p.titulo.trim()).map(p => p.id)));
   const [sinTitulo, setSinTitulo] = useState<string | null>(null);
   const cambiar = (id: string, patch: Partial<AspectoPositivo>) => onChange(positivos.map(x => x.id === id ? { ...x, ...patch } : x));
+  const autoria = (p: AspectoPositivo) => p.autorId && nombreDe ? `Agregado por ${nombreDe(p.autorId)}${p.creadoEn ? ` · ${fechaChile(p.creadoEn)}` : ''}` : '';
   const quitar = (id: string) => { onChange(positivos.filter(x => x.id !== id)); onPendingChange(id, false); };
   const plegar = (id: string, si: boolean) => setPlegados(prev => { const n = new Set(prev); if (si) n.add(id); else n.delete(id); return n; });
 
@@ -26,6 +32,7 @@ export function AspectosPositivos({ evaluacion, positivos, bloqueo, onChange, on
         <div>
           <h4>{p.titulo}</h4>
           {p.descripcion && <p>{p.descripcion}</p>}
+          {autoria(p) && <p className="hf-autoria">{autoria(p)}</p>}
           <p className="hf-form-meta" role="status">Aspecto positivo guardado con éxito{capturas ? ` · ${capturas} captura${capturas === 1 ? '' : 's'}` : ''}</p>
         </div>
         <div className="hf-form-resumen-acciones">
@@ -35,6 +42,7 @@ export function AspectosPositivos({ evaluacion, positivos, bloqueo, onChange, on
       </article>;
       return <fieldset key={p.id} id={"positivo-" + p.id} tabIndex={-1} data-destacado={destacadoId === "positivo-" + p.id || undefined} className="hf-form-card">
         <legend>Aspecto positivo {n}: {p.titulo || 'Sin título'}</legend>
+        {autoria(p) && <p className="hf-autoria">{autoria(p)}</p>}
         <Field label={`Título del aspecto positivo ${n}`}><input maxLength={300} value={p.titulo} placeholder="Por ejemplo: el menú usa palabras que la gente entiende" onChange={e => cambiar(p.id, { titulo: e.target.value })} /></Field>
         <Field label={`Descripción del aspecto positivo ${n}`}><textarea maxLength={10000} rows={3} value={p.descripcion} placeholder="Qué se observó y por qué ayuda a la persona usuaria." onChange={e => cambiar(p.id, { descripcion: e.target.value })} /></Field>
         <div className="hf-form-evidencia">
@@ -49,6 +57,6 @@ export function AspectosPositivos({ evaluacion, positivos, bloqueo, onChange, on
         </div>
       </fieldset>;
     })}
-    <button type="button" className="secondary hf-form-agregar" disabled={positivos.length >= 200} onClick={() => onChange([...positivos, { id: crypto.randomUUID(), titulo: '', descripcion: '', evidenciaIds: [] }])}>Agregar aspecto positivo</button>
+    {!ocultarAgregar && <button type="button" className="secondary hf-form-agregar" disabled={positivos.length >= 200} onClick={() => onChange([...positivos, { id: crypto.randomUUID(), titulo: '', descripcion: '', evidenciaIds: [], ...(usuarioId ? { autorId: usuarioId, creadoEn: new Date().toISOString() } : {}) }])}>Agregar aspecto positivo</button>}
   </fieldset>;
 }
