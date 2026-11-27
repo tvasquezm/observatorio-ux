@@ -41,6 +41,23 @@ const revisiones = (e: EvaluacionFlujo) => e.avanceEquipo?.length
   ? e.avanceEquipo.map(a => ({ evaluadorId: a.evaluadorId, nombre: a.nombre, guardadoEn: a.guardadoEn, entregadoEn: a.entregadoEn }))
   : e.trabajos.map(t => ({ evaluadorId: t.evaluadorId, nombre: t.nombre, guardadoEn: t.guardadoEn, entregadoEn: t.entregadoEn }));
 
+/** Deja solo los datos de las técnicas elegidas: el resto no cuenta, no avisa ni aparece como pendiente. */
+export function acotarATecnicas(d: DatosDocente, habilitadas: readonly RutaTecnica[]): DatosDocente {
+  const on = (ruta: RutaTecnica) => habilitadas.includes(ruta);
+  return {
+    ...d,
+    personas: on('personas') ? d.personas : [], journeys: on('journey-map') ? d.journeys : [], momentos: on('momentos-criticos') ? d.momentos : [],
+    estudios: on('card-sorting') ? d.estudios : [], evaluaciones: on('evaluacion-heuristica') ? d.evaluaciones : [],
+    versiones: d.versiones.filter(v => { const ruta = RUTA_ARTEFACTO[v.tipo]; return !ruta || on(ruta); }),
+  };
+}
+
+/** Técnicas habilitadas de un proyecto; valores desconocidos se ignoran y, sin configuración, valen las cinco. */
+export function tecnicasHabilitadas(config?: readonly string[] | null): RutaTecnica[] {
+  const validas = TECNICAS.map(t => t.id).filter(id => config?.includes(id));
+  return validas.length ? validas : TECNICAS.map(t => t.id);
+}
+
 // --- 1. Avance por técnica ---
 
 export type EstadoTecnica = 'completa' | 'en-curso' | 'sin-empezar';

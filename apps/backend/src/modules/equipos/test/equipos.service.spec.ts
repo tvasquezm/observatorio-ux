@@ -22,9 +22,11 @@ describe('EquiposService', () => {
       count: jest.Mock;
       delete: jest.Mock;
       deleteMany: jest.Mock;
+      findMany: jest.Mock;
     };
     proyecto: { findMany: jest.Mock };
-    proyectoMiembro: { createMany: jest.Mock };
+    proyectoMiembro: { createMany: jest.Mock; count: jest.Mock; deleteMany: jest.Mock };
+    revisionAccesoEquipo: { findFirst: jest.Mock; create: jest.Mock; findMany: jest.Mock; findUnique: jest.Mock; update: jest.Mock };
   };
 
   const adminUser: any = { id: 'user-admin', rol: 'ADMIN' };
@@ -59,9 +61,11 @@ describe('EquiposService', () => {
         count: jest.fn(),
         delete: jest.fn(),
         deleteMany: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
       },
       proyecto: { findMany: jest.fn().mockResolvedValue([]) },
-      proyectoMiembro: { createMany: jest.fn().mockResolvedValue({ count: 0 }) },
+      proyectoMiembro: { createMany: jest.fn().mockResolvedValue({ count: 0 }), count: jest.fn().mockResolvedValue(0), deleteMany: jest.fn() },
+      revisionAccesoEquipo: { findFirst: jest.fn().mockResolvedValue(null), create: jest.fn(), findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -113,7 +117,7 @@ describe('EquiposService', () => {
       prisma.salaEstudiante.findUnique.mockResolvedValue({ id: 'se-1' });
       prisma.equipo.create.mockResolvedValue({ id: 'eq-1', salaId: 'sala-1', creadoPorId: estudiante.id });
       prisma.equipoMiembro.create.mockResolvedValue({ id: 'em-1' });
-      prisma.equipo.findUnique.mockResolvedValue({ id: 'eq-1', salaId: 'sala-1', creadoPorId: estudiante.id, miembros: [] });
+      prisma.equipo.findUnique.mockResolvedValue({ id: 'eq-1', salaId: 'sala-1', creadoPorId: estudiante.id, miembros: [{ usuarioId: estudiante.id }] });
 
       await service.create('sala-1', { nombre: 'Equipo B' }, estudiante);
 
@@ -152,6 +156,18 @@ describe('EquiposService', () => {
       expect(result).toEqual([{ id: 'eq-1' }]);
     });
 
+    it('el estudiante solo lista los equipos de los que es miembro; el docente los ve todos', async () => {
+      prisma.sala.findUnique.mockResolvedValue(baseSala);
+      prisma.salaEstudiante.findUnique.mockResolvedValue({ id: 'se-1' });
+      prisma.equipo.findMany.mockResolvedValue([]);
+
+      await service.findAll('sala-1', estudiante);
+      expect(prisma.equipo.findMany.mock.calls[0][0].where).toEqual({ salaId: 'sala-1', miembros: { some: { usuarioId: estudiante.id } } });
+
+      await service.findAll('sala-1', docenteDueño);
+      expect(prisma.equipo.findMany.mock.calls[1][0].where).toEqual({ salaId: 'sala-1' });
+    });
+
     it('lanza ForbiddenException si el estudiante no pertenece a la sala', async () => {
       prisma.sala.findUnique.mockResolvedValue(baseSala);
       prisma.salaEstudiante.findUnique.mockResolvedValue(null);
@@ -168,6 +184,7 @@ describe('EquiposService', () => {
       salaId: 'sala-1',
       creadoPorId: estudiante.id,
       creadoPor: { rol: 'ESTUDIANTE' },
+      miembros: [{ usuarioId: estudiante.id }],
     };
     const equipoDocente = {
       id: 'eq-1',
@@ -306,7 +323,7 @@ describe('EquiposService', () => {
 
   describe('remove', () => {
     it('elimina el equipo y sus miembros (hard delete)', async () => {
-      const equipo = { id: 'eq-1', salaId: 'sala-1', creadoPorId: docenteDueño.id };
+      const equipo = { id: 'eq-1', salaId: 'sala-1', creadoPorId: docenteDueño.id, nombre: 'Equipo' };
       prisma.sala.findUnique.mockResolvedValue(baseSala);
       prisma.equipo.findUnique.mockResolvedValue(equipo);
       prisma.equipoMiembro.deleteMany.mockResolvedValue({ count: 2 });
@@ -316,6 +333,65 @@ describe('EquiposService', () => {
 
       expect(prisma.equipoMiembro.deleteMany).toHaveBeenCalledWith({ where: { equipoId: 'eq-1' } });
       expect(prisma.equipo.delete).toHaveBeenCalledWith({ where: { id: 'eq-1' } });
+    });
+  });
+  describe('acceso a proyectos al salir de un equipo del docente', () => {
+    const equipoDocente = { id: 'eq-1', salaId: 'sala-1', creadoPorId: docenteDueño.id, nombre: 'Equipo Rojo' };
+    const salir = () => service.removeMiembro('sala-1', 'eq-1', otroEstudiante.id, docenteDueño);
+    beforeEach(() => {
+      prisma.sala.findUnique.mockResolvedValue(baseSala);
+      prisma.equipo.findUnique.mockResolvedValue(equipoDocente);
+      prisma.equipoMiembro.findUnique.mockResolvedValue({ id: 'em-2' });
+      prisma.equipoMiembro.delete.mockResolvedValue({ id: 'em-2' });
+      prisma.usuario.findUnique.mockResolvedValue({ rol: 'DOCENTE' });
+    });
+
+    it('queda pendiente de revisión y no se quita el acceso por su cuenta', async () => {
+      prisma.proyectoMiembro.count.mockResolvedValue(2);
+      await salir();
+      expect(prisma.revisionAccesoEquipo.create).toHaveBeenCalledWith({ data: { salaId: 'sala-1', usuarioId: otroEstudiante.id, equipoNombre: 'Equipo Rojo' } });
+      expect(prisma.proyectoMiembro.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('no pide revisión si no tenía acceso, si sigue en otro equipo del docente o si ya hay una abierta', async () => {
+      prisma.proyectoMiembro.count.mockResolvedValue(0);
+      await salir();
+      prisma.proyectoMiembro.count.mockResolvedValue(2);
+      prisma.equipoMiembro.count.mockResolvedValue(1);
+      await salir();
+      prisma.equipoMiembro.count.mockResolvedValue(0);
+      prisma.revisionAccesoEquipo.findFirst.mockResolvedValue({ id: 'r1' });
+      await salir();
+      expect(prisma.revisionAccesoEquipo.create).not.toHaveBeenCalled();
+    });
+
+    it('no la pide cuando el equipo lo creó un estudiante', async () => {
+      prisma.usuario.findUnique.mockResolvedValue({ rol: 'ESTUDIANTE' });
+      prisma.proyectoMiembro.count.mockResolvedValue(2);
+      await salir();
+      expect(prisma.revisionAccesoEquipo.create).not.toHaveBeenCalled();
+    });
+
+    it('el docente dueño decide: quitar retira el acceso y mantener solo cierra la revisión', async () => {
+      prisma.revisionAccesoEquipo.findUnique.mockResolvedValue({ id: 'r1', salaId: 'sala-1', usuarioId: otroEstudiante.id, resueltoEn: null });
+      prisma.revisionAccesoEquipo.update.mockResolvedValue({});
+      await service.resolverRevisionAcceso('sala-1', 'r1', { decision: 'QUITAR' }, docenteDueño);
+      expect(prisma.proyectoMiembro.deleteMany).toHaveBeenCalledWith({ where: { usuarioId: otroEstudiante.id, proyecto: { salaId: 'sala-1', creadoPorId: { not: otroEstudiante.id } } } });
+      expect(prisma.revisionAccesoEquipo.update.mock.calls[0][0].data).toMatchObject({ decision: 'QUITADO', resueltoPorId: docenteDueño.id });
+      prisma.proyectoMiembro.deleteMany.mockClear();
+      await service.resolverRevisionAcceso('sala-1', 'r1', { decision: 'MANTENER' }, adminUser);
+      expect(prisma.proyectoMiembro.deleteMany).not.toHaveBeenCalled();
+      expect(prisma.revisionAccesoEquipo.update.mock.calls[1][0].data).toMatchObject({ decision: 'MANTENIDO' });
+    });
+
+    it('un docente ajeno o un estudiante no pueden ver ni resolver revisiones', async () => {
+      await expect(service.listarRevisionesAcceso('sala-1', docenteAjeno)).rejects.toThrow(ForbiddenException);
+      await expect(service.resolverRevisionAcceso('sala-1', 'r1', { decision: 'QUITAR' }, estudiante)).rejects.toThrow(ForbiddenException);
+    });
+
+    it('rechaza una revisión ya resuelta', async () => {
+      prisma.revisionAccesoEquipo.findUnique.mockResolvedValue({ id: 'r1', salaId: 'sala-1', usuarioId: otroEstudiante.id, resueltoEn: new Date() });
+      await expect(service.resolverRevisionAcceso('sala-1', 'r1', { decision: 'QUITAR' }, docenteDueño)).rejects.toThrow(ConflictException);
     });
   });
 });

@@ -21,6 +21,16 @@ export interface Equipo {
   miembros: MiembroEquipo[];
 }
 
+/** Alguien salió de un equipo del docente y conserva el acceso a los proyectos hasta que el docente decida. */
+export interface AccesoPendiente {
+  id: string;
+  salaId: string;
+  usuarioId: string;
+  equipoNombre: string;
+  createdAt: string;
+  usuario: { id: string; nombre: string; email: string };
+}
+
 export class EquiposApiError extends Error {
   constructor(public readonly status: number, message: string) {
     super(message);
@@ -76,4 +86,15 @@ export function removeMiembroEquipo(
     `/salas/${salaId}/equipos/${equipoId}/miembros/${usuarioId}`,
     { method: 'DELETE' },
   );
+}
+
+export function listAccesosPendientes(salaId: string): Promise<AccesoPendiente[]> {
+  return request<AccesoPendiente[]>(`/salas/${salaId}/equipos/accesos-pendientes`);
+}
+
+export function resolverAccesoPendiente(salaId: string, revisionId: string, decision: 'QUITAR' | 'MANTENER'): Promise<unknown> {
+  return request<unknown>(`/salas/${salaId}/equipos/accesos-pendientes/${revisionId}`, {
+    method: 'POST',
+    body: JSON.stringify({ decision }),
+  });
 }

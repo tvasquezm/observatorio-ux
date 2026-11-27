@@ -8,7 +8,7 @@ import { Sala } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../core/database/prisma.service.js';
 import { vincularMiembroAProyectosDeSala } from '../../core/access/equipo-proyecto.js';
 import { AuthenticatedUser } from '../auth/types/authenticated-user.interface.js';
-import { AddMiembroEquipoDto, CreateEquipoDto, UpdateEquipoDto } from './equipos.dto.js';
+import { AddMiembroEquipoDto, CreateEquipoDto, ResolverRevisionAccesoDto, UpdateEquipoDto } from './equipos.dto.js';
 
 @Injectable()
 export class EquiposService {
@@ -42,8 +42,9 @@ export class EquiposService {
     const sala = await this.getSalaOrThrow(salaId);
     await this.assertLectura(sala, user);
 
+    // Un estudiante solo ve los equipos de los que forma parte; docente y administrador ven todos.
     return this.prisma.equipo.findMany({
-      where: { salaId },
+      where: { salaId, ...(user.rol === 'ESTUDIANTE' ? { miembros: { some: { usuarioId: user.id } } } : {}) },
       orderBy: { createdAt: 'asc' },
       include: { miembros: { include: { usuario: { select: { id: true, nombre: true, email: true } } } } },
     });
@@ -58,7 +59,7 @@ export class EquiposService {
       include: { miembros: { include: { usuario: { select: { id: true, nombre: true, email: true } } } } },
     });
 
-    if (!equipo || equipo.salaId !== salaId) {
+    if (!equipo || equipo.salaId !== salaId || (user.rol === 'ESTUDIANTE' && !equipo.miembros.some(m => m.usuarioId === user.id))) {
       throw new NotFoundException('El equipo no existe en esta sala.');
     }
 
@@ -84,8 +85,11 @@ export class EquiposService {
     const { sala, equipo } = await this.getEquipoDeSalaOrThrow(salaId, equipoId);
     await this.assertPuedeGestionar(sala, equipo, user);
 
+    const integrantes = await this.prisma.equipoMiembro.findMany({ where: { equipoId }, select: { usuarioId: true } });
     await this.prisma.equipoMiembro.deleteMany({ where: { equipoId } });
-    return this.prisma.equipo.delete({ where: { id: equipoId } });
+    const eliminado = await this.prisma.equipo.delete({ where: { id: equipoId } });
+    await this.pedirRevisionDeAcceso(sala.id, equipo.creadoPorId, eliminado.nombre, integrantes.map(i => i.usuarioId));
+    return eliminado;
   }
 
   async addMiembro(
@@ -151,9 +155,67 @@ export class EquiposService {
       throw new NotFoundException('Ese usuario no es miembro de este equipo.');
     }
 
-    return this.prisma.equipoMiembro.delete({
+    const eliminado = await this.prisma.equipoMiembro.delete({
       where: { equipoId_usuarioId: { equipoId, usuarioId } },
     });
+    await this.pedirRevisionDeAcceso(sala.id, equipo.creadoPorId, equipo.nombre, [usuarioId]);
+    return eliminado;
+  }
+
+  // ---------------------------------------------------------------
+  // Acceso a proyectos al salir de un equipo: lo decide el docente
+  // ---------------------------------------------------------------
+
+  /**
+   * Quien sale de un equipo creado por el docente conserva el acceso a los proyectos de la sala
+   * hasta que el docente decida. Se omite si aún pertenece a otro equipo del docente o si no tenía
+   * acceso por haber sido agregado (los proyectos que creó son suyos y no cuentan).
+   */
+  private async pedirRevisionDeAcceso(salaId: string, equipoCreadoPorId: string, equipoNombre: string, usuarioIds: string[]) {
+    const creador = await this.prisma.usuario.findUnique({ where: { id: equipoCreadoPorId }, select: { rol: true } });
+    if (!creador || creador.rol === 'ESTUDIANTE') return;
+    for (const usuarioId of usuarioIds) {
+      const sigueEnOtro = await this.prisma.equipoMiembro.count({ where: { usuarioId, equipo: { salaId, creadoPor: { rol: { in: ['DOCENTE', 'ADMIN'] } } } } });
+      if (sigueEnOtro) continue;
+      const conAcceso = await this.prisma.proyectoMiembro.count({ where: { usuarioId, proyecto: { salaId, deletedAt: null, creadoPorId: { not: usuarioId } } } });
+      if (!conAcceso) continue;
+      const abierta = await this.prisma.revisionAccesoEquipo.findFirst({ where: { salaId, usuarioId, resueltoEn: null }, select: { id: true } });
+      if (abierta) continue;
+      await this.prisma.revisionAccesoEquipo.create({ data: { salaId, usuarioId, equipoNombre } });
+    }
+  }
+
+  async listarRevisionesAcceso(salaId: string, user: AuthenticatedUser) {
+    const sala = await this.getSalaOrThrow(salaId);
+    this.assertDuenoOAdmin(sala, user);
+    return this.prisma.revisionAccesoEquipo.findMany({
+      where: { salaId, resueltoEn: null },
+      orderBy: { createdAt: 'asc' },
+      include: { usuario: { select: { id: true, nombre: true, email: true } } },
+    });
+  }
+
+  async resolverRevisionAcceso(salaId: string, revisionId: string, dto: ResolverRevisionAccesoDto, user: AuthenticatedUser) {
+    const sala = await this.getSalaOrThrow(salaId);
+    this.assertDuenoOAdmin(sala, user);
+    const revision = await this.prisma.revisionAccesoEquipo.findUnique({ where: { id: revisionId } });
+    if (!revision || revision.salaId !== salaId) throw new NotFoundException('La revisión no existe en esta sala.');
+    if (revision.resueltoEn) throw new ConflictException('Esta revisión ya se resolvió.');
+
+    if (dto.decision === 'QUITAR') {
+      const volvio = await this.prisma.equipoMiembro.count({ where: { usuarioId: revision.usuarioId, equipo: { salaId } } });
+      if (volvio) throw new ConflictException('La persona volvió a un equipo de la sala: quítala del equipo antes de retirar su acceso.');
+      await this.prisma.proyectoMiembro.deleteMany({ where: { usuarioId: revision.usuarioId, proyecto: { salaId, creadoPorId: { not: revision.usuarioId } } } });
+    }
+    return this.prisma.revisionAccesoEquipo.update({
+      where: { id: revisionId },
+      data: { resueltoEn: new Date(), resueltoPorId: user.id, decision: dto.decision === 'QUITAR' ? 'QUITADO' : 'MANTENIDO' },
+    });
+  }
+
+  private assertDuenoOAdmin(sala: Sala, user: AuthenticatedUser) {
+    if (user.rol === 'ADMIN' || (user.rol === 'DOCENTE' && sala.profesorId === user.id)) return;
+    throw new ForbiddenException('Solo el docente dueño de la sala o un administrador pueden revisar accesos.');
   }
 
   // ---------------------------------------------------------------

@@ -15,7 +15,7 @@ import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../../core/guards/roles.guard.js';
 import { AuthenticatedUser } from '../auth/types/authenticated-user.interface.js';
 import { EquiposService } from './equipos.service.js';
-import { AddMiembroEquipoDto, CreateEquipoDto, UpdateEquipoDto } from './equipos.dto.js';
+import { AddMiembroEquipoDto, CreateEquipoDto, ResolverRevisionAccesoDto, UpdateEquipoDto } from './equipos.dto.js';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('salas/:salaId/equipos')
@@ -39,6 +39,26 @@ export class EquiposController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.equiposService.findAll(salaId, user);
+  }
+
+  @Get('accesos-pendientes')
+  @Roles('DOCENTE', 'ADMIN')
+  accesosPendientes(
+    @Param('salaId', ParseUUIDPipe) salaId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.equiposService.listarRevisionesAcceso(salaId, user);
+  }
+
+  @Post('accesos-pendientes/:revisionId')
+  @Roles('DOCENTE', 'ADMIN')
+  resolverAcceso(
+    @Param('salaId', ParseUUIDPipe) salaId: string,
+    @Param('revisionId', ParseUUIDPipe) revisionId: string,
+    @Body() dto: ResolverRevisionAccesoDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.equiposService.resolverRevisionAcceso(salaId, revisionId, dto, user);
   }
 
   @Get(':equipoId')

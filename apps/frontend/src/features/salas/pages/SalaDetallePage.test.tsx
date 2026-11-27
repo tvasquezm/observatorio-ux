@@ -8,12 +8,13 @@ import { SalasApiError } from '../api/salas.api';
 import { useAuthStore } from '../../auth/store/useAuthStore';
 
 const salaQuery = vi.hoisted(() => ({ data: undefined as unknown, isLoading: false, isError: true, error: null as Error | null, refetch: vi.fn() }));
+const proyectosSala = vi.hoisted(() => ({ lista: [] as unknown[] }));
 const update = vi.hoisted(() => vi.fn());
 const reset = vi.hoisted(() => vi.fn());
 vi.mock('../hooks/useSalasQueries', () => ({
   useSala: () => salaQuery,
   useUpdateSala: () => ({ mutateAsync: update, reset }),
-  useProyectosDeSala: () => ({ data: [] }),
+  useProyectosDeSala: () => ({ data: proyectosSala.lista }),
   useVincularProyecto: () => ({ mutate: vi.fn() }),
   useDesvincularProyecto: () => ({ mutate: vi.fn() }),
   useEstudiantes: () => ({ data: [] }),
@@ -25,9 +26,11 @@ vi.mock('../../projects/hooks/useProjectsQueries', () => ({
   useProjects: () => ({ data: [] }),
   useCreateProject: () => ({ mutate: vi.fn(), isPending: false }),
 }));
-const equipos = vi.hoisted(() => ({ lista: [] as unknown[], remove: vi.fn() }));
+const equipos = vi.hoisted(() => ({ lista: [] as unknown[], remove: vi.fn(), pendientes: [] as unknown[], resolver: vi.fn() }));
 vi.mock('../../equipos/hooks/useEquiposQueries', () => ({
   useEquipos: () => ({ data: equipos.lista }),
+  useAccesosPendientes: () => ({ data: equipos.pendientes }),
+  useResolverAcceso: () => ({ mutate: equipos.resolver, isPending: false }),
   useCreateEquipo: () => ({ mutate: vi.fn() }),
   useUpdateEquipo: () => ({ mutate: vi.fn() }),
   useRemoveEquipo: () => ({ mutate: equipos.remove }),
@@ -44,6 +47,9 @@ beforeEach(() => {
   update.mockReset();
   equipos.remove.mockReset();
   equipos.lista = [];
+  equipos.pendientes = [];
+  equipos.resolver.mockReset();
+  proyectosSala.lista = [];
   salaQuery.data = undefined;
   salaQuery.isError = true;
   salaQuery.error = new SalasApiError(403, 'No estás asignado a esta sala. Pide a tu docente que registre el correo de tu cuenta.');
@@ -184,5 +190,46 @@ describe('edición de la sala desde su detalle', () => {
     await userEvent.type(campo, 'Equipo Rojo');
     await userEvent.click(screen.getByRole('button', { name: 'Confirmar' }));
     await waitFor(() => expect(equipos.remove).toHaveBeenCalledWith('eq1'));
+  });
+});
+
+describe('insignia «Solo lectura» en los proyectos de la sala', () => {
+  it('solo aparece en los proyectos que el estudiante no puede trabajar, aunque la sala permita crear', () => {
+    salaDe('DOCENTE', 'u1', 'u1');
+    useAuthStore.setState({ user: { id: 'u9', nombre: 'Eva', email: 'eva@utem.cl', rol: 'ESTUDIANTE' }, perspectiveRole: 'ESTUDIANTE' });
+    (salaQuery.data as { permiteCreacionProyectos: boolean }).permiteCreacionProyectos = true;
+    proyectosSala.lista = [
+      { id: 'p1', nombre: 'Propio', descripcion: null, esMiembro: true },
+      { id: 'p2', nombre: 'Ajeno', descripcion: null, esMiembro: false },
+    ];
+    setup();
+    expect(screen.getAllByText('Solo lectura')).toHaveLength(1);
+    expect(screen.getByText('Ajeno').closest('article')).toHaveTextContent('Solo lectura');
+    expect(screen.getByText('Propio').closest('article')).not.toHaveTextContent('Solo lectura');
+  });
+});
+
+describe('accesos pendientes de revisión', () => {
+  const pendiente = { id: 'r1', usuario: { id: 'u9', nombre: 'Eva Soto', email: 'eva@utem.cl' }, equipoNombre: 'Equipo Rojo', createdAt: '2026-11-20T12:00:00.000Z' };
+
+  it('el docente ve quién salió de un equipo y decide mantener o quitar el acceso', async () => {
+    salaDe('DOCENTE', 'u1', 'u1');
+    equipos.pendientes = [pendiente];
+    setup();
+    await userEvent.click(screen.getByRole('button', { name: 'Equipos' }));
+    expect(screen.getByRole('heading', { name: 'Accesos pendientes de revisión' })).toBeVisible();
+    expect(screen.getByText(/salió de «Equipo Rojo»/)).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Mantener acceso de Eva Soto' }));
+    expect(equipos.resolver).toHaveBeenCalledWith({ revisionId: 'r1', decision: 'MANTENER' });
+    await userEvent.click(screen.getByRole('button', { name: 'Quitar acceso de Eva Soto' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Confirmar' }));
+    await waitFor(() => expect(equipos.resolver).toHaveBeenCalledWith({ revisionId: 'r1', decision: 'QUITAR' }));
+  });
+
+  it('sin pendientes no muestra el panel', async () => {
+    salaDe('DOCENTE', 'u1', 'u1');
+    setup();
+    await userEvent.click(screen.getByRole('button', { name: 'Equipos' }));
+    expect(screen.queryByRole('heading', { name: 'Accesos pendientes de revisión' })).toBeNull();
   });
 });

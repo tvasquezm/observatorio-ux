@@ -302,12 +302,21 @@ export class SalasService {
   // ---------------------------------------------------------------
 
   async listProyectos(salaId: string, user: AuthenticatedUser) {
-    await this.assertCanViewSala(salaId, user);
+    const sala = await this.assertCanViewSala(salaId, user);
 
+    // Un estudiante solo ve los proyectos que creó o donde es miembro; el docente dueño de la sala y el administrador ven todos.
+    const verTodos = user.rol === 'ADMIN' || sala.profesorId === user.id;
     const proyectos = await this.prisma.proyecto.findMany({
-      where: { salaId, deletedAt: null },
+      where: {
+        salaId,
+        deletedAt: null,
+        ...(verTodos ? {} : { OR: [{ creadoPorId: user.id }, { miembros: { some: { usuarioId: user.id } } }] }),
+      },
       orderBy: { createdAt: 'desc' },
-      include: { _count: { select: { sesiones: true, artefactos: true, miembros: true } } },
+      include: {
+        _count: { select: { sesiones: true, artefactos: true, miembros: true } },
+        miembros: { where: { usuarioId: user.id }, select: { id: true } },
+      },
     });
     if (!proyectos.length) return [];
 
@@ -324,7 +333,8 @@ export class SalasService {
       const fecha = fila._max.updatedAt;
       if (fecha && (!ultima.has(fila.proyectoId) || fecha > ultima.get(fila.proyectoId)!)) ultima.set(fila.proyectoId, fecha);
     }
-    return proyectos.map((p) => ({ ...p, ultimaActividad: ultima.get(p.id) ?? null }));
+    // `esMiembro`: quien creó el proyecto o está en él puede trabajarlo; el resto solo lo consulta.
+    return proyectos.map(({ miembros, ...p }) => ({ ...p, esMiembro: p.creadoPorId === user.id || miembros.length > 0, ultimaActividad: ultima.get(p.id) ?? null }));
   }
 
   // ---------------------------------------------------------------
@@ -432,6 +442,7 @@ export class SalasService {
         where: { proyectoId: { in: proyectoIds } },
       }),
       this.prisma.proyecto.deleteMany({ where: { id: { in: proyectoIds } } }),
+      this.prisma.revisionAccesoEquipo.deleteMany({ where: { salaId } }),
       this.prisma.salaEstudiante.deleteMany({ where: { salaId } }),
       this.prisma.sala.delete({ where: { id: salaId } }),
     ]);

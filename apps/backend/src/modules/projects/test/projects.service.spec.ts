@@ -332,5 +332,17 @@ describe('ProjectsService', () => {
 
       expect(result.descripcion).toBe('Actualizado por admin');
     });
+
+    it('la administración elige las técnicas analizadas; un estudiante, aunque sea dueño, no', async () => {
+      prisma.proyecto.findUnique.mockResolvedValue(proyectoDeEjemplo);
+      prisma.proyecto.update.mockResolvedValue(proyectoDeEjemplo);
+
+      await service.update(PROYECTO_ID, { tecnicasAnalizadas: ['personas', 'card-sorting'] }, userAdmin);
+      expect(prisma.proyecto.update).toHaveBeenCalledWith({ where: { id: PROYECTO_ID }, data: { tecnicasAnalizadas: ['personas', 'card-sorting'] } });
+
+      prisma.proyecto.update.mockClear();
+      await expect(service.update(PROYECTO_ID, { tecnicasAnalizadas: ['personas'] }, { ...userDueño, rol: 'ESTUDIANTE' } as AuthenticatedUser)).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prisma.proyecto.update).not.toHaveBeenCalled();
+    });
   });
 });

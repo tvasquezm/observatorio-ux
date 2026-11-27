@@ -154,6 +154,8 @@ export interface ProyectoEnSala {
   descripcion: string | null;
   creadoPorId: string;
   salaId: string | null;
+  /** El usuario creó el proyecto o es miembro (puede trabajarlo); si no, solo lo consulta. */
+  esMiembro?: boolean;
   createdAt: string;
   _count?: { sesiones: number; artefactos: number; miembros: number };
   /** Cambio más reciente en artefactos o evaluaciones del proyecto (null si no hay). */

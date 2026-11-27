@@ -31,6 +31,8 @@ import {
   useRemoveEquipo,
   useAddMiembroEquipo,
   useRemoveMiembroEquipo,
+  useAccesosPendientes,
+  useResolverAcceso,
 } from '../../equipos/hooks/useEquiposQueries';
 import type { Equipo } from '../../equipos/api/equipos.api';
 import { SalasApiError, type Sala } from '../api/salas.api';
@@ -144,7 +146,7 @@ export function SalaDetallePage() {
               {tabEstudiante === 'proyectos'
                 ? <>
                     {!sala.permiteCreacionProyectos && <p role="note" className="text-muted">Esta sala no permite que los estudiantes creen proyectos. Pídele a tu docente que lo habilite.</p>}
-                    <ProyectosDeSalaLectura salaId={salaId} soloLectura={!sala.permiteCreacionProyectos} />
+                    <ProyectosDeSalaLectura salaId={salaId} />
                   </>
                 : <EquiposDeSalaEstudiante key={salaId} salaId={salaId} sala={sala} onDirtyChange={setTeamsDirty} />}
             </section>
@@ -212,7 +214,7 @@ function formatearFechaDetalle(fechaRaw?: string | null) {
   });
 }
 
-function ProyectosDeSalaLectura({ salaId, soloLectura }: { salaId: string; soloLectura: boolean }) {
+function ProyectosDeSalaLectura({ salaId }: { salaId: string }) {
   const { data: proyectos, isLoading, isError, error, refetch } = useProyectosDeSala(salaId);
 
   return (
@@ -240,7 +242,7 @@ function ProyectosDeSalaLectura({ salaId, soloLectura }: { salaId: string; soloL
               <h3>{proyecto.nombre}</h3>
               <p>{proyecto.descripcion || 'Sin descripción.'}</p>
             </div>
-            {soloLectura && <span className="sala-readonly-badge">Solo lectura</span>}
+            {proyecto.esMiembro === false && <span className="sala-readonly-badge">Solo lectura</span>}
           </article>
         ))}
         {proyectos && proyectos.length === 0 && (
@@ -522,6 +524,46 @@ function EstudiantesDeSala({ salaId, onDirtyChange }: { salaId: string; onDirtyC
 // Tab Equipos — DOCENTE dueño / ADMIN
 // ---------------------------------------------------------------
 
+/** Personas que salieron de un equipo y aún ven los proyectos de la sala: el docente decide si conservan el acceso. */
+function AccesosPendientes({ salaId }: { salaId: string }) {
+  const { data: pendientes } = useAccesosPendientes(salaId);
+  const { mutate: resolver, isPending } = useResolverAcceso(salaId);
+  const confirm = useConfirm();
+  if (!pendientes?.length) return null;
+
+  async function quitar(id: string, nombre: string) {
+    if (await confirm(`¿Quitar a ${nombre} el acceso a los proyectos de la sala? Dejará de verlos.`)) resolver({ revisionId: id, decision: 'QUITAR' });
+  }
+
+  return (
+    <section className="panel sala-accesos-pendientes" aria-labelledby="accesos-pendientes-titulo">
+      <div className="panel-head">
+        <div><span className="kicker">REQUIERE TU DECISIÓN</span><h3 id="accesos-pendientes-titulo">Accesos pendientes de revisión</h3></div>
+        <span className="count">{pendientes.length}</span>
+      </div>
+      <p className="text-muted-sm">Salieron de un equipo y siguen viendo los proyectos de la sala hasta que decidas.</p>
+      <ul className="list-stack">
+        {pendientes.map((p) => (
+          <li key={p.id} className="entity-card">
+            <div>
+              <strong>{p.usuario.nombre}</strong>
+              <p className="text-muted-sm">{p.usuario.email} · salió de «{p.equipoNombre}» el {new Date(p.createdAt).toLocaleDateString('es-CL')}</p>
+            </div>
+            <div className="sala-accesos-acciones">
+              <button type="button" className="secondary" disabled={isPending} onClick={() => resolver({ revisionId: p.id, decision: 'MANTENER' })}>
+                Mantener acceso <span className="sr-only">de {p.usuario.nombre}</span>
+              </button>
+              <button type="button" className="danger" disabled={isPending} onClick={() => void quitar(p.id, p.usuario.nombre)}>
+                Quitar acceso <span className="sr-only">de {p.usuario.nombre}</span>
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function EquiposDeSalaDocente({ salaId, sala, onDirtyChange }: { salaId: string; sala: Sala; onDirtyChange: DirtyNotice }) {
   const confirm = useConfirm();
   const { data: equipos, isLoading, isError, error, refetch } = useEquipos(salaId);
@@ -608,6 +650,7 @@ function EquiposDeSalaDocente({ salaId, sala, onDirtyChange }: { salaId: string;
 
   return (
     <div>
+      <AccesosPendientes salaId={salaId} />
       <form onSubmit={handleGuardarToggle} className="form-row-inline sala-configuracion">
         <label>
           <input

@@ -12,6 +12,8 @@ const OPCIONES_ESCALA: { id: OpcionEscala; etiqueta: string }[] = [
   { id: 'metodologia', etiqueta: 'La de la metodología' }, { id: 'operativa', etiqueta: 'Cumple / Parcial / No cumple' },
   { id: 'si_no', etiqueta: 'Sí / No' }, { id: 'likert_1_5', etiqueta: '1 a 5' }, { id: 'nielsen_0_4', etiqueta: 'Severidad 0 a 4 (Nielsen)' },
 ];
+const MAX_EVALUADORES = 5;
+const iniciales = (nombre: string) => nombre.trim().split(/\s+/).slice(0, 2).map(p => p[0]?.toUpperCase() ?? '').join('') || '?';
 const copiaEscala = (e: EscalaFlujo): EscalaFlujo => JSON.parse(JSON.stringify(e)) as EscalaFlujo;
 const escalaDeOpcion = (o: Exclude<OpcionEscala, 'metodologia'>): EscalaFlujo => o === 'operativa' ? copiaEscala(ESCALA_OPERATIVA_HEURISTICA) : escalaPredefinida(o);
 export function ConfiguracionEditor({ value, onChange, biblioteca, equipo, acciones }: {
@@ -41,11 +43,28 @@ export function ConfiguracionEditor({ value, onChange, biblioteca, equipo, accio
       <p className="hf-ayuda">Se usa en todas las preguntas de esta revisión. Cambiarla modifica cómo se calcula el cumplimiento: las escalas de 1 a 5 y de 0 a 4 no marcan respuestas favorables.</p>
     </div>
     <div className="hf-resumen-compacto" aria-label="Resumen de la revisión"><span>{value.metodologia.criterios.length} preguntas</span><span>{value.evaluadorIds.length} {value.evaluadorIds.length === 1 ? 'persona' : 'personas'}</span><span>Respuestas incluidas</span></div>
-    <details><summary>Personas que revisarán · {value.evaluadorIds.length}</summary>
-      <p className="hf-ayuda">Puedes revisar tú o elegir hasta cinco personas del proyecto.</p>
-      <fieldset><legend>Equipo de revisión</legend>{equipo.map(u => <label key={u.id} className="hf-check"><input type="checkbox" aria-label={`Evaluador: ${u.nombre}`} checked={value.evaluadorIds.includes(u.id)} disabled={!value.evaluadorIds.includes(u.id) && value.evaluadorIds.length >= 5} onChange={e => set({ evaluadorIds: e.target.checked ? [...value.evaluadorIds, u.id] : value.evaluadorIds.filter(id => id !== u.id) })} />{u.nombre}</label>)}</fieldset>
-      <details><summary>Personas que solo verán el informe (opcional)</summary>{equipo.map(u => <label key={u.id} className="hf-check"><input type="checkbox" aria-label={`Lector: ${u.nombre}`} checked={value.lectorIds.includes(u.id)} onChange={e => set({ lectorIds: e.target.checked ? [...value.lectorIds, u.id] : value.lectorIds.filter(id => id !== u.id) })} />{u.nombre}</label>)}</details>
-    </details>
+    <section className="hf-integrantes" aria-labelledby="hf-integrantes-titulo">
+      <div className="hf-integrantes-cabecera">
+        <div><span className="kicker">EQUIPO</span><h3 id="hf-integrantes-titulo">Quiénes participan en esta revisión</h3></div>
+        <span className="hf-integrantes-contador" role="status">{value.evaluadorIds.length} de {MAX_EVALUADORES} personas</span>
+      </div>
+      <p className="hf-ayuda">Cada persona responde sola y después el equipo acuerda el resultado. Puedes revisar tú o elegir hasta {MAX_EVALUADORES} personas del proyecto; se recomiendan de 3 a 5.</p>
+      {value.evaluadorIds.length === 1 && equipo.length > 1 && <p className="hf-aviso-entrega" role="note">Solo una persona revisará: no habrá comparación entre evaluadores.</p>}
+      <fieldset className="hf-integrantes-grupo"><legend>Equipo de revisión</legend>
+        <ul className="hf-integrantes-lista">{equipo.map(u => {
+          const elegido = value.evaluadorIds.includes(u.id);
+          const lleno = !elegido && value.evaluadorIds.length >= MAX_EVALUADORES;
+          return <li key={u.id}><label className={`hf-integrante${elegido ? ' hf-integrante--elegido' : ''}${lleno ? ' hf-integrante--bloqueado' : ''}`}>
+            <input type="checkbox" aria-label={`Evaluador: ${u.nombre}`} checked={elegido} disabled={lleno} onChange={e => set({ evaluadorIds: e.target.checked ? [...value.evaluadorIds, u.id] : value.evaluadorIds.filter(id => id !== u.id) })} />
+            <span className="hf-integrante-avatar" aria-hidden="true">{iniciales(u.nombre)}</span>
+            <span className="hf-integrante-datos"><strong>{u.nombre}</strong><small>{elegido ? 'Revisará' : lleno ? 'Equipo completo' : 'No participa'}</small></span>
+          </label></li>;
+        })}</ul>
+      </fieldset>
+      <fieldset className="hf-integrantes-grupo hf-integrantes-lectores"><legend>Personas que solo verán el informe (opcional)</legend>
+        <ul className="hf-integrantes-lista">{equipo.map(u => <li key={u.id}><label className="hf-check"><input type="checkbox" aria-label={`Lector: ${u.nombre}`} checked={value.lectorIds.includes(u.id)} onChange={e => set({ lectorIds: e.target.checked ? [...value.lectorIds, u.id] : value.lectorIds.filter(id => id !== u.id) })} />{u.nombre}</label></li>)}</ul>
+      </fieldset>
+    </section>
     <details><summary>Agregar contexto (opcional)</summary><div className="hf-grid">
       <Field label="Nombre de la revisión" optional><input maxLength={160} value={value.nombre} onChange={e => set({ nombre: e.target.value })} /></Field>
       <Field label="URL" optional><CampoUrl maxLength={1000} value={p.url} onChange={url => set({ producto: { ...p, url } })} /></Field>

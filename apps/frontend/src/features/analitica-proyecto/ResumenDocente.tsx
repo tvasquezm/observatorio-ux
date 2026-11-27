@@ -43,7 +43,7 @@ export function PanelAvance({ proyectoId, avance }: { proyectoId: string; avance
   return (
     <section className="panel docente-avance" aria-labelledby="docente-avance-titulo">
       <div className="panel-head"><div><span className="kicker">AVANCE</span><h3 id="docente-avance-titulo">Cómo va el equipo</h3></div>
-        <span className="count">{avance.filter(a => a.estado === 'completa').length} de 5 completas</span></div>
+        <span className="count">{avance.filter(a => a.estado === 'completa').length} de {avance.length} completas</span></div>
       <ul className="docente-semaforo">
         {avance.map(a => (
           <li key={a.id} data-estado={a.estado}>
