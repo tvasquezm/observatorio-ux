@@ -134,6 +134,7 @@ export class SalasService {
         ...(dto.permiteCreacionProyectos !== undefined
           ? { permiteCreacionProyectos: dto.permiteCreacionProyectos }
           : {}),
+        ...(dto.tecnicasAnalizadas !== undefined ? { tecnicasAnalizadas: dto.tecnicasAnalizadas } : {}),
       },
     });
   }

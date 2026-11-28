@@ -1,10 +1,10 @@
 // Paneles de la analítica pensados para el profesor: avance, alertas, aporte del equipo,
 // hallazgos clave y novedades desde su última visita.
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { listArtifacts } from '../../shared/api/artifacts.api';
-import { useMembers } from '../projects/hooks/useProjectsQueries';
+import { useMembers, useMemberEvents } from '../projects/hooks/useProjectsQueries';
 import { useComments } from '../comments/hooks/useCommentsQueries';
 import { fechaChile } from '../heuristica-flujo/flujo-utils';
 import type { Pendiente } from './analitica-proyecto';
@@ -17,24 +17,37 @@ export function useDatosDocente(proyectoId: string) {
   const versiones = useQuery({ queryKey: ['analitica-docente', proyectoId, 'versiones'], queryFn: () => listArtifacts(proyectoId), enabled: !!proyectoId });
   const miembros = useMembers(proyectoId);
   const comentarios = useComments(proyectoId);
+  const eventos = useMemberEvents(proyectoId);
   return {
     isLoading: versiones.isLoading || miembros.isLoading || comentarios.isLoading,
+    eventosMiembros: eventos.data ?? [],
     versiones: (versiones.data ?? []) as VersionArtefacto[],
     miembros: miembros.data ?? [],
     comentarios: comentarios.data ?? [],
   };
 }
 
-const CLAVE_VISITA = (usuarioId: string, proyectoId: string) => `observatorio-ux-analitica-visita:${usuarioId}:${proyectoId}`;
+const CLAVE_LEIDO = (usuarioId: string, proyectoId: string) => `observatorio-ux-analitica-leido:${usuarioId}:${proyectoId}`;
 const SIETE_DIAS = 7 * 24 * 60 * 60 * 1000;
 
-/** Fecha de la visita anterior a esta analítica (o null si es la primera); registra la visita actual. */
-export function useVisitaAnterior(usuarioId: string, proyectoId: string): string | null {
-  const [anterior] = useState(() => { try { return localStorage.getItem(CLAVE_VISITA(usuarioId, proyectoId)); } catch { return null; } });
-  useEffect(() => { try { localStorage.setItem(CLAVE_VISITA(usuarioId, proyectoId), new Date().toISOString()); } catch { /* sin almacenamiento */ } }, [usuarioId, proyectoId]);
-  return anterior;
+/**
+ * Las novedades muestran siempre lo de los últimos 7 días. «Marcar como leído» oculta lo anterior a ese momento
+ * (se recuerda en este navegador) y «Mostrar de nuevo» lo devuelve. Ya no depende de cuándo se abrió la página.
+ */
+export function useNovedadesLeidas(usuarioId: string, proyectoId: string) {
+  const [leidoHasta, setLeidoHasta] = useState<string | null>(() => { try { return localStorage.getItem(CLAVE_LEIDO(usuarioId, proyectoId)); } catch { return null; } });
+  const guardar = (valor: string | null) => {
+    setLeidoHasta(valor);
+    try { if (valor) localStorage.setItem(CLAVE_LEIDO(usuarioId, proyectoId), valor); else localStorage.removeItem(CLAVE_LEIDO(usuarioId, proyectoId)); } catch { /* sin almacenamiento: vale mientras la página siga abierta */ }
+  };
+  return { leidoHasta, marcarLeido: () => guardar(new Date().toISOString()), mostrarDeNuevo: () => guardar(null) };
 }
-export const desdeVisita = (anterior: string | null) => anterior ?? new Date(Date.now() - SIETE_DIAS).toISOString();
+
+/** Desde cuándo se muestran las novedades: los últimos 7 días, o desde que se marcaron como leídas si eso es más reciente. */
+export const desdeNovedades = (leidoHasta: string | null, ahora = Date.now()) => {
+  const sieteDias = new Date(ahora - SIETE_DIAS).toISOString();
+  return leidoHasta && leidoHasta > sieteDias ? leidoHasta : sieteDias;
+};
 
 const ESTADO: Record<AvanceTecnica['estado'], string> = { completa: 'Completa', 'en-curso': 'En curso', 'sin-empezar': 'Sin empezar' };
 const fechaCorta = (iso: string | null) => iso ? new Date(iso).toLocaleDateString('es-CL', { timeZone: 'America/Santiago', day: 'numeric', month: 'short' }) : null;
@@ -129,14 +142,20 @@ export function PanelHallazgos({ proyectoId, hallazgos }: { proyectoId: string; 
   );
 }
 
-export function PanelNovedades({ proyectoId, novedades, primeraVisita, datos, usuarioId }: { proyectoId: string; novedades: Novedad[]; primeraVisita: boolean; datos: Pick<DatosDocente, 'comentarios'>; usuarioId: string }) {
+export function PanelNovedades({ proyectoId, novedades, leidoHasta, onLeido, onMostrarDeNuevo, datos, usuarioId }: { proyectoId: string; novedades: Novedad[]; leidoHasta: string | null; onLeido: () => void; onMostrarDeNuevo: () => void; datos: Pick<DatosDocente, 'comentarios'>; usuarioId: string }) {
   const pendientes = comentariosSinRespuesta(datos.comentarios, usuarioId);
+  const [todasNovedades, setTodasNovedades] = useState(false);
+  const [todosComentarios, setTodosComentarios] = useState(false);
+  const visiblesNovedades = todasNovedades ? novedades : novedades.slice(0, 8);
+  const visiblesComentarios = todosComentarios ? pendientes : pendientes.slice(0, 5);
   return (
     <section className="panel docente-novedades" aria-labelledby="docente-novedades-titulo">
-      <div className="panel-head"><div><span className="kicker">NOVEDADES</span><h3 id="docente-novedades-titulo">{primeraVisita ? 'Qué cambió en los últimos 7 días' : 'Qué cambió desde tu última visita'}</h3></div></div>
+      <div className="panel-head"><div><span className="kicker">NOVEDADES</span><h3 id="docente-novedades-titulo">Qué cambió en los últimos 7 días</h3></div>
+        {novedades.length > 0 && <button type="button" className="secondary" onClick={onLeido}>Marcar como leído</button>}</div>
+      {leidoHasta && <p className="text-muted-sm" role="status">Marcaste las novedades como leídas el {fechaChile(leidoHasta)}: solo ves lo que pasó después. <button type="button" className="link-btn" onClick={onMostrarDeNuevo}>Mostrar de nuevo los últimos 7 días</button></p>}
       {novedades.length === 0 ? <p className="text-muted-sm">Sin cambios del equipo en este período.</p> : (
         <ul className="docente-novedades-lista">
-          {novedades.map(n => (
+          {visiblesNovedades.map(n => (
             <li key={`${n.fecha}-${n.texto}`}>
               <time dateTime={n.fecha}>{fechaChile(n.fecha)}</time>
               <Link to={`/proyectos/${proyectoId}/${n.ruta}`}>{n.texto}</Link>
@@ -144,10 +163,12 @@ export function PanelNovedades({ proyectoId, novedades, primeraVisita, datos, us
           ))}
         </ul>
       )}
+      {novedades.length > 8 && <button type="button" className="ghost" onClick={() => setTodasNovedades(v => !v)}>{todasNovedades ? 'Ver menos' : `Ver las ${novedades.length} novedades`}</button>}
       <h4 className="analitica-subtitulo">Tus comentarios sin respuesta del equipo</h4>
+      <p className="text-muted-sm">Un comentario tuyo queda respondido cuando cualquier otra persona del proyecto escribe algo en los comentarios después del tuyo.</p>
       {pendientes.length === 0 ? <p className="text-muted-sm">El equipo respondió todos tus comentarios.</p> : (
         <ul className="analitica-lista">
-          {pendientes.slice(0, 4).map(c => (
+          {visiblesComentarios.map(c => (
             <li key={c.id} data-tipo="aviso">
               <span className="analitica-marca" aria-hidden="true" />
               <span>"{c.texto.length > 90 ? `${c.texto.slice(0, 89)}…` : c.texto}" <small>· {fechaChile(c.createdAt)}</small></span>
@@ -156,6 +177,7 @@ export function PanelNovedades({ proyectoId, novedades, primeraVisita, datos, us
           ))}
         </ul>
       )}
+      {pendientes.length > 5 && <button type="button" className="ghost" onClick={() => setTodosComentarios(v => !v)}>{todosComentarios ? 'Ver menos' : `Ver los ${pendientes.length} comentarios sin respuesta`}</button>}
     </section>
   );
 }

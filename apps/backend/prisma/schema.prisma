@@ -63,6 +63,7 @@ model Proyecto {
   evaluacionesHeuristicas EvaluacionHeuristicaCompleta[]
   artefactos          UxArtifact[]
   miembros            ProyectoMiembro[]
+  eventosMiembros     ProyectoMiembroEvento[]
   comentarios         Comentario[]
   participantesAcceso Participante[]
   salaId              String?
@@ -87,6 +88,21 @@ model ProyectoMiembro {
 
   @@unique([proyectoId, usuarioId])
   @@map("proyecto_miembros")
+}
+
+// Historial de altas y bajas de integrantes de un proyecto, para que el docente se entere de los cambios del equipo.
+// El afectado y quien lo hizo se guardan como ids (sin relación) para conservar el historial aunque cambien las cuentas.
+model ProyectoMiembroEvento {
+  id         String   @id @default(uuid())
+  proyecto   Proyecto @relation(fields: [proyectoId], references: [id])
+  proyectoId String
+  tipo       String // AGREGADO | QUITADO
+  usuarioId  String
+  actorId    String
+  createdAt  DateTime @default(now())
+
+  @@index([proyectoId, createdAt])
+  @@map("proyecto_miembro_eventos")
 }
 
 model Usuario {
@@ -176,6 +192,9 @@ model Sala {
   // Fase 5: toggle de creación de proyectos por ESTUDIANTE (mismo patrón que
   // permiteCreacionEquipos). DOCENTE dueño/ADMIN no dependen de este flag.
   permiteCreacionProyectos Boolean @default(false)
+
+  // Técnicas que se analizan en la analítica de TODOS los proyectos de la sala (por defecto las cinco).
+  tecnicasAnalizadas String[] @default(["personas", "journey-map", "momentos-criticos", "card-sorting", "evaluacion-heuristica"])
 
   // Soft delete con ventana de recuperación de 20 días (ver SalasService).
   // Al eliminarse, cascada lógica a los Proyecto de la sala.

@@ -9,6 +9,7 @@ import {
   listProjects,
   updateProject,
   listMembers,
+  listMemberEvents,
   addMember,
   removeMember,
   ProjectsApiError,
@@ -23,6 +24,7 @@ export const projectsKeys = {
   adminOverview: ['projects', 'admin', 'overview'] as const,
   detail: (id: string) => ['projects', id] as const,
   members: (id: string) => ['projects', id, 'miembros'] as const,
+  memberEvents: (id: string) => ['projects', id, 'miembros', 'eventos'] as const,
 };
 
 export function useProjects() {
@@ -63,7 +65,7 @@ export function useCreateProject() {
 export function useUpdateProject() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: { nombre?: string; descripcion?: string; tecnicasAnalizadas?: string[] } }) =>
+    mutationFn: ({ id, data }: { id: string; data: { nombre?: string; descripcion?: string } }) =>
       updateProject(id, data),
     onSuccess: (p) => {
       qc.setQueryData(projectsKeys.detail(p.id), p);
@@ -125,3 +127,7 @@ export function useRemoveMember(proyectoId: string) {
   });
 }
 
+/** Altas y bajas recientes de integrantes (para las novedades del docente). */
+export function useMemberEvents(proyectoId: string | null) {
+  return useQuery({ queryKey: projectsKeys.memberEvents(proyectoId ?? ''), queryFn: () => listMemberEvents(proyectoId as string), enabled: !!proyectoId });
+}

@@ -44,6 +44,7 @@ import { useAuthStore } from '../../auth/store/useAuthStore';
 import { resolvePerspective } from '../../../shared/auth/perspectivas';
 import { Skeleton } from '../../../shared/components/ui/Skeleton';
 import { TablaProyectosSala } from '../components/TablaProyectosSala';
+import { TecnicasDeLaSala } from '../components/TecnicasDeLaSala';
 
 type DirtyNotice = (dirty: boolean) => void;
 function useDirtyNotice(dirty: boolean, onDirtyChange: DirtyNotice) {
@@ -317,6 +318,8 @@ function ProyectosDeSala({ salaId, sala, actualizacionPermiso }: { salaId: strin
       {proyectosSala && proyectosSala.length === 0 && <p>Todavía no hay proyectos alojados en esta sala.</p>}
       {proyectosSala && proyectosSala.length > 0 && visibles?.length === 0 && <p className="text-muted">Ningún proyecto coincide con la búsqueda.</p>}
       </section>
+
+      <TecnicasDeLaSala key={(sala.tecnicasAnalizadas ?? []).join()} tecnicasAnalizadas={sala.tecnicasAnalizadas} guardar={actualizacionPermiso} />
 
       <details className="sala-gestion">
         <summary>Gestionar proyectos de la sala</summary>

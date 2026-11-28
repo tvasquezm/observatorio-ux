@@ -18,9 +18,10 @@ import { Skeleton } from '../shared/components/ui/Skeleton';
 import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { useActivePerspective } from '../shared/auth/useActivePerspective';
 import { useProject } from '../features/projects/hooks/useProjectsQueries';
-import { ConfigTecnicas, nombresTecnicas } from '../features/analitica-proyecto/ConfigTecnicas';
-import { PanelAlertas, PanelAporte, PanelAvance, PanelHallazgos, PanelNovedades, desdeVisita, useDatosDocente, useVisitaAnterior } from '../features/analitica-proyecto/ResumenDocente';
-import { acotarATecnicas, alertasRevision, aporteIntegrantes, avanceTecnicas, hallazgosClave, novedadesDesde, tecnicasHabilitadas, type DatosDocente } from '../features/analitica-proyecto/resumen-docente';
+import { useSala } from '../features/salas/hooks/useSalasQueries';
+import { PanelAlertas, PanelAporte, PanelAvance, PanelHallazgos, PanelNovedades, desdeNovedades, useDatosDocente, useNovedadesLeidas } from '../features/analitica-proyecto/ResumenDocente';
+import { Link } from 'react-router-dom';
+import { acotarATecnicas, alertasRevision, aporteIntegrantes, avanceTecnicas, hallazgosClave, nombresTecnicas, novedadesDesde, tecnicasHabilitadas, type DatosDocente } from '../features/analitica-proyecto/resumen-docente';
 
 export function AnalyticsPage() {
   const { proyectoId } = useOutletContext<ProjectOutletContext>();
@@ -32,12 +33,14 @@ export function AnalyticsPage() {
   const evaluacionesQuery = useEvaluacionesProyecto(proyectoId);
   const proyecto = useProject(proyectoId);
   const rol = useActivePerspective();
-  const habilitadas = tecnicasHabilitadas(proyecto.data?.tecnicasAnalizadas);
-  const puedeConfigurar = rol === 'DOCENTE' || rol === 'ADMIN';
+  // Las técnicas que se analizan las define el docente en la sala y valen para todos sus proyectos.
+  const sala = useSala(proyecto.data?.salaId ?? null);
+  const habilitadas = tecnicasHabilitadas(sala.data?.tecnicasAnalizadas);
+  const puedeConfigurar = (rol === 'DOCENTE' || rol === 'ADMIN') && !!proyecto.data?.salaId;
   const evaluaciones = evaluacionesQuery.data ?? [];
   const usuarioId = useAuthStore((s) => s.user?.id ?? '');
   const docente = useDatosDocente(proyectoId);
-  const visitaAnterior = useVisitaAnterior(usuarioId, proyectoId);
+  const novedades = useNovedadesLeidas(usuarioId, proyectoId);
   const isLoadingAll = isLoading || docente.isLoading || personasQuery.isLoading || journeysQuery.isLoading || momentsQuery.isLoading || cardSortingQuery.isLoading;
   const aggregateError = error ?? personasQuery.error ?? journeysQuery.error ?? momentsQuery.error ?? cardSortingQuery.error;
 
@@ -57,7 +60,7 @@ export function AnalyticsPage() {
   const datosDocente: DatosDocente = acotarATecnicas({
     personas: personasQuery.data ?? [], journeys: journeysQuery.data ?? [], momentos: momentsQuery.data ?? [],
     estudios: cardSortingQuery.data ?? [], evaluaciones,
-    versiones: docente.versiones, miembros: docente.miembros, comentarios: docente.comentarios,
+    versiones: docente.versiones, miembros: docente.miembros, comentarios: docente.comentarios, eventosMiembros: docente.eventosMiembros,
   }, habilitadas);
   const aportes = aporteIntegrantes(datosDocente);
 
@@ -68,10 +71,9 @@ export function AnalyticsPage() {
           <span className="kicker">LECTURA TRANSVERSAL</span>
           <h2>Analítica general</h2>
           <p>Resumen para revisar el proyecto: avance del equipo, alertas, aportes, hallazgos clave y novedades.</p>
-          {habilitadas.length < 5 && <p role="note" className="text-muted-sm">Se analizan {habilitadas.length} técnicas: {nombresTecnicas(habilitadas)}.</p>}
+          {habilitadas.length < 5 && <p role="note" className="text-muted-sm">Se analizan {habilitadas.length} técnicas: {nombresTecnicas(habilitadas)}. Se definen en la configuración de la sala{puedeConfigurar && proyecto.data?.salaId ? <> (<Link to={`/salas/${proyecto.data.salaId}`}>cambiar en la sala</Link>)</> : ''}.</p>}
         </div>
       </div>
-      {puedeConfigurar && proyecto.data && <ConfigTecnicas key={habilitadas.join()} proyectoId={proyectoId} habilitadas={habilitadas} />}
 
       {isLoadingAll && <Skeleton etiqueta="Calculando evidencia del proyecto…" variante="tarjetas" cantidad={4} />}
       {aggregateError && <p className="error-text" role="alert">{(aggregateError as Error).message}</p>}
@@ -101,12 +103,12 @@ export function AnalyticsPage() {
             </article>}
           </section>
           <div className="docente-grid">
-            <PanelAvance proyectoId={proyectoId} avance={avanceTecnicas(datosDocente)} />
+            <PanelAvance proyectoId={proyectoId} avance={avanceTecnicas(datosDocente).filter(a => habilitadas.includes(a.id))} />
             <PanelHallazgos proyectoId={proyectoId} hallazgos={hallazgosClave(datosDocente).filter(h => habilitadas.includes(h.ruta))} />
           </div>
           <PanelAlertas proyectoId={proyectoId} alertas={alertasRevision(datosDocente, aportes).filter(a => a.ruta === 'miembros' || (habilitadas as string[]).includes(a.ruta))} />
           <PanelAporte aportes={aportes} />
-          <PanelNovedades proyectoId={proyectoId} novedades={novedadesDesde(datosDocente, desdeVisita(visitaAnterior), usuarioId)} primeraVisita={!visitaAnterior} datos={datosDocente} usuarioId={usuarioId} />
+          <PanelNovedades proyectoId={proyectoId} novedades={novedadesDesde(datosDocente, desdeNovedades(novedades.leidoHasta), usuarioId)} leidoHasta={novedades.leidoHasta} onLeido={novedades.marcarLeido} onMostrarDeNuevo={novedades.mostrarDeNuevo} datos={datosDocente} usuarioId={usuarioId} />
           <PanelTecnicas proyectoId={proyectoId} habilitadas={habilitadas} datos={{
             personas: personasQuery.data ?? [], journeys: journeysQuery.data ?? [], momentos: momentsQuery.data ?? [],
             estudios: cardSortingQuery.data ?? [], evaluaciones,

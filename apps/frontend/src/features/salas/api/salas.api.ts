@@ -22,6 +22,8 @@ export interface Sala {
   limiteIntegrantesEquipo: number | null;
   // Fase 5 — toggle de creación de proyectos por ESTUDIANTE.
   permiteCreacionProyectos: boolean;
+  /** Técnicas que se analizan en la analítica de todos los proyectos de la sala (por defecto las cinco). */
+  tecnicasAnalizadas?: string[];
   /** Personas que salieron de un equipo y esperan la decisión del docente (solo docente y admin). */
   accesosPendientes?: number;
   // Fase 2 — soft delete (20 días de ventana de recuperación).
@@ -40,6 +42,7 @@ export type UpdateSalaDto = Partial<CreateSalaDto> & {
   permiteCreacionEquipos?: boolean;
   limiteIntegrantesEquipo?: number | null;
   permiteCreacionProyectos?: boolean;
+  tecnicasAnalizadas?: string[];
 };
 
 export class SalasApiError extends Error {

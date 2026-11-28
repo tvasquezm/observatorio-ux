@@ -491,6 +491,17 @@ describe('SalasService', () => {
     expect(prisma.sala.update).toHaveBeenCalledWith({ where: { id: 'sala-1' }, data: { limiteIntegrantesEquipo: null } });
   });
 
+  it('el docente dueño elige las técnicas que se analizan en la sala, con al menos una y solo las conocidas', async () => {
+    const dto = (tecnicasAnalizadas: unknown) => Object.assign(new UpdateSalaDto(), { tecnicasAnalizadas });
+    expect(validateSync(dto(['personas', 'card-sorting']))).toHaveLength(0);
+    for (const invalido of [[], ['otra'], ['personas', 'personas']]) expect(validateSync(dto(invalido))).not.toHaveLength(0);
+    prisma.sala.findUnique.mockResolvedValue({ id: 'sala-1', profesorId: docente.id, deletedAt: null });
+    prisma.sala.update.mockResolvedValue({});
+    await service.update('sala-1', { tecnicasAnalizadas: ['personas', 'card-sorting'] }, docente);
+    expect(prisma.sala.update).toHaveBeenCalledWith({ where: { id: 'sala-1' }, data: { tecnicasAnalizadas: ['personas', 'card-sorting'] } });
+    await expect(service.update('sala-1', { tecnicasAnalizadas: ['personas'] }, { id: 'otro', rol: 'DOCENTE' } as typeof docente)).rejects.toThrow();
+  });
+
   it('lista los proyectos de la sala con integrantes y última actividad, sin una consulta por proyecto', async () => {
     prisma.sala.findUnique.mockResolvedValue({ id: 'sala-1', profesorId: docente.id, deletedAt: null });
     prisma.proyecto.findMany.mockResolvedValue([

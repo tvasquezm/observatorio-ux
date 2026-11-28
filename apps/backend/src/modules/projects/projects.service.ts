@@ -109,15 +109,7 @@ export class ProjectsService {
   async update(id: string, dto: UpdateProjectDto, user: AuthenticatedUser) {
     await this.findOne(id, user);
 
-    // Elegir las técnicas que se analizan es decisión del docente dueño de la sala (o la administración),
-    // también en proyectos creados por estudiantes; el resto de los campos sigue siendo del equipo.
-    const soloTecnicas = dto.tecnicasAnalizadas !== undefined && dto.nombre === undefined && dto.descripcion === undefined;
-    if (soloTecnicas && user.rol === 'DOCENTE') {
-      const proyecto = await this.prisma.proyecto.findUnique({ where: { id }, select: { sala: { select: { profesorId: true } } } });
-      if (proyecto?.sala?.profesorId !== user.id) {
-        throw new ForbiddenException('Solo el docente dueño de la sala puede elegir las técnicas que se analizan.');
-      }
-    } else if (user.rol === 'DOCENTE') {
+    if (user.rol === 'DOCENTE') {
       const proyecto = await this.prisma.proyecto.findUnique({
         where: { id },
         select: { creadoPor: { select: { rol: true } } },
@@ -130,14 +122,9 @@ export class ProjectsService {
       }
     }
 
-    if (dto.tecnicasAnalizadas !== undefined && user.rol === 'ESTUDIANTE') {
-      throw new ForbiddenException('Solo el docente o la administración eligen las técnicas que se analizan.');
-    }
-
     return this.prisma.proyecto.update({
       where: { id },
       data: {
-        ...(dto.tecnicasAnalizadas !== undefined ? { tecnicasAnalizadas: dto.tecnicasAnalizadas } : {}),
         ...(dto.nombre !== undefined ? { nombre: dto.nombre.trim() } : {}),
         ...(dto.descripcion !== undefined
           ? { descripcion: dto.descripcion.trim() }
@@ -192,7 +179,11 @@ export class ProjectsService {
       throw new NotFoundException('No existe un usuario registrado con ese email.');
     }
 
-    return this.prisma.proyectoMiembro.upsert({
+    const yaEra = await this.prisma.proyectoMiembro.findUnique({
+      where: { proyectoId_usuarioId: { proyectoId: id, usuarioId: usuario.id } },
+      select: { id: true },
+    });
+    const miembro = await this.prisma.proyectoMiembro.upsert({
       where: { proyectoId_usuarioId: { proyectoId: id, usuarioId: usuario.id } },
       create: { proyectoId: id, usuarioId: usuario.id },
       update: {},
@@ -200,6 +191,22 @@ export class ProjectsService {
         usuario: { select: { id: true, nombre: true, email: true, rol: true } },
       },
     });
+    if (!yaEra) await this.registrarEvento(id, 'AGREGADO', usuario.id, user.id);
+    return miembro;
+  }
+
+  /** Deja constancia de quién agregó o quitó a quién, para que el docente vea los cambios del equipo. */
+  private registrarEvento(proyectoId: string, tipo: 'AGREGADO' | 'QUITADO', usuarioId: string, actorId: string) {
+    return this.prisma.proyectoMiembroEvento.create({ data: { proyectoId, tipo, usuarioId, actorId } });
+  }
+
+  /** Altas y bajas recientes de integrantes (las 100 más nuevas), con los nombres de las personas. */
+  async listMemberEvents(id: string, user: AuthenticatedUser) {
+    await this.projectAccess.assertAccess(id, user);
+    const eventos = await this.prisma.proyectoMiembroEvento.findMany({ where: { proyectoId: id }, orderBy: { createdAt: 'desc' }, take: 100 });
+    const ids = [...new Set(eventos.flatMap((e) => [e.usuarioId, e.actorId]))];
+    const nombres = new Map((ids.length ? await this.prisma.usuario.findMany({ where: { id: { in: ids } }, select: { id: true, nombre: true } }) : []).map((u) => [u.id, u.nombre]));
+    return eventos.map((e) => ({ id: e.id, tipo: e.tipo, createdAt: e.createdAt, usuarioId: e.usuarioId, usuarioNombre: nombres.get(e.usuarioId) ?? 'Una persona', actorId: e.actorId, actorNombre: nombres.get(e.actorId) ?? 'Alguien del equipo' }));
   }
 
   async removeMember(id: string, usuarioId: string, user: AuthenticatedUser) {
@@ -222,6 +229,7 @@ export class ProjectsService {
     }
 
     await this.prisma.proyectoMiembro.delete({ where: { id: membresia.id } });
+    await this.registrarEvento(id, 'QUITADO', usuarioId, user.id);
 
     return { eliminado: true };
   }
