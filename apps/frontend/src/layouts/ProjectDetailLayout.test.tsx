@@ -5,6 +5,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { ProjectDetailLayout } from './ProjectDetailLayout';
 
 const state = vi.hoisted(() => ({ role: 'ADMIN', owner: 'reviewer', salaId: null as string | null }));
+vi.mock('../features/projects/hooks/useAvisosArtefactos', () => ({ useAvisosArtefactos: () => undefined }));
 vi.mock('../features/auth/store/useAuthStore', () => ({
   useAuthStore: () => ({ user: { id: 'reviewer', rol: state.role }, perspectiveRole: state.role }),
 }));

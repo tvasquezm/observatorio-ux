@@ -3,7 +3,8 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { ConfiguracionFlujo, EvaluacionFlujo } from '@observatorio-ux/shared-types';
 import { METODOLOGIAS_HEURISTICAS } from '@observatorio-ux/shared-types';
-import { construirInformeFlujoPdf } from './informe-pdf';
+import { HOJA_APAISADA, bloquesInformeFlujo, construirInformeFlujoPdf } from './informe-pdf';
+import { PDF_DEFAULT_STYLE, PDF_PAGE_MARGINS, PDF_STYLES, keepHeadingsWithContent } from '../../shared/utils/pdf-base';
 
 // PNG de 1x1 píxel: pdfmake lo ajusta al recuadro pedido, así que sirve de captura para medir el diseño.
 const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
@@ -71,4 +72,16 @@ describe('Informe PDF: sin hojas en blanco', () => {
     expect(paginas).toHaveLength(3);
     expect(paginas.filter(p => !p)).toHaveLength(1);
   });
+
+  it('dentro del informe general (hoja apaisada) tampoco quedan hojas en blanco y trae lo mismo que el informe propio', async () => {
+    const hallazgos = [0, 1, 2, 3].map(i => hallazgo(i, largo, i % 3));
+    const ev = evaluacion(hallazgos);
+    const capturas = new Map<string, string | null>(hallazgos.flatMap(h => h.evidenciaIds.map(id => [id, PNG] as [string, string])));
+    const { content, images } = bloquesInformeFlujo(ev, capturas, new Date('2026-11-01T12:00:00Z'), { integrado: true }, HOJA_APAISADA, 'captura-e1-');
+    const texto = JSON.stringify(content);
+    for (const esperado of ['Problema 1', 'Origen', 'Revisión', 'Decidido por', 'Cobertura y resultados']) expect(texto).toContain(esperado);
+    const paginas = await paginasDe({ pageSize: 'A4', pageOrientation: 'landscape', pageMargins: PDF_PAGE_MARGINS, defaultStyle: PDF_DEFAULT_STYLE, images, content, styles: PDF_STYLES, pageBreakBefore: keepHeadingsWithContent });
+    expect(paginas.length).toBeGreaterThan(3);
+    expect(paginas.filter(p => !p).length, `hojas en blanco: ${paginas.map(p => (p ? 'x' : '·')).join('')}`).toBe(0);
+  }, 60_000);
 });

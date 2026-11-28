@@ -109,7 +109,15 @@ export class ProjectsService {
   async update(id: string, dto: UpdateProjectDto, user: AuthenticatedUser) {
     await this.findOne(id, user);
 
-    if (user.rol === 'DOCENTE') {
+    // Elegir las técnicas que se analizan es decisión del docente dueño de la sala (o la administración),
+    // también en proyectos creados por estudiantes; el resto de los campos sigue siendo del equipo.
+    const soloTecnicas = dto.tecnicasAnalizadas !== undefined && dto.nombre === undefined && dto.descripcion === undefined;
+    if (soloTecnicas && user.rol === 'DOCENTE') {
+      const proyecto = await this.prisma.proyecto.findUnique({ where: { id }, select: { sala: { select: { profesorId: true } } } });
+      if (proyecto?.sala?.profesorId !== user.id) {
+        throw new ForbiddenException('Solo el docente dueño de la sala puede elegir las técnicas que se analizan.');
+      }
+    } else if (user.rol === 'DOCENTE') {
       const proyecto = await this.prisma.proyecto.findUnique({
         where: { id },
         select: { creadoPor: { select: { rol: true } } },

@@ -26,6 +26,7 @@ jestEsm.unstable_mockModule('@observatorio-ux/shared-types', () => ({
 
 const { PersonaSchema, JourneyMapSchema, MomentosCriticosSchema } = await import('@observatorio-ux/shared-types');
 const { ArtifactsService: ArtifactsServiceImpl } = await import('../artifacts.service.js');
+const { cambiosDeArtefactos } = await import('../artifacts-eventos.js');
 
 describe('ArtifactsService', () => {
   let service: ArtifactsService;
@@ -677,6 +678,52 @@ describe('ArtifactsService', () => {
       await expect(service.acquireLock('art-1', otherUser)).rejects.toThrow(
         ForbiddenException,
       );
+    });
+  });
+
+  describe('avisos a quienes miran el proyecto', () => {
+    const base = { id: 'art-1', proyectoId: 'proy-1', tipo: TipoArtefacto.PERSONA, artefactoLogicoId: 'logico-1', version: 2, lockedById: null as string | null, lockedUntil: null as Date | null };
+    const escuchar = () => {
+      const avisos: Array<{ tipo: string; usuarioId: string }> = [];
+      const suscripcion = cambiosDeArtefactos.subscribe(c => avisos.push({ tipo: c.tipo, usuarioId: c.usuarioId }));
+      return { avisos, cerrar: () => suscripcion.unsubscribe() };
+    };
+    const prepararLock = (artefacto: typeof base) => {
+      prisma.uxArtifact.findUnique.mockResolvedValue(artefacto);
+      prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
+      prisma.uxArtifact.findFirst.mockResolvedValue(artefacto);
+      prisma.uxArtifact.updateMany.mockResolvedValue({ count: 1 });
+      prisma.uxArtifact.findUniqueOrThrow.mockResolvedValue({ ...artefacto, lockedById: ownerUser.id });
+      prisma.uxArtifact.update.mockResolvedValue({ ...artefacto, lockedById: null });
+    };
+
+    it('avisa al empezar y al dejar de editar, pero no al renovar el propio bloqueo', async () => {
+      const { avisos, cerrar } = escuchar();
+      try {
+        prepararLock(base);
+        await service.acquireLock('art-1', ownerUser);
+        expect(avisos).toEqual([{ tipo: 'bloqueo', usuarioId: ownerUser.id }]);
+        const propio = { ...base, lockedById: ownerUser.id, lockedUntil: new Date(Date.now() + 60_000) };
+        prepararLock(propio);
+        await service.acquireLock('art-1', ownerUser);
+        expect(avisos).toHaveLength(1);
+        await service.releaseLock('art-1', ownerUser);
+        expect(avisos.map(a => a.tipo)).toEqual(['bloqueo', 'bloqueo']);
+      } finally { cerrar(); }
+    });
+
+    it('avisa cuando se guarda una versión nueva y cuando se elimina el artefacto', async () => {
+      const { avisos, cerrar } = escuchar();
+      try {
+        prisma.uxArtifact.findUnique.mockResolvedValue(base);
+        prisma.proyecto.findUnique.mockResolvedValue({ creadoPorId: ownerUser.id });
+        prisma.uxArtifact.findFirst.mockResolvedValue(base);
+        prisma.uxArtifact.create.mockResolvedValue({ ...base, version: 3 });
+        await service.createVersion('art-1', { contenido: {} } as never, ownerUser);
+        prisma.uxArtifact.updateMany.mockResolvedValue({ count: 3 });
+        await service.softDelete('art-1', ownerUser);
+        expect(avisos.map(a => a.tipo)).toEqual(['version', 'eliminado']);
+      } finally { cerrar(); }
     });
   });
 

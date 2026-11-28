@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, Outlet, useLocation, useParams } from 'react-router-dom';
 import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { useProject } from '../features/projects/hooks/useProjectsQueries';
+import { useAvisosArtefactos } from '../features/projects/hooks/useAvisosArtefactos';
 import { useSalas } from '../features/salas/hooks/useSalasQueries';
 import { CambiarProyecto } from '../features/projects/components/CambiarProyecto';
 import { guardarReciente } from '../features/projects/components/SelectorProyecto';
@@ -24,6 +25,7 @@ export function ProjectDetailLayout() {
   const { pathname } = useLocation();
   const sectionRef = useRef<HTMLDivElement>(null);
   const [compact, setCompact] = useState(() => window.matchMedia?.('(max-width: 768px)').matches ?? true);
+  useAvisosArtefactos(proyectoId);
   const { data: proyecto } = useProject(proyectoId ?? null);
   const { data: salas } = useSalas();
   const sala = proyecto?.salaId ? salas?.find(s => s.id === proyecto.salaId) : undefined;

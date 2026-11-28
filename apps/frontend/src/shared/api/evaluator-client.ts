@@ -2,7 +2,7 @@ import { handleSessionExpired } from '../auth/session-expired';
 import { csrfHeaders } from './csrf';
 import { notify } from './toast';
 
-const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
+export const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
 
 export interface ApiFieldError {
   campo: string;

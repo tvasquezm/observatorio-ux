@@ -3,12 +3,16 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
+  MessageEvent,
   Param,
   ParseUUIDPipe,
   Post,
   Query,
+  Sse,
   UseGuards,
 } from '@nestjs/common';
+import { Observable, filter, interval, map, merge } from 'rxjs';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { TipoArtefacto } from '../../generated/prisma/client.js';
 import { CurrentUser } from '../../core/decorators/current-user.decorator.js';
@@ -22,6 +26,7 @@ import {
   CreateArtifactVersionDto,
 } from './artifacts.dto.js';
 import { ArtifactsService } from './artifacts.service.js';
+import { cambiosDeArtefactos } from './artifacts-eventos.js';
 
 @ApiTags('ux-artifacts')
 @ApiBearerAuth()
@@ -48,6 +53,27 @@ export class ArtifactsController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.artifactsService.findAll(proyectoId, tipo, user);
+  }
+
+  /**
+   * Avisos de cambios en los artefactos del proyecto (bloqueo de edición, versión nueva, creado, eliminado).
+   * Va antes de `:artefactoId` para que «eventos» no se tome por un id. El latido evita cortes por inactividad.
+   */
+  @Sse('eventos')
+  @Header('X-Accel-Buffering', 'no')
+  @Roles('ESTUDIANTE', 'DOCENTE', 'ADMIN')
+  async eventos(
+    @Param('proyectoId', ParseUUIDPipe) proyectoId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<Observable<MessageEvent>> {
+    await this.artifactsService.verificarAcceso(proyectoId, user);
+    return merge(
+      cambiosDeArtefactos.pipe(
+        filter((c) => c.proyectoId === proyectoId),
+        map((c): MessageEvent => ({ type: c.tipo, data: { usuarioId: c.usuarioId } })),
+      ),
+      interval(25_000).pipe(map((): MessageEvent => ({ type: 'latido', data: 'ok' }))),
+    );
   }
 
   @Get(':artefactoId')

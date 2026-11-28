@@ -7,6 +7,7 @@ import { Prisma, type EvaluacionHeuristicaCompleta } from '../../../generated/pr
 import { PrismaService } from '../../../core/database/prisma.service.js';
 import { ProjectAccessService } from '../../../core/access/project-access.service.js';
 import { HeuristicaFlujoService, filtrarEvaluacion } from './heuristica-flujo.service.js';
+import { cambiosDeEvaluacion, type CambioDeEvaluacion } from './evaluacion-eventos.js';
 
 const usuario = (id: string, rol: AuthenticatedUser['rol'] = 'ESTUDIANTE'): AuthenticatedUser => ({ id, rol, actor: 'EVALUADOR' });
 const coordinador = usuario('coordinador'), lector = usuario('lector'), experto = usuario('e1');
@@ -238,6 +239,26 @@ describe('Flujo heurístico: privacidad, transiciones y consenso', () => {
     criterios[1].valor = 'alto';
     expect(resumirEvaluacion(c, consenso)).toMatchObject({ pendientes: 1, noAplica: 0, indice: 4, denominador: 2 });
     expect(resumirCumplimiento(c, consenso)!.total).toMatchObject({ sinEvaluar: 1, noAplica: 0 });
+  });
+
+  it('avisa a quienes tienen abierta la evaluación cuando cambia de fase o alguien entrega, no en cada guardado', async () => {
+    const { service } = preparar();
+    const avisos: CambioDeEvaluacion[] = [];
+    const suscripcion = cambiosDeEvaluacion.subscribe(c => avisos.push(c));
+    try {
+      let e = await service.crear('p', configuracion(2), coordinador);
+      e = await service.iniciar('p', e.id, { revision: e.revision }, coordinador);
+      expect(avisos.map(a => `${a.tipo}:${a.fase}`)).toEqual(['fase:EN_EVALUACION']);
+      const respuestas = e.configuracion.metodologia.criterios.map(c => ({ criterioId: c.id, valor: null, noAplica: true, motivo: 'Fuera del contexto', notas: '' }));
+      const [primero, segundo] = e.configuracion.evaluadorIds;
+      e = await service.guardarTrabajo('p', e.id, { revision: e.revision, respuestas, hallazgos: [] }, usuario(primero));
+      e = await service.entregar('p', e.id, { revision: e.revision }, usuario(primero));
+      expect(avisos.map(a => a.tipo)).toEqual(['fase', 'progreso']);
+      e = await service.guardarTrabajo('p', e.id, { revision: e.revision, respuestas, hallazgos: [] }, usuario(segundo));
+      e = await service.entregar('p', e.id, { revision: e.revision }, usuario(segundo));
+      expect(avisos.map(a => `${a.tipo}:${a.fase}`)).toEqual(['fase:EN_EVALUACION', 'progreso:EN_EVALUACION', 'fase:PENDIENTE_CONSENSO']);
+      expect(avisos[2]).toMatchObject({ id: e.id, revision: e.revision });
+    } finally { suscripcion.unsubscribe(); }
   });
 
   it('registra quién y cuándo guardó el acuerdo y un no redactor sigue sin poder guardarlo', async () => {

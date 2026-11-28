@@ -227,7 +227,8 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
     </section>
     <section className="panel" ref={confirmacion} tabIndex={-1}><div className="panel-head"><h2>Confirmación de todos los expertos</h2></div>{yaConfirmo && <p role="status"><strong>Ya confirmaste el acuerdo</strong></p>}<p>Editar el consenso revoca las confirmaciones previas. {state.dirty ? 'Hay cambios pendientes: las aprobaciones visibles corresponden a la versión guardada.' : ''}</p>
       <ul>{evaluacion.trabajos.map(t => <li key={t.evaluadorId}>{t.nombre}: {evaluacion.consenso.aprobadoPor.includes(t.evaluadorId) && !state.dirty ? 'Confirmado' : 'Confirmación pendiente'}</li>)}</ul>
-      <div className="hf-cambios-pedidos"><h3>Cambios pedidos</h3>
+      <div className="hf-cambios-pedidos"><div className="hf-cambios-cabecera"><h3>Cambios pedidos</h3>
+        <button type="button" className="secondary hf-actualizar" disabled={state.saving || busy} onClick={() => void actualizar()}><span aria-hidden="true">↻</span> Actualizar cambios pedidos</button></div>
         {(() => {
           // Traza completa: cada pedido queda con quién, cuándo y si ya se atendió. Los acuerdos anteriores a la traza muestran solo el pedido vigente.
           const traza = evaluacion.consenso.historialCambios ?? [];
@@ -235,7 +236,7 @@ export function ConsensoEditor({ evaluacion, usuarioId, onSaved, onBack, equipo 
           const filas = [...traza.map(h => ({ clave: h.id, ...h })), ...vigentes.map(p => ({ clave: `${p.evaluadorId}:${p.creadoEn}`, id: p.evaluadorId, ...p, atendidoEn: undefined as string | undefined }))].sort((a, b) => Date.parse(b.creadoEn) - Date.parse(a.creadoEn));
           return filas.length ? <ul className="hf-historial-cambios">{filas.map(f => <li key={f.clave}>{nombreDe(f.evaluadorId)} pidió cambios: {f.comentario} <em>· {fechaChile(f.creadoEn)} · {f.atendidoEn ? `atendido el ${fechaChile(f.atendidoEn)}` : 'pendiente'}</em></li>)}</ul> : <p className="hf-ayuda">Nadie ha pedido cambios.</p>;
         })()}
-        <button type="button" className="ghost" disabled={state.saving || busy} onClick={() => void actualizar()}>Actualizar cambios pedidos</button></div>
+      </div>
       {!soloLectura && <p className="hf-ayuda">Al entregar el acuerdo quedas confirmado automáticamente. Los demás expertos podrán confirmarlo o pedir cambios.</p>}
       <div className="hf-actions">{!soloLectura && <button type="button" className={!yaEntregado && !todosConfirmaron ? 'primary' : 'secondary'} disabled={busy || state.saving} onClick={() => {
         // Si falta algo, en vez de un botón inactivo se lleva a la persona a lo primero que falta.

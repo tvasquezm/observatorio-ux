@@ -14,6 +14,7 @@ import {
   PersonaSchema,
 } from '@observatorio-ux/shared-types';
 import { PrismaService } from '../../core/database/prisma.service.js';
+import { avisarArtefacto } from './artifacts-eventos.js';
 import { ProjectAccessService } from '../../core/access/project-access.service.js';
 import { AuthenticatedUser } from '../auth/types/authenticated-user.interface.js';
 import {
@@ -43,7 +44,7 @@ export class ArtifactsService {
     await this.assertPuedeEditar(user, proyectoId);
     this.validateContenidoByTipo(dto.tipo, dto.contenido);
 
-    return this.prisma.uxArtifact.create({
+    const creado = await this.prisma.uxArtifact.create({
       data: {
         proyectoId,
         tipo: dto.tipo,
@@ -53,6 +54,13 @@ export class ArtifactsService {
         autorId: user.id,
       },
     });
+    avisarArtefacto(proyectoId, 'creado', user.id);
+    return creado;
+  }
+
+  /** Quien puede ver el proyecto puede recibir los avisos de cambios en sus artefactos. */
+  async verificarAcceso(proyectoId: string, user: AuthenticatedUser) {
+    await this.projectAccess.assertAccess(proyectoId, user);
   }
 
   async findAll(
@@ -113,6 +121,7 @@ export class ArtifactsService {
       data: { deletedAt, lockedById: null, lockedUntil: null },
     });
 
+    avisarArtefacto(artifact.proyectoId, 'eliminado', user.id);
     return { ...artifact, deletedAt, lockedById: null, lockedUntil: null };
   }
 
@@ -151,7 +160,7 @@ export class ArtifactsService {
     // default del schema): guardar una versión cierra, de hecho, la sesión
     // de edición que originó el lock sobre la versión anterior.
     try {
-      return await this.prisma.uxArtifact.create({
+      const nueva = await this.prisma.uxArtifact.create({
         data: {
           proyectoId: artifact.proyectoId,
           tipo: artifact.tipo,
@@ -161,6 +170,8 @@ export class ArtifactsService {
           autorId: user.id,
         },
       });
+      avisarArtefacto(artifact.proyectoId, 'version', user.id);
+      return nueva;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new ConflictException(
@@ -191,6 +202,8 @@ export class ArtifactsService {
     const latest = await this.getLatestVersion(artifact.artefactoLogicoId, artifact);
 
     await this.assertLockLibreParaAdquirir(latest, user);
+    // Renovar el propio bloqueo (latido mientras se edita) no es un cambio para las demás personas.
+    const renovacion = latest.lockedById === user.id && this.isLockActive(latest.lockedUntil);
 
     const ttlMs = this.resolveTtlMs(ttlSegundos);
     const lockedUntil = new Date(Date.now() + ttlMs);
@@ -220,6 +233,7 @@ export class ArtifactsService {
       throw new ConflictException(await this.mensajeEditando(actual?.lockedById));
     }
 
+    if (!renovacion) avisarArtefacto(artifact.proyectoId, 'bloqueo', user.id);
     return this.prisma.uxArtifact.findUniqueOrThrow({ where: { id: latest.id } });
   }
 
@@ -243,10 +257,12 @@ export class ArtifactsService {
       );
     }
 
-    return this.prisma.uxArtifact.update({
+    const liberado = await this.prisma.uxArtifact.update({
       where: { id: latest.id },
       data: { lockedById: null, lockedUntil: null },
     });
+    if (latest.lockedById) avisarArtefacto(artifact.proyectoId, 'bloqueo', user.id);
+    return liberado;
   }
 
   /**

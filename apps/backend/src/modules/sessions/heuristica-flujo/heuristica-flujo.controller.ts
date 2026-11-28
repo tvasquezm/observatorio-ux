@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Header, HttpCode, MessageEvent, Param, ParseUUIDPipe, Patch, Post, Res, Sse, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Observable, filter, interval, map, merge } from 'rxjs';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { EVIDENCIA_MAX_BYTES } from '@observatorio-ux/shared-types';
@@ -10,6 +11,7 @@ import { RolesGuard } from '../../../core/guards/roles.guard.js';
 import type { AuthenticatedUser } from '../../auth/types/authenticated-user.interface.js';
 import type { ArchivoSubido } from './evidencia.util.js';
 import { HeuristicaFlujoService } from './heuristica-flujo.service.js';
+import { cambiosDeEvaluacion } from './evaluacion-eventos.js';
 
 @ApiTags('heuristica-flujo')
 @ApiBearerAuth()
@@ -51,6 +53,19 @@ export class HeuristicaFlujoController {
   @Post('evaluaciones/comenzar')
   comenzar(@Param('proyectoId', ParseUUIDPipe) proyectoId: string, @Body() body: unknown, @CurrentUser() user: AuthenticatedUser) {
     return this.service.comenzar(proyectoId, body, user);
+  }
+  /**
+   * Avisos de una evaluación abierta: cambios de fase y avances del equipo (el contenido se pide aparte, con los permisos de cada persona).
+   * El latido evita que proxies o el hosting corten la conexión por inactividad.
+   */
+  @Sse('evaluaciones/:id/eventos')
+  @Header('X-Accel-Buffering', 'no')
+  async eventos(@Param('proyectoId', ParseUUIDPipe) proyectoId: string, @Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthenticatedUser): Promise<Observable<MessageEvent>> {
+    await this.service.verificarAcceso(proyectoId, user);
+    return merge(
+      cambiosDeEvaluacion.pipe(filter(c => c.id === id), map((c): MessageEvent => ({ type: c.tipo, data: { fase: c.fase, revision: c.revision } }))),
+      interval(25_000).pipe(map((): MessageEvent => ({ type: 'latido', data: 'ok' }))),
+    );
   }
   @Get('evaluaciones/:id')
   obtener(@Param('proyectoId', ParseUUIDPipe) proyectoId: string, @Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthenticatedUser) {

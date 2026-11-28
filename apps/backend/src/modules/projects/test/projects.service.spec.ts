@@ -333,6 +333,24 @@ describe('ProjectsService', () => {
       expect(result.descripcion).toBe('Actualizado por admin');
     });
 
+    it('el docente dueño de la sala elige las técnicas aunque el proyecto lo haya creado un estudiante', async () => {
+      const docente = { id: 'doc-1', rol: 'DOCENTE' } as AuthenticatedUser;
+      prisma.proyecto.findUnique.mockResolvedValue({ ...proyectoDeEjemplo, creadoPor: { rol: 'ESTUDIANTE' }, sala: { profesorId: 'doc-1' } });
+      prisma.proyecto.update.mockResolvedValue(proyectoDeEjemplo);
+      await service.update(PROYECTO_ID, { tecnicasAnalizadas: ['personas'] }, docente);
+      expect(prisma.proyecto.update).toHaveBeenCalledWith({ where: { id: PROYECTO_ID }, data: { tecnicasAnalizadas: ['personas'] } });
+
+      prisma.proyecto.update.mockClear();
+      prisma.proyecto.findUnique.mockResolvedValue({ ...proyectoDeEjemplo, creadoPor: { rol: 'ESTUDIANTE' }, sala: { profesorId: 'otro-doc' } });
+      await expect(service.update(PROYECTO_ID, { tecnicasAnalizadas: ['personas'] }, { ...docente, id: 'doc-1' })).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prisma.proyecto.update).not.toHaveBeenCalled();
+    });
+
+    it('un docente sigue sin poder editar el nombre de un proyecto creado por un estudiante', async () => {
+      prisma.proyecto.findUnique.mockResolvedValue({ ...proyectoDeEjemplo, creadoPor: { rol: 'ESTUDIANTE' }, sala: { profesorId: 'doc-1' } });
+      await expect(service.update(PROYECTO_ID, { nombre: 'Otro nombre' }, { id: 'doc-1', rol: 'DOCENTE' } as AuthenticatedUser)).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
     it('la administración elige las técnicas analizadas; un estudiante, aunque sea dueño, no', async () => {
       prisma.proyecto.findUnique.mockResolvedValue(proyectoDeEjemplo);
       prisma.proyecto.update.mockResolvedValue(proyectoDeEjemplo);

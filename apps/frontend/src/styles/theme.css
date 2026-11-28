@@ -3169,3 +3169,10 @@ button.evidencia-numero:hover .evidencia-nota, button.evidencia-numero:focus .ev
 
 .hf .hf-actividad { color: var(--muted); font-size: var(--fs-xs, .75rem); }
 .hf .hf-actividad[data-inactivo="si"] { color: var(--danger-text); font-weight: 700; }
+
+.hf .hf-cambios-cabecera { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+.hf .hf-cambios-cabecera h3 { margin: 0; }
+.hf .hf-actualizar { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; }
+.hf .hf-proceso-estado { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin: 8px 0 16px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-alt); }
+.hf .hf-actualizar { border: 2px solid var(--teal); background: color-mix(in srgb, var(--teal) 12%, var(--surface)); color: var(--heading); padding: 10px 18px; font-size: var(--fs-md, 1rem); }
+.hf .hf-actualizar:hover:not(:disabled) { background: color-mix(in srgb, var(--teal) 22%, var(--surface)); }
