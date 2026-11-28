@@ -1,10 +1,12 @@
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces';
-import { resumirEvaluacion, type FaseHeuristica } from '@observatorio-ux/shared-types';
+import { type FaseHeuristica } from '@observatorio-ux/shared-types';
 import type { ProjectReport, ReportMethod } from '../../features/reports/report-data';
 import { INK, MUTED, TEAL, paragraph, table, textValue, title } from './pdf-base';
 import { PDF_DEFAULT_STYLE, PDF_PAGE_MARGINS, PDF_STYLES, keepHeadingsWithContent } from './pdf-base';
 import { cuerpoVista } from '../../features/card-sorting/card-sorting-pdf-content';
 import { journeyVisual, personaVisual } from './pdf-visual';
+import { HOJA_APAISADA, bloquesInformeFlujo, idsEvidencia, partesInformeFlujo } from '../../features/heuristica-flujo/informe-pdf';
+import { nombresInforme } from '../../features/heuristica-flujo/flujo-utils';
 import { cargarEvidencia } from '../../features/heuristica-flujo/evidencia.api';
 
 /** Imágenes ya convertidas a PNG para incrustar (fotos de personas y capturas de la heurística). */
@@ -18,8 +20,6 @@ export { PDF_DEFAULT_STYLE, PDF_PAGE_MARGINS, PDF_STYLES, keepHeadingsWithConten
 export type ReportBrand = { logo: string; logoWhite: string };
 
 const fases: Record<FaseHeuristica, string> = { BORRADOR: 'Borrador', EN_EVALUACION: 'En evaluación', PENDIENTE_CONSENSO: 'Pendiente de consenso', CONSOLIDADA: 'Consolidada', FINALIZADA: 'Finalizada' };
-const severityLabels = ['Sin problema', 'Cosmético', 'Menor', 'Mayor', 'Crítico'];
-const severityColors = ['#526a73', '#526a73', '#85601b', '#a44626', '#922f3d'];
 export const date = (value: string | Date): string => new Intl.DateTimeFormat('es-CL', { dateStyle: 'medium' }).format(new Date(value));
 const empty = (): Content => ({ text: 'Sin registros guardados para esta técnica dentro de tu acceso actual.', color: MUTED, italics: true, margin: [0, 16, 0, 12] });
 
@@ -65,37 +65,7 @@ function detalleCardSorting(analytics: Parameters<typeof tablaDeVista>[1], inclu
 
 /** Ancho útil de la hoja apaisada (A4 horizontal menos márgenes laterales). */
 const ANCHO_UTIL = 842 - 108;
-/** Alto útil de la hoja apaisada (A4 horizontal menos márgenes superior e inferior). */
-const ALTO_UTIL = 595 - 72 - 54;
-/**
- * Alto estimado (pt) de un texto: en la tabla de detalle el valor tiene ~600 pt de ancho a
- * 9,5 pt (≈ 110 caracteres por línea de 13 pt); en párrafo, ~734 pt a 11 pt (≈ 120 por línea de 15 pt).
- */
-const altoTexto = (valor: unknown, porLinea = 110, linea = 13) => textValue(valor).split('\n').reduce((total, l) => total + Math.max(1, Math.ceil(l.length / porLinea)) * linea, 0);
-
 function sections(report: ReportConImagenes): Record<ReportMethod, Content[]> {
-  /** Captura con su pie: quién la subió y anotó, y cuándo. */
-  const capturaConPie = (evaluacionId: string, id: string, alto = 340): Content => {
-    const pie = report.piesCapturas?.[claveCaptura(evaluacionId, id)];
-    return { stack: [{ image: claveCaptura(evaluacionId, id), fit: [ANCHO_UTIL, alto], alignment: 'center', margin: [0, 4, 0, pie ? 2 : 8] }, ...(pie ? [{ text: pie, fontSize: 8, color: MUTED, margin: [0, 0, 0, 8] } as Content] : [])], unbreakable: true };
-  };
-  const capturaOAviso = (evaluacionId: string, id: string, alto?: number): Content => report.imagenes?.[claveCaptura(evaluacionId, id)]
-    ? capturaConPie(evaluacionId, id, alto)
-    : { text: 'Captura disponible en la aplicación (no se pudo incluir en este PDF).', italics: true, color: MUTED, margin: [0, 2, 0, 6] };
-  /**
-   * Texto con su primera captura en un mismo bloque que no se parte (la captura se achica
-   * para caber con el texto en la hoja); las demás capturas siguen, cada una entera.
-   * Con texto muy largo el bloque sí puede partirse y la captura va aparte.
-   */
-  const conCapturas = (evaluacionId: string, texto: Content[], ids: string[], altoTextoBloque: number, hojaNueva: boolean): Content[] => {
-    const alto = Math.min(340, Math.floor(ALTO_UTIL - altoTextoBloque - 40));
-    const juntas = alto >= 150;
-    const [primera, ...resto] = juntas ? ids : [];
-    return [
-      { stack: [...texto, ...(primera ? [capturaOAviso(evaluacionId, primera, alto)] : [])], unbreakable: altoTextoBloque < ALTO_UTIL - 20, ...(hojaNueva ? { pageBreak: 'before' as const } : {}) },
-      ...(juntas ? resto : ids).map(id => capturaOAviso(evaluacionId, id)),
-    ];
-  };
   const incluye = (metodo: ReportMethod, parte: string) => report.partes?.[metodo]?.includes(parte) ?? true;
   const incluyeCards = (parte: string) => incluye('cards', parte);
   return {
@@ -172,6 +142,8 @@ function sections(report: ReportConImagenes): Record<ReportMethod, Content[]> {
         ] : []),
       ] : [paragraph('Aún no hay respuestas completadas para calcular resultados.')]) : []),
     ]) ?? [],
+    // Mismo contenido que el informe de la evaluación (portada de datos, resultados, cada problema con
+    // sus capturas, mejoras, conclusión y autoría), ajustado a la hoja apaisada del informe general.
     heuristica: report.heuristics?.flatMap((evaluacion, i): Content[] => {
       const { configuracion: config, informe } = evaluacion;
       // Cada evaluación abre hoja propia (salvo la primera, que sigue a la portada de sección).
@@ -180,32 +152,23 @@ function sections(report: ReportConImagenes): Record<ReportMethod, Content[]> {
         paragraph(`${config.producto.nombre} · ${config.metodologia.nombre} · Versión ${evaluacion.version} · ${fases[evaluacion.fase]}`),
       ];
       if (!informe) return [...cabecera, paragraph('Esta evaluación todavía no está consolidada: aún no hay hallazgos aceptados.')];
-      const resumen = resumirEvaluacion(informe.configuracion, informe.consenso);
-      const nombreCriterio = (id: string) => informe.configuracion.metodologia.criterios.find((criterio) => criterio.id === id)?.nombre ?? id;
-      const problemas = informe.consenso.hallazgos.filter((h) => h.decision === 'ACEPTADO').sort((a, b) => b.severidad - a.severidad);
-      return [
-        ...cabecera,
-        ...(incluye('heuristica', 'severidad') ? [paragraph(`${problemas.length} hallazgos aceptados · ${informe.finalizadoEn ? `Finalizada el ${date(informe.finalizadoEn)}` : 'Informe preliminar, pendiente de cierre'}`)] : []),
-        ...(problemas.length ? [
-          ...(incluye('heuristica', 'severidad') ? [table(['Severidad', 'Problemas'], severityLabels.map((label, level) => [`${level} · ${label}`, resumen.porSeveridad[level] ?? 0]), ['*', 90])] : []),
-          // Un problema por hoja: su texto y su primera captura juntos; las demás capturas
-          // (con su pie) siguen enteras, en la misma hoja si caben o en la siguiente.
-          ...(incluye('heuristica', 'problemas') ? problemas.flatMap((problema, index): Content[] => conCapturas(evaluacion.id, [
-            title(`Problema ${index + 1} · ${problema.titulo}`),
-            { text: `SEVERIDAD ${problema.severidad} · ${severityLabels[problema.severidad] ?? 'Sin clasificar'} · PRIORIDAD ${problema.prioridad}`, bold: true, color: severityColors[problema.severidad] ?? INK, margin: [0, 0, 0, 8] },
-            details([['Pantalla o tarea', problema.pantalla], ['Criterios', problema.criterioIds.map(nombreCriterio)], ['Problema', problema.descripcion], ['Recomendación', problema.recomendacion]]),
-          ], problema.evidenciaIds, 80 + [problema.pantalla, problema.criterioIds.map(nombreCriterio), problema.descripcion, problema.recomendacion].reduce((t: number, v) => t + 6 + altoTexto(v), 0), index > 0 || incluye('heuristica', 'severidad'))) : []),
-        ] : [paragraph('La revisión acordada no identificó problemas de usabilidad.')]),
-        // Lo que funciona bien: también es evidencia del informe, con sus capturas.
-        // En hoja nueva; cada aspecto con capturas va junto a la primera de ellas.
-        ...(incluye('heuristica', 'positivos') && informe.consenso.positivos?.length ? [
-          { stack: [title('Lo que funciona bien')], pageBreak: 'before' } as Content,
-          ...informe.consenso.positivos.flatMap((positivo): Content[] => conCapturas(evaluacion.id, [
-            { text: positivo.titulo, bold: true, margin: [0, 2, 0, 3] },
-            ...(positivo.descripcion ? [paragraph(positivo.descripcion)] : []),
-          ], positivo.evidenciaIds ?? [], 24 + altoTexto(positivo.descripcion ?? '', 120, 15), false)),
-        ] : []),
-      ];
+      const capturas = new Map<string, string | null>();
+      const pies = new Map<string, string>();
+      for (const id of idsEvidencia(informe.consenso, { partes: partesInformeFlujo(report.partes?.heuristica) })) {
+        const clave = claveCaptura(evaluacion.id, id);
+        capturas.set(id, report.imagenes?.[clave] ?? null);
+        const pie = report.piesCapturas?.[clave];
+        if (pie) pies.set(id, pie);
+      }
+      try {
+        const { content } = bloquesInformeFlujo(evaluacion, capturas, report.generatedAt, {
+          integrado: true, partes: partesInformeFlujo(report.partes?.heuristica), pies, nombres: nombresInforme(evaluacion),
+        }, HOJA_APAISADA, `${claveCaptura(evaluacion.id, '')}`);
+        return [...cabecera, ...content];
+      } catch (error) {
+        // Una evaluación con datos incompletos no debe impedir exportar el resto del informe.
+        return [...cabecera, paragraph(error instanceof Error ? error.message : 'No se pudo preparar el informe de esta evaluación.')];
+      }
     }) ?? [],
   };
 }
@@ -349,11 +312,7 @@ export async function prepararImagenesReporte(report: ProjectReport): Promise<Re
     const { rasterizarEvidencia } = await import('../../features/heuristica-flujo/informe-pdf');
     const { autoriaCaptura, notasCaptura } = await import('../../features/heuristica-flujo/flujo-utils');
     for (const e of report.heuristics) {
-      const ids = [
-        ...(incluyeProblemas ? e.informe?.consenso.hallazgos.filter(x => x.decision === 'ACEPTADO').flatMap(h => h.evidenciaIds) ?? [] : []),
-        ...(incluyePositivos ? e.informe?.consenso.positivos?.flatMap(p => p.evidenciaIds ?? []) ?? [] : []),
-      ];
-      for (const id of new Set(ids)) {
+      for (const id of idsEvidencia(e.informe?.consenso, { partes: partesInformeFlujo(report.partes?.heuristica) })) {
         try { const { meta, blob } = await cargarEvidencia(e.proyectoId, e.id, id); imagenes[claveCaptura(e.id, id)] = await rasterizarEvidencia(blob, meta.anotaciones); piesCapturas[claveCaptura(e.id, id)] = [autoriaCaptura(meta), notasCaptura(meta.anotaciones)].filter(Boolean).join('\n'); } catch { /* queda el aviso en el PDF */ }
       }
     }

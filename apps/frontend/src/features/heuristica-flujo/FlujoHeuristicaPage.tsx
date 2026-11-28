@@ -23,6 +23,16 @@ import { flujoRequest } from './flujo.api';
 import { claveDeNombre, faltantesParaIniciar, guardarSesion, leerSesion } from './flujo-utils';
 import { procesoHeuristica } from './heuristica-visual';
 import { Skeleton } from '../../shared/components/ui/Skeleton';
+import { notify } from '../../shared/api/toast';
+import { useAvisosDeFase } from './useAvisosDeFase';
+
+/**
+ * Respaldo por si no hay conexión de avisos (el servidor limita ~60 peticiones por minuto y por IP; muchos estudiantes comparten red).
+ * Con los avisos activos la evaluación se actualiza sola cuando cambia de fase y solo se consulta de vez en cuando.
+ */
+const INTERVALO_SIN_AVISOS = 60_000;
+const INTERVALO_CON_AVISOS = 10 * 60_000;
+const ETAPA_FASE = { BORRADOR: 'Por preparar', EN_EVALUACION: 'En revisión', PENDIENTE_CONSENSO: 'Acuerdo del equipo', CONSOLIDADA: 'Informe preparado', FINALIZADA: 'Terminada' } as const;
 
 function nuevaConfiguracion(m: MetodologiaFlujo, usuarioId: string): ConfiguracionFlujo {
   return { nombre: '', producto: { clave: '', nombre: '', version: '', url: '', dispositivo: '' }, objetivo: '', tareas: '', pantallas: '', exclusiones: '', metodologia: copiarMetodologia(m), evaluadorIds: [usuarioId], lectorIds: [] };
@@ -101,13 +111,26 @@ export function FlujoHeuristicaPage() {
   const history = useQuery({ queryKey: [...key, 'evaluaciones'], queryFn: () => flujoRequest<EvaluacionFlujo[]>(proyectoId, '/evaluaciones') });
   const library = useQuery({ queryKey: [...key, 'metodologias'], queryFn: () => flujoRequest<MetodologiaFlujo[]>(proyectoId, '/metodologias') });
   const team = useQuery({ queryKey: [...key, 'equipo'], queryFn: () => flujoRequest<MiembroEquipoFlujo[]>(proyectoId, '/equipo') });
-  const active = useQuery({ queryKey: [...key, 'evaluacion', selected], queryFn: () => flujoRequest<EvaluacionFlujo>(proyectoId, `/evaluaciones/${selected}`), enabled: !!selected, refetchOnWindowFocus: false });
+  const [avisosActivos, setAvisosActivos] = useState(false);
+  const active = useQuery({ queryKey: [...key, 'evaluacion', selected], queryFn: () => flujoRequest<EvaluacionFlujo>(proyectoId, `/evaluaciones/${selected}`), enabled: !!selected, refetchOnWindowFocus: true,
+    // Otras personas avanzan la evaluación: se consulta sola mientras la pestaña está a la vista, solo mientras otras personas pueden avanzarla (revisión y acuerdo).
+    refetchInterval: (q) => (q.state.data && ['EN_EVALUACION', 'PENDIENTE_CONSENSO'].includes(q.state.data.fase) ? (avisosActivos ? INTERVALO_CON_AVISOS : INTERVALO_SIN_AVISOS) : false), refetchIntervalInBackground: false });
   function saved(e: EvaluacionFlujo) {
     client.setQueryData([...key, 'evaluacion', e.id], e);
     void client.invalidateQueries({ queryKey: [...key, 'evaluaciones'] });
     setSelected(e.id);
   }
   const evaluacion = active.data;
+  const conectado = useAvisosDeFase(proyectoId, selected, (tipo) => { void active.refetch(); if (tipo === 'fase') void client.invalidateQueries({ queryKey: [...key, 'evaluaciones'] }); });
+  useEffect(() => { setAvisosActivos(conectado); }, [conectado]);
+  // Aviso cuando la evaluación pasa a otra fase mientras se está mirando (por ella misma o por otra persona).
+  const faseVista = useRef<{ id: string; fase: EvaluacionFlujo['fase'] } | null>(null);
+  useEffect(() => {
+    if (!evaluacion) { faseVista.current = null; return; }
+    const antes = faseVista.current;
+    if (antes && antes.id === evaluacion.id && antes.fase !== evaluacion.fase) notify.info(`La evaluación avanzó: ahora está en «${ETAPA_FASE[evaluacion.fase]}».`);
+    faseVista.current = { id: evaluacion.id, fase: evaluacion.fase };
+  }, [evaluacion?.id, evaluacion?.fase]);
   const pendiente = [...(history.data ?? [])].filter(e => e.fase !== 'FINALIZADA').sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))[0];
   const etapaPendiente = { BORRADOR: 'por preparar', EN_EVALUACION: 'en revisión', PENDIENTE_CONSENSO: 'en acuerdo del equipo', CONSOLIDADA: 'con informe por finalizar', FINALIZADA: 'terminada' } as const;
   const back = () => setSelected(null);
@@ -132,7 +155,11 @@ export function FlujoHeuristicaPage() {
     className="hf fade"
     cabecera={!selected && <TechniquePageHeader label="TÉCNICA DE INVESTIGACIÓN" title="Evaluación heurística" description="Revisa un producto con una metodología conocida, una pregunta a la vez." instructions={instrucciones}
       action={<TechniqueNewButton etiqueta="+ Nueva evaluación" abierto={nueva} puedeEditar onClick={() => setNueva(v => !v)} />} />}
-    proceso={(!selected || evaluacion) && <TechniqueProcess title="Proceso de la evaluación" compact={!!selected} steps={procesoHeuristica(selected && evaluacion ? evaluacion.fase : null)} />}
+    proceso={(!selected || evaluacion) && <>
+      <TechniqueProcess title="Proceso de la evaluación" compact={!!selected} steps={procesoHeuristica(selected && evaluacion ? evaluacion.fase : null)} />
+      {selected && evaluacion && <div className="hf-proceso-estado"><span>Etapa actual: <strong>{ETAPA_FASE[evaluacion.fase]}</strong>. {avisosActivos ? 'Se actualiza sola cuando alguien avanza la fase o el equipo entrega, vota o confirma.' : 'Se actualiza sola cada minuto.'}</span>
+        <button type="button" className="secondary" disabled={active.isFetching} onClick={() => void active.refetch()}>{active.isFetching ? 'Actualizando…' : 'Actualizar proceso'}</button></div>}
+    </>}
     formulario={selected ? content : nueva && <>
       {avisos}
       {library.data?.length && team.data ? <PrepararRevision key={proyectoId} proyectoId={proyectoId} biblioteca={library.data} equipo={team.data} onSaved={saved} /> : null}

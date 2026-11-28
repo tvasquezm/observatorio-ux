@@ -305,6 +305,17 @@ describe('historial e informe', () => {
     expect(screen.queryByLabelText('Producto o sitio')).toBeNull();
     expect(await screen.findByText('Aún no hay revisiones guardadas')).toBeInTheDocument();
   });
+  it('el proceso se puede actualizar a mano y avisa cuando la evaluación avanza de fase', async () => {
+    let fase: 'EN_EVALUACION' | 'PENDIENTE_CONSENSO' = 'EN_EVALUACION';
+    const actual = () => evaluation({ fase });
+    api.mockImplementation(async (_p, path) => path === '/evaluaciones' ? [actual()] : path === `/evaluaciones/${actual().id}` ? actual() : path === '/metodologias' ? [config().metodologia] : path === '/equipo' ? [{ id: 'u1', nombre: 'Ana', rol: 'ESTUDIANTE' }] : []);
+    renderFlow(<FlujoHeuristicaPage />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Retomar mi última revisión' }));
+    expect(await screen.findByText(/Etapa actual:/)).toHaveTextContent('En revisión');
+    fase = 'PENDIENTE_CONSENSO';
+    await userEvent.click(screen.getByRole('button', { name: 'Actualizar proceso' }));
+    await waitFor(() => expect(screen.getByText(/Etapa actual:/)).toHaveTextContent('Acuerdo del equipo'));
+  });
   it('explica en español el dato mínimo que falta y enfoca el producto', async () => {
     api.mockImplementation(async (_p, path) => path === '/metodologias' ? [config().metodologia] : path === '/equipo' ? [{ id: 'u1', nombre: 'Ana', rol: 'ESTUDIANTE' }] : []);
     renderFlow(<FlujoHeuristicaPage />);

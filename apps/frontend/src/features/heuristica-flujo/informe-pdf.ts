@@ -23,15 +23,23 @@ const campo = (text: string, value: string): Content => ({ stack: [
 // junto a él: ancho útil 487 pt a 11 pt ≈ 80 caracteres por línea de 15 pt.
 const ALTO_UTIL = 842 - 72 - 54;
 const ALTO_TITULO = 48;
-const altoTexto = (texto: string) => texto.split('\n').reduce((total, linea) => total + Math.max(1, Math.ceil(linea.length / 68)) * 16, 0);
-/** Un bloque solo se declara indivisible si sobra holgura: si no cupiera en una hoja, pdfmake deja la anterior en blanco. */
-const cabeEnUnaHoja = (alto: number) => alto < ALTO_UTIL - 140;
-const altoCampos = (campos: Array<[string, string]>) => campos.reduce((total, [, valor]) => total + 26 + altoTexto(valor || 'No registrado'), 0);
 
 /** `pies`: texto bajo cada captura (quién la subió y anotó, y cuándo), por id. */
-type OpcionesInformePdf = { partes?: readonly string[]; pies?: ReadonlyMap<string, string>; /** Nombre de cada persona por id, para indicar quién hizo y quién revisó cada punto. */ nombres?: Readonly<Record<string, string>> };
+/** Ancho y alto útiles (pt) de la hoja donde irá el contenido; de ellos dependen los cálculos de qué cabe en una hoja. */
+export type HojaPdf = { ancho: number; alto: number };
+export const HOJA_VERTICAL: HojaPdf = { ancho: 487, alto: ALTO_UTIL };
+export const HOJA_APAISADA: HojaPdf = { ancho: 842 - 108, alto: 595 - 72 - 54 };
 
-function idsEvidencia(consenso: EvaluacionFlujo['consenso'] | undefined, { partes }: OpcionesInformePdf) {
+type OpcionesInformePdf = { /** Dentro de un informe mayor: sin la portada propia (el informe mayor pone su título). */ integrado?: boolean; partes?: readonly string[]; pies?: ReadonlyMap<string, string>; /** Nombre de cada persona por id, para indicar quién hizo y quién revisó cada punto. */ nombres?: Readonly<Record<string, string>> };
+
+/** Apartados del informe general -> apartados del informe de la evaluación; sin elección, todos. */
+export function partesInformeFlujo(partes?: readonly string[]): string[] | undefined {
+  if (!partes) return undefined;
+  const equivalentes: Record<string, string[]> = { severidad: ['resumen', 'cumplimiento', 'criterios'], problemas: ['hallazgos', 'mejoras', 'conclusion'], positivos: ['positivos'] };
+  return [...new Set(partes.flatMap(p => equivalentes[p] ?? []))];
+}
+
+export function idsEvidencia(consenso: EvaluacionFlujo['consenso'] | undefined, { partes }: OpcionesInformePdf) {
   return new Set([
     ...(!partes || partes.includes('hallazgos') ? consenso?.hallazgos.filter(h => h.decision === 'ACEPTADO').flatMap(h => h.evidenciaIds) ?? [] : []),
     ...(!partes || partes.includes('mejoras') ? consenso?.mejoras?.flatMap(m => [...m.antesIds, ...m.despuesIds]) ?? [] : []),
@@ -39,7 +47,18 @@ function idsEvidencia(consenso: EvaluacionFlujo['consenso'] | undefined, { parte
   ]);
 }
 
-export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: Map<string, string | null>, generadoEn: Date, brand?: ReportBrand, opciones: OpcionesInformePdf = {}): TDocumentDefinitions {
+/**
+ * Contenido del informe de una evaluación (sin portada de documento, cabecera ni pie), reutilizable
+ * en el PDF propio y en el informe general. `hoja` son las medidas de la hoja de destino y
+ * `prefijoImagen` evita choques entre las imágenes de varias evaluaciones en un mismo documento.
+ */
+export function bloquesInformeFlujo(evaluacion: EvaluacionFlujo, capturas: Map<string, string | null>, generadoEn: Date, opciones: OpcionesInformePdf = {}, hoja: HojaPdf = HOJA_VERTICAL, prefijoImagen = 'evidencia-'): { content: Content[]; images: Record<string, string> } {
+  // Estas medidas dependen de la hoja y sustituyen a las de una hoja vertical.
+  const ALTO_UTIL = hoja.alto;
+  const porLinea = Math.round(hoja.ancho / 7.15);
+  const altoTexto = (texto: string) => texto.split('\n').reduce((total, linea) => total + Math.max(1, Math.ceil(linea.length / porLinea)) * 16, 0);
+  const cabeEnUnaHoja = (alto: number) => alto < ALTO_UTIL - 140;
+  const altoCampos = (campos: Array<[string, string]>) => campos.reduce((total, [, valor]) => total + 26 + altoTexto(valor || 'No registrado'), 0);
   if (!['CONSOLIDADA', 'FINALIZADA'].includes(evaluacion.fase) || !evaluacion.informe) throw new Error('Primero consolida y aprueba la evaluación.');
   const informe = evaluacion.informe;
   const config = informe.configuracion;
@@ -52,7 +71,8 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
     const criterios = config.metodologia.criterios.filter(c => clases.some(r => r.criterioId === c.id && r.clase === clase));
     return [titulo(`${clase === 'desfavorable' ? 'Criterios con problema' : 'Criterios cumplidos'} (${criterios.length})`), ...(criterios.length ? criterios.map(c => ({ text: c.nombre } as Content)) : [{ text: 'Sin criterios en este grupo.' } as Content])];
   });
-  if (resumen.pendientes || !config.evaluadorIds.every(id => consenso.aprobadoPor.includes(id)) || consenso.hallazgos.some(h => h.decision === 'PENDIENTE')) throw new Error('El informe consolidado tiene decisiones o aprobaciones pendientes.');
+  // El PDF propio exige el informe cerrado; dentro del informe general se muestra también el preliminar, como siempre.
+  if (!opciones.integrado && (resumen.pendientes || !config.evaluadorIds.every(id => consenso.aprobadoPor.includes(id)) || consenso.hallazgos.some(h => h.decision === 'PENDIENTE'))) throw new Error('El informe consolidado tiene decisiones o aprobaciones pendientes.');
   const hallazgos = consenso.hallazgos.filter(h => h.decision === 'ACEPTADO').slice().sort((a, b) => b.severidad - a.severidad);
   const nombreCriterio = (id: string) => config.metodologia.criterios.find(c => c.id === id)?.nombre ?? id;
   const valorCriterio = (r: typeof consenso.criterios[number]) => {
@@ -63,7 +83,7 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
   const escalasPropias = [...new Map(config.metodologia.criterios.filter(c => c.escala).map(c => [JSON.stringify(c.escala), c.escala!] as const)).values()];
   const imagenes: Record<string, string> = {};
   const evidenciaIncluida = idsEvidencia(consenso, opciones);
-  for (const [id, img] of capturas) if (img && evidenciaIncluida.has(id)) imagenes[`evidencia-${id}`] = img;
+  for (const [id, img] of capturas) if (img && evidenciaIncluida.has(id)) imagenes[`${prefijoImagen}${id}`] = img;
   const nombres = opciones.nombres ?? {};
   const revision = revisionInforme(evaluacion, nombres);
   const positivos = consenso.positivos ?? [];
@@ -72,7 +92,7 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
   const finalizado = informe.finalizadoEn !== null;
   const pieCaptura = (id: string): Content[] => { const pie = opciones.pies?.get(id); return pie ? [{ text: pie, fontSize: 8, color: MUTED, margin: [0, -2, 0, 8] }] : []; };
   const imagenEvidencia = (id: string, alto = 310): Content => capturas.get(id)
-    ? { stack: [{ image: `evidencia-${id}`, fit: [460, alto], margin: [0, 6, 0, 6] }, ...pieCaptura(id)], unbreakable: true }
+    ? { stack: [{ image: `${prefijoImagen}${id}`, fit: [hoja.ancho - 27, alto], margin: [0, 6, 0, 6] }, ...pieCaptura(id)], unbreakable: true }
     : { text: `Captura ${id} disponible en la aplicación (no se pudo cargar al generar este PDF; vuelve a generarlo para reintentar).`, color: MUTED, italics: true, margin: [0, 6, 0, 6] };
   /**
    * Texto con su primera captura en un bloque que no se parte (la captura se achica para
@@ -121,14 +141,11 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
     ...(p.descripcion ? [{ text: p.descripcion, margin: [0, 0, 0, 4] } as Content] : []),
     { text: `${p.autorId ? `Agregado por ${nombres[p.autorId] ?? 'una persona del equipo'}` : `Redactado por ${revision.redactor}`} · Revisado por ${revision.redactor}`, fontSize: 8.5, color: MUTED, margin: [0, 0, 0, 4] },
   ], p.evidenciaIds ?? [], (i === 0 ? ALTO_TITULO : 0) + 24 + altoTexto(p.descripcion ?? ''), i === 0 ? { pageBreak: 'before' } : {}));
-  return {
-    info: { title: `Evaluación heurística · ${config.nombre} · v${informe.version}`, creator: 'UXLab Observatorio', subject: 'Informe consolidado de evaluación heurística' },
-    pageSize: 'A4', pageMargins: PDF_PAGE_MARGINS, defaultStyle: PDF_DEFAULT_STYLE,
-    images: { ...(brand ? { brandLogo: brand.logo, brandLogoWhite: brand.logoWhite } : {}), ...imagenes },
-    ...brandChrome(brand, 'EVALUACIÓN HEURÍSTICA', generadoEn),
-    content: [
-      { text: finalizado ? 'Informe final' : 'Informe preliminar consolidado', style: 'eyebrow', alignment: 'center', margin: [0, 36, 0, 18] },
-      { text: config.nombre, style: 'coverTitle' },
+  const content: Content[] = [
+      ...(opciones.integrado ? [] : [
+        { text: finalizado ? 'Informe final' : 'Informe preliminar consolidado', style: 'eyebrow', alignment: 'center', margin: [0, 36, 0, 18] } as Content,
+        { text: config.nombre, style: 'coverTitle' } as Content,
+      ]),
       { columns: [campo('Versión del informe', String(informe.version)), campo('Producto', `${config.producto.nombre} · ${config.producto.version}`)], columnGap: 20 },
       { columns: [campo('Clave del producto', config.producto.clave), campo('Enlace del producto', config.producto.url), campo('Dispositivo', config.producto.dispositivo)], columnGap: 20 },
       campo('Objetivo', config.objetivo), campo('Tareas', config.tareas),
@@ -172,7 +189,19 @@ export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: 
       ] : []),
       // Una sola referencia al final: de ahí provienen las preguntas (no se repite en cada criterio).
       ...(fuentes.length ? [titulo('Fuente de las preguntas'), { text: `Las preguntas de esta evaluación provienen de: ${fuentes.join(' · ')}`, color: MUTED } as Content] : []),
-    ],
+  ];
+  return { content, images: imagenes };
+}
+
+export function construirInformeFlujoPdf(evaluacion: EvaluacionFlujo, capturas: Map<string, string | null>, generadoEn: Date, brand?: ReportBrand, opciones: OpcionesInformePdf = {}): TDocumentDefinitions {
+  const { content, images } = bloquesInformeFlujo(evaluacion, capturas, generadoEn, opciones);
+  const informe = evaluacion.informe!;
+  return {
+    info: { title: `Evaluación heurística · ${informe.configuracion.nombre} · v${informe.version}`, creator: 'UXLab Observatorio', subject: 'Informe consolidado de evaluación heurística' },
+    pageSize: 'A4', pageMargins: PDF_PAGE_MARGINS, defaultStyle: PDF_DEFAULT_STYLE,
+    images: { ...(brand ? { brandLogo: brand.logo, brandLogoWhite: brand.logoWhite } : {}), ...images },
+    ...brandChrome(brand, 'EVALUACIÓN HEURÍSTICA', generadoEn),
+    content,
     styles: PDF_STYLES,
     pageBreakBefore: keepHeadingsWithContent,
   };

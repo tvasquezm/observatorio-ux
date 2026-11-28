@@ -1,3 +1,4 @@
+import { avisarCambio } from './evaluacion-eventos.js';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, UnsupportedMediaTypeException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
@@ -155,14 +156,25 @@ export class HeuristicaFlujoService {
     return filtrarEvaluacion(await this.cargar(proyectoId, id, user), user);
   }
 
-  private async bloqueada<T>(proyectoId: string, id: string, user: AuthenticatedUser, revision: number | undefined, accion: (e: EvaluacionFlujo, tx: Prisma.TransactionClient) => Promise<T>) {
+  private async bloqueada<T>(proyectoId: string, id: string, user: AuthenticatedUser, revision: number | undefined, accion: (e: EvaluacionFlujo, tx: Prisma.TransactionClient, avisarProgreso: () => void) => Promise<T>) {
     await this.projectAccess.assertAccess(proyectoId, user);
-    return this.prisma.$transaction(async tx => {
+    let faseAntes: string | undefined;
+    let progreso = false;
+    const resultado = await this.prisma.$transaction(async tx => {
       await tx.$queryRaw`SELECT "id" FROM "evaluaciones_heuristicas_completas" WHERE "id" = ${id} AND "proyectoId" = ${proyectoId} FOR UPDATE`;
       const e = await this.cargar(proyectoId, id, user, tx);
       if (revision !== undefined && e.revision !== revision) throw new ConflictException('La revisión cambió. Conserva tu borrador y vuelve a cargar antes de guardar.');
-      return accion(e, tx);
+      faseAntes = e.fase;
+      return accion(e, tx, () => { progreso = true; });
     });
+    // Ya confirmado en la base: avisa a quienes la tienen abierta si cambió de fase o hubo un avance del equipo.
+    avisarCambio(faseAntes, resultado, progreso);
+    return resultado;
+  }
+
+  /** Quien puede ver el proyecto puede recibir los avisos de fase de sus evaluaciones. */
+  async verificarAcceso(proyectoId: string, user: AuthenticatedUser) {
+    await this.projectAccess.assertAccess(proyectoId, user);
   }
 
   private coordinador(e: EvaluacionFlujo, user: AuthenticatedUser) {
@@ -262,7 +274,8 @@ export class HeuristicaFlujoService {
 
   async entregar(proyectoId: string, id: string, body: unknown, user: AuthenticatedUser) {
     validar(revisionSchema, body);
-    return this.bloqueada(proyectoId, id, user, undefined, async (e, tx) => {
+    return this.bloqueada(proyectoId, id, user, undefined, async (e, tx, avisarProgreso) => {
+      avisarProgreso();
       const t = this.editable(e, user);
       this.validarRespuestas(e, t.respuestas, true);
       await this.validarEvidenciasRespuestas(e, t.respuestas, tx, user.id);
@@ -368,7 +381,8 @@ export class HeuristicaFlujoService {
 
   async votarRedactor(proyectoId: string, id: string, body: unknown, user: AuthenticatedUser) {
     const b = validar(votoRedactorSchema, body);
-    return this.bloqueada(proyectoId, id, user, undefined, async (e, tx) => {
+    return this.bloqueada(proyectoId, id, user, undefined, async (e, tx, avisarProgreso) => {
+      avisarProgreso();
       this.fase(e, 'PENDIENTE_CONSENSO'); this.trabajo(e, user);
       this.candidatoRedactor(e, b.candidatoId);
       // Al primer consenso (mayoría) la votación se cierra: ya no se puede cambiar el resultado.
@@ -393,7 +407,8 @@ export class HeuristicaFlujoService {
 
   async pedirCambios(proyectoId: string, id: string, body: unknown, user: AuthenticatedUser) {
     const b = validar(pedirCambiosSchema, body);
-    return this.bloqueada(proyectoId, id, user, undefined, async (e, tx) => {
+    return this.bloqueada(proyectoId, id, user, undefined, async (e, tx, avisarProgreso) => {
+      avisarProgreso();
       this.fase(e, 'PENDIENTE_CONSENSO'); this.trabajo(e, user);
       if (redactorDe(e.consenso, e.coordinadorId) === user.id) throw new ConflictException('Quien redacta edita el acuerdo directamente.');
       const pedido = { evaluadorId: user.id, comentario: b.comentario, creadoEn: new Date().toISOString() };
@@ -407,7 +422,8 @@ export class HeuristicaFlujoService {
   /** El redactor entrega la versión: exige acuerdo completo (400 con pendientes por sección) y queda confirmado automáticamente. */
   async entregarAcuerdo(proyectoId: string, id: string, body: unknown, user: AuthenticatedUser) {
     const b = validar(revisionSchema, body);
-    return this.bloqueada(proyectoId, id, user, b.revision, async (e, tx) => {
+    return this.bloqueada(proyectoId, id, user, b.revision, async (e, tx, avisarProgreso) => {
+      avisarProgreso();
       this.fase(e, 'PENDIENTE_CONSENSO');
       if (redactorDe(e.consenso, e.coordinadorId) !== user.id) throw new ForbiddenException('Solo quien redacta el acuerdo puede entregarlo.');
       await this.validarConsenso(e, tx, true);
@@ -420,7 +436,8 @@ export class HeuristicaFlujoService {
 
   async aprobar(proyectoId: string, id: string, body: unknown, user: AuthenticatedUser) {
     const b = validar(revisionSchema, body);
-    return this.bloqueada(proyectoId, id, user, b.revision, async (e, tx) => {
+    return this.bloqueada(proyectoId, id, user, b.revision, async (e, tx, avisarProgreso) => {
+      avisarProgreso();
       this.fase(e, 'PENDIENTE_CONSENSO'); this.trabajo(e, user);
       await this.validarConsenso(e, tx, true);
       e.consenso.aprobadoPor = [...new Set([...e.consenso.aprobadoPor, user.id])];

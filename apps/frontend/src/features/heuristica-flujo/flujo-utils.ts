@@ -137,7 +137,7 @@ export function notasCaptura(anotaciones: EvidenciaFlujo['anotaciones']): string
 export function nombresInforme(ev: EvaluacionFlujo, equipo?: Array<{ id: string; nombre: string }>): Record<string, string> {
   const nombres: Record<string, string> = {};
   for (const m of equipo ?? []) nombres[m.id] = m.nombre;
-  for (const t of ev.trabajos) nombres[t.evaluadorId] ??= t.nombre;
+  for (const t of ev.trabajos ?? []) nombres[t.evaluadorId] ??= t.nombre;
   for (const e of ev.informe?.evaluadores ?? []) nombres[e.id] ??= e.nombre;
   return nombres;
 }
@@ -147,7 +147,7 @@ export function autoriaHallazgo(ev: EvaluacionFlujo, h: { origenIds: string[]; a
   const nombre = (id: string) => nombres[id] ?? 'una persona del equipo';
   const aporte = ev.informe?.consenso.aportes?.find(a => h.origenIds.includes(a.id));
   if (aporte) return `Agregado por ${nombre(aporte.autorId)}`;
-  const trabajo = ev.trabajos.find(t => t.hallazgos.some(o => h.origenIds.includes(o.id)));
+  const trabajo = (ev.trabajos ?? []).find(t => t.hallazgos.some(o => h.origenIds.includes(o.id)));
   if (trabajo) return `Detectado por ${nombre(trabajo.evaluadorId)}`;
   if (h.autorId) return `Agregado por ${nombre(h.autorId)}`;
   return null;
