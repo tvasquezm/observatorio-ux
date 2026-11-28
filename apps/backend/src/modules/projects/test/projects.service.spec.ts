@@ -30,6 +30,7 @@ describe('ProjectsService', () => {
       findUnique: jest.Mock;
     };
     salaEstudiante: { findUnique: jest.Mock };
+    uxArtifact: { findMany: jest.Mock };
   };
 
   const DUEÑO_ID = 'usuario-dueño';
@@ -67,6 +68,7 @@ describe('ProjectsService', () => {
         findUnique: jest.fn(),
       },
       salaEstudiante: { findUnique: jest.fn() },
+      uxArtifact: { findMany: jest.fn().mockResolvedValue([]) },
     };
 
     const moduleRef = await Test.createTestingModule({
@@ -206,7 +208,7 @@ describe('ProjectsService', () => {
     it('devuelve proyectos con sesiones y autor para el panel administrativo', async () => {
       prisma.proyecto.findMany.mockResolvedValue([proyectoDeEjemplo]);
 
-      await expect(service.adminOverview(userAdmin)).resolves.toEqual([proyectoDeEjemplo]);
+      await expect(service.adminOverview(userAdmin)).resolves.toEqual([{ ...proyectoDeEjemplo, _count: { artefactos: 0 } }]);
       expect(prisma.proyecto.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { deletedAt: null },
@@ -219,8 +221,18 @@ describe('ProjectsService', () => {
     });
 
     it('rechaza el resumen si el servicio recibe un rol no administrador', async () => {
-      expect(() => service.adminOverview(userDueño)).toThrow(ForbiddenException);
+      await expect(service.adminOverview(userDueño)).rejects.toThrow(ForbiddenException);
       expect(prisma.proyecto.findMany).not.toHaveBeenCalled();
+    });
+
+    it('cuenta los artefactos vigentes una sola vez por artefacto, sin repetir versiones ni eliminados', async () => {
+      prisma.proyecto.findMany.mockResolvedValue([proyectoDeEjemplo, { ...proyectoDeEjemplo, id: 'otro' }]);
+      prisma.uxArtifact.findMany.mockResolvedValue([{ proyectoId: PROYECTO_ID }, { proyectoId: PROYECTO_ID }, { proyectoId: PROYECTO_ID }]);
+
+      const resumen = await service.adminOverview(userAdmin);
+
+      expect(prisma.uxArtifact.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { proyectoId: { in: [PROYECTO_ID, 'otro'] }, deletedAt: null }, distinct: ['proyectoId', 'artefactoLogicoId'] }));
+      expect(resumen.map((p) => p._count.artefactos)).toEqual([3, 0]);
     });
   });
 

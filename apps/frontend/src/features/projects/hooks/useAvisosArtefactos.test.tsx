@@ -42,6 +42,16 @@ describe('avisos de cambios en personas, journeys y momentos críticos', () => {
     expect(fuente.cerrada).toBe(true);
   });
 
+  it('actualiza los integrantes y los comentarios cuando otra persona los cambia', () => {
+    const { invalidar } = montar();
+    const fuente = FuenteFalsa.ultima!;
+    fuente.escuchas.get('miembros')?.(aviso('u2'));
+    fuente.escuchas.get('comentarios')?.(aviso('u2'));
+    const claves = invalidar.mock.calls.map(([f]) => f?.queryKey);
+    expect(claves).toEqual(expect.arrayContaining([['projects', 'p1', 'miembros'], ['projects', 'p1', 'comments'], ['analitica-docente', 'p1']]));
+    expect(claves).not.toContainEqual(['personas', 'p1']);
+  });
+
   it('ignora los cambios propios, para no pisar lo que la persona está editando', () => {
     const { invalidar } = montar();
     FuenteFalsa.ultima!.escuchas.get('bloqueo')?.(aviso('u1'));

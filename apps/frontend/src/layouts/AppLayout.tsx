@@ -9,6 +9,8 @@ import { ProfilePerspectiveSwitcher } from '../shared/components/ProfilePerspect
 import { PerspectivePreviewNotice } from '../shared/components/PerspectivePreviewNotice';
 import { SessionExpiryDialog } from '../features/auth/components/SessionExpiryDialog';
 import { FontSizeQuickAccess } from './FontSizeQuickAccess';
+import { AvisoVersionNueva } from '../shared/components/AvisoVersionNueva';
+import { ETIQUETA_VERSION } from '../shared/version';
 const ExportReportDialog = lazy(() => import('../features/reports/ExportReportDialog').then((module) => ({ default: module.ExportReportDialog })));
 
 const NAV_ITEMS = [
@@ -259,6 +261,7 @@ export function AppLayout() {
                 <span><strong>Alto contraste</strong><small>Bordes y textos más marcados.</small></span>
               </label>
               <p className="preferences-note">El tema y el contraste se guardan en este navegador. El tamaño del texto se cambia con el botón «Aa» de la barra superior.</p>
+              <p className="preferences-note">Versión de la aplicación: <strong>{ETIQUETA_VERSION}</strong></p>
             </div>
               </div>
             </dialog>
@@ -279,6 +282,7 @@ export function AppLayout() {
             onRestore={() => changePerspective(user.rol)}
           />
         ) : null}
+        <AvisoVersionNueva />
         <div className="content" id="main-content" tabIndex={-1}>
           <Outlet />
         </div>

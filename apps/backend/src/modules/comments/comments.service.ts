@@ -10,6 +10,7 @@ import {
 } from '@observatorio-ux/shared-types';
 import { PrismaService } from '../../core/database/prisma.service.js';
 import { ProjectAccessService } from '../../core/access/project-access.service.js';
+import { avisarProyecto } from '../artifacts/artifacts-eventos.js';
 import { AuthenticatedUser } from '../auth/types/authenticated-user.interface.js';
 import { CreateCommentDto, UpdateCommentDto } from './comments.dto.js';
 
@@ -27,7 +28,7 @@ export class CommentsService {
   ) {
     await this.projectAccess.assertAccess(proyectoId, user);
 
-    return this.prisma.comentario.create({
+    const comentario = await this.prisma.comentario.create({
       data: {
         proyectoId,
         artefactoLogicoId: dto.artefactoLogicoId?.trim() || null,
@@ -36,6 +37,8 @@ export class CommentsService {
         autorId: user.id,
       },
     });
+    avisarProyecto(proyectoId, 'comentarios', user.id);
+    return comentario;
   }
 
   async findAll(
@@ -79,19 +82,23 @@ export class CommentsService {
   ) {
     const comentario = await this.findOwn(comentarioId, user);
 
-    return this.prisma.comentario.update({
+    const actualizado = await this.prisma.comentario.update({
       where: { id: comentario.id },
       data: { texto: dto.texto },
     });
+    avisarProyecto(comentario.proyectoId, 'comentarios', user.id);
+    return actualizado;
   }
 
   async softDelete(comentarioId: string, user: AuthenticatedUser) {
     const comentario = await this.findOwn(comentarioId, user);
 
-    return this.prisma.comentario.update({
+    const borrado = await this.prisma.comentario.update({
       where: { id: comentario.id },
       data: { deletedAt: new Date() },
     });
+    avisarProyecto(comentario.proyectoId, 'comentarios', user.id);
+    return borrado;
   }
 
   /**

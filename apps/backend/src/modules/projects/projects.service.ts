@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service.js';
+import { avisarProyecto } from '../artifacts/artifacts-eventos.js';
 import { ProjectAccessService } from '../../core/access/project-access.service.js';
 import { AuthenticatedUser } from '../auth/types/authenticated-user.interface.js';
 import {
@@ -58,12 +59,12 @@ export class ProjectsService {
     });
   }
 
-  adminOverview(user: AuthenticatedUser) {
+  async adminOverview(user: AuthenticatedUser) {
     if (user.rol !== 'ADMIN') {
       throw new ForbiddenException('Solo un administrador puede ver este resumen.');
     }
 
-    return this.prisma.proyecto.findMany({
+    const proyectos = await this.prisma.proyecto.findMany({
       where: { deletedAt: null },
       orderBy: { createdAt: 'desc' },
       select: {
@@ -88,9 +89,19 @@ export class ProjectsService {
             completadoAt: true,
           },
         },
-        _count: { select: { artefactos: true } },
       },
     });
+
+    // Un artefacto con varias versiones o ya eliminado no cuenta varias veces: se cuentan los vigentes, uno por artefacto.
+    const vigentes = await this.prisma.uxArtifact.findMany({
+      where: { proyectoId: { in: proyectos.map((p) => p.id) }, deletedAt: null },
+      distinct: ['proyectoId', 'artefactoLogicoId'],
+      select: { proyectoId: true },
+    });
+    const porProyecto = new Map<string, number>();
+    for (const a of vigentes) porProyecto.set(a.proyectoId, (porProyecto.get(a.proyectoId) ?? 0) + 1);
+
+    return proyectos.map((p) => ({ ...p, _count: { artefactos: porProyecto.get(p.id) ?? 0 } }));
   }
 
   async findOne(id: string, user: AuthenticatedUser) {
@@ -201,8 +212,11 @@ export class ProjectsService {
   }
 
   /** Deja constancia de quién agregó o quitó a quién, para que el docente vea los cambios del equipo. */
-  private registrarEvento(proyectoId: string, tipo: 'AGREGADO' | 'QUITADO', usuarioId: string, actorId: string) {
-    return this.prisma.proyectoMiembroEvento.create({ data: { proyectoId, tipo, usuarioId, actorId } });
+  private async registrarEvento(proyectoId: string, tipo: 'AGREGADO' | 'QUITADO', usuarioId: string, actorId: string) {
+    const evento = await this.prisma.proyectoMiembroEvento.create({ data: { proyectoId, tipo, usuarioId, actorId } });
+    // Quien mira el proyecto se entera al instante de que el equipo cambió.
+    avisarProyecto(proyectoId, 'miembros', actorId);
+    return evento;
   }
 
   /** Altas y bajas recientes de integrantes (las 100 más nuevas), con los nombres de las personas. */
