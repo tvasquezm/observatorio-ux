@@ -3,6 +3,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider, Outlet } from 'react-router-dom';
 import { CardSortingPage } from './CardSortingPage';
+import { useAuthStore } from '../features/auth/store/useAuthStore';
 
 const mutate = vi.hoisted(() => vi.fn());
 const estudios = vi.hoisted(() => ({ lista: [] as unknown[] }));
@@ -357,5 +358,16 @@ describe('CardSortingPage: lista estándar', () => {
     const vacio = screen.getByText('Todavía no hay card sorting');
     expect(vacio.closest('.technique-empty')).not.toBeNull();
     expect(screen.queryByRole('heading', { name: 'Continuar un Card Sorting' })).toBeNull();
+  });
+});
+
+describe('card sorting para el docente', () => {
+  it('el docente consulta los estudios pero no puede crear uno nuevo', () => {
+    useAuthStore.setState({ user: { id: 'd1', nombre: 'Docente', email: 'doc@utem.cl', rol: 'DOCENTE' }, perspectiveRole: null });
+    try {
+      renderPage(false);
+      expect(screen.queryByRole('button', { name: '+ Nuevo Card Sorting' })).toBeNull();
+      expect(screen.getByText('Solo lectura')).toBeInTheDocument();
+    } finally { useAuthStore.setState({ user: null }); }
   });
 });

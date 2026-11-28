@@ -3178,3 +3178,4 @@ button.evidencia-numero:hover .evidencia-nota, button.evidencia-numero:focus .ev
 .hf .hf-actualizar:hover:not(:disabled) { background: color-mix(in srgb, var(--teal) 22%, var(--surface)); }
 
 .project-equipo { margin: 2px 0; color: var(--muted); font-size: var(--fs-sm); }
+.hf .hf-consulta-avance { display: grid; gap: 6px; margin: 12px 0 0; padding-left: 18px; }

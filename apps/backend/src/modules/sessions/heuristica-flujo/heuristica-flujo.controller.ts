@@ -8,6 +8,7 @@ import { CurrentUser } from '../../../core/decorators/current-user.decorator.js'
 import { Roles } from '../../../core/decorators/roles.decorator.js';
 import { JwtAuthGuard } from '../../../core/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../../../core/guards/roles.guard.js';
+import { SoloLecturaDocenteGuard } from '../../../core/guards/solo-lectura-docente.guard.js';
 import type { AuthenticatedUser } from '../../auth/types/authenticated-user.interface.js';
 import type { ArchivoSubido } from './evidencia.util.js';
 import { HeuristicaFlujoService } from './heuristica-flujo.service.js';
@@ -15,7 +16,8 @@ import { cambiosDeEvaluacion } from './evaluacion-eventos.js';
 
 @ApiTags('heuristica-flujo')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+// El docente consulta (GET); crear, guardar, entregar o votar lo hacen los estudiantes.
+@UseGuards(JwtAuthGuard, RolesGuard, SoloLecturaDocenteGuard)
 @Roles('ESTUDIANTE', 'DOCENTE', 'ADMIN')
 @Controller('projects/:proyectoId/evaluacion-heuristica')
 export class HeuristicaFlujoController {
