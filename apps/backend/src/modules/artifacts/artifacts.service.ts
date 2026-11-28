@@ -4,7 +4,9 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  OnModuleDestroy,
 } from '@nestjs/common';
+import { CachePorProyecto } from '../../core/cache/cache-por-proyecto.js';
 import { Prisma, TipoArtefacto } from '../../generated/prisma/client.js';
 import { randomUUID } from 'crypto';
 import { ZodError } from 'zod';
@@ -29,11 +31,18 @@ const DEFAULT_LOCK_TTL_MS = 5 * 60 * 1000; // 5 minutos
 const MAX_LOCK_TTL_MS = 30 * 60 * 1000; // 30 minutos
 
 @Injectable()
-export class ArtifactsService {
+export class ArtifactsService implements OnModuleDestroy {
+  /** Listados por proyecto y tipo: la analítica del docente los pide muchas veces seguidas. */
+  private readonly listados = new CachePorProyecto<Awaited<ReturnType<ArtifactsService['consultarListado']>>>();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly projectAccess: ProjectAccessService,
   ) {}
+
+  onModuleDestroy() {
+    this.listados.cerrar();
+  }
 
   async create(
     proyectoId: string,
@@ -68,8 +77,13 @@ export class ArtifactsService {
     tipo: TipoArtefacto | undefined,
     user: AuthenticatedUser,
   ) {
+    // El acceso se comprueba siempre; solo los datos (iguales para todos) se reutilizan unos segundos.
     await this.projectAccess.assertAccess(proyectoId, user);
 
+    return this.listados.obtener(proyectoId, tipo ?? 'todos', () => this.consultarListado(proyectoId, tipo));
+  }
+
+  private consultarListado(proyectoId: string, tipo: TipoArtefacto | undefined) {
     return this.prisma.uxArtifact.findMany({
       // deletedAt: null excluye por defecto los artefactos eliminados
       // (soft delete). No hay parámetro para incluirlos vía esta ruta a

@@ -3,7 +3,9 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  OnModuleDestroy,
 } from '@nestjs/common';
+import { CachePorProyecto } from '../../core/cache/cache-por-proyecto.js';
 import {
   CLAVES_TECNICA_COMENTARIO,
   FILTRO_COMENTARIO_GENERAL,
@@ -15,11 +17,18 @@ import { AuthenticatedUser } from '../auth/types/authenticated-user.interface.js
 import { CreateCommentDto, UpdateCommentDto } from './comments.dto.js';
 
 @Injectable()
-export class CommentsService {
+export class CommentsService implements OnModuleDestroy {
+  /** Listados por proyecto, artefacto y técnica: la analítica del docente los pide muchas veces seguidas. */
+  private readonly listados = new CachePorProyecto<Awaited<ReturnType<CommentsService['consultarListado']>>>();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly projectAccess: ProjectAccessService,
   ) {}
+
+  onModuleDestroy() {
+    this.listados.cerrar();
+  }
 
   async create(
     proyectoId: string,
@@ -49,6 +58,16 @@ export class CommentsService {
   ) {
     await this.projectAccess.assertAccess(proyectoId, user);
 
+    // Se valida antes de usar el caché; los datos (iguales para todos) se reutilizan unos segundos.
+    if (tecnica && tecnica !== FILTRO_COMENTARIO_GENERAL && !CLAVES_TECNICA_COMENTARIO.includes(tecnica)) {
+      throw new BadRequestException('La técnica indicada no es válida.');
+    }
+    return this.listados.obtener(proyectoId, `${artefactoLogicoId ?? ''}|${tecnica ?? ''}`, () =>
+      this.consultarListado(proyectoId, artefactoLogicoId, tecnica),
+    );
+  }
+
+  private consultarListado(proyectoId: string, artefactoLogicoId: string | undefined, tecnica?: string) {
     // Sin `tecnica` se devuelven todos; `general` solo los sin tecnica.
     let filtroTecnica = {};
     if (tecnica) {
