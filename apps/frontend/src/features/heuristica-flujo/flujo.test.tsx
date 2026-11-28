@@ -316,6 +316,17 @@ describe('historial e informe', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Actualizar proceso' }));
     await waitFor(() => expect(screen.getByText(/Etapa actual:/)).toHaveTextContent('Acuerdo del equipo'));
   });
+  it('el docente consulta las evaluaciones: no crea nuevas ni entra a los formularios del equipo', async () => {
+    useAuthStore.setState({ user: { id: 'd1', nombre: 'Docente', email: 'doc@example.org', rol: 'DOCENTE' }, isAuthenticated: true, perspectiveRole: null });
+    const enRevision = evaluation({ fase: 'EN_EVALUACION' });
+    api.mockImplementation(async (_p, path) => path === '/evaluaciones' ? [enRevision] : path === `/evaluaciones/${enRevision.id}` ? enRevision : path === '/metodologias' ? [config().metodologia] : path === '/equipo' ? [{ id: 'u1', nombre: 'Ana', rol: 'ESTUDIANTE' }] : []);
+    renderFlow(<FlujoHeuristicaPage />);
+    expect(await screen.findByText('Solo lectura')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '+ Nueva evaluación' })).toBeNull();
+    await userEvent.click(await screen.findByRole('button', { name: 'Retomar mi última revisión' }));
+    expect(await screen.findByRole('note')).toHaveTextContent('Como docente solo consultas');
+    expect(screen.queryByRole('button', { name: 'Entregar mi revisión' })).toBeNull();
+  });
   it('explica en español el dato mínimo que falta y enfoca el producto', async () => {
     api.mockImplementation(async (_p, path) => path === '/metodologias' ? [config().metodologia] : path === '/equipo' ? [{ id: 'u1', nombre: 'Ana', rol: 'ESTUDIANTE' }] : []);
     renderFlow(<FlujoHeuristicaPage />);

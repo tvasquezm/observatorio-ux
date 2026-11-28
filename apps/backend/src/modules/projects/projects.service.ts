@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../core/database/prisma.service.js';
+import { avisarProyecto } from '../artifacts/artifacts-eventos.js';
 import { ProjectAccessService } from '../../core/access/project-access.service.js';
 import { AuthenticatedUser } from '../auth/types/authenticated-user.interface.js';
 import {
@@ -24,6 +25,8 @@ export class ProjectsService {
     if (user.rol === 'ESTUDIANTE') {
       await this.assertEstudiantePuedeCrearProyecto(dto.salaId, user);
     } else if (dto.salaId) {
+      // Los proyectos de una sala son de los equipos: el docente agrega integrantes y consulta, no los crea.
+      if (user.rol === 'DOCENTE') throw new ForbiddenException('Los proyectos de una sala los crean los estudiantes (cada equipo el suyo). Como docente puedes agregar integrantes a los equipos y consultar sus proyectos.');
       await this.assertDocenteDuenoDeSala(dto.salaId, user);
     }
 
@@ -56,12 +59,12 @@ export class ProjectsService {
     });
   }
 
-  adminOverview(user: AuthenticatedUser) {
+  async adminOverview(user: AuthenticatedUser) {
     if (user.rol !== 'ADMIN') {
       throw new ForbiddenException('Solo un administrador puede ver este resumen.');
     }
 
-    return this.prisma.proyecto.findMany({
+    const proyectos = await this.prisma.proyecto.findMany({
       where: { deletedAt: null },
       orderBy: { createdAt: 'desc' },
       select: {
@@ -86,9 +89,19 @@ export class ProjectsService {
             completadoAt: true,
           },
         },
-        _count: { select: { artefactos: true } },
       },
     });
+
+    // Un artefacto con varias versiones o ya eliminado no cuenta varias veces: se cuentan los vigentes, uno por artefacto.
+    const vigentes = await this.prisma.uxArtifact.findMany({
+      where: { proyectoId: { in: proyectos.map((p) => p.id) }, deletedAt: null },
+      distinct: ['proyectoId', 'artefactoLogicoId'],
+      select: { proyectoId: true },
+    });
+    const porProyecto = new Map<string, number>();
+    for (const a of vigentes) porProyecto.set(a.proyectoId, (porProyecto.get(a.proyectoId) ?? 0) + 1);
+
+    return proyectos.map((p) => ({ ...p, _count: { artefactos: porProyecto.get(p.id) ?? 0 } }));
   }
 
   async findOne(id: string, user: AuthenticatedUser) {
@@ -109,15 +122,9 @@ export class ProjectsService {
   async update(id: string, dto: UpdateProjectDto, user: AuthenticatedUser) {
     await this.findOne(id, user);
 
-    // Elegir las técnicas que se analizan es decisión del docente dueño de la sala (o la administración),
-    // también en proyectos creados por estudiantes; el resto de los campos sigue siendo del equipo.
-    const soloTecnicas = dto.tecnicasAnalizadas !== undefined && dto.nombre === undefined && dto.descripcion === undefined;
-    if (soloTecnicas && user.rol === 'DOCENTE') {
-      const proyecto = await this.prisma.proyecto.findUnique({ where: { id }, select: { sala: { select: { profesorId: true } } } });
-      if (proyecto?.sala?.profesorId !== user.id) {
-        throw new ForbiddenException('Solo el docente dueño de la sala puede elegir las técnicas que se analizan.');
-      }
-    } else if (user.rol === 'DOCENTE') {
+    // El nombre del equipo lo editan también el docente de la sala y el resto del equipo; el nombre y la descripción del proyecto, no.
+    const soloNombreEquipo = dto.nombreEquipo !== undefined && dto.nombre === undefined && dto.descripcion === undefined;
+    if (user.rol === 'DOCENTE' && !soloNombreEquipo) {
       const proyecto = await this.prisma.proyecto.findUnique({
         where: { id },
         select: { creadoPor: { select: { rol: true } } },
@@ -130,18 +137,14 @@ export class ProjectsService {
       }
     }
 
-    if (dto.tecnicasAnalizadas !== undefined && user.rol === 'ESTUDIANTE') {
-      throw new ForbiddenException('Solo el docente o la administración eligen las técnicas que se analizan.');
-    }
-
     return this.prisma.proyecto.update({
       where: { id },
       data: {
-        ...(dto.tecnicasAnalizadas !== undefined ? { tecnicasAnalizadas: dto.tecnicasAnalizadas } : {}),
         ...(dto.nombre !== undefined ? { nombre: dto.nombre.trim() } : {}),
         ...(dto.descripcion !== undefined
           ? { descripcion: dto.descripcion.trim() }
           : {}),
+        ...(dto.nombreEquipo !== undefined ? { nombreEquipo: dto.nombreEquipo.trim() || null } : {}),
       },
     });
   }
@@ -192,7 +195,11 @@ export class ProjectsService {
       throw new NotFoundException('No existe un usuario registrado con ese email.');
     }
 
-    return this.prisma.proyectoMiembro.upsert({
+    const yaEra = await this.prisma.proyectoMiembro.findUnique({
+      where: { proyectoId_usuarioId: { proyectoId: id, usuarioId: usuario.id } },
+      select: { id: true },
+    });
+    const miembro = await this.prisma.proyectoMiembro.upsert({
       where: { proyectoId_usuarioId: { proyectoId: id, usuarioId: usuario.id } },
       create: { proyectoId: id, usuarioId: usuario.id },
       update: {},
@@ -200,6 +207,25 @@ export class ProjectsService {
         usuario: { select: { id: true, nombre: true, email: true, rol: true } },
       },
     });
+    if (!yaEra) await this.registrarEvento(id, 'AGREGADO', usuario.id, user.id);
+    return miembro;
+  }
+
+  /** Deja constancia de quién agregó o quitó a quién, para que el docente vea los cambios del equipo. */
+  private async registrarEvento(proyectoId: string, tipo: 'AGREGADO' | 'QUITADO', usuarioId: string, actorId: string) {
+    const evento = await this.prisma.proyectoMiembroEvento.create({ data: { proyectoId, tipo, usuarioId, actorId } });
+    // Quien mira el proyecto se entera al instante de que el equipo cambió.
+    avisarProyecto(proyectoId, 'miembros', actorId);
+    return evento;
+  }
+
+  /** Altas y bajas recientes de integrantes (las 100 más nuevas), con los nombres de las personas. */
+  async listMemberEvents(id: string, user: AuthenticatedUser) {
+    await this.projectAccess.assertAccess(id, user);
+    const eventos = await this.prisma.proyectoMiembroEvento.findMany({ where: { proyectoId: id }, orderBy: { createdAt: 'desc' }, take: 100 });
+    const ids = [...new Set(eventos.flatMap((e) => [e.usuarioId, e.actorId]))];
+    const nombres = new Map((ids.length ? await this.prisma.usuario.findMany({ where: { id: { in: ids } }, select: { id: true, nombre: true } }) : []).map((u) => [u.id, u.nombre]));
+    return eventos.map((e) => ({ id: e.id, tipo: e.tipo, createdAt: e.createdAt, usuarioId: e.usuarioId, usuarioNombre: nombres.get(e.usuarioId) ?? 'Una persona', actorId: e.actorId, actorNombre: nombres.get(e.actorId) ?? 'Alguien del equipo' }));
   }
 
   async removeMember(id: string, usuarioId: string, user: AuthenticatedUser) {
@@ -222,6 +248,7 @@ export class ProjectsService {
     }
 
     await this.prisma.proyectoMiembro.delete({ where: { id: membresia.id } });
+    await this.registrarEvento(id, 'QUITADO', usuarioId, user.id);
 
     return { eliminado: true };
   }

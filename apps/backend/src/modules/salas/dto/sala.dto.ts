@@ -1,9 +1,12 @@
+import { TECNICAS_PROYECTO } from '@observatorio-ux/shared-types';
 import {
   ArrayMinSize,
+  ArrayUnique,
   IsArray,
   IsBoolean,
   IsEmail,
   IsISO8601,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -71,6 +74,14 @@ export class UpdateSalaDto {
   @IsOptional()
   @IsBoolean()
   permiteCreacionProyectos?: boolean;
+
+  /** Técnicas que se analizan en todos los proyectos de la sala. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1, { message: 'Elige al menos una técnica para analizar.' })
+  @ArrayUnique()
+  @IsIn(TECNICAS_PROYECTO, { each: true })
+  tecnicasAnalizadas?: string[];
 }
 
 export class CreateSalaEstudianteDto {

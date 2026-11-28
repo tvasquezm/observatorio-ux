@@ -97,8 +97,9 @@ describe('resumen para el profesor', () => {
     ]);
   });
 
-  it('comentarios del docente sin respuesta del equipo en la misma técnica', () => {
-    expect(comentariosSinRespuesta(datos().comentarios, 'doc').map(c => c.id)).toEqual(['k1']);
+  it('un comentario del docente cuenta como respondido si cualquier integrante escribió después, aunque sea en otra técnica', () => {
+    expect(comentariosSinRespuesta(datos().comentarios, 'doc').map(c => c.id)).toEqual([]);
+    expect(comentariosSinRespuesta(datos().comentarios.slice(0, 2), 'doc').map(c => c.id).sort()).toEqual(['k1', 'k2']);
   });
 });
 
@@ -120,5 +121,36 @@ describe('técnicas elegidas para analizar', () => {
     const alertas = alertasRevision(d).filter(a => a.ruta === 'miembros' || (elegidas as string[]).includes(a.ruta));
     expect(alertas.some(a => a.ruta === 'journey-map' || a.ruta === 'momentos-criticos')).toBe(false);
     expect(Object.values(aporteIntegrantes(d)).every(a => a.porTecnica['journey-map'] === 0)).toBe(true);
+  });
+});
+
+describe('comentarios sin respuesta y cambios del equipo', () => {
+  const comentario = (id: string, autorId: string, createdAt: string, tecnica: string | null = 'personas') => ({ id, tecnica, texto: id, autorId, createdAt, autor: { nombre: autorId } });
+
+  it('un comentario queda respondido cuando cualquier otra persona escribe después, en la técnica que sea', () => {
+    const lista = [
+      comentario('mio-1', 'doc', '2026-11-01T10:00:00Z', 'personas'),
+      comentario('mio-2', 'doc', '2026-11-02T10:00:00Z', 'card-sorting'),
+      comentario('mio-3', 'doc', '2026-11-10T10:00:00Z', 'journey-map'),
+      comentario('de-ana', 'e1', '2026-11-05T10:00:00Z', 'journey-map'),
+    ];
+    expect(comentariosSinRespuesta(lista as never, 'doc').map(c => c.id)).toEqual(['mio-3']);
+    expect(comentariosSinRespuesta(lista.slice(0, 3) as never, 'doc').map(c => c.id)).toEqual(['mio-3', 'mio-2', 'mio-1']);
+  });
+
+  it('las altas y bajas de integrantes aparecen en las novedades, salvo las que hizo quien mira', () => {
+    const d = datos({ eventosMiembros: [
+      { id: 'a', tipo: 'AGREGADO', createdAt: '2026-11-12T10:00:00Z', usuarioId: 'e3', usuarioNombre: 'Carla', actorId: 'e1', actorNombre: 'Ana' },
+      { id: 'b', tipo: 'QUITADO', createdAt: '2026-11-13T10:00:00Z', usuarioId: 'e2', usuarioNombre: 'Beto', actorId: 'e1', actorNombre: 'Ana' },
+      { id: 'c', tipo: 'AGREGADO', createdAt: '2026-11-14T10:00:00Z', usuarioId: 'e4', usuarioNombre: 'Dani', actorId: 'doc', actorNombre: 'Profesora' },
+      { id: 'd', tipo: 'AGREGADO', createdAt: '2026-10-01T10:00:00Z', usuarioId: 'e5', usuarioNombre: 'Eli', actorId: 'e1', actorNombre: 'Ana' },
+    ] });
+    const textos = novedadesDesde(d, '2026-11-01T00:00:00Z', 'doc').filter(n => n.ruta === 'miembros').map(n => n.texto);
+    expect(textos).toEqual(['Ana quitó a Beto del proyecto', 'Ana agregó a Carla al proyecto']);
+  });
+
+  it('las novedades no se recortan a un máximo fijo', () => {
+    const versiones = Array.from({ length: 15 }, (_, i) => ({ tipo: 'PERSONA', artefactoLogicoId: `p${i}`, version: 1, autorId: 'e1', autor: { id: 'e1', nombre: 'Ana' }, createdAt: `2026-11-${String(10 + (i % 15)).padStart(2, '0')}T10:00:00Z`, contenido: { nombreCompleto: `Persona ${i}` } }));
+    expect(novedadesDesde(datos({ versiones: versiones as never, estudios: [], evaluaciones: [] }), '2026-11-01T00:00:00Z', 'doc').length).toBeGreaterThan(8);
   });
 });

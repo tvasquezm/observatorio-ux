@@ -41,7 +41,8 @@ function ComparacionEditor({ actual, anterior, comparacion, usuarioId, onSaved, 
     {editable && <><button type="button" className="secondary" onClick={() => state.setDraft({ ...state.draft, vinculos: [...state.draft.vinculos, { anteriorId: null, actualId: null, estado: 'NO_VERIFICADO', justificacion: '' }] })}>Agregar correspondencia</button><SaveStatus {...state} /></>}
   </section>;
 }
-export function InformeView({ evaluacion, historial, usuarioId, onSaved, onBack, equipo }: { evaluacion: EvaluacionFlujo; historial: EvaluacionFlujo[]; usuarioId: string; onSaved: (e: EvaluacionFlujo) => void; onBack: () => void; equipo?: MiembroEquipoFlujo[] }) {
+export function InformeView({ evaluacion, historial, usuarioId: usuarioReal, onSaved, onBack, equipo, soloLectura = false }: { evaluacion: EvaluacionFlujo; historial: EvaluacionFlujo[]; usuarioId: string; onSaved: (e: EvaluacionFlujo) => void; onBack: () => void; equipo?: MiembroEquipoFlujo[]; /** Quien solo consulta (docente) no finaliza el informe, no crea revisiones ni edita la comparación. */ soloLectura?: boolean }) {
+  const usuarioId = soloLectura ? '' : usuarioReal;
   const [previaId, setPreviaId] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);

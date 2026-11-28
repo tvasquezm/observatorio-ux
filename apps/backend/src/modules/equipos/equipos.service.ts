@@ -82,6 +82,7 @@ export class EquiposService {
   }
 
   async remove(salaId: string, equipoId: string, user: AuthenticatedUser) {
+    this.assertDocenteNoQuita(user);
     const { sala, equipo } = await this.getEquipoDeSalaOrThrow(salaId, equipoId);
     await this.assertPuedeGestionar(sala, equipo, user);
 
@@ -141,6 +142,7 @@ export class EquiposService {
     usuarioId: string,
     user: AuthenticatedUser,
   ) {
+    this.assertDocenteNoQuita(user);
     const { sala, equipo } = await this.getEquipoDeSalaOrThrow(salaId, equipoId);
 
     const esUnoMismo = user.id === usuarioId;
@@ -226,6 +228,13 @@ export class EquiposService {
       where: { id: revisionId },
       data: { resueltoEn: new Date(), resueltoPorId: user.id, decision: dto.decision === 'QUITAR' ? 'QUITADO' : 'MANTENIDO' },
     });
+  }
+
+  /** El docente forma los equipos agregando integrantes; eliminarlos o sacar a alguien lo deciden los propios estudiantes. */
+  private assertDocenteNoQuita(user: AuthenticatedUser) {
+    if (user.rol === 'DOCENTE') {
+      throw new ForbiddenException('Como docente solo puedes agregar integrantes a los equipos: eliminarlos o sacar a alguien lo hacen los estudiantes.');
+    }
   }
 
   private assertDuenoOAdmin(sala: Sala, user: AuthenticatedUser) {

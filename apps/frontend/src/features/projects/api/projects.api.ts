@@ -9,8 +9,8 @@ export interface Proyecto {
   creadoPorId: string;
   createdAt: string;
   salaId?: string | null;
-  /** Técnicas que se analizan en el proyecto (por defecto las cinco). */
-  tecnicasAnalizadas?: string[];
+  /** Nombre que el equipo se puso en Miembros; lo editan el equipo y el docente de la sala. */
+  nombreEquipo?: string | null;
   _count?: {
     sesiones: number;
     artefactos: number;
@@ -74,7 +74,7 @@ export function createProject(
 
 export function updateProject(
   id: string,
-  data: { nombre?: string; descripcion?: string; tecnicasAnalizadas?: string[] },
+  data: { nombre?: string; descripcion?: string; nombreEquipo?: string },
 ): Promise<Proyecto> {
   return request<Proyecto>(`/projects/${id}`, {
     method: 'PATCH',
@@ -101,6 +101,13 @@ export interface MiembroProyecto {
 
 export function listMembers(proyectoId: string): Promise<MiembroProyecto[]> {
   return request<MiembroProyecto[]>(`/projects/${proyectoId}/miembros`);
+}
+
+/** Alta o baja de un integrante, con quién la hizo (para las novedades del docente). */
+export interface EventoMiembro { id: string; tipo: 'AGREGADO' | 'QUITADO'; createdAt: string; usuarioId: string; usuarioNombre: string; actorId: string; actorNombre: string }
+
+export function listMemberEvents(proyectoId: string): Promise<EventoMiembro[]> {
+  return request<EventoMiembro[]>(`/projects/${proyectoId}/miembros/eventos`);
 }
 
 export function addMember(proyectoId: string, email: string): Promise<MiembroProyecto> {

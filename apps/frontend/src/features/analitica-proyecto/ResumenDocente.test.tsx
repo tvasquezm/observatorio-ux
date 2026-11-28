@@ -2,9 +2,9 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
-import { PanelAlertas, PanelAporte, PanelAvance, PanelHallazgos, PanelNovedades, desdeVisita } from './ResumenDocente';
+import { PanelAlertas, PanelAporte, PanelAvance, PanelHallazgos, PanelNovedades, desdeNovedades } from './ResumenDocente';
 
-vi.mock('../projects/hooks/useProjectsQueries', () => ({ useMembers: vi.fn() }));
+vi.mock('../projects/hooks/useProjectsQueries', () => ({ useMembers: vi.fn(), useMemberEvents: vi.fn() }));
 vi.mock('../comments/hooks/useCommentsQueries', () => ({ useComments: vi.fn() }));
 
 const montar = (ui: React.ReactNode) => render(<MemoryRouter>{ui}</MemoryRouter>);
@@ -43,7 +43,7 @@ describe('paneles de la analítica para el profesor', () => {
   it('hallazgos y novedades enlazan a su técnica; comentarios sin respuesta', () => {
     montar(<>
       <PanelHallazgos proyectoId="p1" hallazgos={[{ tecnica: 'Fase con peor experiencia', texto: 'Pago', ruta: 'journey-map' }]} />
-      <PanelNovedades proyectoId="p1" primeraVisita usuarioId="doc" novedades={[{ fecha: '2026-11-12T10:00:00Z', texto: 'Ana editó personas · Camila', ruta: 'personas' }]}
+      <PanelNovedades proyectoId="p1" leidoHasta={null} onLeido={vi.fn()} onMostrarDeNuevo={vi.fn()} usuarioId="doc" novedades={[{ fecha: '2026-11-12T10:00:00Z', texto: 'Ana editó personas · Camila', ruta: 'personas' }]}
         datos={{ comentarios: [{ id: 'k1', tecnica: 'personas', texto: 'Falta evidencia', autorId: 'doc', createdAt: '2026-11-09T10:00:00Z', autor: { nombre: 'Profesora' } }] as never }} />
     </>);
     expect(screen.getByRole('link', { name: 'Pago' })).toHaveAttribute('href', '/proyectos/p1/journey-map');
@@ -52,9 +52,33 @@ describe('paneles de la analítica para el profesor', () => {
     expect(screen.getByText(/Falta evidencia/)).toBeInTheDocument();
   });
 
-  it('sin visita anterior mira los últimos 7 días', () => {
-    const desde = new Date(desdeVisita(null)).getTime();
-    expect(Date.now() - desde).toBeGreaterThan(6.9 * 24 * 3600 * 1000);
-    expect(desdeVisita('2026-11-01T00:00:00Z')).toBe('2026-11-01T00:00:00Z');
+  it('las novedades miran siempre los últimos 7 días, o desde que se marcaron como leídas si es más reciente', () => {
+    const ahora = new Date('2026-11-20T12:00:00Z').getTime();
+    expect(desdeNovedades(null, ahora)).toBe('2026-11-13T12:00:00.000Z');
+    expect(desdeNovedades('2026-11-18T09:00:00.000Z', ahora)).toBe('2026-11-18T09:00:00.000Z');
+    expect(desdeNovedades('2026-10-01T00:00:00.000Z', ahora)).toBe('2026-11-13T12:00:00.000Z');
+  });
+
+  it('«Marcar como leído» limpia las novedades y «Mostrar de nuevo» las devuelve', async () => {
+    const onLeido = vi.fn(); const onMostrar = vi.fn();
+    const novedades = [{ fecha: '2026-11-12T10:00:00Z', texto: 'Ana editó personas · Camila', ruta: 'personas' as const }];
+    const { rerender } = montar(<PanelNovedades proyectoId="p1" leidoHasta={null} onLeido={onLeido} onMostrarDeNuevo={onMostrar} usuarioId="doc" novedades={novedades} datos={{ comentarios: [] as never }} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Marcar como leído' }));
+    expect(onLeido).toHaveBeenCalledTimes(1);
+    rerender(<MemoryRouter><PanelNovedades proyectoId="p1" leidoHasta="2026-11-15T10:00:00.000Z" onLeido={onLeido} onMostrarDeNuevo={onMostrar} usuarioId="doc" novedades={[]} datos={{ comentarios: [] as never }} /></MemoryRouter>);
+    expect(screen.queryByRole('button', { name: 'Marcar como leído' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Mostrar de nuevo los últimos 7 días' }));
+    expect(onMostrar).toHaveBeenCalledTimes(1);
+  });
+
+  it('muestra todas las novedades y todos los comentarios sin respuesta, no solo los primeros', async () => {
+    const novedades = Array.from({ length: 12 }, (_, i) => ({ fecha: `2026-11-${String(10 + i).padStart(2, '0')}T10:00:00Z`, texto: `Cambio ${i + 1}`, ruta: 'personas' as const }));
+    const comentarios = Array.from({ length: 7 }, (_, i) => ({ id: `k${i}`, tecnica: i % 2 ? 'personas' : 'card-sorting', texto: `Comentario ${i + 1}`, autorId: 'doc', createdAt: `2026-11-0${i + 1}T10:00:00Z`, autor: { nombre: 'Profesora' } }));
+    montar(<PanelNovedades proyectoId="p1" leidoHasta={null} onLeido={vi.fn()} onMostrarDeNuevo={vi.fn()} usuarioId="doc" novedades={novedades} datos={{ comentarios: comentarios as never }} />);
+    expect(screen.getAllByText(/^Cambio \d+$/)).toHaveLength(8);
+    await userEvent.click(screen.getByRole('button', { name: 'Ver las 12 novedades' }));
+    expect(screen.getAllByText(/^Cambio \d+$/)).toHaveLength(12);
+    await userEvent.click(screen.getByRole('button', { name: 'Ver los 7 comentarios sin respuesta' }));
+    expect(screen.getAllByText(/Comentario \d/)).toHaveLength(7);
   });
 });

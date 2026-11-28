@@ -181,7 +181,7 @@ describe('edición de la sala desde su detalle', () => {
   });
 
   it('pide escribir el nombre del equipo antes de eliminarlo', async () => {
-    salaDe('DOCENTE', 'u1', 'u1');
+    salaDe('ADMIN', 'u1', 'u1');
     equipos.lista = [{ id: 'eq1', nombre: 'Equipo Rojo', salaId: 's1', miembros: [] }];
     setup();
     await userEvent.click(screen.getByRole('button', { name: 'Equipos' }));
@@ -243,5 +243,22 @@ describe('accesos pendientes de revisión', () => {
     setup();
     await userEvent.click(screen.getByRole('button', { name: 'Equipos' }));
     expect(screen.queryByRole('heading', { name: 'Accesos pendientes de revisión' })).toBeNull();
+  });
+});
+
+describe('el docente forma equipos pero no los elimina ni saca integrantes', () => {
+  it('ve Agregar y Renombrar, sin Eliminar ni Quitar', async () => {
+    salaDe('DOCENTE', 'u1', 'u1');
+    equipos.lista = [{ id: 'eq1', nombre: 'Equipo Rojo', salaId: 's1', miembros: [{ equipoId: 'eq1', usuarioId: 'e1', usuario: { id: 'e1', nombre: 'Eva', email: 'eva@utem.cl' } }] }];
+    setup();
+    await userEvent.click(screen.getByRole('button', { name: 'Equipos' }));
+    expect(screen.getByRole('button', { name: 'Renombrar' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Eliminar' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Quitar' })).toBeNull();
+  });
+  it('el docente tampoco ve la creación de proyectos en la sala', () => {
+    salaDe('DOCENTE', 'u1', 'u1');
+    setup();
+    expect(screen.queryByRole('button', { name: /Crear proyecto|Nuevo proyecto/ })).toBeNull();
   });
 });

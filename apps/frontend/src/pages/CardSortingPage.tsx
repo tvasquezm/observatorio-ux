@@ -36,6 +36,7 @@ import { Icon } from '../shared/components/ui/Icon';
 import { PasosTecnica, type PasoTecnica } from '../shared/components/PasosTecnica';
 import { TechniqueProcess, type ProcessStep } from '../shared/components/TechniqueProcess';
 import { Skeleton } from '../shared/components/ui/Skeleton';
+import { useActivePerspective } from '../shared/auth/useActivePerspective';
 
 // Instrucciones aprobadas por el usuario (F2): 6 pasos, con la línea "En la
 // herramienta:" y la indicación de la tarjeta que podría ir en varios lugares.
@@ -168,6 +169,8 @@ export function CardSortingPage() {
   const [questionsPending, setQuestionsPending] = useState(false);
   const { confirmDiscard } = useUnsavedChanges(true, { name, type, cardsText, categoriesText, questionsText, cardsPending, categoriesPending, questionsPending }, createStudy.isPending);
 
+  // El docente consulta los estudios y sus resultados; crearlos lo hacen los estudiantes.
+  const soloLectura = useActivePerspective() === 'DOCENTE';
   const [mostrarForm, setMostrarForm] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
@@ -384,7 +387,7 @@ export function CardSortingPage() {
             <TechniqueNewButton
               etiqueta="+ Nuevo Card Sorting"
               abierto={mostrarForm}
-              puedeEditar
+              puedeEditar={!soloLectura}
               disabled={createStudy.isPending}
               onClick={async () => {
                 if (mostrarForm && (cardsPending || categoriesPending || questionsPending) && !(await confirmDiscard())) return;
@@ -394,14 +397,14 @@ export function CardSortingPage() {
           )}
         />
       }
-      proceso={mostrarForm && (
+      proceso={mostrarForm && !soloLectura && (
         <TechniqueProcess
           title="Proceso del card sorting"
           textoListo="Card sorting completo: ya puedes crearlo"
           steps={steps}
         />
       )}
-      formulario={mostrarForm && (
+      formulario={mostrarForm && !soloLectura && (
         <form onSubmit={handleSubmit} className="entity-card form cs-study-form" noValidate>
           <h3>Nuevo Card Sorting</h3>
 

@@ -21,11 +21,16 @@ describe('ProjectsService', () => {
     };
     proyectoMiembro: {
       findUnique: jest.Mock;
+      upsert: jest.Mock;
+      delete: jest.Mock;
     };
+    proyectoMiembroEvento: { create: jest.Mock; findMany: jest.Mock };
+    usuario: { findUnique: jest.Mock; findMany: jest.Mock };
     sala: {
       findUnique: jest.Mock;
     };
     salaEstudiante: { findUnique: jest.Mock };
+    uxArtifact: { findMany: jest.Mock };
   };
 
   const DUEÑO_ID = 'usuario-dueño';
@@ -54,11 +59,16 @@ describe('ProjectsService', () => {
       },
       proyectoMiembro: {
         findUnique: jest.fn(),
+        upsert: jest.fn(),
+        delete: jest.fn(),
       },
+      proyectoMiembroEvento: { create: jest.fn(), findMany: jest.fn() },
+      usuario: { findUnique: jest.fn(), findMany: jest.fn() },
       sala: {
         findUnique: jest.fn(),
       },
       salaEstudiante: { findUnique: jest.fn() },
+      uxArtifact: { findMany: jest.fn().mockResolvedValue([]) },
     };
 
     const moduleRef = await Test.createTestingModule({
@@ -108,14 +118,23 @@ describe('ProjectsService', () => {
     describe('con salaId (DOCENTE o ADMIN)', () => {
       const SALA_ID = 'sala-1';
 
-      it('el docente dueño de la sala crea el proyecto en ella', async () => {
+      it('el docente no crea proyectos en una sala: son de los equipos', async () => {
+        prisma.sala.findUnique.mockResolvedValue({ id: SALA_ID, profesorId: DUEÑO_ID, deletedAt: null });
+
+        await expect(
+          service.create(userDueño, { nombre: 'Observatorio UX', salaId: SALA_ID } as any),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+        expect(prisma.proyecto.create).not.toHaveBeenCalled();
+      });
+
+      it('la administración sí puede crear el proyecto en la sala', async () => {
         prisma.sala.findUnique.mockResolvedValue({ id: SALA_ID, profesorId: DUEÑO_ID, deletedAt: null });
         prisma.proyecto.create.mockResolvedValue(proyectoDeEjemplo);
 
-        await service.create(userDueño, { nombre: 'Observatorio UX', salaId: SALA_ID } as any);
+        await service.create(userAdmin, { nombre: 'Observatorio UX', salaId: SALA_ID } as any);
 
         expect(prisma.proyecto.create).toHaveBeenCalledWith({
-          data: expect.objectContaining({ creadoPorId: DUEÑO_ID, salaId: SALA_ID }),
+          data: expect.objectContaining({ creadoPorId: userAdmin.id, salaId: SALA_ID }),
         });
       });
 
@@ -131,12 +150,12 @@ describe('ProjectsService', () => {
       it('devuelve 404 si la sala no existe o está eliminada', async () => {
         prisma.sala.findUnique.mockResolvedValueOnce(null);
         await expect(
-          service.create(userDueño, { nombre: 'Observatorio UX', salaId: SALA_ID } as any),
+          service.create(userAdmin, { nombre: 'Observatorio UX', salaId: SALA_ID } as any),
         ).rejects.toBeInstanceOf(NotFoundException);
 
         prisma.sala.findUnique.mockResolvedValueOnce({ id: SALA_ID, profesorId: DUEÑO_ID, deletedAt: new Date() });
         await expect(
-          service.create(userDueño, { nombre: 'Observatorio UX', salaId: SALA_ID } as any),
+          service.create(userAdmin, { nombre: 'Observatorio UX', salaId: SALA_ID } as any),
         ).rejects.toBeInstanceOf(NotFoundException);
         expect(prisma.proyecto.create).not.toHaveBeenCalled();
       });
@@ -189,7 +208,7 @@ describe('ProjectsService', () => {
     it('devuelve proyectos con sesiones y autor para el panel administrativo', async () => {
       prisma.proyecto.findMany.mockResolvedValue([proyectoDeEjemplo]);
 
-      await expect(service.adminOverview(userAdmin)).resolves.toEqual([proyectoDeEjemplo]);
+      await expect(service.adminOverview(userAdmin)).resolves.toEqual([{ ...proyectoDeEjemplo, _count: { artefactos: 0 } }]);
       expect(prisma.proyecto.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { deletedAt: null },
@@ -202,8 +221,18 @@ describe('ProjectsService', () => {
     });
 
     it('rechaza el resumen si el servicio recibe un rol no administrador', async () => {
-      expect(() => service.adminOverview(userDueño)).toThrow(ForbiddenException);
+      await expect(service.adminOverview(userDueño)).rejects.toThrow(ForbiddenException);
       expect(prisma.proyecto.findMany).not.toHaveBeenCalled();
+    });
+
+    it('cuenta los artefactos vigentes una sola vez por artefacto, sin repetir versiones ni eliminados', async () => {
+      prisma.proyecto.findMany.mockResolvedValue([proyectoDeEjemplo, { ...proyectoDeEjemplo, id: 'otro' }]);
+      prisma.uxArtifact.findMany.mockResolvedValue([{ proyectoId: PROYECTO_ID }, { proyectoId: PROYECTO_ID }, { proyectoId: PROYECTO_ID }]);
+
+      const resumen = await service.adminOverview(userAdmin);
+
+      expect(prisma.uxArtifact.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { proyectoId: { in: [PROYECTO_ID, 'otro'] }, deletedAt: null }, distinct: ['proyectoId', 'artefactoLogicoId'] }));
+      expect(resumen.map((p) => p._count.artefactos)).toEqual([3, 0]);
     });
   });
 
@@ -286,6 +315,49 @@ describe('ProjectsService', () => {
     });
   });
 
+  describe('altas y bajas de integrantes', () => {
+    beforeEach(() => { prisma.proyecto.findUnique.mockResolvedValue(proyectoDeEjemplo); });
+
+    it('registra quién agregó a quién, y no repite el aviso si ya era integrante', async () => {
+      prisma.usuario.findUnique.mockResolvedValue({ id: OTRO_ID, email: 'b@utem.cl' });
+      prisma.proyectoMiembro.upsert.mockResolvedValue({ id: 'm1' });
+      prisma.proyectoMiembro.findUnique.mockResolvedValue(null);
+      await service.addMember(PROYECTO_ID, { email: 'b@utem.cl' }, userDueño);
+      expect(prisma.proyectoMiembroEvento.create).toHaveBeenCalledWith({ data: { proyectoId: PROYECTO_ID, tipo: 'AGREGADO', usuarioId: OTRO_ID, actorId: DUEÑO_ID } });
+      prisma.proyectoMiembroEvento.create.mockClear();
+      prisma.proyectoMiembro.findUnique.mockResolvedValue({ id: 'm1' });
+      await service.addMember(PROYECTO_ID, { email: 'b@utem.cl' }, userDueño);
+      expect(prisma.proyectoMiembroEvento.create).not.toHaveBeenCalled();
+    });
+
+    it('registra quién quitó a quién', async () => {
+      prisma.proyectoMiembro.findUnique.mockResolvedValue({ id: 'm1' });
+      await service.removeMember(PROYECTO_ID, OTRO_ID, userDueño);
+      expect(prisma.proyectoMiembroEvento.create).toHaveBeenCalledWith({ data: { proyectoId: PROYECTO_ID, tipo: 'QUITADO', usuarioId: OTRO_ID, actorId: DUEÑO_ID } });
+    });
+
+    it('lista los cambios con los nombres de las personas', async () => {
+      prisma.proyectoMiembroEvento.findMany.mockResolvedValue([{ id: 'e1', tipo: 'AGREGADO', createdAt: new Date('2026-11-20T12:00:00Z'), usuarioId: OTRO_ID, actorId: DUEÑO_ID }]);
+      prisma.usuario.findMany.mockResolvedValue([{ id: OTRO_ID, nombre: 'Beto' }, { id: DUEÑO_ID, nombre: 'Ana' }]);
+      const lista = await service.listMemberEvents(PROYECTO_ID, userAdmin);
+      expect(lista).toEqual([expect.objectContaining({ tipo: 'AGREGADO', usuarioNombre: 'Beto', actorNombre: 'Ana' })]);
+    });
+  });
+
+  describe('nombre del equipo', () => {
+    it('el docente de la sala puede ponerle nombre al equipo de un proyecto creado por estudiantes, pero no cambiarle el nombre al proyecto', async () => {
+      const docente = { id: 'doc-1', rol: 'DOCENTE' } as AuthenticatedUser;
+      prisma.proyecto.findUnique.mockResolvedValue({ ...proyectoDeEjemplo, creadoPor: { rol: 'ESTUDIANTE' }, sala: { profesorId: 'doc-1' } });
+      prisma.proyecto.update.mockResolvedValue(proyectoDeEjemplo);
+      await service.update(PROYECTO_ID, { nombreEquipo: '  Los Pioneros ' }, docente);
+      expect(prisma.proyecto.update).toHaveBeenCalledWith({ where: { id: PROYECTO_ID }, data: { nombreEquipo: 'Los Pioneros' } });
+      prisma.proyecto.update.mockClear();
+      await service.update(PROYECTO_ID, { nombreEquipo: '   ' }, docente);
+      expect(prisma.proyecto.update).toHaveBeenCalledWith({ where: { id: PROYECTO_ID }, data: { nombreEquipo: null } });
+      await expect(service.update(PROYECTO_ID, { nombre: 'Otro' }, docente)).rejects.toBeInstanceOf(ForbiddenException);
+    });
+  });
+
   describe('update (PATCH /projects/:id)', () => {
     it('el dueño puede editar su proyecto', async () => {
       prisma.proyecto.findUnique.mockResolvedValue(proyectoDeEjemplo);
@@ -333,34 +405,9 @@ describe('ProjectsService', () => {
       expect(result.descripcion).toBe('Actualizado por admin');
     });
 
-    it('el docente dueño de la sala elige las técnicas aunque el proyecto lo haya creado un estudiante', async () => {
-      const docente = { id: 'doc-1', rol: 'DOCENTE' } as AuthenticatedUser;
-      prisma.proyecto.findUnique.mockResolvedValue({ ...proyectoDeEjemplo, creadoPor: { rol: 'ESTUDIANTE' }, sala: { profesorId: 'doc-1' } });
-      prisma.proyecto.update.mockResolvedValue(proyectoDeEjemplo);
-      await service.update(PROYECTO_ID, { tecnicasAnalizadas: ['personas'] }, docente);
-      expect(prisma.proyecto.update).toHaveBeenCalledWith({ where: { id: PROYECTO_ID }, data: { tecnicasAnalizadas: ['personas'] } });
-
-      prisma.proyecto.update.mockClear();
-      prisma.proyecto.findUnique.mockResolvedValue({ ...proyectoDeEjemplo, creadoPor: { rol: 'ESTUDIANTE' }, sala: { profesorId: 'otro-doc' } });
-      await expect(service.update(PROYECTO_ID, { tecnicasAnalizadas: ['personas'] }, { ...docente, id: 'doc-1' })).rejects.toBeInstanceOf(ForbiddenException);
-      expect(prisma.proyecto.update).not.toHaveBeenCalled();
-    });
-
     it('un docente sigue sin poder editar el nombre de un proyecto creado por un estudiante', async () => {
       prisma.proyecto.findUnique.mockResolvedValue({ ...proyectoDeEjemplo, creadoPor: { rol: 'ESTUDIANTE' }, sala: { profesorId: 'doc-1' } });
       await expect(service.update(PROYECTO_ID, { nombre: 'Otro nombre' }, { id: 'doc-1', rol: 'DOCENTE' } as AuthenticatedUser)).rejects.toBeInstanceOf(ForbiddenException);
-    });
-
-    it('la administración elige las técnicas analizadas; un estudiante, aunque sea dueño, no', async () => {
-      prisma.proyecto.findUnique.mockResolvedValue(proyectoDeEjemplo);
-      prisma.proyecto.update.mockResolvedValue(proyectoDeEjemplo);
-
-      await service.update(PROYECTO_ID, { tecnicasAnalizadas: ['personas', 'card-sorting'] }, userAdmin);
-      expect(prisma.proyecto.update).toHaveBeenCalledWith({ where: { id: PROYECTO_ID }, data: { tecnicasAnalizadas: ['personas', 'card-sorting'] } });
-
-      prisma.proyecto.update.mockClear();
-      await expect(service.update(PROYECTO_ID, { tecnicasAnalizadas: ['personas'] }, { ...userDueño, rol: 'ESTUDIANTE' } as AuthenticatedUser)).rejects.toBeInstanceOf(ForbiddenException);
-      expect(prisma.proyecto.update).not.toHaveBeenCalled();
     });
   });
 });

@@ -25,6 +25,7 @@ import { procesoHeuristica } from './heuristica-visual';
 import { Skeleton } from '../../shared/components/ui/Skeleton';
 import { notify } from '../../shared/api/toast';
 import { useAvisosDeFase } from './useAvisosDeFase';
+import { useActivePerspective } from '../../shared/auth/useActivePerspective';
 
 /**
  * Respaldo por si no hay conexión de avisos (el servidor limita ~60 peticiones por minuto y por IP; muchos estudiantes comparten red).
@@ -97,6 +98,19 @@ function ConfiguracionSesion({ evaluacion, usuarioId, biblioteca, equipo, onSave
     }}><fieldset disabled={busy} className="hf-sin-marco"><legend className="sr-only">Datos de la revisión</legend><ConfiguracionEditor value={state.draft} onChange={state.setDraft} biblioteca={biblioteca} equipo={equipo} acciones={<><SaveStatus {...state} /><button type="submit" className="primary" disabled={busy || state.saving}>Comenzar revisión</button></>} /></fieldset></form>{error && <p role="alert" className="hf-error">{error}</p>}
   </>;
 }
+/** Vista del docente mientras el equipo trabaja: ve cómo va, sin entrar a los formularios de los estudiantes. */
+function SoloConsulta({ evaluacion, onBack }: { evaluacion: EvaluacionFlujo; onBack: () => void }) {
+  const avance = evaluacion.avanceEquipo ?? [];
+  return <>
+    <button type="button" className="secondary hf-volver" onClick={onBack}><span aria-hidden="true">←</span> Volver</button>
+    <section className="panel" aria-labelledby="hf-consulta-titulo">
+      <h2 id="hf-consulta-titulo">{evaluacion.configuracion.nombre || evaluacion.configuracion.producto.nombre}</h2>
+      <p role="note">Como docente solo consultas esta técnica: la revisión y el acuerdo los trabajan los estudiantes. El informe estará disponible aquí cuando el equipo lo consolide.</p>
+      {avance.length > 0 && <ul className="hf-consulta-avance" aria-label="Avance del equipo">{avance.map(t => <li key={t.evaluadorId}><strong>{t.nombre}</strong> · {t.entregadoEn ? 'Entregó su revisión' : t.evaluados > 0 ? `${t.evaluados} de ${t.total} preguntas` : 'Aún no empieza'}</li>)}</ul>}
+    </section>
+  </>;
+}
+
 export function FlujoHeuristicaPage() {
   const { proyectoId } = useOutletContext<ProjectOutletContext>();
   const usuarioId = useAuthStore(s => s.user?.id ?? '');
@@ -104,6 +118,8 @@ export function FlujoHeuristicaPage() {
   const claveSel = `heuristica:sel:${usuarioId}:${proyectoId}`;
   const [selected, setSeleccionado] = useState<string | null>(() => leerSesion(claveSel));
   const [nueva, setNueva] = useState(false);
+  // El docente consulta las evaluaciones y sus informes; crearlas y trabajarlas lo hacen los estudiantes.
+  const soloLectura = useActivePerspective() === 'DOCENTE';
   const setSelected = (id: string | null) => { setSeleccionado(id); setNueva(false); guardarSesion(claveSel, id); };
   const [producto, setProducto] = useState('');
   useEffect(() => { setSeleccionado(leerSesion(claveSel)); }, [claveSel]);
@@ -139,10 +155,11 @@ export function FlujoHeuristicaPage() {
   else if (selected && active.error) content = <><button type="button" className="secondary hf-volver" onClick={back}><span aria-hidden="true">←</span> Volver</button><p role="alert" className="hf-error">{active.error.message}</p><button type="button" className="secondary" onClick={() => void active.refetch()}>Reintentar</button></>;
   else if (evaluacion && selected) {
     const common = { evaluacion, usuarioId, onSaved: saved, onBack: back };
-    if (evaluacion.fase === 'BORRADOR') content = evaluacion.coordinadorId === usuarioId && library.data && team.data ? <ConfiguracionSesion key={`${evaluacion.id}:configuracion`} {...common} biblioteca={library.data} equipo={team.data} /> : <><button type="button" className="secondary hf-volver" onClick={back}><span aria-hidden="true">←</span> Volver</button><p>El coordinador está configurando la evaluación.</p></>;
+    if (soloLectura && ['BORRADOR', 'EN_EVALUACION', 'PENDIENTE_CONSENSO'].includes(evaluacion.fase)) content = <SoloConsulta evaluacion={evaluacion} onBack={back} />;
+    else if (evaluacion.fase === 'BORRADOR') content = evaluacion.coordinadorId === usuarioId && library.data && team.data ? <ConfiguracionSesion key={`${evaluacion.id}:configuracion`} {...common} biblioteca={library.data} equipo={team.data} /> : <><button type="button" className="secondary hf-volver" onClick={back}><span aria-hidden="true">←</span> Volver</button><p>El coordinador está configurando la evaluación.</p></>;
     else if (evaluacion.fase === 'EN_EVALUACION') content = <TrabajoEditor key={`${evaluacion.id}:trabajo`} {...common} />;
     else if (evaluacion.fase === 'PENDIENTE_CONSENSO') content = evaluacion.coordinadorId === usuarioId || evaluacion.configuracion.evaluadorIds.includes(usuarioId) ? <ConsensoEditor key={`${evaluacion.id}:consenso`} {...common} equipo={team.data} /> : <><button type="button" className="secondary hf-volver" onClick={back}><span aria-hidden="true">←</span> Volver</button><p>El equipo está acordando el consenso. El informe estará disponible al consolidar.</p></>;
-    else content = <InformeView key={`${evaluacion.id}:informe`} {...common} historial={history.data ?? []} equipo={team.data} />;
+    else content = <InformeView key={`${evaluacion.id}:informe`} {...common} historial={history.data ?? []} equipo={team.data} soloLectura={soloLectura} />;
   } else content = null;
   const avisos = <>
     {[history.error, library.error, team.error].filter(Boolean).map((e, i) => <p role="alert" className="hf-error" key={i}>{e?.message}</p>)}
@@ -154,13 +171,13 @@ export function FlujoHeuristicaPage() {
   return <TechniquePage
     className="hf fade"
     cabecera={!selected && <TechniquePageHeader label="TÉCNICA DE INVESTIGACIÓN" title="Evaluación heurística" description="Revisa un producto con una metodología conocida, una pregunta a la vez." instructions={instrucciones}
-      action={<TechniqueNewButton etiqueta="+ Nueva evaluación" abierto={nueva} puedeEditar onClick={() => setNueva(v => !v)} />} />}
+      action={<TechniqueNewButton etiqueta="+ Nueva evaluación" abierto={nueva} puedeEditar={!soloLectura} onClick={() => setNueva(v => !v)} />} />}
     proceso={(!selected || evaluacion) && <>
       <TechniqueProcess title="Proceso de la evaluación" compact={!!selected} steps={procesoHeuristica(selected && evaluacion ? evaluacion.fase : null)} />
       {selected && evaluacion && <div className="hf-proceso-estado"><span>Etapa actual: <strong>{ETAPA_FASE[evaluacion.fase]}</strong>. {avisosActivos ? 'Se actualiza sola cuando alguien avanza la fase o el equipo entrega, vota o confirma.' : 'Se actualiza sola cada minuto.'}</span>
         <button type="button" className="secondary" disabled={active.isFetching} onClick={() => void active.refetch()}>{active.isFetching ? 'Actualizando…' : 'Actualizar proceso'}</button></div>}
     </>}
-    formulario={selected ? content : nueva && <>
+    formulario={selected ? content : nueva && !soloLectura && <>
       {avisos}
       {library.data?.length && team.data ? <PrepararRevision key={proyectoId} proyectoId={proyectoId} biblioteca={library.data} equipo={team.data} onSaved={saved} /> : null}
     </>}

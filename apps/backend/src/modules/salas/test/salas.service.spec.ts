@@ -408,7 +408,7 @@ describe('SalasService', () => {
         { usuarioId: 'u-1' },
       ]);
 
-      const result = await service.createProyectoEnSala('sala-1', { nombre: 'P' } as any, docente);
+      const result = await service.createProyectoEnSala('sala-1', { nombre: 'P' } as any, admin);
 
       expect(result).toEqual({ id: 'p-1' });
       expect(prisma.equipoMiembro.findMany).toHaveBeenCalledWith(filtroEquipos);
@@ -421,11 +421,17 @@ describe('SalasService', () => {
       });
     });
 
+    it('el docente no crea proyectos en su sala: los crea cada equipo', async () => {
+      prisma.sala.findUnique.mockResolvedValue({ id: 'sala-1', profesorId: docente.id, deletedAt: null });
+      await expect(service.createProyectoEnSala('sala-1', { nombre: 'P' } as any, docente)).rejects.toThrow('crean los estudiantes');
+      expect(prisma.proyecto.create).not.toHaveBeenCalled();
+    });
+
     it('createProyectoEnSala sin equipos del docente no crea membresías', async () => {
       prisma.proyecto.create.mockResolvedValue({ id: 'p-1' });
       prisma.equipoMiembro.findMany.mockResolvedValue([]);
 
-      await service.createProyectoEnSala('sala-1', { nombre: 'P' } as any, docente);
+      await service.createProyectoEnSala('sala-1', { nombre: 'P' } as any, admin);
 
       expect(prisma.proyectoMiembro.createMany).not.toHaveBeenCalled();
     });
@@ -489,6 +495,17 @@ describe('SalasService', () => {
     prisma.sala.update.mockResolvedValue({ limiteIntegrantesEquipo: null });
     await service.update('sala-1', { limiteIntegrantesEquipo: null }, docente);
     expect(prisma.sala.update).toHaveBeenCalledWith({ where: { id: 'sala-1' }, data: { limiteIntegrantesEquipo: null } });
+  });
+
+  it('el docente dueño elige las técnicas que se analizan en la sala, con al menos una y solo las conocidas', async () => {
+    const dto = (tecnicasAnalizadas: unknown) => Object.assign(new UpdateSalaDto(), { tecnicasAnalizadas });
+    expect(validateSync(dto(['personas', 'card-sorting']))).toHaveLength(0);
+    for (const invalido of [[], ['otra'], ['personas', 'personas']]) expect(validateSync(dto(invalido))).not.toHaveLength(0);
+    prisma.sala.findUnique.mockResolvedValue({ id: 'sala-1', profesorId: docente.id, deletedAt: null });
+    prisma.sala.update.mockResolvedValue({});
+    await service.update('sala-1', { tecnicasAnalizadas: ['personas', 'card-sorting'] }, docente);
+    expect(prisma.sala.update).toHaveBeenCalledWith({ where: { id: 'sala-1' }, data: { tecnicasAnalizadas: ['personas', 'card-sorting'] } });
+    await expect(service.update('sala-1', { tecnicasAnalizadas: ['personas'] }, { id: 'otro', rol: 'DOCENTE' } as typeof docente)).rejects.toThrow();
   });
 
   it('lista los proyectos de la sala con integrantes y última actividad, sin una consulta por proyecto', async () => {

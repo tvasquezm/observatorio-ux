@@ -7,6 +7,7 @@ import {
 } from '../hooks/useCardSortingQueries';
 import { notify } from '../../../shared/api/toast';
 import { useAuthStore } from '../../auth/store/useAuthStore';
+import { useActivePerspective } from '../../../shared/auth/useActivePerspective';
 import { Skeleton } from '../../../shared/components/ui/Skeleton';
 
 export function CardSortingWorkspacePage() {
@@ -15,6 +16,8 @@ export function CardSortingWorkspacePage() {
   const sessionQuery = useCardSortingSession(estudioId ?? null);
   const closeStudy = useCerrarCardSortingEstudio();
   const user = useAuthStore((state) => state.user);
+  // Cerrar o reabrir el estudio es de quien lo creó (estudiante); el docente solo consulta.
+  const soloLectura = useActivePerspective() === 'DOCENTE';
   const [assignments, setAssignments] = useState<Record<string, string>>({});
   const [customCategories, setCustomCategories] = useState<string[]>([]);
 
@@ -25,7 +28,7 @@ export function CardSortingWorkspacePage() {
 
   const session = sessionQuery.data;
   const canManageStudy =
-    !!session && (session.evaluadorId === user?.id || user?.rol === 'ADMIN');
+    !!session && !soloLectura && (session.evaluadorId === user?.id || user?.rol === 'ADMIN');
 
   async function copyParticipantLink() {
     if (!session || !canManageStudy) return;

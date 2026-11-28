@@ -44,6 +44,7 @@ import { useAuthStore } from '../../auth/store/useAuthStore';
 import { resolvePerspective } from '../../../shared/auth/perspectivas';
 import { Skeleton } from '../../../shared/components/ui/Skeleton';
 import { TablaProyectosSala } from '../components/TablaProyectosSala';
+import { TecnicasDeLaSala } from '../components/TecnicasDeLaSala';
 
 type DirtyNotice = (dirty: boolean) => void;
 function useDirtyNotice(dirty: boolean, onDirtyChange: DirtyNotice) {
@@ -120,7 +121,7 @@ export function SalaDetallePage() {
             </dl>
           </header>
 
-          {(esEstudiante ? sala.permiteCreacionProyectos : activeRole === 'ADMIN' || sala.profesor?.id === user?.id) && <div hidden={(esEstudiante ? tabEstudiante : tab) !== 'proyectos'}><SalaProjectCreate key={salaId} sala={sala} onDirtyChange={setCreationDirty} /></div>}
+          {(esEstudiante ? sala.permiteCreacionProyectos : activeRole === 'ADMIN') && <div hidden={(esEstudiante ? tabEstudiante : tab) !== 'proyectos'}><SalaProjectCreate key={salaId} sala={sala} onDirtyChange={setCreationDirty} /></div>}
 
           {esEstudiante ? (
             <section className="sala-management-panel" aria-labelledby="gestion-sala-title">
@@ -317,6 +318,8 @@ function ProyectosDeSala({ salaId, sala, actualizacionPermiso }: { salaId: strin
       {proyectosSala && proyectosSala.length === 0 && <p>Todavía no hay proyectos alojados en esta sala.</p>}
       {proyectosSala && proyectosSala.length > 0 && visibles?.length === 0 && <p className="text-muted">Ningún proyecto coincide con la búsqueda.</p>}
       </section>
+
+      <TecnicasDeLaSala key={(sala.tecnicasAnalizadas ?? []).join()} tecnicasAnalizadas={sala.tecnicasAnalizadas} guardar={actualizacionPermiso} />
 
       <details className="sala-gestion">
         <summary>Gestionar proyectos de la sala</summary>
@@ -583,6 +586,8 @@ function AccesosPendientes({ salaId }: { salaId: string }) {
 }
 
 function EquiposDeSalaDocente({ salaId, sala, onDirtyChange }: { salaId: string; sala: Sala; onDirtyChange: DirtyNotice }) {
+  // El docente forma los equipos agregando integrantes; eliminarlos o sacar a alguien lo hacen los estudiantes.
+  const puedeQuitar = useAuthStore((st) => (st.user ? resolvePerspective(st.user.rol, st.perspectiveRole) : null)) !== 'DOCENTE';
   const confirm = useConfirm();
   const { data: equipos, isLoading, isError, error, refetch } = useEquipos(salaId);
   const { mutate: actualizarSala, isPending: guardandoToggle, isSuccess: guardado, error: saveError } = useUpdateSala(salaId);
@@ -749,13 +754,15 @@ function EquiposDeSalaDocente({ salaId, sala, onDirtyChange }: { salaId: string;
                     <button type="button" className="link-btn link-btn--edit" onClick={() => iniciarRenombrar(equipo)}>
                       Renombrar
                     </button>
-                    <button
-                      type="button"
-                      className="link-btn link-btn--delete"
-                      onClick={() => handleEliminarEquipo(equipo.id, equipo.nombre)}
-                    >
-                      Eliminar
-                    </button>
+                    {puedeQuitar && (
+  <button
+                        type="button"
+                        className="link-btn link-btn--delete"
+                        onClick={() => handleEliminarEquipo(equipo.id, equipo.nombre)}
+                      >
+                        Eliminar
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
@@ -764,13 +771,15 @@ function EquiposDeSalaDocente({ salaId, sala, onDirtyChange }: { salaId: string;
                 {equipo.miembros.map((m) => (
                   <div key={m.usuarioId} className="row-between text-muted-sm">
                     <span>{m.usuario.nombre} ({m.usuario.email})</span>
-                    <button
-                      type="button"
-                      className="link-btn link-btn--delete"
-                      onClick={() => handleQuitarMiembro(equipo.id, m.usuarioId, m.usuario.nombre)}
-                    >
-                      Quitar
-                    </button>
+                    {puedeQuitar && (
+  <button
+                        type="button"
+                        className="link-btn link-btn--delete"
+                        onClick={() => handleQuitarMiembro(equipo.id, m.usuarioId, m.usuario.nombre)}
+                      >
+                        Quitar
+                      </button>
+                    )}
                   </div>
                 ))}
                 {equipo.miembros.length === 0 && <p className="text-muted-sm">Sin integrantes todavía.</p>}

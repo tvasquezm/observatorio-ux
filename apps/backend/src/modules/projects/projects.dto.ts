@@ -1,12 +1,8 @@
-import { TECNICAS_PROYECTO } from '@observatorio-ux/shared-types';
 import {
-  ArrayMinSize,
-  ArrayUnique,
-  IsArray,
   IsEmail,
-  IsIn,
   IsOptional,
   IsString,
+  MaxLength,
   MinLength,
 } from 'class-validator';
 
@@ -34,13 +30,11 @@ export class UpdateProjectDto {
   @IsString()
   descripcion?: string;
 
-  /** Técnicas que se analizan en el proyecto; solo docente o administración la cambian. */
+  /** Nombre del equipo; vacío lo quita. Lo editan el equipo y el docente de la sala. */
   @IsOptional()
-  @IsArray()
-  @ArrayMinSize(1, { message: 'Elige al menos una técnica para analizar.' })
-  @ArrayUnique()
-  @IsIn(TECNICAS_PROYECTO, { each: true })
-  tecnicasAnalizadas?: string[];
+  @IsString()
+  @MaxLength(80)
+  nombreEquipo?: string;
 }
 
 export class AddMemberDto {

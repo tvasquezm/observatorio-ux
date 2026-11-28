@@ -80,6 +80,15 @@ export class ProjectsController {
     return this.projects.listMembers(id, user);
   }
 
+  /** Altas y bajas de integrantes: lo consulta el docente para enterarse de los cambios del equipo. */
+  @Get(':id/miembros/eventos')
+  listMemberEvents(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.projects.listMemberEvents(id, user);
+  }
+
   @Post(':id/miembros')
   addMember(
     @Param('id', ParseUUIDPipe) id: string,

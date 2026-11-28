@@ -18,6 +18,7 @@ type Journey = { perfilUsuario?: { nombre?: string }; fases?: Array<{ nombre: st
 type Momento = { perfilUsuario?: { nombre?: string }; incidentes?: Array<{ nombre: string; tipo: string; impacto: string; frecuencia: string; accionesSugeridas?: string[] | string }> };
 type Estudio = { id: string; nombre: string; evaluadorId?: string | null; createdAt: string; cerrado?: boolean; respuestasCount?: number };
 type Miembro = { usuarioId: string; usuario: { nombre: string; rol?: string } };
+export type EventoMiembroDatos = { id: string; tipo: 'AGREGADO' | 'QUITADO'; createdAt: string; usuarioId: string; usuarioNombre: string; actorId: string; actorNombre: string };
 type Comentario = { id: string; tecnica: string | null; texto: string; autorId: string; createdAt: string; autor: { nombre: string } };
 
 export interface DatosDocente {
@@ -30,6 +31,8 @@ export interface DatosDocente {
   versiones: VersionArtefacto[];
   miembros: Miembro[];
   comentarios: Comentario[];
+  /** Altas y bajas de integrantes (opcional: los datos antiguos no las traen). */
+  eventosMiembros?: EventoMiembroDatos[];
 }
 
 const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
@@ -40,6 +43,12 @@ const lista = (v: string[] | string | undefined) => (Array.isArray(v) ? v : v ? 
 const revisiones = (e: EvaluacionFlujo) => e.avanceEquipo?.length
   ? e.avanceEquipo.map(a => ({ evaluadorId: a.evaluadorId, nombre: a.nombre, guardadoEn: a.guardadoEn, entregadoEn: a.entregadoEn }))
   : e.trabajos.map(t => ({ evaluadorId: t.evaluadorId, nombre: t.nombre, guardadoEn: t.guardadoEn, entregadoEn: t.entregadoEn }));
+
+/** Lista legible de las técnicas elegidas («Personas, Card Sorting y Evaluación heurística»). */
+export const nombresTecnicas = (ids: readonly RutaTecnica[]) => {
+  const t = TECNICAS.filter(x => ids.includes(x.id)).map(x => x.titulo);
+  return t.length > 1 ? `${t.slice(0, -1).join(', ')} y ${t.at(-1)}` : t.join('');
+};
 
 /** Deja solo los datos de las técnicas elegidas: el resto no cuenta, no avisa ni aparece como pendiente. */
 export function acotarATecnicas(d: DatosDocente, habilitadas: readonly RutaTecnica[]): DatosDocente {
@@ -159,7 +168,7 @@ export function hallazgosClave(d: DatosDocente, maximo = 5): HallazgoClave[] {
 
 // --- 5. Qué cambió desde la última visita ---
 
-export interface Novedad { fecha: string; texto: string; ruta: RutaTecnica | 'comentarios' }
+export interface Novedad { fecha: string; texto: string; ruta: RutaTecnica | 'comentarios' | 'miembros' }
 const TITULO_RUTA = Object.fromEntries(TECNICAS.map(t => [t.id, t.titulo])) as Record<RutaTecnica, string>;
 
 function nombreArtefacto(v: VersionArtefacto): string {
@@ -167,7 +176,7 @@ function nombreArtefacto(v: VersionArtefacto): string {
   return c?.nombreCompleto || c?.perfilUsuario?.nombre || 'sin nombre';
 }
 
-export function novedadesDesde(d: DatosDocente, desde: string, usuarioId: string, maximo = 8): Novedad[] {
+export function novedadesDesde(d: DatosDocente, desde: string, usuarioId: string, maximo = 200): Novedad[] {
   const r: Novedad[] = [];
   for (const v of d.versiones) {
     const ruta = RUTA_ARTEFACTO[v.tipo];
@@ -180,11 +189,19 @@ export function novedadesDesde(d: DatosDocente, desde: string, usuarioId: string
     if (e.finalizadoEn && e.finalizadoEn > desde) r.push({ fecha: e.finalizadoEn, ruta: 'evaluacion-heuristica', texto: `Se finalizó la evaluación "${nombreEvaluacion(e)}"` });
   }
   for (const c of d.comentarios) if (c.createdAt > desde && c.autorId !== usuarioId) r.push({ fecha: c.createdAt, ruta: 'comentarios', texto: `${c.autor.nombre} comentó${c.tecnica ? ` en ${TITULO_RUTA[c.tecnica as RutaTecnica] ?? c.tecnica}` : ''}: "${c.texto.length > 70 ? `${c.texto.slice(0, 69)}…` : c.texto}"` });
+  // Quién entró o salió del equipo: el docente también debe enterarse (salvo de lo que él mismo hizo).
+  for (const e of d.eventosMiembros ?? []) {
+    if (e.createdAt <= desde || e.actorId === usuarioId) continue;
+    r.push({ fecha: e.createdAt, ruta: 'miembros', texto: e.tipo === 'AGREGADO' ? `${e.actorNombre} agregó a ${e.usuarioNombre} al proyecto` : `${e.actorNombre} quitó a ${e.usuarioNombre} del proyecto` });
+  }
   return r.sort((a, b) => b.fecha.localeCompare(a.fecha)).slice(0, maximo);
 }
 
-/** Comentarios del docente a los que nadie del equipo respondió después (en la misma técnica). */
+/**
+ * Comentarios tuyos sin respuesta: se considera respondido cuando cualquier otra persona del proyecto escribe
+ * algo en los comentarios después del tuyo, sea en la misma técnica o en otra.
+ */
 export function comentariosSinRespuesta(comentarios: Comentario[], usuarioId: string): Comentario[] {
-  return comentarios.filter(c => c.autorId === usuarioId && !comentarios.some(o => o.autorId !== usuarioId && o.tecnica === c.tecnica && o.createdAt > c.createdAt))
+  return comentarios.filter(c => c.autorId === usuarioId && !comentarios.some(o => o.autorId !== usuarioId && o.createdAt > c.createdAt))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }

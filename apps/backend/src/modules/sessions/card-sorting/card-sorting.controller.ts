@@ -16,6 +16,7 @@ import { Roles } from '../../../core/decorators/roles.decorator.js';
 import { JwtAuthGuard } from '../../../core/guards/jwt-auth.guard.js';
 import { JwtParticipanteGuard } from '../../../core/guards/jwt-participante.guard.js';
 import { RolesGuard } from '../../../core/guards/roles.guard.js';
+import { SoloLecturaDocenteGuard } from '../../../core/guards/solo-lectura-docente.guard.js';
 import { AuthenticatedUser } from '../../auth/types/authenticated-user.interface.js';
 import {
   CreateCardSortingSessionDto,
@@ -31,7 +32,7 @@ export class CardSortingController {
   constructor(private readonly cardSortingService: CardSortingService) {}
 
   @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, SoloLecturaDocenteGuard)
   @Roles('ESTUDIANTE', 'DOCENTE', 'ADMIN')
   createSession(
     @Body() dto: CreateCardSortingSessionDto,
@@ -77,7 +78,7 @@ export class CardSortingController {
   }
 
   @Patch(':id/cerrar')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, SoloLecturaDocenteGuard)
   @Roles('ESTUDIANTE', 'DOCENTE', 'ADMIN')
   cerrarEstudio(
     @Param('id', ParseUUIDPipe) id: string,
