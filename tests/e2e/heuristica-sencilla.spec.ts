@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test';
-import { PROJECT_ID, expectNoPageOverflow, loginAsProfessor } from './helpers';
+import { STUDENT_PROJECT_ID, expectNoPageOverflow, loginAsStudent } from './helpers';
 
 test('guía una evaluación desde su creación hasta el informe', async ({ page }, testInfo) => {
-  await loginAsProfessor(page);
-  await page.goto(`/proyectos/${PROJECT_ID}/evaluacion-heuristica`);
+  await loginAsStudent(page);
+  await page.goto(`/proyectos/${STUDENT_PROJECT_ID}/evaluacion-heuristica`);
   await page.getByRole('button', { name: '+ Nueva evaluación', exact: true }).click();
   await page.getByLabel('Producto o sitio', { exact: true }).fill(`Portal ${testInfo.project.name} ${Date.now()}`);
   await expect(page.getByRole('combobox', { name: 'Metodología', exact: true })).toBeVisible();
