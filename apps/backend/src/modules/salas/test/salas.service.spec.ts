@@ -408,7 +408,7 @@ describe('SalasService', () => {
         { usuarioId: 'u-1' },
       ]);
 
-      const result = await service.createProyectoEnSala('sala-1', { nombre: 'P' } as any, docente);
+      const result = await service.createProyectoEnSala('sala-1', { nombre: 'P' } as any, admin);
 
       expect(result).toEqual({ id: 'p-1' });
       expect(prisma.equipoMiembro.findMany).toHaveBeenCalledWith(filtroEquipos);
@@ -421,11 +421,17 @@ describe('SalasService', () => {
       });
     });
 
+    it('el docente no crea proyectos en su sala: los crea cada equipo', async () => {
+      prisma.sala.findUnique.mockResolvedValue({ id: 'sala-1', profesorId: docente.id, deletedAt: null });
+      await expect(service.createProyectoEnSala('sala-1', { nombre: 'P' } as any, docente)).rejects.toThrow('crean los estudiantes');
+      expect(prisma.proyecto.create).not.toHaveBeenCalled();
+    });
+
     it('createProyectoEnSala sin equipos del docente no crea membresías', async () => {
       prisma.proyecto.create.mockResolvedValue({ id: 'p-1' });
       prisma.equipoMiembro.findMany.mockResolvedValue([]);
 
-      await service.createProyectoEnSala('sala-1', { nombre: 'P' } as any, docente);
+      await service.createProyectoEnSala('sala-1', { nombre: 'P' } as any, admin);
 
       expect(prisma.proyectoMiembro.createMany).not.toHaveBeenCalled();
     });

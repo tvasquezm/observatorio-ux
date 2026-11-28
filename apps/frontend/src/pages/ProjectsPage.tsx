@@ -10,7 +10,6 @@ import type { Proyecto } from '../features/projects/api/projects.api';
 import { useSalas } from '../features/salas/hooks/useSalasQueries';
 import { useActivePerspective } from '../shared/auth/useActivePerspective';
 import { ProjectCreateForm } from '../features/projects/components/ProjectCreateForm';
-import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { useUnsavedChanges } from '../shared/hooks/useUnsavedChanges';
 import { Skeleton } from '../shared/components/ui/Skeleton';
 
@@ -21,8 +20,8 @@ export function ProjectsPage() {
   const activeRole = useActivePerspective();
   const esEstudiante = activeRole === 'ESTUDIANTE';
   const { data: salas, isLoading: loadingSalas, isError: salasError } = useSalas();
-  const user = useAuthStore(state => state.user);
-  const salasElegibles = (salas ?? []).filter(s => esEstudiante ? s.permiteCreacionProyectos : activeRole === 'ADMIN' || s.profesor?.id === user?.id);
+  // Cada equipo crea su proyecto: el docente consulta y agrega integrantes, no crea proyectos en la sala.
+  const salasElegibles = (salas ?? []).filter(s => esEstudiante ? s.permiteCreacionProyectos : activeRole === 'ADMIN');
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [salaId, setSalaId] = useState('');
@@ -133,7 +132,7 @@ export function ProjectsPage() {
         </div>
       </div>
 
-      {!canCreate && <p id="project-create-help" className="hint-block" role="status">{loadingSalas ? 'Consultando tus salas…' : salasError ? 'No pudimos comprobar tus salas. Vuelve a intentarlo más tarde.' : esEstudiante ? 'Primero necesitas una sala. Pide a tu docente que active la creación de proyectos.' : 'Primero necesitas una sala para crear un proyecto.'} <Link to="/salas">Ver salas</Link></p>}
+      {!canCreate && <p id="project-create-help" className="hint-block" role="status">{loadingSalas ? 'Consultando tus salas…' : salasError ? 'No pudimos comprobar tus salas. Vuelve a intentarlo más tarde.' : esEstudiante ? 'Primero necesitas una sala. Pide a tu docente que active la creación de proyectos.' : activeRole === 'DOCENTE' ? 'Los proyectos los crean los estudiantes de cada equipo. Tú puedes agregar integrantes a los equipos de tus salas y consultar sus proyectos.' : 'Primero necesitas una sala para crear un proyecto.'} <Link to="/salas">Ver salas</Link></p>}
       {mostrandoCreacion && <ProjectCreateForm
         value={{ nombre, descripcion, salaId }}
         onChange={next => { setNombre(next.nombre); setDescripcion(next.descripcion); setSalaId(next.salaId); setValidationError(''); }}
@@ -150,7 +149,7 @@ export function ProjectsPage() {
           <article key={p.id} className="project-card">
             <Link to={`/proyectos/${p.id.replace(/^\//, '')}`} className="project-card-main">
               <span className={`project-dot ${['blue', 'green', 'orange'][index % 3]}`}>{p.nombre[0]?.toUpperCase()}</span>
-              <div><span className="project-kicker">{(p._count?.sesiones ?? 0) > 0 ? 'CON SESIONES REGISTRADAS' : 'LISTO PARA INICIAR'}</span><h3>{p.nombre}</h3>{p.descripcion && <p>{p.descripcion}</p>}</div>
+              <div><span className="project-kicker">{(p._count?.sesiones ?? 0) > 0 ? 'CON SESIONES REGISTRADAS' : 'LISTO PARA INICIAR'}</span><h3>{p.nombre}</h3>{p.nombreEquipo && <p className="project-equipo">Equipo: <strong>{p.nombreEquipo}</strong></p>}{p.descripcion && <p>{p.descripcion}</p>}</div>
               <span className="arrow">→</span>
             </Link>
             <div className="project-card-foot">{(!p.salaId || variasSalas) && <span>{nombreSala(p.salaId)}</span>}<span>{p._count?.sesiones ?? 0} sesiones · {p._count?.artefactos ?? 0} artefactos</span><button type="button" className="text-button" disabled={isPending || isUpdating} onClick={(event) => void iniciarEdicion(p, event.currentTarget)}>Editar</button></div>

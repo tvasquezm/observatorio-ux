@@ -24,6 +24,8 @@ export class ProjectsService {
     if (user.rol === 'ESTUDIANTE') {
       await this.assertEstudiantePuedeCrearProyecto(dto.salaId, user);
     } else if (dto.salaId) {
+      // Los proyectos de una sala son de los equipos: el docente agrega integrantes y consulta, no los crea.
+      if (user.rol === 'DOCENTE') throw new ForbiddenException('Los proyectos de una sala los crean los estudiantes (cada equipo el suyo). Como docente puedes agregar integrantes a los equipos y consultar sus proyectos.');
       await this.assertDocenteDuenoDeSala(dto.salaId, user);
     }
 
@@ -109,7 +111,9 @@ export class ProjectsService {
   async update(id: string, dto: UpdateProjectDto, user: AuthenticatedUser) {
     await this.findOne(id, user);
 
-    if (user.rol === 'DOCENTE') {
+    // El nombre del equipo lo editan también el docente de la sala y el resto del equipo; el nombre y la descripción del proyecto, no.
+    const soloNombreEquipo = dto.nombreEquipo !== undefined && dto.nombre === undefined && dto.descripcion === undefined;
+    if (user.rol === 'DOCENTE' && !soloNombreEquipo) {
       const proyecto = await this.prisma.proyecto.findUnique({
         where: { id },
         select: { creadoPor: { select: { rol: true } } },
@@ -129,6 +133,7 @@ export class ProjectsService {
         ...(dto.descripcion !== undefined
           ? { descripcion: dto.descripcion.trim() }
           : {}),
+        ...(dto.nombreEquipo !== undefined ? { nombreEquipo: dto.nombreEquipo.trim() || null } : {}),
       },
     });
   }

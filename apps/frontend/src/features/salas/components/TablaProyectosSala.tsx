@@ -73,6 +73,7 @@ export function TablaProyectosSala({ proyectos }: { proyectos: ProyectoEnSala[] 
               <tr key={p.id} onClick={e => { if (!(e.target as HTMLElement).closest('a')) navigate(`/proyectos/${p.id}`); }}>
                 <th scope="row">
                   <Link to={`/proyectos/${p.id}`}>{p.nombre}</Link>
+                  {p.nombreEquipo && <small>Equipo: {p.nombreEquipo}</small>}
                   {p.descripcion && <small>{p.descripcion}</small>}
                 </th>
                 <td className="numerica">{p._count?.miembros ?? 0}</td>

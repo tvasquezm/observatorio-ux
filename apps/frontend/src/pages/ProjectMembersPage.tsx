@@ -9,7 +9,7 @@ import React, { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import type { ProjectOutletContext } from '../layouts/ProjectDetailLayout';
 import { useProject } from '../features/projects/hooks/useProjectsQueries';
-import { useMembers, useAddMember, useRemoveMember } from '../features/projects/hooks/useProjectsQueries';
+import { useMembers, useAddMember, useRemoveMember, useUpdateProject } from '../features/projects/hooks/useProjectsQueries';
 import { useAuthStore } from '../features/auth/store/useAuthStore';
 import { useConfirm } from '../shared/api/confirm';
 import { useActivePerspective } from '../shared/auth/useActivePerspective';
@@ -25,7 +25,11 @@ export function ProjectMembersPage() {
   const currentUser = useAuthStore((s) => s.user);
   const activeRole = useActivePerspective();
 
+  const { mutate: guardarProyecto, isPending: guardandoEquipo } = useUpdateProject();
   const [email, setEmail] = useState('');
+  const [equipo, setEquipo] = useState<string | null>(null);
+  const nombreEquipo = equipo ?? proyecto?.nombreEquipo ?? '';
+  const equipoCambio = nombreEquipo.trim() !== (proyecto?.nombreEquipo ?? '');
 
   const esCreadorOAdmin =
     !!currentUser && (activeRole === 'ADMIN' || currentUser.id === proyecto?.creadoPorId);
@@ -48,6 +52,15 @@ export function ProjectMembersPage() {
       <div className="panel-head">
         <h2>Miembros del proyecto</h2>
       </div>
+
+      <form className="form-row-inline" onSubmit={(e) => { e.preventDefault(); guardarProyecto({ id: proyectoId, data: { nombreEquipo: nombreEquipo.trim() } }, { onSuccess: () => setEquipo(null) }); }}>
+        <label className="field">
+          Nombre del equipo
+          <input value={nombreEquipo} maxLength={80} placeholder="Por ejemplo: Los Pioneros" onChange={(e) => setEquipo(e.target.value)} className="input-flex" />
+        </label>
+        <button type="submit" className="secondary" disabled={guardandoEquipo || !equipoCambio}>{guardandoEquipo ? 'Guardando…' : 'Guardar nombre'}</button>
+      </form>
+      <p className="hint-block">Es el nombre con que se reconoce a este equipo en las salas y en las listas de proyectos. Lo pueden cambiar las personas del equipo y el docente de la sala.</p>
 
       {esCreadorOAdmin && (
         <form onSubmit={handleAgregar} className="form-row-inline">

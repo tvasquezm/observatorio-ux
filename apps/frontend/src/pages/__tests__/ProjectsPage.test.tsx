@@ -28,7 +28,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.query = { data: [], isLoading: false, isError: false };
   mocks.salas = [{ id: 's1', nombre: 'Sala propia', profesor: { id: 'u1' }, permiteCreacionProyectos: true }];
-  useAuthStore.setState({ user: { id: 'u1', nombre: 'Ana', email: 'ana@utem.cl', rol: 'DOCENTE' }, perspectiveRole: 'DOCENTE' });
+  useAuthStore.setState({ user: { id: 'u1', nombre: 'Ana', email: 'ana@utem.cl', rol: 'ADMIN' }, perspectiveRole: 'ADMIN' });
 });
 
 describe('ProjectsPage — creación centralizada', () => {
@@ -38,7 +38,13 @@ describe('ProjectsPage — creación centralizada', () => {
     expect(screen.getByText('Sin sala', { exact: true })).toBeVisible();
     expect(screen.queryByRole('link', { name: 'Vincular a una sala' })).toBeNull();
   });
-  it('exige una sala también al docente', async () => {
+  it('el docente no crea proyectos: lo hacen los estudiantes de cada equipo', () => {
+    useAuthStore.setState({ user: { id: 'u1', nombre: 'Ana', email: 'ana@utem.cl', rol: 'DOCENTE' }, perspectiveRole: 'DOCENTE' });
+    render(<RouterProvider router={createMemoryRouter([{ path: '*', element: <ProjectsPage /> }])} />);
+    expect(screen.getByRole('button', { name: 'Nuevo proyecto' })).toBeDisabled();
+    expect(screen.getByRole('status')).toHaveTextContent('Los proyectos los crean los estudiantes de cada equipo');
+  });
+  it('exige una sala también a la administración', async () => {
     render(<RouterProvider router={createMemoryRouter([{ path: '*', element: <ProjectsPage /> }])} />);
     await userEvent.click(screen.getByRole('button', { name: 'Nuevo proyecto' }));
     expect(screen.getByLabelText('Sala')).toBeRequired();

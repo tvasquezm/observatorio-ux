@@ -65,7 +65,7 @@ export function useCreateProject() {
 export function useUpdateProject() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: { nombre?: string; descripcion?: string } }) =>
+    mutationFn: ({ id, data }: { id: string; data: { nombre?: string; descripcion?: string; nombreEquipo?: string } }) =>
       updateProject(id, data),
     onSuccess: (p) => {
       qc.setQueryData(projectsKeys.detail(p.id), p);

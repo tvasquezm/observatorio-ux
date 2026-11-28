@@ -321,6 +321,27 @@ describe('EquiposService', () => {
     });
   });
 
+  describe('el docente agrega integrantes pero no elimina equipos ni saca a nadie', () => {
+    it('no puede eliminar un equipo ni quitar a un integrante, ni siquiera de un equipo que creó', async () => {
+      const equipo = { id: 'eq-1', salaId: 'sala-1', creadoPorId: docenteDueño.id, nombre: 'Equipo' };
+      prisma.sala.findUnique.mockResolvedValue(baseSala);
+      prisma.equipo.findUnique.mockResolvedValue(equipo);
+      await expect(service.remove('sala-1', 'eq-1', docenteDueño)).rejects.toThrow('solo puedes agregar');
+      await expect(service.removeMiembro('sala-1', 'eq-1', otroEstudiante.id, docenteDueño)).rejects.toThrow('solo puedes agregar');
+      expect(prisma.equipo.delete).not.toHaveBeenCalled();
+      expect(prisma.equipoMiembro.delete).not.toHaveBeenCalled();
+    });
+
+    it('los estudiantes siguen pudiendo salirse de su equipo', async () => {
+      prisma.sala.findUnique.mockResolvedValue(baseSala);
+      prisma.equipo.findUnique.mockResolvedValue({ id: 'eq-1', salaId: 'sala-1', creadoPorId: estudiante.id, nombre: 'Equipo' });
+      prisma.equipoMiembro.findUnique.mockResolvedValue({ id: 'em-2' });
+      prisma.equipoMiembro.delete.mockResolvedValue({ id: 'em-2' });
+      await service.removeMiembro('sala-1', 'eq-1', otroEstudiante.id, otroEstudiante);
+      expect(prisma.equipoMiembro.delete).toHaveBeenCalled();
+    });
+  });
+
   describe('remove', () => {
     it('elimina el equipo y sus miembros (hard delete)', async () => {
       const equipo = { id: 'eq-1', salaId: 'sala-1', creadoPorId: docenteDueño.id, nombre: 'Equipo' };
@@ -329,7 +350,7 @@ describe('EquiposService', () => {
       prisma.equipoMiembro.deleteMany.mockResolvedValue({ count: 2 });
       prisma.equipo.delete.mockResolvedValue(equipo);
 
-      await service.remove('sala-1', 'eq-1', docenteDueño);
+      await service.remove('sala-1', 'eq-1', adminUser);
 
       expect(prisma.equipoMiembro.deleteMany).toHaveBeenCalledWith({ where: { equipoId: 'eq-1' } });
       expect(prisma.equipo.delete).toHaveBeenCalledWith({ where: { id: 'eq-1' } });
@@ -337,7 +358,7 @@ describe('EquiposService', () => {
   });
   describe('acceso a proyectos al salir de un equipo del docente', () => {
     const equipoDocente = { id: 'eq-1', salaId: 'sala-1', creadoPorId: docenteDueño.id, nombre: 'Equipo Rojo' };
-    const salir = () => service.removeMiembro('sala-1', 'eq-1', otroEstudiante.id, docenteDueño);
+    const salir = () => service.removeMiembro('sala-1', 'eq-1', otroEstudiante.id, adminUser);
     beforeEach(() => {
       prisma.sala.findUnique.mockResolvedValue(baseSala);
       prisma.equipo.findUnique.mockResolvedValue(equipoDocente);

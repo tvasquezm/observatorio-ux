@@ -67,6 +67,8 @@ model Proyecto {
   comentarios         Comentario[]
   participantesAcceso Participante[]
   salaId              String?
+  // Nombre que el equipo se pone en la pantalla de Miembros; lo pueden editar el equipo y el docente de la sala.
+  nombreEquipo        String?
   // Técnicas que el docente decidió analizar en este proyecto (por defecto las cinco).
   tecnicasAnalizadas  String[] @default(["personas", "journey-map", "momentos-criticos", "card-sorting", "evaluacion-heuristica"])
   sala                Sala?                   @relation(fields: [salaId], references: [id])

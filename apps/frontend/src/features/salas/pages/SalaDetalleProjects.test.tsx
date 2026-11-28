@@ -31,7 +31,7 @@ function mount() {
   return { ...render(<RouterProvider router={router} />), router };
 }
 describe('creación de proyectos desde la sala', () => {
-  it.each(['DOCENTE', 'ESTUDIANTE'] as const)('crea como %s con la sala fija', async rol => {
+  it.each(['ADMIN', 'ESTUDIANTE'] as const)('crea como %s con la sala fija', async rol => {
     useAuthStore.setState({ user: { id: 'u1', nombre: 'Ana', email: 'ana@utem.cl', rol }, perspectiveRole: rol });
     mount();
     expect(screen.queryByText('Esta sala no permite que los estudiantes creen proyectos. Pídele a tu docente que lo habilite.')).toBeNull();
@@ -41,6 +41,11 @@ describe('creación de proyectos desde la sala', () => {
     await userEvent.type(screen.getByLabelText('Nombre del proyecto'), 'Nuevo proyecto');
     await userEvent.click(screen.getByRole('button', { name: 'Crear' }));
     expect(mocks.create).toHaveBeenCalledWith({ nombre: 'Nuevo proyecto', descripcion: undefined, salaId: 's1' }, expect.any(Object));
+  });
+  it('el docente no crea proyectos en la sala: los crea cada equipo', () => {
+    useAuthStore.setState({ user: { id: 'u1', nombre: 'Ana', email: 'ana@utem.cl', rol: 'DOCENTE' }, perspectiveRole: 'DOCENTE' });
+    mount();
+    expect(screen.queryByRole('button', { name: 'Crear proyecto en esta sala' })).toBeNull();
   });
   it('oculta la creación al estudiante cuando la sala no la permite', () => {
     mocks.sala.permiteCreacionProyectos = false;

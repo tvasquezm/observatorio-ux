@@ -468,6 +468,8 @@ export class SalasService {
     user: AuthenticatedUser,
   ) {
     await this.assertOwnerOrAdmin(salaId, user);
+    // Cada equipo crea su proyecto; el docente solo lo consulta (ver también ProjectsService.create).
+    if (user.rol === 'DOCENTE') throw new ForbiddenException('Los proyectos de una sala los crean los estudiantes (cada equipo el suyo). Como docente puedes agregar integrantes a los equipos y consultar sus proyectos.');
 
     const proyecto = await this.prisma.proyecto.create({
       data: {

@@ -9,6 +9,8 @@ export interface Proyecto {
   creadoPorId: string;
   createdAt: string;
   salaId?: string | null;
+  /** Nombre que el equipo se puso en Miembros; lo editan el equipo y el docente de la sala. */
+  nombreEquipo?: string | null;
   _count?: {
     sesiones: number;
     artefactos: number;
@@ -72,7 +74,7 @@ export function createProject(
 
 export function updateProject(
   id: string,
-  data: { nombre?: string; descripcion?: string },
+  data: { nombre?: string; descripcion?: string; nombreEquipo?: string },
 ): Promise<Proyecto> {
   return request<Proyecto>(`/projects/${id}`, {
     method: 'PATCH',

@@ -2,6 +2,7 @@ import {
   IsEmail,
   IsOptional,
   IsString,
+  MaxLength,
   MinLength,
 } from 'class-validator';
 
@@ -28,6 +29,12 @@ export class UpdateProjectDto {
   @IsOptional()
   @IsString()
   descripcion?: string;
+
+  /** Nombre del equipo; vacío lo quita. Lo editan el equipo y el docente de la sala. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  nombreEquipo?: string;
 }
 
 export class AddMemberDto {
